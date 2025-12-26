@@ -5,7 +5,7 @@
 
 # Ignore all blueprint directories
 .agentdb/
-.claude/
+.claude/settings.local.json
 .claude-flow/
 .hive-mind/
 .serena/
