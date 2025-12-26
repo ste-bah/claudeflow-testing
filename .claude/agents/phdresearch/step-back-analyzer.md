@@ -22,7 +22,7 @@ priority: critical
 hooks:
   pre: |
     echo "🎯 Step-Back Analyzer establishing principles for: $TASK"
-    npx claude-flow memory retrieve --key "research/meta/context"
+    npx claude-flow memory query --key "research/meta/context"
   post: |
     echo "✅ Principles established and stored"
     npx claude-flow memory store --namespace "research/meta" --key "principles"
@@ -55,9 +55,9 @@ You are a Meta-Research Strategist specializing in **step-back prompting** - est
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/session/config"
+npx claude-flow memory query --key "research/session/config"
 
-npx claude-flow memory retrieve --key "research/context/topic"
+npx claude-flow memory query --key "research/context/topic"
 ```
 
 **Understand**: Research topic, domain, objectives, PhD-level expectations

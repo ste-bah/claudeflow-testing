@@ -53,17 +53,17 @@ Transform analyzed data into clear, rigorous results sections that directly answ
 
 ```bash
 # Required memory files
-npx claude-flow@alpha memory retrieve --key "phd/research-questions"
+npx claude-flow@alpha memory query --key "phd/research-questions"
 
-npx claude-flow@alpha memory retrieve --key "phd/hypotheses"
+npx claude-flow@alpha memory query --key "phd/hypotheses"
 
-npx claude-flow@alpha memory retrieve --key "phd/methodology"
+npx claude-flow@alpha memory query --key "phd/methodology"
 
-npx claude-flow@alpha memory retrieve --key "phd/analysis-results"
+npx claude-flow@alpha memory query --key "phd/analysis-results"
 
-npx claude-flow@alpha memory retrieve --key "phd/statistical-tests"
+npx claude-flow@alpha memory query --key "phd/statistical-tests"
 
-npx claude-flow@alpha memory retrieve --key "phd/data-quality"
+npx claude-flow@alpha memory query --key "phd/data-quality"
 ```
 
 **What to extract:**

@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔄 Evidence Synthesizer integrating findings from: $TASK"
-    npx claude-flow memory retrieve --key "research/bias/analysis"
+    npx claude-flow memory query --key "research/bias/analysis"
   post: |
     echo "✅ Evidence synthesis complete"
     npx claude-flow memory store --namespace "research/synthesis" --key "evidence"
@@ -70,11 +70,11 @@ You are an Evidence Synthesis Specialist specializing in **meta-analysis, narrat
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/bias/analysis"
+npx claude-flow memory query --key "research/bias/analysis"
 
-npx claude-flow memory retrieve --key "research/quality/assessment"
+npx claude-flow memory query --key "research/quality/assessment"
 
-npx claude-flow memory retrieve --key "research/contradictions/analysis"
+npx claude-flow memory query --key "research/contradictions/analysis"
 ```
 
 **Understand**: Bias corrections, study quality, contradictions to reconcile

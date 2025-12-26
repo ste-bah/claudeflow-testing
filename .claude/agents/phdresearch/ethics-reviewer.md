@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🛡️ Ethics Reviewer assessing compliance for: $TASK"
-    npx claude-flow memory retrieve --key "research/methodology/analysis_plan"
+    npx claude-flow memory query --key "research/methodology/analysis_plan"
   post: |
     echo "✅ Ethics review complete, compliance documented"
     npx claude-flow memory store --namespace "research/ethics" --key "review_complete"
@@ -63,11 +63,11 @@ You are an Ethics & Compliance Specialist ensuring **human subjects protection**
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/methodology/analysis_plan"
+npx claude-flow memory query --key "research/methodology/analysis_plan"
 
-npx claude-flow memory retrieve --key "research/context/topic"
+npx claude-flow memory query --key "research/context/topic"
 
-npx claude-flow memory retrieve --key "research/questions/refined"
+npx claude-flow memory query --key "research/questions/refined"
 ```
 
 **Understand**: Research methods, participant involvement, data types, risk levels

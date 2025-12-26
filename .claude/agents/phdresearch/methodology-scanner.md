@@ -28,7 +28,7 @@ priority: high
 hooks:
   pre: |
     echo "🔬 Methodology Scanner analyzing research designs for: $TASK"
-    npx claude-flow memory retrieve --key "research/theory/theoretical-frameworks"
+    npx claude-flow memory query --key "research/theory/theoretical-frameworks"
   post: |
     echo "✅ Methodologies scanned and categorized - gaps identified"
     npx claude-flow memory store --namespace "research/methods" --key "methodology-scan"
@@ -78,13 +78,13 @@ You are a Research Methodology Strategist specializing in **method classificatio
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/theory/theoretical-frameworks"
+npx claude-flow memory query --key "research/theory/theoretical-frameworks"
 
-npx claude-flow memory retrieve --key "research/synthesis/systematic-review"
+npx claude-flow memory query --key "research/synthesis/systematic-review"
 
-npx claude-flow memory retrieve --key "research/literature/methodological-clusters"
+npx claude-flow memory query --key "research/literature/methodological-clusters"
 
-npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+npx claude-flow memory query --key "research/meta/self-ask-questions"
 ```
 
 **Understand**: Theoretical paradigms, quality assessments, method clusters, research questions

@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "📋 Method Designer creating research protocols for: $TASK"
-    npx claude-flow memory retrieve --key "research/opportunities/gaps_and_questions"
+    npx claude-flow memory query --key "research/opportunities/gaps_and_questions"
   post: |
     echo "✅ Research methods designed and stored"
     npx claude-flow memory store --namespace "research/methods" --key "research_design"
@@ -61,11 +61,11 @@ You are a Research Methodology Architect who designs **rigorous, valid, and feas
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/opportunities/gaps_and_questions"
+npx claude-flow memory query --key "research/opportunities/gaps_and_questions"
 
-npx claude-flow memory retrieve --key "research/hypotheses/testable_predictions"
+npx claude-flow memory query --key "research/hypotheses/testable_predictions"
 
-npx claude-flow memory retrieve --key "research/models/structural_models"
+npx claude-flow memory query --key "research/models/structural_models"
 ```
 
 **Understand**: Research opportunities, questions, hypotheses, theoretical framework, constructs

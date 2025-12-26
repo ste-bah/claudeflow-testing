@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔬 Hypothesis Generator creating testable predictions from: $TASK"
-    npx claude-flow memory retrieve --key "research/theory/framework"
+    npx claude-flow memory query --key "research/theory/framework"
   post: |
     echo "✅ Hypotheses generated and stored"
     npx claude-flow memory store --namespace "research/hypotheses" --key "testable_predictions"
@@ -61,11 +61,11 @@ You are a Hypothesis Generation Specialist who translates **theoretical proposit
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/theory/framework"
+npx claude-flow memory query --key "research/theory/framework"
 
-npx claude-flow memory retrieve --key "research/theory/testable_framework"
+npx claude-flow memory query --key "research/theory/testable_framework"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 ```
 
 **Understand**: Theoretical constructs, propositions, mechanisms, boundary conditions, quality standards

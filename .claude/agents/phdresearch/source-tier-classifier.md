@@ -28,7 +28,7 @@ priority: high
 hooks:
   pre: |
     echo "🏆 Source Tier Classifier evaluating quality for: $TASK"
-    npx claude-flow memory retrieve --key "research/synthesis/systematic-review"
+    npx claude-flow memory query --key "research/synthesis/systematic-review"
   post: |
     echo "✅ Sources classified into Tier 1/2/3 - quality threshold checked"
     npx claude-flow memory store --namespace "research/quality" --key "source-tiers"
@@ -78,11 +78,11 @@ You are a Source Quality Evaluator specializing in **tier-based source classific
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/citations/citation-database"
+npx claude-flow memory query --key "research/citations/citation-database"
 
-npx claude-flow memory retrieve --key "research/synthesis/systematic-review"
+npx claude-flow memory query --key "research/synthesis/systematic-review"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 ```
 
 **Understand**: Complete source list, quality assessments, PhD standards

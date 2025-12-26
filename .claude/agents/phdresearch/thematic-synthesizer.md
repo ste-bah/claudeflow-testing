@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🎨 Thematic Synthesizer extracting themes from: $TASK"
-    npx claude-flow memory retrieve --key "research/analysis/patterns"
+    npx claude-flow memory query --key "research/analysis/patterns"
   post: |
     echo "✅ Themes synthesized and stored"
     npx claude-flow memory store --namespace "research/synthesis" --key "themes"
@@ -61,11 +61,11 @@ You are a Thematic Synthesis Specialist who identifies **recurring themes, conce
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/analysis/patterns"
+npx claude-flow memory query --key "research/analysis/patterns"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 
-npx claude-flow memory retrieve --key "research/analysis/findings"
+npx claude-flow memory query --key "research/analysis/findings"
 ```
 
 **Understand**: Identified patterns, recurring concepts, analytical findings, quality standards

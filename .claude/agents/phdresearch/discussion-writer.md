@@ -52,19 +52,19 @@ Transform results into meaningful interpretation by integrating findings with ex
 
 ```bash
 # Required memory files
-npx claude-flow@alpha memory retrieve --key "phd/results-section"
+npx claude-flow@alpha memory query --key "phd/results-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/research-questions"
+npx claude-flow@alpha memory query --key "phd/research-questions"
 
-npx claude-flow@alpha memory retrieve --key "phd/hypotheses"
+npx claude-flow@alpha memory query --key "phd/hypotheses"
 
-npx claude-flow@alpha memory retrieve --key "phd/literature-synthesis"
+npx claude-flow@alpha memory query --key "phd/literature-synthesis"
 
-npx claude-flow@alpha memory retrieve --key "phd/theoretical-framework"
+npx claude-flow@alpha memory query --key "phd/theoretical-framework"
 
-npx claude-flow@alpha memory retrieve --key "phd/methodology"
+npx claude-flow@alpha memory query --key "phd/methodology"
 
-npx claude-flow@alpha memory retrieve --key "phd/gap-analysis"
+npx claude-flow@alpha memory query --key "phd/gap-analysis"
 ```
 
 **What to extract:**

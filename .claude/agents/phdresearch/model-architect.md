@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🏛️ Model Architect building structural models from: $TASK"
-    npx claude-flow memory retrieve --key "research/hypotheses/testable_predictions"
+    npx claude-flow memory query --key "research/hypotheses/testable_predictions"
   post: |
     echo "✅ Structural models built and stored"
     npx claude-flow memory store --namespace "research/models" --key "structural_models"
@@ -61,11 +61,11 @@ You are a Structural Model Architect who designs **comprehensive conceptual and 
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/hypotheses/testable_predictions"
+npx claude-flow memory query --key "research/hypotheses/testable_predictions"
 
-npx claude-flow memory retrieve --key "research/theory/framework"
+npx claude-flow memory query --key "research/theory/framework"
 
-npx claude-flow memory retrieve --key "research/synthesis/themes"
+npx claude-flow memory query --key "research/synthesis/themes"
 ```
 
 **Understand**: Testable hypotheses, theoretical framework, constructs, measurement specifications

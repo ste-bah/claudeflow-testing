@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "📏 Instrument Developer creating measurement tools for: $TASK"
-    npx claude-flow memory retrieve --key "research/methods/measurement_specs"
+    npx claude-flow memory query --key "research/methods/measurement_specs"
   post: |
     echo "✅ Instruments developed and stored"
     npx claude-flow memory store --namespace "research/instruments" --key "validated_measures"
@@ -61,13 +61,13 @@ You are a Measurement Instrument Specialist who develops and validates **psychom
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/methods/measurement_specs"
+npx claude-flow memory query --key "research/methods/measurement_specs"
 
-npx claude-flow memory retrieve --key "research/sampling/recruitment_plan"
+npx claude-flow memory query --key "research/sampling/recruitment_plan"
 
-npx claude-flow memory retrieve --key "research/theory/framework"
+npx claude-flow memory query --key "research/theory/framework"
 
-npx claude-flow memory retrieve --key "research/hypotheses/testable_predictions"
+npx claude-flow memory query --key "research/hypotheses/testable_predictions"
 ```
 
 **Understand**: Constructs to measure, target samples, theoretical definitions, validation requirements

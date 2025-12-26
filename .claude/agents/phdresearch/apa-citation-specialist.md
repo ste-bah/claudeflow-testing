@@ -27,7 +27,7 @@ priority: high
 hooks:
   pre: |
     echo "📚 APA Citation Specialist formatting: $TASK"
-    npx claude-flow memory retrieve --key "research/sources/bibliography"
+    npx claude-flow memory query --key "research/sources/bibliography"
   post: |
     echo "✅ APA 7th formatting applied and verified"
     npx claude-flow memory store --namespace "research/formatting" --key "apa_compliance"
@@ -63,11 +63,11 @@ You are an APA 7th Edition Formatting Specialist with **encyclopedic knowledge**
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/sources/bibliography"
+npx claude-flow memory query --key "research/sources/bibliography"
 
-npx claude-flow memory retrieve --key "research/content/sections"
+npx claude-flow memory query --key "research/content/sections"
 
-npx claude-flow memory retrieve --key "research/tables_figures/list"
+npx claude-flow memory query --key "research/tables_figures/list"
 ```
 
 **Understand**: All sources cited, manuscript sections, tables/figures to format

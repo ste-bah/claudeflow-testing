@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "📊 Quality Assessor evaluating study quality for: $TASK"
-    npx claude-flow memory retrieve --key "research/risks/fmea_analysis"
+    npx claude-flow memory query --key "research/risks/fmea_analysis"
   post: |
     echo "✅ Study quality assessment complete"
     npx claude-flow memory store --namespace "research/quality" --key "assessment"
@@ -67,11 +67,11 @@ You are a Methodological Quality Specialist specializing in **critical appraisal
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/risks/fmea_analysis"
+npx claude-flow memory query --key "research/risks/fmea_analysis"
 
-npx claude-flow memory retrieve --key "research/gaps/comprehensive_analysis"
+npx claude-flow memory query --key "research/gaps/comprehensive_analysis"
 
-npx claude-flow memory retrieve --key "research/contradictions/analysis"
+npx claude-flow memory query --key "research/contradictions/analysis"
 ```
 
 **Understand**: What risks exist, what gaps are present, what contradictions emerged

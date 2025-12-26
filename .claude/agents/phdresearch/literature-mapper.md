@@ -28,7 +28,7 @@ priority: critical
 hooks:
   pre: |
     echo "📚 Literature Mapper executing search strategy for: $TASK"
-    npx claude-flow memory retrieve --key "research/execution/research-plan"
+    npx claude-flow memory query --key "research/execution/research-plan"
   post: |
     echo "✅ Literature search complete - sources mapped and organized"
     npx claude-flow memory store --namespace "research/literature" --key "literature-map"
@@ -78,13 +78,13 @@ You are a Literature Search Strategist specializing in **systematic literature m
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/execution/research-plan"
+npx claude-flow memory query --key "research/execution/research-plan"
 
-npx claude-flow memory retrieve --key "research/meta/ambiguities"
+npx claude-flow memory query --key "research/meta/ambiguities"
 
-npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+npx claude-flow memory query --key "research/meta/self-ask-questions"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 ```
 
 **Understand**: Search strategy, keywords, databases, inclusion/exclusion criteria, research questions, terminology

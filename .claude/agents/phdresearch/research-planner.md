@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "📋 Research Planner creating comprehensive plan for: $TASK"
-    npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+    npx claude-flow memory query --key "research/meta/self-ask-questions"
   post: |
     echo "✅ Research plan complete with dependencies and quality gates"
     npx claude-flow memory store --namespace "research/execution" --key "research-plan"
@@ -74,13 +74,13 @@ You are a Research Planning Strategist specializing in **ReWOO (Reasoning WithOu
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+npx claude-flow memory query --key "research/meta/self-ask-questions"
 
-npx claude-flow memory retrieve --key "research/meta/ambiguities"
+npx claude-flow memory query --key "research/meta/ambiguities"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 
-npx claude-flow memory retrieve --key "research/session/config"
+npx claude-flow memory query --key "research/session/config"
 ```
 
 **Understand**: Research questions, terminology, quality standards, domain context

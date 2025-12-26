@@ -52,17 +52,17 @@ Synthesize entire research study into powerful conclusion that crystallizes cont
 
 ```bash
 # Required memory files
-npx claude-flow@alpha memory retrieve --key "phd/research-questions"
+npx claude-flow@alpha memory query --key "phd/research-questions"
 
-npx claude-flow@alpha memory retrieve --key "phd/gap-analysis"
+npx claude-flow@alpha memory query --key "phd/gap-analysis"
 
-npx claude-flow@alpha memory retrieve --key "phd/results-section"
+npx claude-flow@alpha memory query --key "phd/results-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/discussion-section"
+npx claude-flow@alpha memory query --key "phd/discussion-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/theoretical-framework"
+npx claude-flow@alpha memory query --key "phd/theoretical-framework"
 
-npx claude-flow@alpha memory retrieve --key "phd/objectives"
+npx claude-flow@alpha memory query --key "phd/objectives"
 ```
 
 **What to extract:**

@@ -53,17 +53,17 @@ Transform vague qualitative uncertainty ("possibly," "likely," "suggests") into 
 
 ```bash
 # Required memory files
-npx claude-flow@alpha memory retrieve --key "phd/adversarial-review"
+npx claude-flow@alpha memory query --key "phd/adversarial-review"
 
-npx claude-flow@alpha memory retrieve --key "phd/results-section"
+npx claude-flow@alpha memory query --key "phd/results-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/discussion-section"
+npx claude-flow@alpha memory query --key "phd/discussion-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/statistical-tests"
+npx claude-flow@alpha memory query --key "phd/statistical-tests"
 
-npx claude-flow@alpha memory retrieve --key "phd/methodology"
+npx claude-flow@alpha memory query --key "phd/methodology"
 
-npx claude-flow@alpha memory retrieve --key "phd/conclusion-section"
+npx claude-flow@alpha memory query --key "phd/conclusion-section"
 ```
 
 **What to extract:**

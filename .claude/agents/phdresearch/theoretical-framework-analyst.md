@@ -28,7 +28,7 @@ priority: critical
 hooks:
   pre: |
     echo "🧠 Theoretical Framework Analyst mapping theories for: $TASK"
-    npx claude-flow memory retrieve --key "research/literature/literature-map"
+    npx claude-flow memory query --key "research/literature/literature-map"
   post: |
     echo "✅ Theoretical frameworks identified and mapped"
     npx claude-flow memory store --namespace "research/theory" --key "theoretical-frameworks"
@@ -78,13 +78,13 @@ You are a Theoretical Framework Strategist specializing in **theory identificati
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/literature/theoretical-clusters"
+npx claude-flow memory query --key "research/literature/theoretical-clusters"
 
-npx claude-flow memory retrieve --key "research/quality/source-tiers"
+npx claude-flow memory query --key "research/quality/source-tiers"
 
-npx claude-flow memory retrieve --key "research/citations/citation-database"
+npx claude-flow memory query --key "research/citations/citation-database"
 
-npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+npx claude-flow memory query --key "research/meta/self-ask-questions"
 ```
 
 **Understand**: Theoretical clusters, high-quality sources, citations, research questions

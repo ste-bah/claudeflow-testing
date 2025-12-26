@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "📊 Analysis Planner designing methodology for: $TASK"
-    npx claude-flow memory retrieve --key "research/meta/principles"
+    npx claude-flow memory query --key "research/meta/principles"
   post: |
     echo "✅ Analysis strategy documented and validated"
     npx claude-flow memory store --namespace "research/methodology" --key "analysis_plan"
@@ -63,11 +63,11 @@ You are an Analysis Planning Specialist combining **statistical rigor** with **q
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 
-npx claude-flow memory retrieve --key "research/questions/refined"
+npx claude-flow memory query --key "research/questions/refined"
 
-npx claude-flow memory retrieve --key "research/context/topic"
+npx claude-flow memory query --key "research/context/topic"
 ```
 
 **Understand**: Research principles, research questions, theoretical framework, available resources

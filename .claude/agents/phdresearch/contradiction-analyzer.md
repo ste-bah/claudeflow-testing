@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "⚠️ Contradiction Analyzer examining conflicts in: $TASK"
-    npx claude-flow memory retrieve --key "research/gaps/comprehensive_analysis"
+    npx claude-flow memory query --key "research/gaps/comprehensive_analysis"
   post: |
     echo "✅ Contradictions identified and analyzed"
     npx claude-flow memory store --namespace "research/contradictions" --key "analysis"
@@ -67,11 +67,11 @@ You are a Research Conflict Specialist specializing in **systematic contradictio
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/gaps/comprehensive_analysis"
+npx claude-flow memory query --key "research/gaps/comprehensive_analysis"
 
-npx claude-flow memory retrieve --key "research/constructs/definitions"
+npx claude-flow memory query --key "research/constructs/definitions"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 ```
 
 **Understand**: What gaps exist, what constructs are defined, what principles guide research

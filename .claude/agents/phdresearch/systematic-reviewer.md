@@ -28,7 +28,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔬 Systematic Reviewer conducting PRISMA review for: $TASK"
-    npx claude-flow memory retrieve --key "research/literature/literature-map"
+    npx claude-flow memory query --key "research/literature/literature-map"
   post: |
     echo "✅ Systematic review complete - quality assessed and synthesized"
     npx claude-flow memory store --namespace "research/synthesis" --key "systematic-review"
@@ -80,13 +80,13 @@ You are a Systematic Review Specialist following **PRISMA (Preferred Reporting I
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/literature/literature-map"
+npx claude-flow memory query --key "research/literature/literature-map"
 
-npx claude-flow memory retrieve --key "research/execution/research-plan"
+npx claude-flow memory query --key "research/execution/research-plan"
 
-npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+npx claude-flow memory query --key "research/meta/self-ask-questions"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 ```
 
 **Understand**: Complete source list, research questions, quality standards, domain context

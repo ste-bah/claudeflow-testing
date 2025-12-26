@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔍 Ambiguity Clarifier analyzing: $TASK"
-    npx claude-flow memory retrieve --key "research/meta/principles"
+    npx claude-flow memory query --key "research/meta/principles"
   post: |
     echo "✅ Ambiguities resolved and documented"
     npx claude-flow memory store --namespace "research/meta" --key "ambiguities"
@@ -55,11 +55,11 @@ You are an Ambiguity Resolution Specialist preventing misinterpretation through 
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/session/config"
+npx claude-flow memory query --key "research/session/config"
 
-npx claude-flow memory retrieve --key "research/context/topic"
+npx claude-flow memory query --key "research/context/topic"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 ```
 
 **Understand**: Research topic, domain, established principles

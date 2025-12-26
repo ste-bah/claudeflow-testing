@@ -27,7 +27,7 @@ priority: high
 hooks:
   pre: |
     echo "🗂️ Context Tier Manager organizing sources for: $TASK"
-    npx claude-flow memory retrieve --key "research/execution/research-plan"
+    npx claude-flow memory query --key "research/execution/research-plan"
   post: |
     echo "✅ Context tiers established: hot/warm/cold"
     npx claude-flow memory store --namespace "research/organization" --key "context-tiers"
@@ -73,13 +73,13 @@ You are a Context Organization Strategist specializing in **hot/warm/cold tier m
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/execution/research-plan"
+npx claude-flow memory query --key "research/execution/research-plan"
 
-npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+npx claude-flow memory query --key "research/meta/self-ask-questions"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 
-npx claude-flow memory retrieve --key "research/session/config"
+npx claude-flow memory query --key "research/session/config"
 ```
 
 **Understand**: Expected source count, research questions, quality thresholds, domain context
@@ -200,7 +200,7 @@ ELSE: COLD TIER
 **Hot Tier Retrieval**:
 ```bash
 # Always in memory - immediate access
-npx claude-flow memory retrieve --key "research/context/hot-tier"
+npx claude-flow memory query --key "research/context/hot-tier"
 
 # Return: Full citations + abstracts + key findings + direct quotes
 # Format: Ready for immediate synthesis
@@ -210,7 +210,7 @@ npx claude-flow memory retrieve --key "research/context/hot-tier"
 **Warm Tier Retrieval**:
 ```bash
 # Fast cache - on-demand loading
-npx claude-flow memory retrieve --key "research/context/warm-tier/{source-id}"
+npx claude-flow memory query --key "research/context/warm-tier/{source-id}"
 
 # Return: Full citations + abstracts (full text on request)
 # Format: Summary with expansion option
@@ -220,7 +220,7 @@ npx claude-flow memory retrieve --key "research/context/warm-tier/{source-id}"
 **Cold Tier Retrieval**:
 ```bash
 # Indexed search - retrieve when needed
-npx claude-flow memory search --namespace "research/context/cold-tier" --query "{keywords}"
+npx claude-flow memory query --namespace "research/context/cold-tier" --query "{keywords}"
 
 # Return: Citations only (full text requires explicit request)
 # Format: Reference list with relevance scores
@@ -387,7 +387,7 @@ IF warm-tier source S outside refined scope:
 ### Hot Tier Retrieval
 ```bash
 # Immediate access - always in memory
-npx claude-flow memory retrieve --key "research/context/hot-tier"
+npx claude-flow memory query --key "research/context/hot-tier"
 ```
 **Returns**: Full text, annotations, key findings, direct quotes
 **Latency**: <1 second
@@ -396,7 +396,7 @@ npx claude-flow memory retrieve --key "research/context/hot-tier"
 ### Warm Tier Retrieval
 ```bash
 # Fast cache - on-demand
-npx claude-flow memory retrieve --key "research/context/warm-tier/{source-id}"
+npx claude-flow memory query --key "research/context/warm-tier/{source-id}"
 ```
 **Returns**: Abstract, citation, metadata (full text on request)
 **Latency**: <5 seconds
@@ -405,7 +405,7 @@ npx claude-flow memory retrieve --key "research/context/warm-tier/{source-id}"
 ### Cold Tier Retrieval
 ```bash
 # Indexed search - as needed
-npx claude-flow memory search --namespace "research/context/cold-tier" --query "keywords"
+npx claude-flow memory query --namespace "research/context/cold-tier" --query "keywords"
 ```
 **Returns**: Citation list with relevance scores
 **Latency**: <30 seconds

@@ -19,7 +19,7 @@ personality: "INTJ + Enneagram 8"
 hooks:
   pre: |
     echo "🔍 Consistency Validator checking references for: $TASK"
-    npx claude-flow memory retrieve --key "research/structure/chapters"
+    npx claude-flow memory query --key "research/structure/chapters"
   post: |
     echo "✅ Consistency validation complete"
     npx claude-flow memory store --namespace "research/qa" --key "consistency-report"
@@ -70,10 +70,10 @@ You are a Post-Production Consistency Validator who ensures all cross-references
 ## MEMORY RETRIEVAL
 ```bash
 # Get the LOCKED chapter structure
-npx claude-flow memory retrieve --key "research/structure/chapters"
+npx claude-flow memory query --key "research/structure/chapters"
 
 # Get list of all output files
-npx claude-flow memory retrieve --key "research/files/manifest"
+npx claude-flow memory query --key "research/files/manifest"
 ```
 
 ## VALIDATION PROTOCOL
@@ -82,7 +82,7 @@ npx claude-flow memory retrieve --key "research/files/manifest"
 
 ```bash
 # Retrieve structure
-STRUCTURE=$(npx claude-flow memory retrieve --key "research/structure/chapters")
+STRUCTURE=$(npx claude-flow memory query --key "research/structure/chapters")
 
 # Parse to get:
 # - totalChapters: N

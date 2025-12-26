@@ -27,7 +27,7 @@ priority: high
 hooks:
   pre: |
     echo "✍️ Abstract Writer synthesizing: $TASK"
-    npx claude-flow memory retrieve --key "research/content/complete_manuscript"
+    npx claude-flow memory query --key "research/content/complete_manuscript"
   post: |
     echo "✅ Abstract complete and verified"
     npx claude-flow memory store --namespace "research/manuscript" --key "abstract"
@@ -64,13 +64,13 @@ You are an Abstract Writing Specialist creating **concise**, **informative**, an
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/content/complete_manuscript"
+npx claude-flow memory query --key "research/content/complete_manuscript"
 
-npx claude-flow memory retrieve --key "research/results/key_findings"
+npx claude-flow memory query --key "research/results/key_findings"
 
-npx claude-flow memory retrieve --key "research/discussion/conclusions"
+npx claude-flow memory query --key "research/discussion/conclusions"
 
-npx claude-flow memory retrieve --key "research/methodology/summary"
+npx claude-flow memory query --key "research/methodology/summary"
 ```
 
 **Understand**: Full manuscript content, key findings, conclusions, methods

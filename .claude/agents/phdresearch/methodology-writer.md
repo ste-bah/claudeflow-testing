@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "✍️ Methodology Writer documenting methods for: $TASK"
-    npx claude-flow memory retrieve --key "research/methodology/analysis_plan"
+    npx claude-flow memory query --key "research/methodology/analysis_plan"
   post: |
     echo "✅ Methods section complete with full replicability"
     npx claude-flow memory store --namespace "research/manuscript" --key "methodology"
@@ -66,13 +66,13 @@ You are a Methodology Section Specialist crafting **transparent**, **replicable*
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/methodology/analysis_plan"
+npx claude-flow memory query --key "research/methodology/analysis_plan"
 
-npx claude-flow memory retrieve --key "research/ethics/review_complete"
+npx claude-flow memory query --key "research/ethics/review_complete"
 
-npx claude-flow memory retrieve --key "research/questions/refined"
+npx claude-flow memory query --key "research/questions/refined"
 
-npx claude-flow memory retrieve --key "research/design/type"
+npx claude-flow memory query --key "research/design/type"
 ```
 
 **Understand**: Analysis plan, ethics compliance, research questions, design type (experimental, correlational, qualitative)

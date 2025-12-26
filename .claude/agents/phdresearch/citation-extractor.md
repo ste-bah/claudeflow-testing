@@ -28,7 +28,7 @@ priority: high
 hooks:
   pre: |
     echo "📖 Citation Extractor processing sources for: $TASK"
-    npx claude-flow memory retrieve --key "research/synthesis/systematic-review"
+    npx claude-flow memory query --key "research/synthesis/systematic-review"
   post: |
     echo "✅ Citations extracted - full APA format with URLs and page numbers"
     npx claude-flow memory store --namespace "research/citations" --key "citation-database"
@@ -80,13 +80,13 @@ You are a Citation Management Specialist ensuring **complete APA 7th edition cit
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/synthesis/systematic-review"
+npx claude-flow memory query --key "research/synthesis/systematic-review"
 
-npx claude-flow memory retrieve --key "research/organization/context-tiers"
+npx claude-flow memory query --key "research/organization/context-tiers"
 
-npx claude-flow memory retrieve --key "research/literature/literature-map"
+npx claude-flow memory query --key "research/literature/literature-map"
 
-npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+npx claude-flow memory query --key "research/meta/self-ask-questions"
 ```
 
 **Understand**: Included sources, quality assessments, tier classifications, research questions

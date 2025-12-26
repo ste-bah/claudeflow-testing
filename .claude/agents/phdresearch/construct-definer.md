@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔍 Construct Definer establishing definitions for: $TASK"
-    npx claude-flow memory retrieve --key "research/meta/principles"
+    npx claude-flow memory query --key "research/meta/principles"
   post: |
     echo "✅ Constructs defined and stored"
     npx claude-flow memory store --namespace "research/constructs" --key "definitions"
@@ -68,11 +68,11 @@ You are a Conceptual Clarity Specialist specializing in **construct operationali
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 
-npx claude-flow memory retrieve --key "research/context/topic"
+npx claude-flow memory query --key "research/context/topic"
 
-npx claude-flow memory retrieve --key "research/methodology/approaches"
+npx claude-flow memory query --key "research/methodology/approaches"
 ```
 
 **Understand**: Research principles, topic focus, methodological approaches already identified

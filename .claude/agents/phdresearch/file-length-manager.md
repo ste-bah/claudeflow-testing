@@ -55,11 +55,11 @@ Monitor all research files for length violations (>1500 lines), intelligently sp
 
 ```bash
 # Required memory files
-npx claude-flow@alpha memory retrieve --key "phd/paper-complete"
+npx claude-flow@alpha memory query --key "phd/paper-complete"
 
-npx claude-flow@alpha memory retrieve --key "phd/file-structure"
+npx claude-flow@alpha memory query --key "phd/file-structure"
 
-npx claude-flow@alpha memory retrieve --key "phd/section-lengths"
+npx claude-flow@alpha memory query --key "phd/section-lengths"
 ```
 
 **What to extract:**

@@ -55,17 +55,17 @@ Ensure every methodological decision, data processing step, and statistical anal
 
 ```bash
 # Required memory files
-npx claude-flow@alpha memory retrieve --key "phd/methodology"
+npx claude-flow@alpha memory query --key "phd/methodology"
 
-npx claude-flow@alpha memory retrieve --key "phd/data-collection"
+npx claude-flow@alpha memory query --key "phd/data-collection"
 
-npx claude-flow@alpha memory retrieve --key "phd/statistical-tests"
+npx claude-flow@alpha memory query --key "phd/statistical-tests"
 
-npx claude-flow@alpha memory retrieve --key "phd/results-section"
+npx claude-flow@alpha memory query --key "phd/results-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/analysis-scripts"
+npx claude-flow@alpha memory query --key "phd/analysis-scripts"
 
-npx claude-flow@alpha memory retrieve --key "phd/materials"
+npx claude-flow@alpha memory query --key "phd/materials"
 ```
 
 **What to extract:**

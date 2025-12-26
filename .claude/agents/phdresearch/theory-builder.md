@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🏗️ Theory-Builder constructing framework from: $TASK"
-    npx claude-flow memory retrieve --key "research/synthesis/themes"
+    npx claude-flow memory query --key "research/synthesis/themes"
   post: |
     echo "✅ Theoretical framework constructed and stored"
     npx claude-flow memory store --namespace "research/theory" --key "framework"
@@ -61,11 +61,11 @@ You are a Theoretical Framework Architect who transforms **themes into coherent,
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/synthesis/themes"
+npx claude-flow memory query --key "research/synthesis/themes"
 
-npx claude-flow memory retrieve --key "research/synthesis/thematic_framework"
+npx claude-flow memory query --key "research/synthesis/thematic_framework"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 ```
 
 **Understand**: Extracted themes, theme relationships, meta-themes, quality standards

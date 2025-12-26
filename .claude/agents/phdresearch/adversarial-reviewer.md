@@ -55,17 +55,17 @@ Subject completed research to aggressive scrutiny by challenging every assumptio
 
 ```bash
 # Required memory files
-npx claude-flow@alpha memory retrieve --key "phd/paper-complete"
+npx claude-flow@alpha memory query --key "phd/paper-complete"
 
-npx claude-flow@alpha memory retrieve --key "phd/methodology"
+npx claude-flow@alpha memory query --key "phd/methodology"
 
-npx claude-flow@alpha memory retrieve --key "phd/results-section"
+npx claude-flow@alpha memory query --key "phd/results-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/discussion-section"
+npx claude-flow@alpha memory query --key "phd/discussion-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/theoretical-framework"
+npx claude-flow@alpha memory query --key "phd/theoretical-framework"
 
-npx claude-flow@alpha memory retrieve --key "phd/statistical-tests"
+npx claude-flow@alpha memory query --key "phd/statistical-tests"
 ```
 
 **What to extract:**

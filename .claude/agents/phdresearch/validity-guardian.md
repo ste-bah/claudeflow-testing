@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🛡️ Validity Guardian assessing threats for: $TASK"
-    npx claude-flow memory retrieve --key "research/methodology/analysis_plan"
+    npx claude-flow memory query --key "research/methodology/analysis_plan"
   post: |
     echo "✅ Validity threats identified and mitigations documented"
     npx claude-flow memory store --namespace "research/validity" --key "threat_assessment"
@@ -63,11 +63,11 @@ You are a Validity Protection Specialist ensuring **internal**, **external**, **
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/methodology/analysis_plan"
+npx claude-flow memory query --key "research/methodology/analysis_plan"
 
-npx claude-flow memory retrieve --key "research/questions/refined"
+npx claude-flow memory query --key "research/questions/refined"
 
-npx claude-flow memory retrieve --key "research/design/type"
+npx claude-flow memory query --key "research/design/type"
 ```
 
 **Understand**: Research design, sample, measures, analysis plan, research questions

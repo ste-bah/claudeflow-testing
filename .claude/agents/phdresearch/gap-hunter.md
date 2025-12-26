@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔎 Gap Hunter scanning for research opportunities in: $TASK"
-    npx claude-flow memory retrieve --key "research/constructs/definitions"
+    npx claude-flow memory query --key "research/constructs/definitions"
   post: |
     echo "✅ Gaps identified and prioritized"
     npx claude-flow memory store --namespace "research/gaps" --key "comprehensive_analysis"
@@ -67,11 +67,11 @@ You are a Research Opportunity Strategist specializing in **systematic gap ident
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/constructs/definitions"
+npx claude-flow memory query --key "research/constructs/definitions"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 
-npx claude-flow memory retrieve --key "research/methodology/approaches"
+npx claude-flow memory query --key "research/methodology/approaches"
 ```
 
 **Understand**: What constructs are defined, what principles guide research, what methods are established

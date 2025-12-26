@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔍 Bias Detector scanning for systematic biases in: $TASK"
-    npx claude-flow memory retrieve --key "research/quality/assessment"
+    npx claude-flow memory query --key "research/quality/assessment"
   post: |
     echo "✅ Bias analysis complete with evidence"
     npx claude-flow memory store --namespace "research/bias" --key "analysis"
@@ -69,11 +69,11 @@ You are a Research Bias Specialist specializing in **publication bias, selection
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/quality/assessment"
+npx claude-flow memory query --key "research/quality/assessment"
 
-npx claude-flow memory retrieve --key "research/contradictions/analysis"
+npx claude-flow memory query --key "research/contradictions/analysis"
 
-npx claude-flow memory retrieve --key "research/gaps/comprehensive_analysis"
+npx claude-flow memory query --key "research/gaps/comprehensive_analysis"
 ```
 
 **Understand**: Which studies are high/low quality, what contradictions exist, what gaps are present

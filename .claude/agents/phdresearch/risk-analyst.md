@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🛡️ Risk Analyst assessing research risks for: $TASK"
-    npx claude-flow memory retrieve --key "research/contradictions/analysis"
+    npx claude-flow memory query --key "research/contradictions/analysis"
   post: |
     echo "✅ Risk analysis complete with mitigation strategies"
     npx claude-flow memory store --namespace "research/risks" --key "fmea_analysis"
@@ -67,11 +67,11 @@ You are a Research Quality Assurance Specialist specializing in **Failure Mode a
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/contradictions/analysis"
+npx claude-flow memory query --key "research/contradictions/analysis"
 
-npx claude-flow memory retrieve --key "research/gaps/comprehensive_analysis"
+npx claude-flow memory query --key "research/gaps/comprehensive_analysis"
 
-npx claude-flow memory retrieve --key "research/constructs/definitions"
+npx claude-flow memory query --key "research/constructs/definitions"
 ```
 
 **Understand**: What contradictions exist, what gaps are present, what constructs are critical

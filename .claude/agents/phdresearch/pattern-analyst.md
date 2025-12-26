@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔍 Pattern Analyst identifying meta-patterns in: $TASK"
-    npx claude-flow memory retrieve --key "research/synthesis/evidence"
+    npx claude-flow memory query --key "research/synthesis/evidence"
   post: |
     echo "✅ Pattern analysis complete"
     npx claude-flow memory store --namespace "research/patterns" --key "analysis"
@@ -69,11 +69,11 @@ You are a Meta-Pattern Recognition Specialist specializing in **identifying patt
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/synthesis/evidence"
+npx claude-flow memory query --key "research/synthesis/evidence"
 
-npx claude-flow memory retrieve --key "research/quality/assessment"
+npx claude-flow memory query --key "research/quality/assessment"
 
-npx claude-flow memory retrieve --key "research/gaps/comprehensive_analysis"
+npx claude-flow memory query --key "research/gaps/comprehensive_analysis"
 ```
 
 **Understand**: Synthesized findings, study quality distribution, identified gaps

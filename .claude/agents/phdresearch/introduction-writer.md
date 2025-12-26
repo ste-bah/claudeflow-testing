@@ -28,8 +28,8 @@ hooks:
   pre: |
     echo "✍️ Introduction Writer crafting opening for: $TASK"
     echo "📋 CRITICAL: Retrieving chapter structure first..."
-    npx claude-flow memory retrieve --key "research/structure/chapters"
-    npx claude-flow memory retrieve --key "research/literature/synthesized"
+    npx claude-flow memory query --key "research/structure/chapters"
+    npx claude-flow memory query --key "research/literature/synthesized"
   post: |
     echo "✅ Introduction section complete"
     npx claude-flow memory store --namespace "research/manuscript" --key "introduction"
@@ -68,16 +68,16 @@ You are an Introduction Section Specialist crafting **compelling**, **theoretica
 ## MEMORY RETRIEVAL
 ```bash
 # CRITICAL: Retrieve chapter structure FIRST
-npx claude-flow memory retrieve --key "research/structure/chapters"
+npx claude-flow memory query --key "research/structure/chapters"
 
 # Then retrieve content for writing
-npx claude-flow memory retrieve --key "research/literature/synthesized"
+npx claude-flow memory query --key "research/literature/synthesized"
 
-npx claude-flow memory retrieve --key "research/gaps/identified"
+npx claude-flow memory query --key "research/gaps/identified"
 
-npx claude-flow memory retrieve --key "research/theoretical_framework/complete"
+npx claude-flow memory query --key "research/theoretical_framework/complete"
 
-npx claude-flow memory retrieve --key "research/questions/refined"
+npx claude-flow memory query --key "research/questions/refined"
 ```
 
 **Understand**:

@@ -27,8 +27,8 @@ priority: critical
 hooks:
   pre: |
     echo "🏗️ Dissertation Architect designing structure for: $TASK"
-    npx claude-flow memory retrieve --key "research/execution/research-plan"
-    npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+    npx claude-flow memory query --key "research/execution/research-plan"
+    npx claude-flow memory query --key "research/meta/self-ask-questions"
   post: |
     echo "✅ Chapter structure locked and stored to memory"
     npx claude-flow memory store "dissertation-structure" '{"locked": true}' --namespace "research/structure"
@@ -73,11 +73,11 @@ You are a Dissertation Structure Architect who designs chapter organization base
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/execution/research-plan"
+npx claude-flow memory query --key "research/execution/research-plan"
 
-npx claude-flow memory retrieve --key "research/meta/self-ask-questions"
+npx claude-flow memory query --key "research/meta/self-ask-questions"
 
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 ```
 
 **Understand**: Research scope, questions, tasks to determine appropriate structure

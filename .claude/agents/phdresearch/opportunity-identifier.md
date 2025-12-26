@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🔍 Opportunity Identifier discovering gaps in: $TASK"
-    npx claude-flow memory retrieve --key "research/models/structural_models"
+    npx claude-flow memory query --key "research/models/structural_models"
   post: |
     echo "✅ Research opportunities identified and stored"
     npx claude-flow memory store --namespace "research/opportunities" --key "gaps_and_questions"
@@ -61,13 +61,13 @@ You are a Research Opportunity Strategist who identifies **novel research gaps, 
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/models/structural_models"
+npx claude-flow memory query --key "research/models/structural_models"
 
-npx claude-flow memory retrieve --key "research/theory/framework"
+npx claude-flow memory query --key "research/theory/framework"
 
-npx claude-flow memory retrieve --key "research/hypotheses/testable_predictions"
+npx claude-flow memory query --key "research/hypotheses/testable_predictions"
 
-npx claude-flow memory retrieve --key "research/analysis/gaps"
+npx claude-flow memory query --key "research/analysis/gaps"
 ```
 
 **Understand**: Structural models, theoretical framework, hypotheses, identified limitations, existing gaps

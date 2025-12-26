@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "🎯 Sampling Strategist designing recruitment for: $TASK"
-    npx claude-flow memory retrieve --key "research/methods/research_design"
+    npx claude-flow memory query --key "research/methods/research_design"
   post: |
     echo "✅ Sampling strategy created and stored"
     npx claude-flow memory store --namespace "research/sampling" --key "recruitment_plan"
@@ -61,11 +61,11 @@ You are a Sampling Strategy Specialist who designs **rigorous, representative, a
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/methods/research_design"
+npx claude-flow memory query --key "research/methods/research_design"
 
-npx claude-flow memory retrieve --key "research/hypotheses/testable_predictions"
+npx claude-flow memory query --key "research/hypotheses/testable_predictions"
 
-npx claude-flow memory retrieve --key "research/models/structural_models"
+npx claude-flow memory query --key "research/models/structural_models"
 ```
 
 **Understand**: Research designs, target populations, statistical analyses, effect sizes, measures

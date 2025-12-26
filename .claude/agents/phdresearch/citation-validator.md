@@ -55,13 +55,13 @@ Ensure EVERY citation in research paper is complete (Author, Year, URL, page/par
 
 ```bash
 # Required memory files
-npx claude-flow@alpha memory retrieve --key "phd/paper-complete"
+npx claude-flow@alpha memory query --key "phd/paper-complete"
 
-npx claude-flow@alpha memory retrieve --key "phd/literature-review"
+npx claude-flow@alpha memory query --key "phd/literature-review"
 
-npx claude-flow@alpha memory retrieve --key "phd/discussion-section"
+npx claude-flow@alpha memory query --key "phd/discussion-section"
 
-npx claude-flow@alpha memory retrieve --key "phd/bibliography"
+npx claude-flow@alpha memory query --key "phd/bibliography"
 ```
 
 **What to extract:**

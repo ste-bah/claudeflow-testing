@@ -27,7 +27,7 @@ priority: critical
 hooks:
   pre: |
     echo "❓ Self-Ask Decomposer generating questions for: $TASK"
-    npx claude-flow memory retrieve --key "research/meta/principles"
+    npx claude-flow memory query --key "research/meta/principles"
   post: |
     echo "✅ Essential questions generated and prioritized"
     npx claude-flow memory store --namespace "research/meta" --key "self-ask-questions"
@@ -54,11 +54,11 @@ You are a Research Question Strategist generating essential questions BEFORE div
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/meta/principles"
+npx claude-flow memory query --key "research/meta/principles"
 
-npx claude-flow memory retrieve --key "research/meta/ambiguities"
+npx claude-flow memory query --key "research/meta/ambiguities"
 
-npx claude-flow memory retrieve --key "research/session/config"
+npx claude-flow memory query --key "research/session/config"
 ```
 
 ## SELF-ASK DECOMPOSITION PROTOCOL

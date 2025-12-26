@@ -27,7 +27,7 @@ priority: high
 hooks:
   pre: |
     echo "✍️ Literature Review Writer synthesizing research for: $TASK"
-    npx claude-flow memory retrieve --key "research/literature/comprehensive_synthesis"
+    npx claude-flow memory query --key "research/literature/comprehensive_synthesis"
   post: |
     echo "✅ Literature Review section complete"
     npx claude-flow memory store --namespace "research/manuscript" --key "literature_review"
@@ -66,13 +66,13 @@ You are a Literature Review Specialist crafting **comprehensive**, **critically 
 
 ## MEMORY RETRIEVAL
 ```bash
-npx claude-flow memory retrieve --key "research/literature/comprehensive_synthesis"
+npx claude-flow memory query --key "research/literature/comprehensive_synthesis"
 
-npx claude-flow memory retrieve --key "research/literature/themes"
+npx claude-flow memory query --key "research/literature/themes"
 
-npx claude-flow memory retrieve --key "research/theoretical_framework/complete"
+npx claude-flow memory query --key "research/theoretical_framework/complete"
 
-npx claude-flow memory retrieve --key "research/gaps/identified"
+npx claude-flow memory query --key "research/gaps/identified"
 ```
 
 **Understand**: Literature synthesis, thematic organization, theoretical framework, research gaps
