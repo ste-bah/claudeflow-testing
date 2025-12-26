@@ -20,6 +20,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { InteractionStore } from '../../src/god-agent/universal/interaction-store.js';
 import { ContextInjector } from './context-injector.js';
+import { handlePreTask as trackPipelineStep } from './pipeline-event-emitter.js';
 import {
   type IHookConfig,
   DEFAULT_HOOK_CONFIG,
@@ -334,6 +335,11 @@ async function main(): Promise<void> {
     // 4. Detect agent type
     const agentType = detectAgentType(prompt);
     logger.debug('Agent type detected', { agentType });
+
+    // 4.5. Track pipeline step if in pipeline context (non-blocking)
+    trackPipelineStep(prompt).catch(err => {
+      logger.debug('Pipeline tracking skipped', { error: (err as Error).message });
+    });
 
     // 5. Extract domain/tags
     const { domain, tags } = extractDomainTags(prompt);

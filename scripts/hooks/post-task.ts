@@ -22,6 +22,7 @@ import { InteractionStore } from '../../src/god-agent/universal/interaction-stor
 import { ReasoningBank } from '../../src/god-agent/core/reasoning/reasoning-bank.js';
 import { OutputExtractor } from './output-extractor.js';
 import { FeedbackSubmitter } from './feedback-submitter.js';
+import { handlePostTask as completePipelineStep } from './pipeline-event-emitter.js';
 import {
   type IHookConfig,
   type KnowledgeEntry,
@@ -430,6 +431,11 @@ async function main(): Promise<void> {
     } else {
       logger.warn('Skipping feedback - ReasoningBank not available');
     }
+
+    // 9.5. Complete pipeline step if in pipeline context (non-blocking)
+    completePipelineStep().catch(err => {
+      logger.debug('Pipeline step completion skipped', { error: (err as Error).message });
+    });
 
     // 10. Log performance metrics
     const duration = Date.now() - startTime;
