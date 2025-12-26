@@ -99,6 +99,9 @@ async function loadConfiguration(): Promise<IHookConfig> {
 
 /**
  * Parse Task() prompt from arguments or stdin
+ *
+ * When called by Claude Code's Task tool, stdin may not be available.
+ * In that case, return empty string to allow hook to proceed without context injection.
  */
 async function parsePrompt(): Promise<string> {
   // Check command line argument first
@@ -106,36 +109,43 @@ async function parsePrompt(): Promise<string> {
     return process.argv[2];
   }
 
-  // Otherwise read from stdin
-  return new Promise((resolve, reject) => {
-    let data = '';
+  // Check environment variable (Claude Code may set this)
+  if (process.env.CLAUDE_TASK_PROMPT) {
+    return process.env.CLAUDE_TASK_PROMPT;
+  }
 
-    if (process.stdin.isTTY) {
-      reject(new ValidationError('No prompt provided (stdin is TTY)', []));
-      return;
-    }
+  // If stdin is TTY (interactive), return empty - no prompt available
+  if (process.stdin.isTTY) {
+    return '';
+  }
+
+  // Try to read from stdin with a short timeout
+  return new Promise((resolve) => {
+    let data = '';
+    let resolved = false;
+
+    const finish = (result: string) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(result);
+      }
+    };
 
     process.stdin.setEncoding('utf-8');
     process.stdin.on('data', chunk => {
       data += chunk;
     });
     process.stdin.on('end', () => {
-      if (data.trim() === '') {
-        reject(new ValidationError('No prompt provided (empty stdin)', []));
-      } else {
-        resolve(data);
-      }
+      finish(data.trim());
     });
-    process.stdin.on('error', err => {
-      reject(new ValidationError(`Stdin read error: ${err.message}`, []));
+    process.stdin.on('error', () => {
+      finish('');
     });
 
-    // Set timeout for stdin read
+    // Short timeout - if no stdin data within 500ms, proceed without it
     setTimeout(() => {
-      if (data.trim() === '') {
-        reject(new ValidationError('Stdin read timeout', []));
-      }
-    }, 5000);
+      finish(data.trim());
+    }, 500);
   });
 }
 
@@ -327,6 +337,12 @@ async function main(): Promise<void> {
     // 2. Parse Task() prompt
     const prompt = await parsePrompt();
     logger.debug('Prompt parsed', { promptLength: prompt.length });
+
+    // 2.5. Early exit if no prompt available (Claude Code Task tool doesn't pipe stdin)
+    if (!prompt || prompt.trim() === '') {
+      logger.info('No prompt provided, skipping context injection');
+      process.exit(EXIT_CODES.SUCCESS);
+    }
 
     // 3. Validate prompt
     validatePrompt(prompt);
