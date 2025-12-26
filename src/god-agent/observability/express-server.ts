@@ -11,6 +11,8 @@
 
 import express, { Express, Request, Response, NextFunction } from 'express';
 import * as http from 'http';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { IActivityStream } from './activity-stream.js';
 import { IAgentExecutionTracker } from './agent-tracker.js';
 import { IPipelineTracker } from './pipeline-tracker.js';
@@ -178,7 +180,13 @@ export class ExpressServer implements IExpressServer {
    * @param app Express application
    */
   private registerEndpoints(app: Express): void {
-    // 1. Dashboard HTML (placeholder)
+    // Get dashboard directory path
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const dashboardPath = path.join(__dirname, 'dashboard');
+
+    // 1. Serve static dashboard files
+    app.use(express.static(dashboardPath));
     app.get('/', this.serveDashboard.bind(this));
 
     // 2. SSE event stream
@@ -210,6 +218,24 @@ export class ExpressServer implements IExpressServer {
 
     // 11. Health check
     app.get('/api/health', this.healthCheck.bind(this));
+
+    // 12. Memory interactions
+    app.get('/api/memory/interactions', this.getMemoryInteractions.bind(this));
+
+    // 13. Memory reasoning
+    app.get('/api/memory/reasoning', this.getMemoryReasoning.bind(this));
+
+    // 14. Episode store
+    app.get('/api/memory/episodes', this.getEpisodeStore.bind(this));
+
+    // 15. UCM context
+    app.get('/api/memory/ucm', this.getUcmContext.bind(this));
+
+    // 16. Hyperedge store
+    app.get('/api/memory/hyperedges', this.getHyperedgeStore.bind(this));
+
+    // 17. System metrics (comprehensive)
+    app.get('/api/system/metrics', this.getSystemMetrics.bind(this));
   }
 
   // ===========================================================================
@@ -217,31 +243,13 @@ export class ExpressServer implements IExpressServer {
   // ===========================================================================
 
   /**
-   * Serve dashboard HTML (placeholder)
+   * Serve dashboard HTML
    */
   private serveDashboard(req: Request, res: Response): void {
-    res.setHeader('Content-Type', 'text/html');
-    res.send(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>God Agent Observability Dashboard</title>
-</head>
-<body>
-  <h1>God Agent Observability Dashboard</h1>
-  <p>Real-time observability dashboard (placeholder)</p>
-  <ul>
-    <li><a href="/api/health">Health Check</a></li>
-    <li><a href="/api/events">Recent Events</a></li>
-    <li><a href="/api/agents">Active Agents</a></li>
-    <li><a href="/api/pipelines">Active Pipelines</a></li>
-    <li><a href="/api/metrics">Prometheus Metrics</a></li>
-  </ul>
-</body>
-</html>
-    `);
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const indexPath = path.join(__dirname, 'dashboard', 'index.html');
+    res.sendFile(indexPath);
   }
 
   /**
@@ -376,6 +384,109 @@ export class ExpressServer implements IExpressServer {
       baselineQuality: 0,
       learnedQuality: 0,
       message: 'SonaEngine integration pending',
+    });
+  }
+
+  /**
+   * Get memory interactions for InteractionStore tab
+   */
+  private getMemoryInteractions(req: Request, res: Response): void {
+    res.setHeader('Content-Type', 'application/json');
+    res.json([]);
+  }
+
+  /**
+   * Get memory reasoning for ReasoningBank tab
+   */
+  private getMemoryReasoning(req: Request, res: Response): void {
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      stats: { totalPatterns: 0, avgQuality: 0, totalFeedback: 0 },
+      recentPatterns: [],
+    });
+  }
+
+  /**
+   * Get episode store data
+   */
+  private getEpisodeStore(req: Request, res: Response): void {
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      stats: { totalEpisodes: 0, linkedEpisodes: 0, timeIndexSize: 0 },
+      recentEpisodes: [],
+    });
+  }
+
+  /**
+   * Get UCM context data
+   */
+  private getUcmContext(req: Request, res: Response): void {
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      stats: { contextSize: 0, pinnedItems: 0, rollingWindowSize: 0 },
+      contextEntries: [],
+    });
+  }
+
+  /**
+   * Get hyperedge store data
+   */
+  private getHyperedgeStore(req: Request, res: Response): void {
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      stats: { qaPairs: 0, causalChains: 0, communities: 0 },
+      recentHyperedges: [],
+    });
+  }
+
+  /**
+   * Get comprehensive system metrics for all panels
+   */
+  private getSystemMetrics(req: Request, res: Response): void {
+    const now = Date.now();
+    const uptime = Math.floor((now - this.startTime) / 1000);
+    const eventStats = this.eventStore.getStats();
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      ucm: {
+        episodesStored: 0,
+        contextSize: 0,
+      },
+      idesc: {
+        outcomesRecorded: 0,
+        injectionRate: 0,
+        negativeWarnings: 0,
+        thresholdAdjustments: 0,
+      },
+      episode: {
+        linked: 0,
+        timeIndexSize: 0,
+      },
+      hyperedge: {
+        qaCount: 0,
+        causalChains: 0,
+        loopsDetected: 0,
+        communities: 0,
+      },
+      token: {
+        usage: 0,
+        warnings: 0,
+        summarizations: 0,
+        rollingWindowSize: 0,
+      },
+      daemon: {
+        status: 'healthy',
+        uptime: uptime,
+        eventsProcessed: eventStats.bufferSize,
+        memoryUsage: process.memoryUsage().heapUsed,
+      },
+      registry: {
+        total: 264,
+        categories: 30,
+        selectionsToday: 0,
+        embeddingDimensions: 1536,
+      },
     });
   }
 

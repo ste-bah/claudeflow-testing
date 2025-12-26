@@ -527,3 +527,136 @@ header h1 {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--border-color);
 }
+
+/* ============================
+   New Panels - UCM, IDESC, etc.
+   ============================ */
+
+/* Metrics Grid */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    padding: 0.5rem;
+}
+
+.metric-card {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+.metric-card .metric-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.metric-card .metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Status colors */
+.status-healthy {
+    color: var(--accent-success) !important;
+}
+
+.status-degraded {
+    color: var(--accent-warning) !important;
+}
+
+.status-unhealthy {
+    color: var(--accent-error) !important;
+}
+
+/* UCM Panel */
+.ucm-panel {
+    border-left: 3px solid #9C27B0;
+}
+
+/* Registry Panel */
+.registry-panel {
+    border-left: 3px solid #00BCD4;
+}
+
+/* Hyperedge Panel */
+.hyperedge-panel {
+    border-left: 3px solid #FF5722;
+}
+
+/* Token Panel */
+.token-panel {
+    border-left: 3px solid #FFEB3B;
+}
+
+/* Daemon Panel */
+.daemon-panel {
+    border-left: 3px solid #8BC34A;
+}
+
+/* Extended tab styling */
+.tabs {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+.tab-button {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px 4px 0 0;
+    transition: all 0.2s ease;
+    font-size: 0.85rem;
+}
+
+.tab-button:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.tab-button.active {
+    background: var(--bg-tertiary);
+    color: var(--accent-info);
+    border-bottom: 2px solid var(--accent-info);
+    margin-bottom: -2px;
+}
+
+/* Stat cards in memory inspector */
+.stat-card {
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.stat-card .metric-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.stat-card .metric-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Memory stats grid */
+.memory-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}

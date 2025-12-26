@@ -24,7 +24,14 @@ export type ActivityEventComponent =
   | 'agent'
   | 'search'
   | 'quality_monitor'
-  | 'general';
+  | 'general'
+  | 'ucm'
+  | 'idesc'
+  | 'episode'
+  | 'hyperedge'
+  | 'embedding'
+  | 'daemon'
+  | 'token_budget';
 
 /**
  * Activity event status types

@@ -17,6 +17,13 @@ class DashboardApp {
         this.statusFilter = '';
         this.currentTab = 'interaction-store';
         this.domainSearchTerm = '';
+        this.ucmMetrics = {};
+        this.idescMetrics = {};
+        this.episodeMetrics = {};
+        this.hyperedgeMetrics = {};
+        this.tokenMetrics = {};
+        this.daemonMetrics = {};
+        this.registryMetrics = { total: 264, categories: 30 };
     }
 
     /**
@@ -147,6 +154,13 @@ class DashboardApp {
                 const stats = await statsRes.json();
                 this.updateLearningMetrics(stats);
             }
+
+            // Load comprehensive system metrics
+            const metricsRes = await fetch('/api/system/metrics');
+            if (metricsRes.ok) {
+                const metrics = await metricsRes.json();
+                this.handleMetricsUpdate({ data: JSON.stringify(metrics) });
+            }
         } catch (error) {
             console.error('Error loading initial data:', error);
         }
@@ -187,6 +201,13 @@ class DashboardApp {
             this.eventSource.addEventListener('routing_decision', (e) => this.handleRoutingDecision(e));
             this.eventSource.addEventListener('activity', (e) => this.handleActivity(e));
             this.eventSource.addEventListener('learning_update', (e) => this.handleLearningUpdate(e));
+            this.eventSource.addEventListener('ucm_update', (e) => this.handleUcmUpdate(e));
+            this.eventSource.addEventListener('idesc_update', (e) => this.handleIdescUpdate(e));
+            this.eventSource.addEventListener('episode_update', (e) => this.handleEpisodeUpdate(e));
+            this.eventSource.addEventListener('hyperedge_update', (e) => this.handleHyperedgeUpdate(e));
+            this.eventSource.addEventListener('token_update', (e) => this.handleTokenUpdate(e));
+            this.eventSource.addEventListener('daemon_update', (e) => this.handleDaemonUpdate(e));
+            this.eventSource.addEventListener('metrics_update', (e) => this.handleMetricsUpdate(e));
 
         } catch (error) {
             console.error('SSE connection error:', error);
@@ -313,6 +334,191 @@ class DashboardApp {
     handleLearningUpdate(event) {
         const data = JSON.parse(event.data);
         this.updateLearningMetrics(data);
+    }
+
+    /**
+     * Handle UCM updates
+     */
+    handleUcmUpdate(event) {
+        const data = JSON.parse(event.data);
+        this.ucmMetrics = { ...this.ucmMetrics, ...data };
+        this.updateUcmPanel();
+    }
+
+    /**
+     * Handle IDESC updates
+     */
+    handleIdescUpdate(event) {
+        const data = JSON.parse(event.data);
+        this.idescMetrics = { ...this.idescMetrics, ...data };
+        this.updateIdescPanel();
+    }
+
+    /**
+     * Handle Episode updates
+     */
+    handleEpisodeUpdate(event) {
+        const data = JSON.parse(event.data);
+        this.episodeMetrics = { ...this.episodeMetrics, ...data };
+        this.updateEpisodePanel();
+    }
+
+    /**
+     * Handle Hyperedge updates
+     */
+    handleHyperedgeUpdate(event) {
+        const data = JSON.parse(event.data);
+        this.hyperedgeMetrics = { ...this.hyperedgeMetrics, ...data };
+        this.updateHyperedgePanel();
+    }
+
+    /**
+     * Handle Token Budget updates
+     */
+    handleTokenUpdate(event) {
+        const data = JSON.parse(event.data);
+        this.tokenMetrics = { ...this.tokenMetrics, ...data };
+        this.updateTokenPanel();
+    }
+
+    /**
+     * Handle Daemon updates
+     */
+    handleDaemonUpdate(event) {
+        const data = JSON.parse(event.data);
+        this.daemonMetrics = { ...this.daemonMetrics, ...data };
+        this.updateDaemonPanel();
+    }
+
+    /**
+     * Handle comprehensive metrics updates
+     */
+    handleMetricsUpdate(event) {
+        const data = JSON.parse(event.data);
+        if (data.ucm) this.ucmMetrics = data.ucm;
+        if (data.idesc) this.idescMetrics = data.idesc;
+        if (data.episode) this.episodeMetrics = data.episode;
+        if (data.hyperedge) this.hyperedgeMetrics = data.hyperedge;
+        if (data.token) this.tokenMetrics = data.token;
+        if (data.daemon) this.daemonMetrics = data.daemon;
+        if (data.registry) this.registryMetrics = data.registry;
+        this.updateAllPanels();
+    }
+
+    /**
+     * Update UCM & IDESC panel
+     */
+    updateUcmPanel() {
+        document.getElementById('ucmEpisodesStored').textContent = 
+            (this.ucmMetrics.episodesStored || 0).toLocaleString();
+        document.getElementById('ucmContextSize').textContent = 
+            (this.ucmMetrics.contextSize || 0).toLocaleString();
+    }
+
+    /**
+     * Update IDESC panel
+     */
+    updateIdescPanel() {
+        document.getElementById('idescOutcomes').textContent = 
+            (this.idescMetrics.outcomesRecorded || 0).toLocaleString();
+        document.getElementById('idescInjectionRate').textContent = 
+            ((this.idescMetrics.injectionRate || 0) * 100).toFixed(1) + '%';
+        document.getElementById('idescNegativeWarnings').textContent = 
+            (this.idescMetrics.negativeWarnings || 0).toString();
+        document.getElementById('idescThresholdAdj').textContent = 
+            (this.idescMetrics.thresholdAdjustments || 0).toString();
+    }
+
+    /**
+     * Update Episode panel
+     */
+    updateEpisodePanel() {
+        document.getElementById('episodesLinked').textContent = 
+            (this.episodeMetrics.linked || 0).toLocaleString();
+        document.getElementById('timeIndexSize').textContent = 
+            (this.episodeMetrics.timeIndexSize || 0).toLocaleString();
+    }
+
+    /**
+     * Update Hyperedge panel
+     */
+    updateHyperedgePanel() {
+        document.getElementById('qaHyperedges').textContent = 
+            (this.hyperedgeMetrics.qaCount || 0).toLocaleString();
+        document.getElementById('causalChains').textContent = 
+            (this.hyperedgeMetrics.causalChains || 0).toLocaleString();
+        document.getElementById('loopsDetected').textContent = 
+            (this.hyperedgeMetrics.loopsDetected || 0).toString();
+        document.getElementById('communities').textContent = 
+            (this.hyperedgeMetrics.communities || 0).toString();
+    }
+
+    /**
+     * Update Token Budget panel
+     */
+    updateTokenPanel() {
+        document.getElementById('tokenBudgetUsage').textContent = 
+            ((this.tokenMetrics.usage || 0) * 100).toFixed(1) + '%';
+        document.getElementById('tokenWarnings').textContent = 
+            (this.tokenMetrics.warnings || 0).toString();
+        document.getElementById('summarizations').textContent = 
+            (this.tokenMetrics.summarizations || 0).toString();
+        document.getElementById('rollingWindowSize').textContent = 
+            (this.tokenMetrics.rollingWindowSize || 0).toLocaleString();
+    }
+
+    /**
+     * Update Daemon Health panel
+     */
+    updateDaemonPanel() {
+        const statusEl = document.getElementById('daemonStatus');
+        const status = this.daemonMetrics.status || 'healthy';
+        statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        statusEl.className = 'metric-value status-' + status;
+        
+        document.getElementById('daemonUptime').textContent = 
+            this.formatUptime(this.daemonMetrics.uptime || 0);
+        document.getElementById('daemonEvents').textContent = 
+            (this.daemonMetrics.eventsProcessed || 0).toLocaleString();
+        document.getElementById('daemonMemory').textContent = 
+            ((this.daemonMetrics.memoryUsage || 0) / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    /**
+     * Update Agent Registry panel
+     */
+    updateRegistryPanel() {
+        document.getElementById('registryTotal').textContent = 
+            (this.registryMetrics.total || 264).toString();
+        document.getElementById('registryCategories').textContent = 
+            (this.registryMetrics.categories || 30).toString();
+        document.getElementById('registrySelections').textContent = 
+            (this.registryMetrics.selectionsToday || 0).toLocaleString();
+        document.getElementById('embeddingDim').textContent = 
+            (this.registryMetrics.embeddingDimensions || 1536).toString();
+    }
+
+    /**
+     * Update all panels
+     */
+    updateAllPanels() {
+        this.updateUcmPanel();
+        this.updateIdescPanel();
+        this.updateEpisodePanel();
+        this.updateHyperedgePanel();
+        this.updateTokenPanel();
+        this.updateDaemonPanel();
+        this.updateRegistryPanel();
+    }
+
+    /**
+     * Format uptime in human-readable form
+     */
+    formatUptime(seconds) {
+        if (seconds < 60) return seconds + 's';
+        if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+        return Math.floor(seconds / 86400) + 'd';
     }
 
     /**
@@ -530,6 +736,12 @@ class DashboardApp {
             this.loadInteractionStore();
         } else if (tabId === 'reasoning-bank') {
             this.loadReasoningBank();
+        } else if (tabId === 'episode-store') {
+            this.loadEpisodeStore();
+        } else if (tabId === 'ucm-context') {
+            this.loadUcmContext();
+        } else if (tabId === 'hyperedge-store') {
+            this.loadHyperedgeStore();
         }
     }
 
@@ -643,6 +855,203 @@ class DashboardApp {
                 <li class="memory-item">
                     <div class="memory-domain">Pattern: ${id}</div>
                     <div class="memory-content">Quality: ${quality}</div>
+                </li>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Load EpisodeStore data
+     */
+    async loadEpisodeStore() {
+        try {
+            const res = await fetch('/api/memory/episodes');
+            if (res.ok) {
+                const data = await res.json();
+                this.episodeStoreData = data;
+                this.renderEpisodeStore();
+            }
+        } catch (error) {
+            console.error('Error loading EpisodeStore:', error);
+        }
+    }
+
+    /**
+     * Render EpisodeStore entries
+     */
+    renderEpisodeStore() {
+        const statsDiv = document.getElementById('episodeStats');
+        const list = document.getElementById('episodeList');
+
+        if (!this.episodeStoreData) {
+            list.innerHTML = '<li class="memory-item">No data in EpisodeStore</li>';
+            return;
+        }
+
+        const stats = this.episodeStoreData.stats || {};
+        statsDiv.innerHTML = `
+            <div class="memory-stats">
+                <div class="stat-card">
+                    <div class="metric-label">Total Episodes</div>
+                    <div class="metric-value">${stats.totalEpisodes || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="metric-label">Linked</div>
+                    <div class="metric-value">${stats.linkedEpisodes || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="metric-label">Time Index Size</div>
+                    <div class="metric-value">${stats.timeIndexSize || 0}</div>
+                </div>
+            </div>
+        `;
+
+        const episodes = this.episodeStoreData.recentEpisodes || [];
+        if (episodes.length === 0) {
+            list.innerHTML = '<li class="memory-item">No recent episodes</li>';
+            return;
+        }
+
+        list.innerHTML = episodes.map(episode => {
+            const id = this.escapeHtml(episode.id || 'unknown');
+            const type = this.escapeHtml(episode.type || 'unknown');
+            const timestamp = new Date(episode.timestamp).toLocaleString();
+
+            return `
+                <li class="memory-item">
+                    <div class="memory-domain">Episode: ${id}</div>
+                    <div class="memory-content">Type: ${type} | ${timestamp}</div>
+                </li>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Load UCM Context data
+     */
+    async loadUcmContext() {
+        try {
+            const res = await fetch('/api/memory/ucm');
+            if (res.ok) {
+                const data = await res.json();
+                this.ucmContextData = data;
+                this.renderUcmContext();
+            }
+        } catch (error) {
+            console.error('Error loading UCM Context:', error);
+        }
+    }
+
+    /**
+     * Render UCM Context entries
+     */
+    renderUcmContext() {
+        const statsDiv = document.getElementById('ucmStats');
+        const list = document.getElementById('ucmContextList');
+
+        if (!this.ucmContextData) {
+            list.innerHTML = '<li class="memory-item">No data in UCM Context</li>';
+            return;
+        }
+
+        const stats = this.ucmContextData.stats || {};
+        statsDiv.innerHTML = `
+            <div class="memory-stats">
+                <div class="stat-card">
+                    <div class="metric-label">Context Size</div>
+                    <div class="metric-value">${stats.contextSize || 0} tokens</div>
+                </div>
+                <div class="stat-card">
+                    <div class="metric-label">Pinned Items</div>
+                    <div class="metric-value">${stats.pinnedItems || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="metric-label">Rolling Window</div>
+                    <div class="metric-value">${stats.rollingWindowSize || 0}</div>
+                </div>
+            </div>
+        `;
+
+        const entries = this.ucmContextData.contextEntries || [];
+        if (entries.length === 0) {
+            list.innerHTML = '<li class="memory-item">No context entries</li>';
+            return;
+        }
+
+        list.innerHTML = entries.map(entry => {
+            const tier = this.escapeHtml(entry.tier || 'unknown');
+            const preview = this.escapeHtml((entry.content || '').substring(0, 200));
+
+            return `
+                <li class="memory-item">
+                    <div class="memory-domain">Tier: ${tier}</div>
+                    <div class="memory-content">${preview}...</div>
+                </li>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Load Hyperedge Store data
+     */
+    async loadHyperedgeStore() {
+        try {
+            const res = await fetch('/api/memory/hyperedges');
+            if (res.ok) {
+                const data = await res.json();
+                this.hyperedgeStoreData = data;
+                this.renderHyperedgeStore();
+            }
+        } catch (error) {
+            console.error('Error loading Hyperedge Store:', error);
+        }
+    }
+
+    /**
+     * Render Hyperedge Store entries
+     */
+    renderHyperedgeStore() {
+        const statsDiv = document.getElementById('hyperedgeStats');
+        const list = document.getElementById('hyperedgeList');
+
+        if (!this.hyperedgeStoreData) {
+            list.innerHTML = '<li class="memory-item">No data in Hyperedge Store</li>';
+            return;
+        }
+
+        const stats = this.hyperedgeStoreData.stats || {};
+        statsDiv.innerHTML = `
+            <div class="memory-stats">
+                <div class="stat-card">
+                    <div class="metric-label">Q&A Pairs</div>
+                    <div class="metric-value">${stats.qaPairs || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="metric-label">Causal Chains</div>
+                    <div class="metric-value">${stats.causalChains || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="metric-label">Communities</div>
+                    <div class="metric-value">${stats.communities || 0}</div>
+                </div>
+            </div>
+        `;
+
+        const hyperedges = this.hyperedgeStoreData.recentHyperedges || [];
+        if (hyperedges.length === 0) {
+            list.innerHTML = '<li class="memory-item">No recent hyperedges</li>';
+            return;
+        }
+
+        list.innerHTML = hyperedges.map(edge => {
+            const type = this.escapeHtml(edge.type || 'unknown');
+            const id = this.escapeHtml(edge.id || 'unknown');
+            const nodes = edge.nodeCount || 0;
+
+            return `
+                <li class="memory-item">
+                    <div class="memory-domain">${type}: ${id}</div>
+                    <div class="memory-content">Nodes: ${nodes}</div>
                 </li>
             `;
         }).join('');

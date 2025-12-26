@@ -30,6 +30,15 @@
                             <option value="pipeline">Pipelines</option>
                             <option value="routing">Routing</option>
                             <option value="learning">Learning</option>
+                            <option value="ucm">UCM</option>
+                            <option value="idesc">IDESC</option>
+                            <option value="episode">Episode</option>
+                            <option value="hyperedge">Hyperedge</option>
+                            <option value="embedding">Embedding</option>
+                            <option value="daemon">Daemon</option>
+                            <option value="token_budget">Token Budget</option>
+                            <option value="search">Search</option>
+                            <option value="memory">Memory</option>
                         </select>
                     </label>
                     <label>
@@ -102,6 +111,158 @@
             </div>
         </section>
 
+        <!-- UCM & IDESC Panel -->
+        <section class="panel ucm-panel">
+            <div class="panel-header">
+                <h2>UCM & IDESC v2</h2>
+            </div>
+            <div class="panel-body">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Episodes Stored</span>
+                        <span class="metric-value" id="ucmEpisodesStored">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Context Size</span>
+                        <span class="metric-value" id="ucmContextSize">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Outcomes Recorded</span>
+                        <span class="metric-value" id="idescOutcomes">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Injection Rate</span>
+                        <span class="metric-value" id="idescInjectionRate">0%</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Negative Warnings</span>
+                        <span class="metric-value" id="idescNegativeWarnings">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Threshold Adj.</span>
+                        <span class="metric-value" id="idescThresholdAdj">0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Agent Registry Panel -->
+        <section class="panel registry-panel">
+            <div class="panel-header">
+                <h2>Agent Registry</h2>
+                <span class="count-badge" id="totalAgentCount">264</span>
+            </div>
+            <div class="panel-body">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Total Agents</span>
+                        <span class="metric-value" id="registryTotal">264</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Categories</span>
+                        <span class="metric-value" id="registryCategories">30</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Selections Today</span>
+                        <span class="metric-value" id="registrySelections">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Embedding Dim</span>
+                        <span class="metric-value" id="embeddingDim">1536</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Episode & Hyperedge Panel -->
+        <section class="panel hyperedge-panel">
+            <div class="panel-header">
+                <h2>Episode & Hyperedge</h2>
+            </div>
+            <div class="panel-body">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Episodes Linked</span>
+                        <span class="metric-value" id="episodesLinked">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Time Index Size</span>
+                        <span class="metric-value" id="timeIndexSize">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Q&A Hyperedges</span>
+                        <span class="metric-value" id="qaHyperedges">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Causal Chains</span>
+                        <span class="metric-value" id="causalChains">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Loops Detected</span>
+                        <span class="metric-value" id="loopsDetected">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Communities</span>
+                        <span class="metric-value" id="communities">0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Token Budget Panel -->
+        <section class="panel token-panel">
+            <div class="panel-header">
+                <h2>Token Budget</h2>
+            </div>
+            <div class="panel-body">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Budget Usage</span>
+                        <span class="metric-value" id="tokenBudgetUsage">0%</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Warnings</span>
+                        <span class="metric-value" id="tokenWarnings">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Summarizations</span>
+                        <span class="metric-value" id="summarizations">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Rolling Window</span>
+                        <span class="metric-value" id="rollingWindowSize">0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Daemon Health Panel -->
+        <section class="panel daemon-panel">
+            <div class="panel-header">
+                <h2>Daemon Health</h2>
+            </div>
+            <div class="panel-body">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Status</span>
+                        <span class="metric-value status-healthy" id="daemonStatus">Healthy</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Uptime</span>
+                        <span class="metric-value" id="daemonUptime">0s</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Events Processed</span>
+                        <span class="metric-value" id="daemonEvents">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Memory Usage</span>
+                        <span class="metric-value" id="daemonMemory">0 MB</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Memory Inspector Panel (Full Width) -->
         <section class="panel memory-panel">
             <div class="panel-header">
@@ -111,6 +272,9 @@
                 <div class="tabs">
                     <button class="tab-button active" data-tab="interaction-store">InteractionStore</button>
                     <button class="tab-button" data-tab="reasoning-bank">ReasoningBank</button>
+                    <button class="tab-button" data-tab="episode-store">EpisodeStore</button>
+                    <button class="tab-button" data-tab="ucm-context">UCM Context</button>
+                    <button class="tab-button" data-tab="hyperedge-store">Hyperedge</button>
                 </div>
                 <div class="tab-content active" id="interaction-store">
                     <div class="memory-search">
@@ -121,6 +285,18 @@
                 <div class="tab-content" id="reasoning-bank">
                     <div class="memory-stats" id="reasoningStats"></div>
                     <ul id="reasoningList" class="memory-list"></ul>
+                </div>
+                <div class="tab-content" id="episode-store">
+                    <div class="memory-stats" id="episodeStats"></div>
+                    <ul id="episodeList" class="memory-list"></ul>
+                </div>
+                <div class="tab-content" id="ucm-context">
+                    <div class="memory-stats" id="ucmStats"></div>
+                    <ul id="ucmContextList" class="memory-list"></ul>
+                </div>
+                <div class="tab-content" id="hyperedge-store">
+                    <div class="memory-stats" id="hyperedgeStats"></div>
+                    <ul id="hyperedgeList" class="memory-list"></ul>
                 </div>
             </div>
         </section>

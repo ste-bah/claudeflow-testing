@@ -898,4 +898,192 @@ export const METRICS = {
     [],
     [10, 20, 50, 100, 200]
   ),
+
+  // ===========================================
+  // UCM (Unbounded Context Memory) metrics
+  // ===========================================
+
+  ucmEpisodeStored: metricsCollector.createCounter(
+    'ucm_episode_stored_total',
+    'Total episodes stored in UCM',
+    ['type', 'quality']
+  ),
+
+  ucmEpisodeRetrieved: metricsCollector.createCounter(
+    'ucm_episode_retrieved_total',
+    'Total episodes retrieved from UCM',
+    ['source', 'confidence']
+  ),
+
+  ucmContextSize: metricsCollector.createGauge(
+    'ucm_context_size_tokens',
+    'Current context size in tokens',
+    ['tier']
+  ),
+
+  ucmRollingWindowSize: metricsCollector.createGauge(
+    'ucm_rolling_window_size',
+    'Current rolling window size',
+    []
+  ),
+
+  // ===========================================
+  // IDESC v2 (Intelligent Dual Embedding) metrics
+  // ===========================================
+
+  idescOutcomeRecorded: metricsCollector.createCounter(
+    'idesc_outcome_recorded_total',
+    'Total outcomes recorded by IDESC',
+    ['outcome', 'confidence']
+  ),
+
+  idescOutcomeLatency: metricsCollector.createHistogram(
+    'idesc_outcome_latency_ms',
+    'IDESC outcome recording latency in milliseconds',
+    [],
+    [1, 2, 5, 10, 20, 50]
+  ),
+
+  idescInjectionDecisions: metricsCollector.createCounter(
+    'idesc_injection_decisions_total',
+    'Total injection decisions made',
+    ['decision', 'reason']
+  ),
+
+  idescShouldInjectLatency: metricsCollector.createHistogram(
+    'idesc_should_inject_latency_ms',
+    'shouldInject decision latency in milliseconds',
+    [],
+    [5, 10, 20, 30, 50, 100]
+  ),
+
+  idescNegativeWarnings: metricsCollector.createCounter(
+    'idesc_negative_warnings_total',
+    'Total negative example warnings issued',
+    ['severity']
+  ),
+
+  idescThresholdAdjustments: metricsCollector.createCounter(
+    'idesc_threshold_adjustments_total',
+    'Total threshold adjustments made',
+    ['direction']
+  ),
+
+  // ===========================================
+  // Episode System metrics
+  // ===========================================
+
+  episodeLinked: metricsCollector.createCounter(
+    'episode_linked_total',
+    'Total episodes linked to trajectories',
+    ['link_type']
+  ),
+
+  episodeLinkLatency: metricsCollector.createHistogram(
+    'episode_link_latency_ms',
+    'Episode linking latency in milliseconds',
+    [],
+    [1, 5, 10, 20, 50]
+  ),
+
+  episodeTimeIndexSize: metricsCollector.createGauge(
+    'episode_time_index_size',
+    'Current size of episode time index',
+    []
+  ),
+
+  // ===========================================
+  // Embedding System metrics (1536D)
+  // ===========================================
+
+  embeddingDimensions: metricsCollector.createGauge(
+    'embedding_dimensions',
+    'Current embedding dimensions (1536 for gte-Qwen2)',
+    []
+  ),
+
+  embeddingGenerated: metricsCollector.createCounter(
+    'embedding_generated_total',
+    'Total embeddings generated',
+    ['model', 'source']
+  ),
+
+  embeddingLatency: metricsCollector.createHistogram(
+    'embedding_latency_ms',
+    'Embedding generation latency in milliseconds',
+    ['model'],
+    [5, 10, 20, 50, 100, 200]
+  ),
+
+  embeddingCacheHit: metricsCollector.createCounter(
+    'embedding_cache_hit_total',
+    'Total embedding cache hits',
+    []
+  ),
+
+  // ===========================================
+  // Agent Registry metrics
+  // ===========================================
+
+  agentRegistryTotal: metricsCollector.createGauge(
+    'agent_registry_total',
+    'Total agents registered (264 agents across 30 categories)',
+    []
+  ),
+
+  agentCategoryCount: metricsCollector.createGauge(
+    'agent_category_count',
+    'Agents per category',
+    ['category']
+  ),
+
+  agentSelectionCount: metricsCollector.createCounter(
+    'agent_selection_total',
+    'Total agent selections by routing',
+    ['agent_key', 'confidence_bucket']
+  ),
+
+  // ===========================================
+  // Token Budget metrics
+  // ===========================================
+
+  tokenBudgetUsage: metricsCollector.createGauge(
+    'token_budget_usage_percent',
+    'Current token budget usage percentage',
+    ['tier']
+  ),
+
+  tokenBudgetWarnings: metricsCollector.createCounter(
+    'token_budget_warnings_total',
+    'Total token budget warning events',
+    ['severity']
+  ),
+
+  summarizationTriggered: metricsCollector.createCounter(
+    'summarization_triggered_total',
+    'Total summarization triggers',
+    ['reason']
+  ),
+
+  // ===========================================
+  // Daemon System metrics
+  // ===========================================
+
+  daemonHealth: metricsCollector.createGauge(
+    'daemon_health_status',
+    'Daemon health status (1=healthy, 0.5=degraded, 0=unhealthy)',
+    ['daemon_type']
+  ),
+
+  daemonUptime: metricsCollector.createGauge(
+    'daemon_uptime_seconds',
+    'Daemon uptime in seconds',
+    ['daemon_type']
+  ),
+
+  daemonEventProcessed: metricsCollector.createCounter(
+    'daemon_event_processed_total',
+    'Total events processed by daemon',
+    ['daemon_type', 'event_type']
+  ),
 };
