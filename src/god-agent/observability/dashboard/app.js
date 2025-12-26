@@ -164,6 +164,9 @@ class DashboardApp {
                         stages: pipeline.stages || [],
                         startTime: pipeline.startTime || pipeline.timestamp,
                         duration: pipeline.duration || 0,
+                        totalSteps: pipeline.totalSteps || 0,
+                        completedSteps: pipeline.completedSteps || 0,
+                        progress: pipeline.progress || 0,
                     });
                 });
                 this.renderPipelines();
@@ -740,9 +743,11 @@ class DashboardApp {
      * Update learning metrics and chart
      */
     updateLearningMetrics(stats) {
-        // Update summary metrics
-        document.getElementById('patternCount').textContent = (stats.patternCount || 0).toString();
-        document.getElementById('avgQuality').textContent = (stats.avgQuality || 0).toFixed(2);
+        // Update summary metrics - handle both API field names
+        const patterns = stats.patternCount || stats.patternsLearned || 0;
+        const quality = stats.avgQuality || stats.learnedQuality || 0;
+        document.getElementById('patternCount').textContent = patterns.toString();
+        document.getElementById('avgQuality').textContent = quality.toFixed(2);
 
         // Update chart with quality history
         if (stats.qualityHistory && Array.isArray(stats.qualityHistory)) {
