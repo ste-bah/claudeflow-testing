@@ -25,6 +25,8 @@ import {
   isCriticalAgent,
   PHASE_NAMES,
 } from './pipeline-types.js';
+import { SocketClient } from '../../observability/socket-client.js';
+import type { IActivityEvent } from '../../observability/types.js';
 
 // ==================== Agent Executor Interface ====================
 
@@ -63,6 +65,7 @@ export class PhDPipelineOrchestrator {
   private tracker?: IShadowTracker;
   private state: IPipelineState | null = null;
   private verbose: boolean;
+  private socketClient: SocketClient | null = null;
 
   constructor(
     config: IPipelineConfig,
@@ -75,6 +78,40 @@ export class PhDPipelineOrchestrator {
     this.verbose = options.verbose ?? false;
 
     this.validateConfig();
+    this.initSocketClient();
+  }
+
+  /**
+   * Initialize socket client for observability events
+   */
+  private async initSocketClient(): Promise<void> {
+    try {
+      this.socketClient = new SocketClient({ verbose: false });
+      await this.socketClient.connect();
+    } catch {
+      // Non-blocking - observability is optional
+      if (this.verbose) {
+        console.debug('[PhD Pipeline] Socket client initialization failed (observability disabled)');
+      }
+    }
+  }
+
+  /**
+   * Emit event to observability daemon
+   */
+  private emitEvent(event: Omit<IActivityEvent, 'id' | 'timestamp'>): void {
+    if (!this.socketClient) return;
+
+    try {
+      const fullEvent: IActivityEvent = {
+        id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: Date.now(),
+        ...event,
+      };
+      this.socketClient.send(fullEvent);
+    } catch {
+      // Non-blocking
+    }
   }
 
   // ==================== Configuration Validation ====================
@@ -202,6 +239,20 @@ export class PhDPipelineOrchestrator {
     this.state = createPipelineState(generatePipelineId());
     this.state.status = 'running';
 
+    // Emit pipeline_started event
+    this.emitEvent({
+      component: 'pipeline',
+      operation: 'pipeline_started',
+      status: 'running',
+      metadata: {
+        pipelineId: this.state.pipelineId,
+        name: this.config.pipeline.name,
+        taskType: 'research',
+        totalSteps: this.config.pipeline.totalAgents,
+        steps: this.config.agents.map(a => a.key),
+      },
+    });
+
     try {
       // Execute each phase sequentially
       for (const phase of this.config.phases) {
@@ -215,6 +266,21 @@ export class PhDPipelineOrchestrator {
       this.state.status = 'completed';
       this.state.endTime = Date.now();
 
+      // Emit pipeline_completed event
+      this.emitEvent({
+        component: 'pipeline',
+        operation: 'pipeline_completed',
+        status: 'success',
+        durationMs: this.state.endTime - this.state.startTime,
+        metadata: {
+          pipelineId: this.state.pipelineId,
+          name: this.config.pipeline.name,
+          totalSteps: this.config.pipeline.totalAgents,
+          completedSteps: this.state.completedAgents.size,
+          progress: 100,
+        },
+      });
+
       if (this.verbose) {
         console.log('[PhD Pipeline] Execution completed successfully');
       }
@@ -222,6 +288,19 @@ export class PhDPipelineOrchestrator {
     } catch (error) {
       this.state.status = 'failed';
       this.state.endTime = Date.now();
+
+      // Emit pipeline_failed event
+      this.emitEvent({
+        component: 'pipeline',
+        operation: 'pipeline_failed',
+        status: 'error',
+        durationMs: this.state.endTime - this.state.startTime,
+        metadata: {
+          pipelineId: this.state.pipelineId,
+          name: this.config.pipeline.name,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
 
       if (this.verbose) {
         console.error('[PhD Pipeline] Execution failed:', error);
@@ -292,6 +371,9 @@ export class PhDPipelineOrchestrator {
       console.log(`[PhD Pipeline] Executing agent #${agent.id}: ${agent.key}`);
     }
 
+    const stepId = `step_${this.state!.pipelineId}_${agent.id}_${Math.random().toString(36).slice(2, 8)}`;
+    const phaseName = PHASE_NAMES[agent.phase] || `Phase ${agent.phase}`;
+
     // Create execution record
     const record: IAgentExecutionRecord = {
       agentId: agent.id,
@@ -302,6 +384,36 @@ export class PhDPipelineOrchestrator {
     };
 
     this.state!.executionRecords.set(agent.id, record);
+
+    // Emit step_started event
+    this.emitEvent({
+      component: 'pipeline',
+      operation: 'step_started',
+      status: 'running',
+      metadata: {
+        pipelineId: this.state!.pipelineId,
+        stepId,
+        stepName: agent.key,
+        stepIndex: this.state!.completedAgents.size,
+        agentType: agent.key,
+        phase: phaseName,
+        progress: (this.state!.completedAgents.size / this.config.pipeline.totalAgents) * 100,
+      },
+    });
+
+    // Emit agent_started event for agent tracking
+    this.emitEvent({
+      component: 'agent',
+      operation: 'agent_started',
+      status: 'running',
+      metadata: {
+        agentId: `agent_${agent.key}_${stepId}`,
+        agentName: agent.name,
+        agentType: agent.key,
+        category: phaseName,
+        pipelineId: this.state!.pipelineId,
+      },
+    });
 
     // Gather inputs from dependencies
     const inputs = this.gatherInputs(agent);
@@ -320,6 +432,40 @@ export class PhDPipelineOrchestrator {
       // Store output
       this.state!.agentOutputs.set(agent.id, output);
       this.state!.completedAgents.add(agent.id);
+
+      const completedCount = this.state!.completedAgents.size;
+      const progress = (completedCount / this.config.pipeline.totalAgents) * 100;
+
+      // Emit step_completed event
+      this.emitEvent({
+        component: 'pipeline',
+        operation: 'step_completed',
+        status: 'success',
+        durationMs: record.durationMs,
+        metadata: {
+          pipelineId: this.state!.pipelineId,
+          stepId,
+          stepName: agent.key,
+          progress,
+          completedSteps: completedCount,
+          totalSteps: this.config.pipeline.totalAgents,
+        },
+      });
+
+      // Emit agent_completed event for agent tracking
+      this.emitEvent({
+        component: 'agent',
+        operation: 'agent_completed',
+        status: 'success',
+        durationMs: record.durationMs,
+        metadata: {
+          agentId: `agent_${agent.key}_${stepId}`,
+          agentName: agent.name,
+          agentType: agent.key,
+          category: phaseName,
+          pipelineId: this.state!.pipelineId,
+        },
+      });
 
       // Track in Shadow Vector
       if (this.tracker) {
@@ -341,6 +487,20 @@ export class PhDPipelineOrchestrator {
       record.durationMs = record.endTime - record.startTime;
       record.status = 'failed';
       record.error = error instanceof Error ? error.message : String(error);
+
+      // Emit step_failed event
+      this.emitEvent({
+        component: 'pipeline',
+        operation: 'step_failed',
+        status: 'error',
+        durationMs: record.durationMs,
+        metadata: {
+          pipelineId: this.state!.pipelineId,
+          stepId,
+          stepName: agent.key,
+          error: record.error,
+        },
+      });
 
       // Add to errors list
       this.state!.errors.push({

@@ -394,7 +394,7 @@ export class ExpressServer implements IExpressServer {
       // Fall back to EventStore for historical pipeline data
       const pipelineEvents = await this.eventStore.query({
         component: 'pipeline',
-        limit: 100,
+        limit: 200,
       });
 
       // Derive unique pipelines from events
@@ -402,29 +402,79 @@ export class ExpressServer implements IExpressServer {
 
       for (const event of pipelineEvents) {
         const pipelineId = event.metadata?.pipelineId || event.id;
+        const operation = event.operation || event.action;
+
         if (!pipelineMap.has(pipelineId)) {
+          // Initialize pipeline from first event
           pipelineMap.set(pipelineId, {
             id: pipelineId,
-            name: event.metadata?.pipelineName || `Pipeline ${pipelineId.slice(0, 8)}`,
-            status: event.action === 'completed' ? 'completed' :
-                    event.action === 'failed' ? 'failed' : 'running',
-            stages: event.metadata?.stages || [],
+            name: event.metadata?.name || event.metadata?.pipelineName || 'Unknown Pipeline',
+            status: 'running',
+            totalSteps: event.metadata?.totalSteps || 0,
+            completedSteps: 0,
+            currentStep: null,
+            steps: event.metadata?.steps || [],
+            stages: [],
             startTime: event.timestamp,
-            duration: event.metadata?.duration || 0,
+            duration: 0,
+            taskType: event.metadata?.taskType || 'unknown',
           });
-        } else {
-          // Update with latest status
-          const pipeline = pipelineMap.get(pipelineId);
-          if (event.action === 'completed' || event.action === 'failed') {
-            pipeline.status = event.action;
-            pipeline.duration = event.metadata?.duration ||
-              (new Date(event.timestamp).getTime() - new Date(pipeline.startTime).getTime());
+        }
+
+        const pipeline = pipelineMap.get(pipelineId);
+
+        // Process different event types
+        if (operation === 'pipeline_started') {
+          pipeline.name = event.metadata?.name || pipeline.name;
+          pipeline.totalSteps = event.metadata?.totalSteps || pipeline.totalSteps;
+          pipeline.steps = event.metadata?.steps || pipeline.steps;
+          pipeline.taskType = event.metadata?.taskType || pipeline.taskType;
+        } else if (operation === 'step_started') {
+          pipeline.currentStep = event.metadata?.stepName;
+          // Track step in stages array
+          const stepInfo = {
+            name: event.metadata?.stepName,
+            status: 'running',
+            agentType: event.metadata?.agentType,
+            phase: event.metadata?.phase,
+            startTime: event.timestamp,
+          };
+          // Only add if not already tracking this step
+          const existingStep = pipeline.stages.find((s: any) =>
+            s.name === stepInfo.name && s.status === 'running'
+          );
+          if (!existingStep) {
+            pipeline.stages.push(stepInfo);
           }
+        } else if (operation === 'step_completed') {
+          pipeline.completedSteps = event.metadata?.completedSteps || pipeline.completedSteps + 1;
+          pipeline.currentStep = null;
+          // Mark step as completed
+          const step = pipeline.stages.find((s: any) =>
+            s.name === event.metadata?.stepName && s.status === 'running'
+          );
+          if (step) {
+            step.status = 'completed';
+            step.endTime = event.timestamp;
+          }
+        } else if (operation === 'pipeline_completed') {
+          pipeline.status = 'completed';
+          pipeline.duration = event.metadata?.durationMs || event.durationMs ||
+            (event.timestamp - pipeline.startTime);
+        } else if (operation === 'pipeline_failed' || operation === 'step_failed') {
+          pipeline.status = 'failed';
+        }
+      }
+
+      // Calculate progress for running pipelines
+      for (const pipeline of pipelineMap.values()) {
+        if (pipeline.totalSteps > 0) {
+          pipeline.progress = Math.round((pipeline.completedSteps / pipeline.totalSteps) * 100);
         }
       }
 
       const pipelines = Array.from(pipelineMap.values())
-        .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+        .sort((a, b) => b.startTime - a.startTime)
         .slice(0, 10);
 
       res.setHeader('Content-Type', 'application/json');
