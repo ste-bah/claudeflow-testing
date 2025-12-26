@@ -135,7 +135,16 @@ class DashboardApp {
                 const data = await agentsRes.json();
                 const agents = data.agents || data || [];
                 agents.forEach(agent => {
-                    this.agents.set(agent.agentId, agent);
+                    // Normalize agent ID field
+                    const agentId = agent.agentId || agent.id;
+                    this.agents.set(agentId, {
+                        agentId: agentId,
+                        type: agent.type || agent.name || agent.category || 'general',
+                        name: agent.name || agentId,
+                        status: agent.status || 'idle',
+                        taskCount: agent.taskCount || 0,
+                        lastSeen: agent.lastSeen || agent.timestamp || new Date().toISOString(),
+                    });
                 });
                 this.renderAgents();
             }
@@ -146,9 +155,27 @@ class DashboardApp {
                 const data = await pipelinesRes.json();
                 const pipelines = data.pipelines || data || [];
                 pipelines.forEach(pipeline => {
-                    this.pipelines.set(pipeline.pipelineId, pipeline);
+                    // Normalize pipeline ID field
+                    const pipelineId = pipeline.pipelineId || pipeline.id;
+                    this.pipelines.set(pipelineId, {
+                        pipelineId: pipelineId,
+                        type: pipeline.type || pipeline.name || 'pipeline',
+                        status: pipeline.status || 'completed',
+                        stages: pipeline.stages || [],
+                        startTime: pipeline.startTime || pipeline.timestamp,
+                        duration: pipeline.duration || 0,
+                    });
                 });
                 this.renderPipelines();
+            }
+
+            // Load routing decisions
+            const routingRes = await fetch('/api/routing');
+            if (routingRes.ok) {
+                const data = await routingRes.json();
+                const decisions = data.decisions || data || [];
+                this.routingDecisions = decisions;
+                this.renderRoutingDecisions();
             }
 
             // Load learning stats
