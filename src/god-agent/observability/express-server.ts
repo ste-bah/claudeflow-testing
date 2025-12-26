@@ -318,28 +318,63 @@ export class ExpressServer implements IExpressServer {
         return;
       }
 
-      // Fall back to EventStore for historical agent data
+      // Derive unique agents from events
+      const agentMap = new Map<string, any>();
+
+      // Check pipeline step events for active agents (most reliable source)
+      const pipelineEvents = await this.eventStore.query({
+        component: 'pipeline',
+        limit: 100,
+      });
+
+      // Track completed steps to determine which are still running
+      const completedSteps = new Set<string>();
+      for (const event of pipelineEvents) {
+        if (event.operation === 'step_completed' || event.operation === 'step_failed') {
+          completedSteps.add(event.metadata?.stepId as string);
+        }
+      }
+
+      // Find running agents from step_started events
+      for (const event of pipelineEvents) {
+        if (event.operation === 'step_started') {
+          const stepId = event.metadata?.stepId as string;
+          const agentType = event.metadata?.agentType || event.metadata?.stepName;
+          
+          // Only include if not completed
+          if (agentType && !completedSteps.has(stepId)) {
+            const agentId = `${agentType}_${stepId}`;
+            if (!agentMap.has(agentId)) {
+              agentMap.set(agentId, {
+                id: agentId,
+                name: agentType,
+                type: agentType,
+                category: event.metadata?.phase || 'pipeline',
+                status: 'running',
+                lastSeen: event.timestamp,
+                taskCount: 1,
+                pipelineId: event.metadata?.pipelineId,
+              });
+            }
+          }
+        }
+      }
+
+      // Fall back to agent component events
       const agentEvents = await this.eventStore.query({
         component: 'agent',
         limit: 100,
       });
 
-      const routingEvents = await this.eventStore.query({
-        component: 'routing',
-        limit: 100,
-      });
-
-      // Derive unique agents from events
-      const agentMap = new Map<string, any>();
-
       for (const event of agentEvents) {
-        const agentId = event.metadata?.agentId || event.metadata?.agent;
+        const agentId = event.metadata?.executionId || event.metadata?.agentId || event.metadata?.agent;
         if (agentId && !agentMap.has(agentId)) {
           agentMap.set(agentId, {
             id: agentId,
-            name: event.metadata?.agentName || agentId,
-            category: event.metadata?.category || 'general',
-            status: 'idle',
+            name: event.metadata?.agentName || event.metadata?.agentKey || agentId,
+            type: event.metadata?.agentKey || event.metadata?.agentType,
+            category: event.metadata?.agentCategory || event.metadata?.category || 'general',
+            status: event.operation === 'agent_started' ? 'running' : 'idle',
             lastSeen: event.timestamp,
             taskCount: 0,
           });
@@ -347,6 +382,11 @@ export class ExpressServer implements IExpressServer {
       }
 
       // Enrich with routing selection data
+      const routingEvents = await this.eventStore.query({
+        component: 'routing',
+        limit: 100,
+      });
+
       for (const event of routingEvents) {
         const agentId = event.metadata?.selectedAgent || event.metadata?.agentId;
         if (agentId) {
@@ -366,7 +406,7 @@ export class ExpressServer implements IExpressServer {
       }
 
       const agents = Array.from(agentMap.values())
-        .sort((a, b) => b.taskCount - a.taskCount)
+        .sort((a, b) => b.lastSeen - a.lastSeen)
         .slice(0, 20);
 
       res.setHeader('Content-Type', 'application/json');

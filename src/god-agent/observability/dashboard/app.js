@@ -239,6 +239,8 @@ class DashboardApp {
             this.eventSource.addEventListener('agent_completed', (e) => this.handleAgentCompleted(e));
             this.eventSource.addEventListener('pipeline_started', (e) => this.handlePipelineStarted(e));
             this.eventSource.addEventListener('pipeline_completed', (e) => this.handlePipelineCompleted(e));
+            this.eventSource.addEventListener('step_started', (e) => this.handleStepStarted(e));
+            this.eventSource.addEventListener('step_completed', (e) => this.handleStepCompleted(e));
             this.eventSource.addEventListener('routing_decision', (e) => this.handleRoutingDecision(e));
             this.eventSource.addEventListener('activity', (e) => this.handleActivity(e));
             this.eventSource.addEventListener('learning_update', (e) => this.handleLearningUpdate(e));
@@ -357,6 +359,71 @@ class DashboardApp {
             `Pipeline ${pipeline?.type || data.pipelineId} ${data.success ? 'completed' : 'failed'}`, data);
     }
 
+    handleStepStarted(event) {
+        const data = JSON.parse(event.data);
+        const meta = data.metadata || data;
+        const pipelineId = meta.pipelineId;
+
+        if (!pipelineId) return;
+
+        let pipeline = this.pipelines.get(pipelineId);
+        if (!pipeline) {
+            // Create pipeline entry if it doesn't exist
+            pipeline = {
+                pipelineId: pipelineId,
+                type: 'PHD Research Pipeline',
+                status: 'running',
+                stages: [],
+                totalSteps: meta.totalSteps || 28,
+                completedSteps: meta.stepIndex || 0,
+                startTime: data.timestamp,
+                progress: meta.progress || 0,
+            };
+            this.pipelines.set(pipelineId, pipeline);
+        }
+
+        // Add to stages if not already present
+        const stageName = meta.stepName || meta.agentType;
+        if (stageName && !pipeline.stages.find(s => s.name === stageName)) {
+            pipeline.stages.push({
+                name: stageName,
+                status: 'running',
+                agentType: meta.agentType,
+                phase: meta.phase,
+                startTime: data.timestamp,
+            });
+        }
+
+        this.renderPipelines();
+        this.addActivity('pipeline', 'running', `Step started: ${stageName}`, data);
+    }
+
+    handleStepCompleted(event) {
+        const data = JSON.parse(event.data);
+        const meta = data.metadata || data;
+        const pipelineId = meta.pipelineId;
+
+        if (!pipelineId) return;
+
+        const pipeline = this.pipelines.get(pipelineId);
+        if (pipeline) {
+            // Update completed steps
+            pipeline.completedSteps = meta.completedSteps || (pipeline.completedSteps + 1);
+            pipeline.progress = meta.progress || (pipeline.completedSteps / pipeline.totalSteps * 100);
+
+            // Update stage status
+            const stageName = meta.stepName || meta.agentType;
+            const stage = pipeline.stages.find(s => s.name === stageName);
+            if (stage) {
+                stage.status = 'completed';
+                stage.endTime = data.timestamp;
+            }
+        }
+
+        this.renderPipelines();
+        this.addActivity('pipeline', 'success', `Step completed: ${meta.stepName}`, data);
+    }
+
     handleRoutingDecision(event) {
         const data = JSON.parse(event.data);
         this.routingDecisions.unshift(data);
@@ -369,7 +436,36 @@ class DashboardApp {
 
     handleActivity(event) {
         const data = JSON.parse(event.data);
-        this.addActivity(data.component || 'system', data.status || 'info', data.message, data);
+        const message = this.formatActivityMessage(data);
+        this.addActivity(data.component || 'system', data.status || 'info', message, data);
+    }
+
+    formatActivityMessage(data) {
+        const op = data.operation || '';
+        const meta = data.metadata || {};
+
+        // Generate human-readable message from operation and metadata
+        if (op === 'step_started') {
+            return `Step started: ${meta.stepName || meta.agentType || 'unknown'}`;
+        } else if (op === 'step_completed') {
+            return `Step completed: ${meta.stepName || meta.agentType || 'unknown'}`;
+        } else if (op === 'agent_started') {
+            return `Agent started: ${meta.agentName || meta.agentKey || 'unknown'}`;
+        } else if (op === 'agent_completed') {
+            return `Agent completed: ${meta.agentName || meta.agentKey || 'unknown'}`;
+        } else if (op === 'pipeline_started') {
+            return `Pipeline started: ${meta.type || meta.pipelineId || 'unknown'}`;
+        } else if (op === 'pipeline_completed') {
+            return `Pipeline completed: ${meta.type || meta.pipelineId || 'unknown'}`;
+        } else if (op === 'learning_feedback') {
+            return `Learning feedback: quality ${(meta.quality || 0).toFixed(2)}`;
+        } else if (op === 'memory_stored') {
+            return `Memory stored: ${meta.domain || 'unknown'} (${meta.contentLength || 0} chars)`;
+        } else if (op.includes('routing')) {
+            return `Routed to: ${meta.selectedAgent || 'unknown'}`;
+        }
+
+        return data.message || op || `${data.component} event`;
     }
 
     handleLearningUpdate(event) {

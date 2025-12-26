@@ -324,10 +324,18 @@ export class SocketServer implements ISocketServer {
       // Route to ALL base components
       this.deps.activityStream.push(event);
       this.deps.eventStore.insert(event);
+      
+      // Broadcast with operation as event type for specific handlers
+      // AND as generic activity_event for the activity feed
       this.deps.sseBroadcaster.broadcast({
-        type: 'activity_event',
+        type: event.operation,
         data: event,
         id: event.id,
+      });
+      this.deps.sseBroadcaster.broadcast({
+        type: 'activity',
+        data: event,
+        id: event.id + '_activity',
       });
 
       // Route based on component

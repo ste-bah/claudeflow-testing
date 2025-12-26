@@ -407,11 +407,12 @@ export class PhDPipelineOrchestrator {
       operation: 'agent_started',
       status: 'running',
       metadata: {
-        agentId: `agent_${agent.key}_${stepId}`,
+        executionId: `agent_${agent.key}_${stepId}`,
+        agentKey: agent.key,
         agentName: agent.name,
-        agentType: agent.key,
-        category: phaseName,
+        agentCategory: phaseName,
         pipelineId: this.state!.pipelineId,
+        taskPreview: `Executing ${agent.name} for PhD research pipeline`,
       },
     });
 
@@ -459,11 +460,12 @@ export class PhDPipelineOrchestrator {
         status: 'success',
         durationMs: record.durationMs,
         metadata: {
-          agentId: `agent_${agent.key}_${stepId}`,
+          executionId: `agent_${agent.key}_${stepId}`,
+          agentKey: agent.key,
           agentName: agent.name,
-          agentType: agent.key,
-          category: phaseName,
+          agentCategory: phaseName,
           pipelineId: this.state!.pipelineId,
+          outputPreview: 'Agent completed successfully',
         },
       });
 
