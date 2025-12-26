@@ -1,0 +1,73 @@
+{
+  "name": "god-agent",
+  "version": "1.0.0",
+  "description": "God Agent - Advanced AI Memory and Reasoning System",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "god-agent": "./dist/god-agent/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:benchmarks": "vitest bench",
+    "benchmark": "node --expose-gc node_modules/.bin/vitest bench tests/benchmarks/vector-db.bench.ts",
+    "benchmark:ci": "node --expose-gc node_modules/.bin/vitest bench tests/benchmarks/vector-db.bench.ts --reporter=verbose",
+    "lint": "eslint src tests --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist coverage",
+    "demo": "npx tsx examples/god-agent-demo.ts",
+    "observe": "npx tsx src/god-agent/observability/daemon.ts",
+    "observe:start": "npx tsx src/god-agent/observability/daemon.ts start",
+    "observe:stop": "npx tsx src/god-agent/observability/daemon.ts stop",
+    "observe:status": "npx tsx src/god-agent/observability/daemon.ts status",
+    "observe:open": "npx tsx src/god-agent/observability/daemon.ts open",
+    "memory:start": "npx tsx src/god-agent/core/memory-server/memory-daemon.ts start",
+    "memory:stop": "npx tsx src/god-agent/core/memory-server/memory-daemon.ts stop",
+    "memory:status": "npx tsx src/god-agent/core/memory-server/memory-daemon.ts status",
+    "daemon:start": "npx tsx src/god-agent/core/daemon/daemon-cli.ts start",
+    "daemon:stop": "npx tsx src/god-agent/core/daemon/daemon-cli.ts stop",
+    "daemon:status": "npx tsx src/god-agent/core/daemon/daemon-cli.ts status",
+    "god-agent:start": "npm run memory:start && npm run daemon:start",
+    "god-agent:stop": "npm run daemon:stop && npm run memory:stop",
+    "god-agent:status": "npm run memory:status && npm run daemon:status"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "better-sqlite3": "^12.5.0",
+    "commander": "^11.0.0",
+    "express": "^5.2.1",
+    "markdown-it": "^14.1.0",
+    "pdf-parse": "^2.4.5",
+    "pdfkit": "^0.17.2",
+    "proper-lockfile": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/express": "^5.0.6",
+    "@types/js-yaml": "^4.0.9",
+    "@types/jsdom": "^27.0.0",
+    "@types/lz4": "^0.6.4",
+    "@types/node": "^20.10.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^1.0.0",
+    "js-yaml": "^4.1.1",
+    "jsdom": "^27.3.0",
+    "lz4": "^0.6.5",
+    "marked": "^17.0.1",
+    "playwright": "^1.57.0",
+    "puppeteer-core": "^24.33.0",
+    "supertest": "^7.1.4",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

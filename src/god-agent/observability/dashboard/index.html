@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>God Agent Observability Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>God Agent Observability Dashboard</h1>
+        <div class="connection-status" id="connectionStatus">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Connecting...</span>
+        </div>
+    </header>
+
+    <main class="dashboard-grid">
+        <!-- Activity Stream Panel -->
+        <section class="panel activity-panel">
+            <div class="panel-header">
+                <h2>Activity Stream</h2>
+                <div class="filters">
+                    <label>
+                        Component:
+                        <select id="componentFilter" class="filter-select">
+                            <option value="">All</option>
+                            <option value="agent">Agents</option>
+                            <option value="pipeline">Pipelines</option>
+                            <option value="routing">Routing</option>
+                            <option value="learning">Learning</option>
+                        </select>
+                    </label>
+                    <label>
+                        Status:
+                        <select id="statusFilter" class="filter-select">
+                            <option value="">All</option>
+                            <option value="success">Success</option>
+                            <option value="error">Error</option>
+                            <option value="running">Running</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            <div class="panel-body">
+                <ul id="activityList" class="activity-list"></ul>
+            </div>
+        </section>
+
+        <!-- Active Agents Panel -->
+        <section class="panel agents-panel">
+            <div class="panel-header">
+                <h2>Active Agents</h2>
+                <span class="count-badge" id="agentCount">0</span>
+            </div>
+            <div class="panel-body">
+                <ul id="agentList" class="agent-list"></ul>
+            </div>
+        </section>
+
+        <!-- Pipelines Panel -->
+        <section class="panel pipelines-panel">
+            <div class="panel-header">
+                <h2>Pipelines</h2>
+                <span class="count-badge" id="pipelineCount">0</span>
+            </div>
+            <div class="panel-body">
+                <ul id="pipelineList" class="pipeline-list"></ul>
+            </div>
+        </section>
+
+        <!-- Routing Decisions Panel -->
+        <section class="panel routing-panel">
+            <div class="panel-header">
+                <h2>Routing Decisions</h2>
+            </div>
+            <div class="panel-body">
+                <ul id="routingList" class="routing-list"></ul>
+            </div>
+        </section>
+
+        <!-- Learning Metrics Panel -->
+        <section class="panel learning-panel">
+            <div class="panel-header">
+                <h2>Learning Metrics</h2>
+            </div>
+            <div class="panel-body">
+                <div class="metrics-summary" id="metricsSummary">
+                    <div class="metric-item">
+                        <span class="metric-label">Patterns:</span>
+                        <span class="metric-value" id="patternCount">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Avg Quality:</span>
+                        <span class="metric-value" id="avgQuality">0.00</span>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="qualityChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Memory Inspector Panel (Full Width) -->
+        <section class="panel memory-panel">
+            <div class="panel-header">
+                <h2>Memory Inspector</h2>
+            </div>
+            <div class="panel-body">
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="interaction-store">InteractionStore</button>
+                    <button class="tab-button" data-tab="reasoning-bank">ReasoningBank</button>
+                </div>
+                <div class="tab-content active" id="interaction-store">
+                    <div class="memory-search">
+                        <input type="text" id="domainSearch" placeholder="Search by domain..." class="search-input">
+                    </div>
+                    <ul id="interactionList" class="memory-list"></ul>
+                </div>
+                <div class="tab-content" id="reasoning-bank">
+                    <div class="memory-stats" id="reasoningStats"></div>
+                    <ul id="reasoningList" class="memory-list"></ul>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
