@@ -16,6 +16,20 @@ xp_rewards:
   forward_vision: 10
   impact_articulation: 15
 personality: "INTJ + Enneagram 8"
+capabilities:
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
 ---
 
 # Conclusion Writer Agent

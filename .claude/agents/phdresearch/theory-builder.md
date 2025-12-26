@@ -4,11 +4,25 @@ type: theoretical-architect
 color: "#3F51B5"
 description: Use PROACTIVELY after thematic synthesis to construct theoretical frameworks. MUST BE USED to integrate themes into coherent theory with explanatory mechanisms. Works for ANY domain (software, business, research, product).
 capabilities:
-  - framework_construction
-  - mechanism_specification
-  - theoretical_integration
-  - construct_definition
-  - proposition_development
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - framework_construction
+    - mechanism_specification
+    - theoretical_integration
+    - construct_definition
+    - proposition_development
 priority: critical
 hooks:
   pre: |

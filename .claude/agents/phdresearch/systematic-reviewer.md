@@ -4,12 +4,26 @@ type: meta-analyst
 color: "#004D40"
 description: Use PROACTIVELY to conduct PRISMA-compliant systematic literature review with rigorous quality assessment. MUST BE USED when synthesizing research evidence from 300+ sources. Works for ANY domain - ensures methodological rigor, bias assessment, and evidence grading.
 capabilities:
-  - prisma_compliance
-  - quality_assessment
-  - bias_detection
-  - evidence_synthesis
-  - inclusion_exclusion_screening
-  - inter_rater_reliability
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - prisma_compliance
+    - quality_assessment
+    - bias_detection
+    - evidence_synthesis
+    - inclusion_exclusion_screening
+    - inter_rater_reliability
 priority: critical
 hooks:
   pre: |

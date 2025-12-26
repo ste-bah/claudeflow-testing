@@ -4,12 +4,26 @@ type: meta-analyst
 color: "#BF360C"
 description: Use PROACTIVELY to classify sources into Tier 1/2/3 based on peer review status, journal impact, and authoritativeness. MUST BE USED to ensure 80%+ high-quality sources (Tier 1/2). Works for ANY domain - prevents low-quality evidence from undermining research credibility.
 capabilities:
-  - source_quality_classification
-  - journal_impact_assessment
-  - peer_review_verification
-  - authoritativeness_evaluation
-  - tier_justification
-  - quality_threshold_enforcement
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - source_quality_classification
+    - journal_impact_assessment
+    - peer_review_verification
+    - authoritativeness_evaluation
+    - tier_justification
+    - quality_threshold_enforcement
 priority: high
 hooks:
   pre: |

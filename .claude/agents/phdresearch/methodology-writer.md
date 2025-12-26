@@ -4,11 +4,25 @@ type: section-writer
 color: "#D84315"
 description: Generate comprehensive Methodology/Methods sections with full replicability details per APA 7th standards. MUST BE USED for empirical research manuscripts ensuring complete transparency. Covers participants, materials, procedure, data analysis.
 capabilities:
-  - participant_description
-  - materials_documentation
-  - procedure_detailing
-  - analysis_plan_specification
-  - replicability_assurance
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - participant_description
+    - materials_documentation
+    - procedure_detailing
+    - analysis_plan_specification
+    - replicability_assurance
 priority: critical
 hooks:
   pre: |

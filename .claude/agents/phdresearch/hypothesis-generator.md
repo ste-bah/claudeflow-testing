@@ -4,11 +4,25 @@ type: hypothesis-specialist
 color: "#009688"
 description: Use PROACTIVELY after theory-building to generate testable hypotheses. MUST BE USED to translate theoretical propositions into empirically testable predictions. Works for ANY domain (software, business, research, product).
 capabilities:
-  - hypothesis_formulation
-  - testability_assessment
-  - operationalization
-  - research_design_alignment
-  - falsifiability_verification
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - hypothesis_formulation
+    - testability_assessment
+    - operationalization
+    - research_design_alignment
+    - falsifiability_verification
 priority: critical
 hooks:
   pre: |

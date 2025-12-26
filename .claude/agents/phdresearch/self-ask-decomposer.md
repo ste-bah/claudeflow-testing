@@ -4,11 +4,25 @@ type: meta-analyst
 color: "#311B92"
 description: Universal essential question generator. Use PROACTIVELY to decompose ANY subject into 15-20 critical questions before analysis. Works across all domains (software/business/research/product). MUST BE USED to identify knowledge gaps and guide comprehensive investigation.
 capabilities:
-  - question_generation
-  - knowledge_gap_identification
-  - research_planning
-  - confidence_assessment
-  - investigation_prioritization
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - question_generation
+    - knowledge_gap_identification
+    - research_planning
+    - confidence_assessment
+    - investigation_prioritization
 priority: critical
 hooks:
   pre: |

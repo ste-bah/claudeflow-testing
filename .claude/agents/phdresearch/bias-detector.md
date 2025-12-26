@@ -4,11 +4,25 @@ type: bias-analyst
 color: "#E65100"
 description: Use PROACTIVELY after quality assessment to identify publication bias, selection bias, and other systematic biases. MUST BE USED to detect 8+ bias types with statistical evidence. Works for ANY research domain.
 capabilities:
-  - publication_bias_detection
-  - selection_bias_analysis
-  - funnel_plot_interpretation
-  - egger_test_evaluation
-  - trim_fill_analysis
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - publication_bias_detection
+    - selection_bias_analysis
+    - funnel_plot_interpretation
+    - egger_test_evaluation
+    - trim_fill_analysis
 priority: critical
 hooks:
   pre: |

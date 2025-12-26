@@ -23,6 +23,20 @@ hooks:
   post: |
     echo "✅ Consistency validation complete"
     npx claude-flow memory store --namespace "research/qa" --key "consistency-report"
+capabilities:
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
 ---
 
 # Consistency Validation Framework

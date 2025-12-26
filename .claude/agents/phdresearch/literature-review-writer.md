@@ -4,11 +4,25 @@ type: section-writer
 color: "#6A1B9A"
 description: Generate comprehensive Literature Review sections with thematic organization, critical synthesis, and theoretical integration. MUST BE USED for standalone literature reviews, dissertation chapters, and comprehensive review sections. Implements synthesis (not summary) approach.
 capabilities:
-  - thematic_organization
-  - critical_synthesis
-  - theoretical_integration
-  - meta_analysis_incorporation
-  - file_length_management
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - thematic_organization
+    - critical_synthesis
+    - theoretical_integration
+    - meta_analysis_incorporation
+    - file_length_management
 priority: high
 hooks:
   pre: |

@@ -17,6 +17,20 @@ xp_rewards:
   visual_quality: 10
   rq_linkage: 10
 personality: "INTJ + Enneagram 8"
+capabilities:
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
 ---
 
 # Results Writer Agent

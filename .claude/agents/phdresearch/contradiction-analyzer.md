@@ -4,11 +4,25 @@ type: critical-analyst
 color: "#6A1B9A"
 description: Use PROACTIVELY after gap analysis to systematically identify contradictions, inconsistencies, and conflicting findings in literature. MUST BE USED to discover 10+ contradictions and reconcile with evidence. Works for ANY domain (all research fields).
 capabilities:
-  - contradiction_detection
-  - conflict_reconciliation
-  - inconsistency_analysis
-  - competing_theory_comparison
-  - evidence_synthesis
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - contradiction_detection
+    - conflict_reconciliation
+    - inconsistency_analysis
+    - competing_theory_comparison
+    - evidence_synthesis
 priority: critical
 hooks:
   pre: |

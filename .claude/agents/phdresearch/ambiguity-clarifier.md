@@ -4,11 +4,25 @@ type: meta-analyst
 color: "#4A148C"
 description: Use PROACTIVELY to identify and resolve terminology and requirement ambiguities before analysis. MUST BE USED when subject description contains potentially multi-interpretable terms to prevent analytical errors. Works for ANY domain.
 capabilities:
-  - ambiguity_detection
-  - terminology_clarification
-  - assumption_documentation
-  - risk_assessment
-  - definition_establishment
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - ambiguity_detection
+    - terminology_clarification
+    - assumption_documentation
+    - risk_assessment
+    - definition_establishment
 priority: critical
 hooks:
   pre: |

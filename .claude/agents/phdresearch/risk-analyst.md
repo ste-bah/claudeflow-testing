@@ -4,11 +4,25 @@ type: quality-assurance
 color: "#BF360C"
 description: Use PROACTIVELY after contradiction analysis to identify research risks using FMEA methodology. MUST BE USED to assess 15+ failure modes and mitigation strategies. Works for ANY research domain (all fields).
 capabilities:
-  - fmea_analysis
-  - risk_prioritization
-  - failure_mode_identification
-  - mitigation_strategy
-  - quality_assurance
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - fmea_analysis
+    - risk_prioritization
+    - failure_mode_identification
+    - mitigation_strategy
+    - quality_assurance
 priority: critical
 hooks:
   pre: |

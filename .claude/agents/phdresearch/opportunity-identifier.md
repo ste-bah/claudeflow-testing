@@ -4,11 +4,25 @@ type: gap-analyst
 color: "#FFC107"
 description: Use PROACTIVELY after model architecture to identify research opportunities and gaps. MUST BE USED to discover novel research questions and未explored territories. Works for ANY domain (software, business, research, product).
 capabilities:
-  - gap_identification
-  - opportunity_generation
-  - novelty_assessment
-  - feasibility_evaluation
-  - prioritization
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - gap_identification
+    - opportunity_generation
+    - novelty_assessment
+    - feasibility_evaluation
+    - prioritization
 priority: critical
 hooks:
   pre: |

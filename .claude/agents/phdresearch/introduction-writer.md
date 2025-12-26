@@ -4,11 +4,25 @@ type: section-writer
 color: "#2E7D32"
 description: Generate PhD-level Introduction sections with compelling narrative, theoretical grounding, and clear research rationale. MUST BE USED for journal articles, dissertations, and thesis introductions. Implements funnel structure (broad → narrow → specific).
 capabilities:
-  - funnel_structure_writing
-  - research_gap_articulation
-  - theoretical_positioning
-  - research_question_presentation
-  - file_length_management
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - funnel_structure_writing
+    - research_gap_articulation
+    - theoretical_positioning
+    - research_question_presentation
+    - file_length_management
 priority: high
 hooks:
   pre: |

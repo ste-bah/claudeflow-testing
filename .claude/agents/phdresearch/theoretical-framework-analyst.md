@@ -4,12 +4,26 @@ type: meta-analyst
 color: "#4A148C"
 description: Use PROACTIVELY to identify and analyze theoretical frameworks underpinning research. MUST BE USED to map theories, assess theoretical contributions, and identify theoretical gaps. Works for ANY domain - ensures theoretical grounding and prevents atheoretical research.
 capabilities:
-  - theory_identification
-  - framework_mapping
-  - theoretical_contribution_assessment
-  - paradigm_analysis
-  - theory_gap_detection
-  - epistemological_positioning
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - theory_identification
+    - framework_mapping
+    - theoretical_contribution_assessment
+    - paradigm_analysis
+    - theory_gap_detection
+    - epistemological_positioning
 priority: critical
 hooks:
   pre: |

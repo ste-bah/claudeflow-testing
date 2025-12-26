@@ -4,11 +4,25 @@ type: statistical-architect
 color: "#00796B"
 description: Design rigorous statistical/qualitative analysis strategies BEFORE data collection. MUST BE USED to prevent post-hoc rationalization and ensure methodological validity. Works for quantitative, qualitative, and mixed-methods research.
 capabilities:
-  - analysis_strategy_design
-  - statistical_power_calculation
-  - qualitative_coding_framework
-  - validity_threat_mitigation
-  - data_analysis_workflow
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - analysis_strategy_design
+    - statistical_power_calculation
+    - qualitative_coding_framework
+    - validity_threat_mitigation
+    - data_analysis_workflow
 priority: critical
 hooks:
   pre: |

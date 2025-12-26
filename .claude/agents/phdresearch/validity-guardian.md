@@ -4,11 +4,25 @@ type: validity-defender
 color: "#1565C0"
 description: Protect internal, external, construct, and statistical conclusion validity throughout research lifecycle. MUST BE USED to identify threats and design mitigations. Works for experimental, quasi-experimental, and non-experimental designs.
 capabilities:
-  - validity_threat_identification
-  - confound_detection
-  - design_improvement
-  - causal_inference_strengthening
-  - generalizability_assessment
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - validity_threat_identification
+    - confound_detection
+    - design_improvement
+    - causal_inference_strengthening
+    - generalizability_assessment
 priority: critical
 hooks:
   pre: |

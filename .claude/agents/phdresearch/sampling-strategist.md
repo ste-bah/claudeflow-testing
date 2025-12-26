@@ -4,11 +4,25 @@ type: sampling-specialist
 color: "#00BCD4"
 description: Use PROACTIVELY after method design to create detailed sampling strategies. MUST BE USED to specify recruitment, eligibility, stratification, and power-based sample sizes. Works for ANY domain (software, business, research, product).
 capabilities:
-  - sampling_design
-  - power_analysis
-  - recruitment_planning
-  - eligibility_screening
-  - stratification_strategy
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - sampling_design
+    - power_analysis
+    - recruitment_planning
+    - eligibility_screening
+    - stratification_strategy
 priority: critical
 hooks:
   pre: |

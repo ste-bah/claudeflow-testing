@@ -4,11 +4,25 @@ type: meta-analyst
 color: "#1A237E"
 description: Use PROACTIVELY to create comprehensive research plans using ReWOO methodology (Reasoning WithOut Observation). MUST BE USED to plan all research tasks upfront before execution. Works for ANY domain - creates complete roadmap with dependencies, resources, and quality gates.
 capabilities:
-  - rewoo_planning
-  - task_sequencing
-  - dependency_mapping
-  - resource_allocation
-  - quality_gate_design
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - rewoo_planning
+    - task_sequencing
+    - dependency_mapping
+    - resource_allocation
+    - quality_gate_design
 priority: critical
 hooks:
   pre: |

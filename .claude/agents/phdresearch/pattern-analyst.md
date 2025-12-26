@@ -4,11 +4,25 @@ type: meta-pattern-specialist
 color: "#4A148C"
 description: Use PROACTIVELY after evidence synthesis to identify meta-patterns, trends, and cross-study regularities. MUST BE USED to discover 10+ patterns across methods, contexts, and time. Works for ANY research domain.
 capabilities:
-  - pattern_identification
-  - trend_analysis
-  - cross_study_patterns
-  - temporal_analysis
-  - methodological_patterns
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - pattern_identification
+    - trend_analysis
+    - cross_study_patterns
+    - temporal_analysis
+    - methodological_patterns
 priority: critical
 hooks:
   pre: |

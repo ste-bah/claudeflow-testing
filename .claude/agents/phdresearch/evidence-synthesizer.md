@@ -4,11 +4,25 @@ type: synthesis-specialist
 color: "#00695C"
 description: Use PROACTIVELY after bias detection to synthesize evidence across studies using meta-analysis, narrative synthesis, or thematic analysis. MUST BE USED to create comprehensive evidence synthesis. Works for ANY research domain.
 capabilities:
-  - meta_analysis
-  - narrative_synthesis
-  - thematic_synthesis
-  - effect_size_calculation
-  - heterogeneity_assessment
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - meta_analysis
+    - narrative_synthesis
+    - thematic_synthesis
+    - effect_size_calculation
+    - heterogeneity_assessment
 priority: critical
 hooks:
   pre: |

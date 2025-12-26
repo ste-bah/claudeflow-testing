@@ -4,11 +4,25 @@ type: compliance-guardian
 color: "#C62828"
 description: Ensure IRB compliance, ethical research conduct, and participant protection. MUST BE USED before data collection and when handling sensitive data. Applies to human subjects, secondary data, and vulnerable populations.
 capabilities:
-  - irb_compliance_check
-  - informed_consent_review
-  - risk_assessment
-  - vulnerable_population_protection
-  - data_privacy_design
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - irb_compliance_check
+    - informed_consent_review
+    - risk_assessment
+    - vulnerable_population_protection
+    - data_privacy_design
 priority: critical
 hooks:
   pre: |

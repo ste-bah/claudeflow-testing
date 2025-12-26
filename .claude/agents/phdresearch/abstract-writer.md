@@ -4,11 +4,25 @@ type: synthesis-writer
 color: "#00838F"
 description: Generate publication-quality abstracts following APA 7th, journal guidelines, and structured abstract formats. MUST BE USED for journal submissions, dissertations, and conference papers. Works for empirical, theoretical, and review papers.
 capabilities:
-  - structured_abstract_generation
-  - keyword_optimization
-  - word_count_management
-  - journal_guideline_compliance
-  - executive_summary_creation
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - structured_abstract_generation
+    - keyword_optimization
+    - word_count_management
+    - journal_guideline_compliance
+    - executive_summary_creation
 priority: high
 hooks:
   pre: |

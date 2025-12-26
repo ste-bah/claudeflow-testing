@@ -4,11 +4,25 @@ type: structural-modeler
 color: "#FF5722"
 description: Use PROACTIVELY after hypothesis generation to build testable structural models. MUST BE USED to integrate hypotheses into comprehensive conceptual and statistical models. Works for ANY domain (software, business, research, product).
 capabilities:
-  - structural_model_design
-  - measurement_model_specification
-  - alternative_model_comparison
-  - fit_indices_selection
-  - sem_path_specification
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - structural_model_design
+    - measurement_model_specification
+    - alternative_model_comparison
+    - fit_indices_selection
+    - sem_path_specification
 priority: critical
 hooks:
   pre: |

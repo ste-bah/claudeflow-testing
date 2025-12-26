@@ -4,11 +4,25 @@ type: measurement-specialist
 color: "#4CAF50"
 description: Use PROACTIVELY after sampling strategy to develop/adapt measurement instruments. MUST BE USED to create validated scales, observation protocols, and measurement tools. Works for ANY domain (software, business, research, product).
 capabilities:
-  - scale_development
-  - instrument_adaptation
-  - psychometric_validation
-  - item_generation
-  - reliability_testing
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - scale_development
+    - instrument_adaptation
+    - psychometric_validation
+    - item_generation
+    - reliability_testing
 priority: critical
 hooks:
   pre: |

@@ -4,11 +4,25 @@ type: structure-planner
 color: "#1565C0"
 description: Design dissertation/document chapter structure based on research scope. Stores structure to memory for writing agents. MUST BE USED before any writing phase to ensure all agents follow the same structure. Works for ANY research type.
 capabilities:
-  - chapter_structure_design
-  - scope_based_structuring
-  - memory_handoff
-  - cross_reference_planning
-  - consistency_enforcement
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - chapter_structure_design
+    - scope_based_structuring
+    - memory_handoff
+    - cross_reference_planning
+    - consistency_enforcement
 priority: critical
 hooks:
   pre: |

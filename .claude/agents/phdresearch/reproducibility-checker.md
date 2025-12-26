@@ -17,6 +17,20 @@ xp_rewards:
   analysis_transparency: 10
   materials_completeness: 10
 personality: "INTJ + Enneagram 8"
+capabilities:
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
 ---
 
 # Reproducibility Checker Agent

@@ -4,11 +4,25 @@ type: methodology-architect
 color: "#9C27B0"
 description: Use PROACTIVELY after opportunity identification to design comprehensive research methodologies. MUST BE USED to create detailed research designs, protocols, and procedures. Works for ANY domain (software, business, research, product).
 capabilities:
-  - research_design
-  - protocol_development
-  - procedure_specification
-  - validity_planning
-  - ethics_compliance
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - research_design
+    - protocol_development
+    - procedure_specification
+    - validity_planning
+    - ethics_compliance
 priority: critical
 hooks:
   pre: |

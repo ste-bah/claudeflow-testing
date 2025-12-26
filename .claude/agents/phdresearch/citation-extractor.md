@@ -4,12 +4,26 @@ type: researcher
 color: "#1B5E20"
 description: Use PROACTIVELY to extract and format complete APA citations with full explainability. MUST BE USED to ensure every claim has 15+ sources with Author, Year, URL, page/paragraph numbers. Works for ANY domain - prevents citation gaps and ensures academic rigor.
 capabilities:
-  - apa_citation_extraction
-  - url_verification
-  - page_paragraph_tracking
-  - citation_completeness_check
-  - reference_management
-  - explainability_enforcement
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - apa_citation_extraction
+    - url_verification
+    - page_paragraph_tracking
+    - citation_completeness_check
+    - reference_management
+    - explainability_enforcement
 priority: high
 hooks:
   pre: |

@@ -4,11 +4,25 @@ type: synthesis-specialist
 color: "#E91E63"
 description: Use PROACTIVELY after pattern analysis to synthesize recurring themes across literature. MUST BE USED to identify conceptual clusters and thematic frameworks. Works for ANY domain (software, business, research, product).
 capabilities:
-  - theme_extraction
-  - conceptual_clustering
-  - framework_synthesis
-  - cross_study_integration
-  - meta_theme_identification
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - theme_extraction
+    - conceptual_clustering
+    - framework_synthesis
+    - cross_study_integration
+    - meta_theme_identification
 priority: critical
 hooks:
   pre: |

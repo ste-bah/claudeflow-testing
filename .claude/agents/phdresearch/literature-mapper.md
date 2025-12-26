@@ -4,12 +4,26 @@ type: researcher
 color: "#006064"
 description: Use PROACTIVELY to conduct systematic literature search and create comprehensive knowledge maps. MUST BE USED to execute search strategy from research plan. Works for ANY domain - builds complete literature landscape with citation networks, theoretical clusters, and gap identification.
 capabilities:
-  - systematic_search
-  - database_querying
-  - citation_network_mapping
-  - knowledge_clustering
-  - gap_identification
-  - search_strategy_execution
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - systematic_search
+    - database_querying
+    - citation_network_mapping
+    - knowledge_clustering
+    - gap_identification
+    - search_strategy_execution
 priority: critical
 hooks:
   pre: |

@@ -4,11 +4,25 @@ type: methodological-evaluator
 color: "#1565C0"
 description: Use PROACTIVELY to assess study quality using CASP, JBI, and other validated appraisal tools. MUST BE USED to evaluate 20+ studies for bias, validity, and reliability. Works for ANY research domain.
 capabilities:
-  - critical_appraisal
-  - casp_evaluation
-  - jbi_assessment
-  - quality_scoring
-  - bias_risk_evaluation
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - critical_appraisal
+    - casp_evaluation
+    - jbi_assessment
+    - quality_scoring
+    - bias_risk_evaluation
 priority: critical
 hooks:
   pre: |

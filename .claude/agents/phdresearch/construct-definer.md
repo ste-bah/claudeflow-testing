@@ -4,11 +4,25 @@ type: conceptual-analyst
 color: "#C2185B"
 description: Use PROACTIVELY after initial scoping to define ALL key constructs, variables, and theoretical concepts. MUST BE USED to establish shared vocabulary and prevent conceptual confusion. Works for ANY domain (education, psychology, technology, business).
 capabilities:
-  - construct_definition
-  - operational_definition
-  - variable_identification
-  - theoretical_mapping
-  - conceptual_clarity
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - construct_definition
+    - operational_definition
+    - variable_identification
+    - theoretical_mapping
+    - conceptual_clarity
 priority: critical
 hooks:
   pre: |

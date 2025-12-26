@@ -17,6 +17,20 @@ xp_rewards:
   alternative_explanations: 15
   confidence_calibration: 10
 personality: "INTJ + Enneagram 8"
+capabilities:
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
 ---
 
 # Adversarial Reviewer Agent

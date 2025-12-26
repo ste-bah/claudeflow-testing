@@ -4,11 +4,25 @@ type: analytical-specialist
 color: "#D84315"
 description: Use PROACTIVELY after construct definition to identify ALL types of research gaps systematically. MUST BE USED to discover 15+ high-value gaps across multiple dimensions. Works for ANY domain (STEM, social science, humanities, business).
 capabilities:
-  - multi_dimensional_gap_analysis
-  - theoretical_gap_identification
-  - methodological_gap_detection
-  - empirical_gap_discovery
-  - knowledge_gap_mapping
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - multi_dimensional_gap_analysis
+    - theoretical_gap_identification
+    - methodological_gap_detection
+    - empirical_gap_discovery
+    - knowledge_gap_mapping
 priority: critical
 hooks:
   pre: |

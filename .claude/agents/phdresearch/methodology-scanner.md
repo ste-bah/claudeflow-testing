@@ -4,12 +4,26 @@ type: meta-analyst
 color: "#1A237E"
 description: Use PROACTIVELY to scan and categorize research methodologies across corpus. MUST BE USED to identify methodological patterns, assess method-theory alignment, and detect methodological gaps. Works for ANY domain - ensures methodological rigor and identifies innovation opportunities.
 capabilities:
-  - methodology_classification
-  - method_theory_alignment
-  - design_pattern_recognition
-  - methodological_gap_detection
-  - quality_criteria_assessment
-  - innovation_identification
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - methodology_classification
+    - method_theory_alignment
+    - design_pattern_recognition
+    - methodological_gap_detection
+    - quality_criteria_assessment
+    - innovation_identification
 priority: high
 hooks:
   pre: |

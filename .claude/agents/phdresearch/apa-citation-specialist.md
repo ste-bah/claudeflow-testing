@@ -4,11 +4,25 @@ type: citation-expert
 color: "#4A148C"
 description: Full APA 7th edition formatting specialist for citations, references, tables, figures, and manuscript structure. MUST BE USED to ensure publication-ready formatting. Works for journal articles, dissertations, and technical reports.
 capabilities:
-  - in_text_citation_formatting
-  - reference_list_generation
-  - table_figure_formatting
-  - manuscript_structure_compliance
-  - doi_url_verification
+  allowed_tools:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+    - WebSearch
+    - WebFetch
+    - mcp__perplexity__perplexity_research
+    - mcp__perplexity__perplexity_search
+    - mcp__perplexity__perplexity_ask
+    - mcp__perplexity__perplexity_reason
+  skills:
+    - in_text_citation_formatting
+    - reference_list_generation
+    - table_figure_formatting
+    - manuscript_structure_compliance
+    - doi_url_verification
 priority: high
 hooks:
   pre: |
