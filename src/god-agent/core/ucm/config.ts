@@ -86,7 +86,7 @@ export const DEFAULT_PROGRESSIVE_CONFIG: IProgressiveConfig = {
  */
 export const DEFAULT_UCM_CONFIG: IUniversalContextConfig = {
   daemon: {
-    socketPath: '/tmp/godagent-db.sock',
+    socketPath: '/tmp/godagent-ucm.sock',
     autoStart: true,
     healthCheckInterval: 30000,
     startupTimeout: 3000

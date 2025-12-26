@@ -46,7 +46,7 @@ interface RPCResponse {
   id: number;
 }
 
-const SOCKET_PATH = '/tmp/godagent-db.sock';
+const SOCKET_PATH = '/tmp/godagent-ucm.sock';
 const RETRIEVE_TIMEOUT = 2000; // 2 seconds
 const MAX_SIMILAR_SOLUTIONS = 3;
 
@@ -226,7 +226,8 @@ async function processHook(input: HookInput): Promise<HookOutput> {
   try {
     // Check if daemon is available
     const healthCheck = await callDaemon('health.check', {});
-    if (!healthCheck?.healthy) {
+    // Accept 'healthy' or 'degraded' (degraded = embedding service down but other services work)
+    if (!healthCheck?.status || healthCheck.status === 'unhealthy') {
       console.error('[UCM-DESC-Injector] UCM daemon unhealthy, skipping injection');
       return {
         decision: 'allow',
@@ -287,31 +288,62 @@ async function processHook(input: HookInput): Promise<HookOutput> {
 }
 
 /**
- * Main entry point
+ * Main entry point - reads stdin synchronously with timeout
  */
 async function main() {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: false,
+  // Set up immediate timeout - if we don't get input fast, allow and exit
+  const forceExit = setTimeout(() => {
+    console.log(JSON.stringify({
+      decision: 'allow',
+      reason: 'Hook timeout - proceeding without DESC injection',
+    }));
+    process.exit(0);
+  }, 1500);
+
+  // Try to read stdin
+  let inputData = '';
+
+  process.stdin.setEncoding('utf-8');
+  process.stdin.on('data', (chunk) => {
+    inputData += chunk;
   });
 
-  rl.on('line', async (line) => {
+  process.stdin.on('end', async () => {
+    clearTimeout(forceExit);
+
+    if (!inputData.trim()) {
+      console.log(JSON.stringify({
+        decision: 'allow',
+        reason: 'No input provided',
+      }));
+      process.exit(0);
+    }
+
     try {
-      const input: HookInput = JSON.parse(line);
+      const input: HookInput = JSON.parse(inputData);
       const output = await processHook(input);
       console.log(JSON.stringify(output));
     } catch (error) {
-      console.error('[UCM-DESC-Injector] Error processing hook:', error);
-      console.log(
-        JSON.stringify({
-          decision: 'allow',
-          reason: 'Hook processing error',
-        })
-      );
+      console.error('[UCM-DESC-Injector] Error:', error);
+      console.log(JSON.stringify({
+        decision: 'allow',
+        reason: 'Hook error - proceeding',
+      }));
     }
     process.exit(0);
   });
+
+  process.stdin.on('error', () => {
+    clearTimeout(forceExit);
+    console.log(JSON.stringify({
+      decision: 'allow',
+      reason: 'Stdin error',
+    }));
+    process.exit(0);
+  });
+
+  // Resume stdin to start reading
+  process.stdin.resume();
 }
 
 main().catch((error) => {

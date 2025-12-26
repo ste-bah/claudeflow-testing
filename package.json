@@ -33,9 +33,12 @@
     "daemon:start": "npx tsx src/god-agent/core/daemon/daemon-cli.ts start",
     "daemon:stop": "npx tsx src/god-agent/core/daemon/daemon-cli.ts stop",
     "daemon:status": "npx tsx src/god-agent/core/daemon/daemon-cli.ts status",
-    "god-agent:start": "npm run memory:start && npm run daemon:start",
-    "god-agent:stop": "npm run daemon:stop && npm run memory:stop",
-    "god-agent:status": "npm run memory:status && npm run daemon:status"
+    "ucm:start": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts start",
+    "ucm:stop": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts stop",
+    "ucm:status": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts status",
+    "god-agent:start": "npm run memory:start && npm run daemon:start && npm run ucm:start",
+    "god-agent:stop": "npm run ucm:stop && npm run daemon:stop && npm run memory:stop",
+    "god-agent:status": "npm run memory:status && npm run daemon:status && npm run ucm:status"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
