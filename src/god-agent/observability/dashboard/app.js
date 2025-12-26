@@ -123,7 +123,8 @@ class DashboardApp {
             // Load events
             const eventsRes = await fetch('/api/events?limit=50');
             if (eventsRes.ok) {
-                const events = await eventsRes.json();
+                const data = await eventsRes.json();
+                const events = data.events || data || [];
                 this.activities = events.map(e => this.mapEventToActivity(e));
                 this.renderActivities();
             }
@@ -131,7 +132,8 @@ class DashboardApp {
             // Load agents
             const agentsRes = await fetch('/api/agents');
             if (agentsRes.ok) {
-                const agents = await agentsRes.json();
+                const data = await agentsRes.json();
+                const agents = data.agents || data || [];
                 agents.forEach(agent => {
                     this.agents.set(agent.agentId, agent);
                 });
@@ -141,7 +143,8 @@ class DashboardApp {
             // Load pipelines
             const pipelinesRes = await fetch('/api/pipelines');
             if (pipelinesRes.ok) {
-                const pipelines = await pipelinesRes.json();
+                const data = await pipelinesRes.json();
+                const pipelines = data.pipelines || data || [];
                 pipelines.forEach(pipeline => {
                     this.pipelines.set(pipeline.pipelineId, pipeline);
                 });
@@ -159,7 +162,15 @@ class DashboardApp {
             const metricsRes = await fetch('/api/system/metrics');
             if (metricsRes.ok) {
                 const metrics = await metricsRes.json();
-                this.handleMetricsUpdate({ data: JSON.stringify(metrics) });
+                // Apply metrics directly
+                if (metrics.ucm) this.ucmMetrics = metrics.ucm;
+                if (metrics.idesc) this.idescMetrics = metrics.idesc;
+                if (metrics.episode) this.episodeMetrics = metrics.episode;
+                if (metrics.hyperedge) this.hyperedgeMetrics = metrics.hyperedge;
+                if (metrics.token) this.tokenMetrics = metrics.token;
+                if (metrics.daemon) this.daemonMetrics = metrics.daemon;
+                if (metrics.registry) this.registryMetrics = metrics.registry;
+                this.updateAllPanels();
             }
         } catch (error) {
             console.error('Error loading initial data:', error);
