@@ -82,11 +82,11 @@ export class DaemonServer {
   constructor(config?: Partial<IUniversalContextConfig>) {
     this.config = { ...DEFAULT_UCM_CONFIG, ...config };
 
-    // Initialize embedding proxy
-    this.embeddingProxy = new EmbeddingProxy(
-      this.config.embedding.httpEndpoint,
-      this.config.embedding.timeout
-    );
+    // Initialize embedding proxy with correct config object
+    this.embeddingProxy = new EmbeddingProxy({
+      baseUrl: this.config.embedding.httpEndpoint.replace('/embed', ''),
+      timeout: this.config.embedding.timeout
+    });
 
     // Initialize services
     this.contextService = new ContextService();

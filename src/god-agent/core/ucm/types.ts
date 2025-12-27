@@ -406,11 +406,15 @@ export interface IRange {
 // ============================================================================
 
 export interface ISymmetricChunker {
-  chunk(text: string): string[];
+  chunk(text: string): Promise<string[]>;
 }
 
 export interface IEpisodeRetriever {
-  retrieve(searchText: string, options?: IRetrievalOptions): Promise<IRetrievalResult[]>;
+  retrieve(
+    queryChunks: string[],
+    queryEmbeddings: Float32Array[],
+    options?: IRetrievalOptions
+  ): Promise<IRetrievalResult[]>;
 }
 
 export interface ICompactionDetector {

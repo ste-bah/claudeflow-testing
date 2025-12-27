@@ -12,7 +12,6 @@
 
 import type {
   IEpisodeInput,
-  IStoredEpisode,
   IRetrievalResult,
   IRetrievalOptions
 } from '../types.js';
@@ -104,12 +103,9 @@ export class DescService {
   ) {
     this.chunker = chunker ?? new SymmetricChunker();
     this.embeddingStore = embeddingStore ?? new DualEmbeddingStore();
-    this.retriever = retriever ?? new EpisodeRetriever(
-      this.embeddingStore,
-      embeddingProxy ?? new EmbeddingProxy(),
-      this.chunker
-    );
     this.embeddingProxy = embeddingProxy ?? new EmbeddingProxy();
+    // EpisodeRetriever takes (store, options?, filter?) - DescService handles chunking/embedding
+    this.retriever = retriever ?? new EpisodeRetriever(this.embeddingStore);
   }
 
   /**
@@ -171,9 +167,9 @@ export class DescService {
 
     const { queryText, answerText, metadata } = params;
 
-    // Chunk both query and answer
-    const queryChunks = this.chunker.chunk(queryText);
-    const answerChunks = this.chunker.chunk(answerText);
+    // Chunk both query and answer (async)
+    const queryChunks = await this.chunker.chunk(queryText);
+    const answerChunks = await this.chunker.chunk(answerText);
 
     // Generate embeddings
     const queryEmbeddings = await this.embeddingProxy.embedBatch(queryChunks);
@@ -211,16 +207,22 @@ export class DescService {
       );
     }
 
-    const { searchText, threshold, maxResults, includeQueryMatch, includeAnswerMatch } = params;
+    const { searchText, threshold, maxResults } = params;
+
+    // Chunk the search text (async)
+    const searchChunks = await this.chunker.chunk(searchText);
+
+    // Generate embeddings for search chunks
+    const searchEmbeddings = await this.embeddingProxy.embedBatch(searchChunks);
 
     const options: IRetrievalOptions = {
       threshold: threshold ?? 0.80,
       maxResults: maxResults ?? 2,
-      includeQueryMatch: includeQueryMatch ?? true,
-      includeAnswerMatch: includeAnswerMatch ?? true
+      includeQueryMatch: true,
+      includeAnswerMatch: true
     };
 
-    return this.retriever.retrieve(searchText, options);
+    return this.retriever.retrieve(searchChunks, searchEmbeddings, options);
   }
 
   /**
@@ -238,6 +240,12 @@ export class DescService {
 
     const { prompt, threshold, maxEpisodes } = params;
 
+    // Chunk the prompt (async)
+    const promptChunks = await this.chunker.chunk(prompt);
+
+    // Generate embeddings for prompt chunks
+    const promptEmbeddings = await this.embeddingProxy.embedBatch(promptChunks);
+
     // Retrieve relevant episodes
     const options: IRetrievalOptions = {
       threshold: threshold ?? 0.80,
@@ -246,7 +254,7 @@ export class DescService {
       includeAnswerMatch: true
     };
 
-    const results = await this.retriever.retrieve(prompt, options);
+    const results = await this.retriever.retrieve(promptChunks, promptEmbeddings, options);
 
     // Build augmented prompt
     let augmentedPrompt = prompt;
@@ -324,7 +332,7 @@ export class DescService {
 
   private handleError(error: unknown, id: string | number | null): JsonRpcResponse {
     if (error instanceof ServiceError) {
-      return this.errorResponse(error.code, error.message, id, error.details);
+      return this.errorResponse(error.errorCode, error.message, id, error.details);
     }
 
     const message = error instanceof Error ? error.message : 'Internal error';

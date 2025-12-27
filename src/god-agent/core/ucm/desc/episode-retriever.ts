@@ -23,12 +23,13 @@ import { DualEmbeddingStore } from './dual-embedding-store.js';
 import { InjectionFilter } from './injection-filter.js';
 
 /**
- * Default retrieval options
+ * Default retrieval options (matches IRetrievalOptions from types.ts)
  */
 const DEFAULT_RETRIEVAL_OPTIONS: Required<IRetrievalOptions> = {
-  similarityThreshold: 0.80, // RULE-066
+  threshold: 0.80, // RULE-066
   maxResults: 10,
-  includeScores: true
+  includeQueryMatch: true,
+  includeAnswerMatch: true
 };
 
 /**
@@ -100,12 +101,12 @@ export class EpisodeRetriever implements IEpisodeRetriever {
       const episodeScores = this.computeEpisodeScores(
         queryEmbeddings,
         episodes,
-        retrievalOptions.similarityThreshold
+        retrievalOptions.threshold
       );
 
       // Filter by threshold and sort by score
       let matchingEpisodes = episodeScores
-        .filter(({ score }) => score >= retrievalOptions.similarityThreshold)
+        .filter(({ score }) => score >= retrievalOptions.threshold)
         .sort((a, b) => b.score - a.score);
 
       // Apply injection filter if task context is provided
@@ -139,12 +140,14 @@ export class EpisodeRetriever implements IEpisodeRetriever {
       // Limit results
       matchingEpisodes = matchingEpisodes.slice(0, retrievalOptions.maxResults);
 
-      // Convert to retrieval results
-      return matchingEpisodes.map(({ episode, score, matchingChunks }) => ({
+      // Convert to retrieval results (conform to IRetrievalResult interface)
+      return matchingEpisodes.map(({ episode, score }) => ({
         episodeId: episode.episodeId,
         answerText: this.reconstructAnswerText(episode),
-        score: retrievalOptions.includeScores ? score : undefined,
-        matchingChunks: retrievalOptions.includeScores ? matchingChunks : undefined,
+        maxSimilarity: score,
+        matchedChunkType: 'answer' as const,
+        matchedChunkIndex: 0,
+        searchChunkIndex: 0,
         metadata: episode.metadata
       }));
     } catch (error) {
@@ -177,10 +180,8 @@ export class EpisodeRetriever implements IEpisodeRetriever {
     }> = [];
 
     for (const episode of episodes) {
-      // Decode answer embeddings
-      const answerEmbeddings = episode.answerEmbeddings.map(
-        encoded => DualEmbeddingStore.decodeEmbedding(encoded)
-      );
+      // answerChunkEmbeddings are already Float32Array[] - no decoding needed
+      const answerEmbeddings = episode.answerChunkEmbeddings;
 
       // All-to-all comparison: compare every query chunk with every answer chunk
       const chunkScores: number[] = [];
@@ -242,12 +243,12 @@ export class EpisodeRetriever implements IEpisodeRetriever {
   }
 
   /**
-   * Reconstruct full answer text from chunks
+   * Get full answer text
    * RULE-067: Return full answer text, not individual chunks
    */
   private reconstructAnswerText(episode: IStoredEpisode): string {
-    // Join chunks with newlines to preserve structure
-    return episode.answerChunks.join('\n\n');
+    // answerText is stored as full text, not chunks
+    return episode.answerText;
   }
 
   /**

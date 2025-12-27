@@ -101,17 +101,18 @@ export class DaemonIPCError extends DaemonError {
 export class EmbeddingError extends UCMError {
   readonly code = 'UCM_EMBEDDING_ERROR';
   readonly recoverable = true;
+
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, context);
+  }
 }
 
 export class EmbeddingServiceUnavailableError extends EmbeddingError {
   readonly code = 'UCM_EMBEDDING_SERVICE_UNAVAILABLE';
   readonly recoverable = true;
 
-  constructor(endpoint: string, cause?: Error) {
-    super(`Embedding service unavailable at ${endpoint}`, {
-      endpoint,
-      cause: cause?.message
-    });
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, context);
   }
 }
 
@@ -119,11 +120,8 @@ export class EmbeddingTimeoutError extends EmbeddingError {
   readonly code = 'UCM_EMBEDDING_TIMEOUT';
   readonly recoverable = true;
 
-  constructor(timeoutMs: number, textLength: number) {
-    super(`Embedding request timed out after ${timeoutMs}ms`, {
-      timeoutMs,
-      textLength
-    });
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, context);
   }
 }
 
@@ -131,12 +129,8 @@ export class EmbeddingBatchError extends EmbeddingError {
   readonly code = 'UCM_EMBEDDING_BATCH_ERROR';
   readonly recoverable = true;
 
-  constructor(batchSize: number, failedCount: number, cause?: Error) {
-    super(`Batch embedding failed: ${failedCount}/${batchSize} texts`, {
-      batchSize,
-      failedCount,
-      cause: cause?.message
-    });
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, context);
   }
 }
 
@@ -147,16 +141,18 @@ export class EmbeddingBatchError extends EmbeddingError {
 export class DESCError extends UCMError {
   readonly code = 'UCM_DESC_ERROR';
   readonly recoverable = true;
+
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, context);
+  }
 }
 
 export class DESCRetrievalError extends DESCError {
   readonly code = 'UCM_DESC_RETRIEVAL_ERROR';
   readonly recoverable = true;
 
-  constructor(cause?: Error) {
-    super('Failed to retrieve episodes from DESC store', {
-      cause: cause?.message
-    });
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, context);
   }
 }
 
@@ -164,11 +160,8 @@ export class DESCStorageError extends DESCError {
   readonly code = 'UCM_DESC_STORAGE_ERROR';
   readonly recoverable = true;
 
-  constructor(episodeId?: string, cause?: Error) {
-    super(`Failed to store episode${episodeId ? `: ${episodeId}` : ''}`, {
-      episodeId,
-      cause: cause?.message
-    });
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, context);
   }
 }
 
@@ -176,11 +169,8 @@ export class DESCChunkingError extends DESCError {
   readonly code = 'UCM_DESC_CHUNKING_ERROR';
   readonly recoverable = true;
 
-  constructor(textLength: number, cause?: Error) {
-    super(`Failed to chunk text of length ${textLength}`, {
-      textLength,
-      cause: cause?.message
-    });
+  constructor(message: string, context?: Record<string, unknown>) {
+    super(message, context);
   }
 }
 

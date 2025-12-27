@@ -39,12 +39,13 @@ const DEFAULT_CONFIG: EmbeddingProxyConfig = {
 };
 
 /**
- * Response format from embedding service
+ * Response format from embedding service (api-embedder2.py)
  */
 interface EmbeddingResponse {
   embeddings: number[][];
-  model: string;
-  dimensions: number;
+  message?: string;
+  ids?: string[];
+  dims?: number;
 }
 
 /**
@@ -155,7 +156,7 @@ export class EmbeddingProxy implements IEmbeddingProvider {
       return this.isServiceAvailable;
     }
 
-    // Perform health check
+    // Perform health check using GET / (api-embedder2.py uses / for status)
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(
@@ -163,14 +164,20 @@ export class EmbeddingProxy implements IEmbeddingProvider {
         5000 // 5 second timeout for health check
       );
 
-      const response = await fetch(`${this.config.baseUrl}/health`, {
+      const response = await fetch(`${this.config.baseUrl}/`, {
         signal: controller.signal,
         method: 'GET'
       });
 
       clearTimeout(timeoutId);
 
-      this.isServiceAvailable = response.ok;
+      if (response.ok) {
+        const data = await response.json();
+        // api-embedder2.py returns {status: "online", model: "...", database_items: N}
+        this.isServiceAvailable = data.status === 'online';
+      } else {
+        this.isServiceAvailable = false;
+      }
       this.lastHealthCheck = now;
 
       return this.isServiceAvailable;

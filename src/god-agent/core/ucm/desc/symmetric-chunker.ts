@@ -8,7 +8,6 @@
 
 import type {
   IChunkingConfig,
-  BreakPattern,
   IRange,
   ISymmetricChunker
 } from '../types.js';
@@ -91,8 +90,9 @@ export class SymmetricChunker implements ISymmetricChunker {
   private findProtectedRegions(text: string): IRange[] {
     const regions: IRange[] = [];
 
-    for (const pattern of PROTECTED_PATTERNS) {
-      const regex = new RegExp(pattern.pattern, pattern.flags || 'g');
+    for (const regex of PROTECTED_PATTERNS) {
+      // Reset lastIndex for global regexes
+      regex.lastIndex = 0;
       let match: RegExpExecArray | null;
 
       while ((match = regex.exec(text)) !== null) {
@@ -169,7 +169,7 @@ export class SymmetricChunker implements ISymmetricChunker {
       // Calculate next position with overlap
       const overlapStart = Math.max(
         position,
-        chunkEnd - this.config.overlapChars
+        chunkEnd - this.config.overlap
       );
 
       // Find a good break point within the overlap region
@@ -187,7 +187,7 @@ export class SymmetricChunker implements ISymmetricChunker {
     start: number,
     protectedRegions: IRange[]
   ): number {
-    const maxEnd = Math.min(start + this.config.maxChunkChars, text.length);
+    const maxEnd = Math.min(start + this.config.maxChars, text.length);
 
     // Check if we're inside a protected region
     const inProtected = protectedRegions.find(
@@ -209,7 +209,7 @@ export class SymmetricChunker implements ISymmetricChunker {
 
     if (wouldSplitProtected) {
       // Either include the whole region or stop before it
-      if (wouldSplitProtected.start - start < this.config.maxChunkChars / 2) {
+      if (wouldSplitProtected.start - start < this.config.maxChars / 2) {
         // Region is close to start - include it
         breakPoint = Math.min(wouldSplitProtected.end, text.length);
       } else {
@@ -231,8 +231,9 @@ export class SymmetricChunker implements ISymmetricChunker {
     let bestPriority = -1;
 
     // Try each break pattern in priority order
-    for (const pattern of DEFAULT_BREAK_PATTERNS) {
-      const regex = new RegExp(pattern.pattern, pattern.flags || 'g');
+    for (const breakPattern of DEFAULT_BREAK_PATTERNS) {
+      // Clone regex to reset lastIndex
+      const regex = new RegExp(breakPattern.pattern.source, breakPattern.pattern.flags || 'g');
       let match: RegExpExecArray | null;
       let lastMatch: RegExpExecArray | null = null;
 
@@ -243,9 +244,9 @@ export class SymmetricChunker implements ISymmetricChunker {
       if (lastMatch) {
         const breakPos = start + lastMatch.index + lastMatch[0].length;
 
-        if (pattern.priority > bestPriority && breakPos < maxEnd) {
+        if (breakPattern.priority > bestPriority && breakPos < maxEnd) {
           bestBreak = breakPos;
-          bestPriority = pattern.priority;
+          bestPriority = breakPattern.priority;
         }
       }
     }

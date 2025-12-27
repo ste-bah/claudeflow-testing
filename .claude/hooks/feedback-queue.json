@@ -1,47 +1,5 @@
 [
   {
-    "trajectoryId": "hook-traj-1766663395233-g3x7m9",
-    "quality": 0.2,
-    "outcome": "negative",
-    "metadata": {
-      "entryId": "hook-1766663395222-z5bkbk",
-      "domain": "project/general",
-      "tags": []
-    },
-    "attempts": 0,
-    "lastAttempt": 0,
-    "createdAt": 1766663395233
-  },
-  {
-    "trajectoryId": "hook-traj-1766663605762-9hl7",
-    "quality": 0.2,
-    "outcome": "negative",
-    "metadata": {
-      "entryId": "hook-1766663605746-unrvob",
-      "domain": "project/general",
-      "tags": []
-    },
-    "attempts": 0,
-    "lastAttempt": 0,
-    "createdAt": 1766663605762
-  },
-  {
-    "trajectoryId": "hook-traj-1766673891560-7earnb",
-    "quality": 0.7,
-    "outcome": "positive",
-    "metadata": {
-      "entryId": "hook-1766673891548-jdwcbe",
-      "domain": "project/general",
-      "tags": [
-        "task-output",
-        "heuristic-parsed"
-      ]
-    },
-    "attempts": 0,
-    "lastAttempt": 0,
-    "createdAt": 1766673891560
-  },
-  {
     "trajectoryId": "hook-traj-1766692321624-l4azlr",
     "quality": 0.8999999999999999,
     "outcome": "positive",
@@ -674,5 +632,352 @@
     "attempts": 0,
     "lastAttempt": 0,
     "createdAt": 1766709658298
+  },
+  {
+    "trajectoryId": "hook-traj-1766758524458-8yj30g",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766758524439-9ikgrt",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766758524458
+  },
+  {
+    "trajectoryId": "hook-traj-1766759240655-dtomo",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766759240643-m6y9cn",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766759240656
+  },
+  {
+    "trajectoryId": "hook-traj-1766759544973-clayfa",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766759544960-k0xzpu",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766759544974
+  },
+  {
+    "trajectoryId": "hook-traj-1766760068193-roov0e",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766760068176-ygnhpn",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766760068193
+  },
+  {
+    "trajectoryId": "hook-traj-1766760647825-jy544c",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766760647810-z5xqh",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766760647825
+  },
+  {
+    "trajectoryId": "hook-traj-1766761334011-3m6e",
+    "quality": 0.5,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1766761333995-rrpvaa",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766761334011
+  },
+  {
+    "trajectoryId": "hook-traj-1766761580108-r3yp4m",
+    "quality": 0.6,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1766761580089-rlk35v",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766761580108
+  },
+  {
+    "trajectoryId": "hook-traj-1766761757963-40n0rm",
+    "quality": 0.6,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1766761757950-q450zv",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766761757963
+  },
+  {
+    "trajectoryId": "hook-traj-1766761972902-s5dhv7",
+    "quality": 0.6,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1766761972888-r9ryxc",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766761972902
+  },
+  {
+    "trajectoryId": "hook-traj-1766762297351-qn4ag9",
+    "quality": 0.6,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1766762297337-o1uzjg",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766762297351
+  },
+  {
+    "trajectoryId": "hook-traj-1766762847040-p9mi2x",
+    "quality": 0.6,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1766762847027-ojoka",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766762847040
+  },
+  {
+    "trajectoryId": "hook-traj-1766763249067-j1ij6d",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766763249053-zh1qyu",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766763249067
+  },
+  {
+    "trajectoryId": "hook-traj-1766763662849-zctzhm",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766763662828-gcworj",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766763662849
+  },
+  {
+    "trajectoryId": "hook-traj-1766764133126-ta0kv",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766764133112-oaew5b",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766764133126
+  },
+  {
+    "trajectoryId": "hook-traj-1766764455335-f70f7t",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766764455320-ytpxj9",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766764455335
+  },
+  {
+    "trajectoryId": "hook-traj-1766764713374-zu9dnl",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766764713359-v560vz",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766764713374
+  },
+  {
+    "trajectoryId": "hook-traj-1766765130473-vfuvrn",
+    "quality": 0.8999999999999999,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766765130459-34j6lv",
+      "domain": "project/research/manuscript",
+      "tags": [
+        "introduction",
+        "chapter-01",
+        "complete"
+      ]
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766765130473
+  },
+  {
+    "trajectoryId": "hook-traj-1766765759812-f52l7",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766765759793-yvzern",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766765759812
+  },
+  {
+    "trajectoryId": "hook-traj-1766766339870-yixasd",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766766339851-q3phg",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766766339871
+  },
+  {
+    "trajectoryId": "hook-traj-1766766857058-5ed9al",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766766857044-p853al",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766766857058
+  },
+  {
+    "trajectoryId": "hook-traj-1766767482552-u4zehs",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766767482532-vf9qqh",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766767482552
+  },
+  {
+    "trajectoryId": "hook-traj-1766768241495-6nu1ce",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766768241475-lw6lbj",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766768241496
+  },
+  {
+    "trajectoryId": "hook-traj-1766772737457-5bnpfa",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766772737438-1adpkg",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766772737458
+  },
+  {
+    "trajectoryId": "hook-traj-1766773128137-8tnv2i",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766773128117-a0azju",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766773128137
+  },
+  {
+    "trajectoryId": "hook-traj-1766773327942-tg1ct",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766773327927-p49a3",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766773327942
+  },
+  {
+    "trajectoryId": "hook-traj-1766773661583-gvjdj8",
+    "quality": 0.8999999999999999,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1766773661568-ck67j",
+      "domain": "project/research/qa",
+      "tags": [
+        "consistency",
+        "validation",
+        "cross-references",
+        "final-qa"
+      ]
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1766773661584
   }
 ]
