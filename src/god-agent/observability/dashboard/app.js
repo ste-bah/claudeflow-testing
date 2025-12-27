@@ -34,6 +34,77 @@ class DashboardApp {
         this.initializeChart();
         await this.loadInitialData();
         this.connectSSE();
+        this.startPolling();
+    }
+
+    /**
+     * Start periodic polling for agents and pipelines
+     */
+    startPolling() {
+        // Poll every 5 seconds for fresh data
+        this.pollingInterval = setInterval(async () => {
+            await this.refreshAgentsAndPipelines();
+        }, 5000);
+    }
+
+    /**
+     * Refresh agents and pipelines from API
+     */
+    async refreshAgentsAndPipelines() {
+        try {
+            // Refresh agents
+            const agentsRes = await fetch('/api/agents');
+            if (agentsRes.ok) {
+                const data = await agentsRes.json();
+                const agents = data.agents || [];
+                this.agents.clear();
+                agents.forEach(agent => {
+                    const agentId = agent.agentId || agent.id;
+                    this.agents.set(agentId, {
+                        agentId: agentId,
+                        type: agent.type || agent.name || 'general',
+                        name: agent.name || agentId,
+                        category: agent.category || 'general',
+                        status: agent.status || 'idle',
+                        lastSeen: agent.lastSeen || Date.now(),
+                    });
+                });
+                this.renderAgents();
+            }
+
+            // Refresh pipelines
+            const pipelinesRes = await fetch('/api/pipelines');
+            if (pipelinesRes.ok) {
+                const data = await pipelinesRes.json();
+                const pipelines = data.pipelines || [];
+                this.pipelines.clear();
+                pipelines.forEach(pipeline => {
+                    const pipelineId = pipeline.pipelineId || pipeline.id;
+                    this.pipelines.set(pipelineId, {
+                        pipelineId: pipelineId,
+                        type: pipeline.type || pipeline.name || 'pipeline',
+                        status: pipeline.status || 'running',
+                        stages: pipeline.stages || [],
+                        startTime: pipeline.startTime,
+                        totalSteps: pipeline.totalSteps || 0,
+                        completedSteps: pipeline.completedSteps || 0,
+                        progress: pipeline.progress || 0,
+                    });
+                });
+                this.renderPipelines();
+            }
+
+            // Refresh activities
+            const eventsRes = await fetch('/api/events?limit=50');
+            if (eventsRes.ok) {
+                const data = await eventsRes.json();
+                const events = data.events || [];
+                this.activities = events.map(e => this.mapEventToActivity(e));
+                this.renderActivities();
+            }
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+        }
     }
 
     /**
