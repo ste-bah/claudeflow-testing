@@ -12,6 +12,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Daemon Services](#daemon-services)
 - [PhD Research Pipeline (45 Agents)](#phd-research-pipeline-45-agents)
 - [Observability Dashboard](#observability-dashboard)
+- [Learning System](#learning-system)
 - [Quick Start](#quick-start)
 - [Available Commands](#available-commands)
 - [Architecture](#architecture)
@@ -289,6 +290,190 @@ The dashboard uses:
 │  Injections: 89 │  Warnings: 0    │  Uptime: 2h 15m         │
 └─────────────────┴─────────────────┴─────────────────────────┘
 ```
+
+## Learning System
+
+The God Agent continuously learns and improves through multiple mechanisms: explicit knowledge storage, style learning, outcome tracking, and neural pattern recognition.
+
+### Learning Commands
+
+#### Store Knowledge Directly
+
+```bash
+# Via CLI
+npx tsx src/god-agent/universal/cli.ts learn "TypeScript best practice: Always use strict mode and explicit return types for better type safety"
+
+# Via slash command
+/god-learn "Your knowledge here"
+```
+
+Knowledge is stored with:
+- Vector embeddings for semantic retrieval
+- Metadata (timestamp, source, category)
+- Confidence scoring based on usage patterns
+
+#### Learn Writing Styles from Documents
+
+```bash
+# Learn style from a PDF
+npx tsx src/god-agent/universal/cli.ts learn-style /path/to/document.pdf --profile "academic-formal"
+
+# Check available style profiles
+npx tsx src/god-agent/universal/cli.ts style-status
+
+# Via slash commands
+/god-learn-style /path/to/document.pdf
+/god-style-status
+```
+
+Style profiles capture:
+- Vocabulary patterns and word frequency
+- Sentence structure preferences
+- Tone and formality level
+- Domain-specific terminology
+
+#### Provide Feedback on Outputs
+
+```bash
+# After receiving an output, provide feedback
+npx tsx src/god-agent/universal/cli.ts feedback <trajectory-id> --rating good --comment "Excellent analysis"
+
+# Via slash command
+/god-feedback <trajectory-id>
+```
+
+Feedback ratings: `excellent`, `good`, `acceptable`, `poor`, `failure`
+
+### How Learning Works Over Time
+
+#### 1. ReasoningBank & Trajectory Tracking
+
+Every interaction is recorded as a "trajectory":
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  TRAJECTORY RECORD                                          │
+├─────────────────────────────────────────────────────────────┤
+│  Input: "How do I implement authentication?"                │
+│  Agent Selected: security-architect                         │
+│  Reasoning Mode: systematic                                 │
+│  Output: [detailed response]                                │
+│  Outcome: success (user feedback: good)                     │
+│  Duration: 4.2s                                             │
+│  Tokens Used: 2,847                                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+These trajectories enable:
+- **Reasoning Trace Injection**: Similar past successes inform new responses
+- **Agent Selection Learning**: System learns which agents perform best for query types
+- **Failure Avoidance**: Past failures are flagged to prevent repetition
+
+#### 2. SoNA Engine (Self-organizing Neural Architecture)
+
+The SoNA engine maintains adaptive weights that evolve based on outcomes:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SONA WEIGHT ADJUSTMENT                                     │
+├─────────────────────────────────────────────────────────────┤
+│  Agent: code-analyzer                                       │
+│  Query Type: "code review"                                  │
+│                                                             │
+│  Before: weight = 0.72                                      │
+│  Outcome: success (excellent rating)                        │
+│  After:  weight = 0.76 (+0.04)                              │
+│                                                             │
+│  Next similar query → code-analyzer more likely selected    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Weight updates follow:
+- **Positive outcomes**: Increase agent weight for similar queries
+- **Negative outcomes**: Decrease weight, boost alternatives
+- **Decay factor**: Old weights gradually normalize (prevents over-fitting)
+
+#### 3. IDESC Outcome Tracking
+
+Every episode records success/failure for future injection decisions:
+
+| Metric | Purpose |
+|--------|---------|
+| **Success Rate** | Episodes with >70% success rate get priority injection |
+| **Confidence Score** | HIGH/MEDIUM/LOW based on similarity + success + recency |
+| **Negative Warnings** | Episodes with <50% success flagged as "avoid this approach" |
+| **Threshold Adjustment** | Injection thresholds auto-adjust ±5% based on FPR/accuracy |
+
+#### 4. Pattern Recognition
+
+The system identifies recurring patterns across interactions:
+
+```bash
+# Query learned patterns
+npx tsx src/god-agent/universal/cli.ts query "authentication patterns"
+```
+
+Patterns include:
+- **Solution Templates**: Common problem-solution pairs
+- **Error Patterns**: Frequently failing approaches
+- **Domain Clusters**: Related concepts grouped together
+- **Causal Chains**: "If X then Y" relationships from hyperedge analysis
+
+### Learning Lifecycle
+
+```
+User Query → Agent Selection (SoNA weights) → Response Generation
+                                                      │
+                                                      ▼
+                                              Trajectory Stored
+                                                      │
+                    ┌─────────────────────────────────┴───────────────────────────────┐
+                    │                                                                 │
+                    ▼                                                                 ▼
+            User Feedback                                                     Implicit Signal
+            (explicit rating)                                              (task completion,
+                    │                                                       follow-up queries)
+                    │                                                                 │
+                    └─────────────────────────────────┬───────────────────────────────┘
+                                                      │
+                                                      ▼
+                                              Outcome Recorded
+                                                      │
+                    ┌─────────────────────────────────┼───────────────────────────────┐
+                    │                                 │                               │
+                    ▼                                 ▼                               ▼
+            SoNA Weights                      ReasoningBank                    IDESC Thresholds
+              Updated                           Updated                          Adjusted
+                    │                                 │                               │
+                    └─────────────────────────────────┴───────────────────────────────┘
+                                                      │
+                                                      ▼
+                                          Future Queries Improved
+```
+
+### Viewing Learning Statistics
+
+```bash
+# Full system status including learning stats
+npx tsx src/god-agent/universal/cli.ts status
+
+# Output includes:
+# - Total trajectories recorded
+# - Success rate trends
+# - Top-performing agents
+# - Pattern clusters identified
+# - Style profiles available
+```
+
+### Data Storage Locations
+
+| Component | Location | Contents |
+|-----------|----------|----------|
+| Events DB | `.god-agent/events.db` | Trajectories, outcomes, interactions |
+| SoNA Weights | `.god-agent/weights/` | Learned agent selection weights |
+| Vector Store | `.agentdb/` | Knowledge embeddings, patterns |
+| Style Profiles | `.god-agent/styles/` | Learned writing styles |
+| UCM Episodes | `.ucm/` | Context episodes, tier metadata |
 
 ## Quick Start
 
