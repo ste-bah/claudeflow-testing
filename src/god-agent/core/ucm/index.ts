@@ -49,7 +49,7 @@ export {
 export {
   AdapterRegistry,
   adapterRegistry,
-  PhDPipelineAdapter,
+  PhdPipelineAdapter,
   CodeReviewAdapter,
   GeneralTaskAdapter
 } from './adapters/index.js';
@@ -92,7 +92,7 @@ export {
 
 export {
   ContextService,
-  DESCService,
+  DescService,
   RecoveryService,
   HealthService,
   DaemonServer

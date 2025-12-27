@@ -264,7 +264,7 @@ export class ContextService {
 
   private handleError(error: unknown, id: string | number | null): JsonRpcResponse {
     if (error instanceof ServiceError) {
-      return this.errorResponse(error.code, error.message, id, error.details);
+      return this.errorResponse(String(error.code), error.message, id, error.details);
     }
 
     const message = error instanceof Error ? error.message : 'Internal error';

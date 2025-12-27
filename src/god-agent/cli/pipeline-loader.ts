@@ -38,7 +38,7 @@ export interface PipelineConfig {
 /**
  * Phase definitions
  */
-const PHASE_ORDER: Record<string, number> = {
+const _PHASE_ORDER: Record<string, number> = {
   'Foundation': 1,
   'Exploration': 2,
   'Context': 3,
@@ -197,17 +197,17 @@ export class PipelineConfigLoader {
 
     return {
       key,
-      name: frontmatter.name || key,
+      name: (frontmatter.name as string | undefined) || key,
       phase,
       order,
       description,
-      type: frontmatter.type,
-      dependencies: frontmatter.dependencies || [],
-      timeout: frontmatter.timeout || 300,
-      critical: frontmatter.priority === 'critical' || frontmatter.critical || false,
-      expectedOutputs: frontmatter.expectedOutputs || [],
-      inputs: frontmatter.inputs || [],
-      outputs: frontmatter.outputs || []
+      type: frontmatter.type as string | undefined,
+      dependencies: (frontmatter.dependencies as string[] | undefined) || [],
+      timeout: (frontmatter.timeout as number | undefined) || 300,
+      critical: frontmatter.priority === 'critical' || (frontmatter.critical as boolean | undefined) || false,
+      expectedOutputs: (frontmatter.expectedOutputs as string[] | undefined) || [],
+      inputs: (frontmatter.inputs as string[] | undefined) || [],
+      outputs: (frontmatter.outputs as string[] | undefined) || []
     };
   }
 

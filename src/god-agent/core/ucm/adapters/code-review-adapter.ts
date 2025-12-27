@@ -87,7 +87,7 @@ export class CodeReviewAdapter implements IWorkflowAdapter {
    * @param context - Task context
    * @returns Token configuration
    */
-  getTokenConfig(context: ITaskContext): ITokenConfig {
+  getTokenConfig(_context: ITaskContext): ITokenConfig {
     return {
       tokensPerWord: 1.5, // Higher for code (vs 1.3 for text)
       averageWordLength: 6, // Code identifiers tend to be longer
@@ -106,7 +106,7 @@ export class CodeReviewAdapter implements IWorkflowAdapter {
    * @param context - Task context
    * @returns Pinning strategy configuration
    */
-  getPinningStrategy(context: ITaskContext): IPinningStrategy {
+  getPinningStrategy(_context: ITaskContext): IPinningStrategy {
     return {
       type: 'file-based',
       autoPin: true,

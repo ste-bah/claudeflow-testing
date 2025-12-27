@@ -506,13 +506,22 @@ export interface IGNNEnhancementResult {
   enhanced: Float32Array;
 
   /** Original embedding (768 dimensions) */
-  original: Float32Array;
+  original?: Float32Array;
 
   /** Enhancement time in milliseconds */
-  enhancementTime: number;
+  enhancementTime?: number;
+
+  /** Processing time in milliseconds (alias for enhancementTime) */
+  processingTimeMs?: number;
 
   /** Whether result was cached */
-  cached: boolean;
+  cached?: boolean;
+
+  /** Number of nodes processed */
+  nodeCount?: number;
+
+  /** Number of edges processed */
+  edgeCount?: number;
 }
 
 // Type aliases for backward compatibility with existing code

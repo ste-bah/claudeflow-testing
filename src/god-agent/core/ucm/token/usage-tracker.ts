@@ -176,11 +176,11 @@ export class UsageTracker extends EventEmitter {
     if (!phaseUsage) return;
 
     const totalUsage = this.getTotalUsage();
-    const contextWindow = this.config.contextWindow;
+    const contextWindow = this.config.contextWindow ?? 200000;
     const percentUsed = (totalUsage / contextWindow) * 100;
 
     // Warning threshold (80%)
-    const warningThreshold = this.config.warningThreshold;
+    const warningThreshold = this.config.warningThreshold ?? 0.8;
     const warningKey = `warning-${phase}`;
 
     if (percentUsed >= warningThreshold && !this.warningEmitted.has(warningKey)) {
@@ -190,7 +190,7 @@ export class UsageTracker extends EventEmitter {
         type: 'warning',
         message: `Token usage reached ${percentUsed.toFixed(1)}% of context window`,
         usage: totalUsage,
-        threshold: warningThreshold,
+        threshold: warningThreshold ?? 0.8,
         percentUsed,
         phase
       };

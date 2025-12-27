@@ -190,20 +190,25 @@ export interface ITaskContext {
  * Token configuration for workflow
  */
 export interface ITokenConfig {
-  contextWindow: number;
+  contextWindow?: number;
   tokensPerWord: number;
-  summarizationThreshold: number;
-  warningThreshold: number;
+  summarizationThreshold?: number;
+  warningThreshold?: number;
+  averageWordLength?: number;
+  safetyMargin?: number;
 }
 
 /**
  * Pinning strategy for workflow
  */
 export interface IPinningStrategy {
-  type: 'manual' | 'cross-reference' | 'file-based' | 'topic-based';
-  maxPinnedTokens: number;
+  type: 'manual' | 'cross-reference' | 'file-based' | 'topic-based' | 'priority-based';
+  maxPinnedTokens?: number;
   autoPin: boolean;
-  autoPinThreshold: number;
+  autoPinThreshold?: number;
+  threshold?: number;
+  maxPinnedItems?: number;
+  filePatterns?: string[];
 }
 
 /**
@@ -212,8 +217,13 @@ export interface IPinningStrategy {
  */
 export interface IPhaseSettings {
   windowSize: number;
-  maxActiveTokens: number;
-  summarizationBudget: number;
+  maxActiveTokens?: number;
+  summarizationBudget?: number;
+  name?: string;
+  focusAreas?: string[];
+  compressionEnabled?: boolean;
+  compressionRatio?: number;
+  priorityBoost?: number;
 }
 
 /**
@@ -222,10 +232,10 @@ export interface IPhaseSettings {
 export interface IWorkflowAdapter {
   name: string;
   detect(context: ITaskContext): boolean;
-  getTokenConfig(): ITokenConfig;
-  getPinningStrategy(): IPinningStrategy;
-  getWindowSize(phase?: string): number;
-  getPhaseSettings(phase: string): IPhaseSettings;
+  getTokenConfig(context?: ITaskContext): ITokenConfig;
+  getPinningStrategy(context?: ITaskContext): IPinningStrategy;
+  getWindowSize(phaseOrContext?: string | ITaskContext): number;
+  getPhaseSettings(phaseOrContext: string | ITaskContext): IPhaseSettings;
 }
 
 // ============================================================================
@@ -293,6 +303,10 @@ export interface IRetrievalResult {
   matchedChunkIndex: number;
   searchChunkIndex: number;
   metadata?: Record<string, unknown>;
+  tokenCount?: number;
+  content?: string;
+  agentId?: string;
+  similarity?: number;  // Alias for maxSimilarity
 }
 
 /**
@@ -310,29 +324,77 @@ export interface IRetrievalOptions {
 // ============================================================================
 
 /**
+ * Pinned agent record for recovery
+ */
+export interface IPinnedAgent {
+  agentId: string;
+  content: string;
+  pinnedAt: number;
+  priority: number;
+}
+
+/**
+ * Active window state for recovery
+ */
+export interface IActiveWindow {
+  agentStates: Array<{ agentId: string; state: unknown }>;
+  taskQueue: string[];
+  pinnedContextIds: string[];
+  estimatedTokens: number;
+}
+
+/**
+ * Archived summary record for recovery
+ */
+export interface IArchivedSummary {
+  id: string;
+  timestamp: number;
+  content: string;
+  agentId?: string;
+}
+
+/**
+ * Dependency graph node for recovery
+ */
+export interface IDependencyNode {
+  agentId: string;
+  dependencies: Set<string>;
+  dependents: Set<string>;
+  depth: number;
+}
+
+/**
  * Reconstructed context after compaction recovery
  */
 export interface IReconstructedContext {
-  pinnedAgents: Map<string, string>;
-  activeWindow: string[];
-  archivedSummaries: Map<string, string>;
-  dependencyGraph: Map<string, Set<string>>;
+  pinnedAgents: Map<string, string> | IPinnedAgent[];
+  activeWindow: string[] | IActiveWindow;
+  archivedSummaries: Map<string, string> | IArchivedSummary[];
+  dependencyGraph: Map<string, Set<string>> | Map<string, IDependencyNode>;
   pipelinePhase: string;
   lastCompletedAgent: string;
   metrics: IRecoveryMetrics;
+  timestamp?: number;
 }
 
 /**
  * Recovery metrics
  */
 export interface IRecoveryMetrics {
-  detectedAt: Date;
-  completedAt: Date;
+  detectedAt?: Date;
+  completedAt?: Date;
   agentsRecovered: number;
   tokensReconstructed: number;
   completeness: number;
-  failedKeys: string[];
-  descFallbackUsed: boolean;
+  failedKeys?: string[];
+  descFallbackUsed?: boolean;
+  fallbacksUsed?: number;
+  unrecoverableItems?: Array<{
+    type: string;
+    id: string;
+    reason: string;
+    timestamp: number;
+  }>;
 }
 
 /**
@@ -419,7 +481,7 @@ export interface IEpisodeRetriever {
 
 export interface ICompactionDetector {
   detectCompaction(conversationContext: string): boolean;
-  getCompactionTimestamp(): Date | null;
+  getCompactionTimestamp(): Date | number | null;
   isInRecoveryMode(): boolean;
 }
 
@@ -828,3 +890,6 @@ export interface IAlertConfig {
   /** Max number of recent failures to include (default: 5) */
   maxRecentFailures: number;
 }
+
+// Re-export from context module for convenience
+export type { IComposedContext } from "./context/context-composition-engine.js";

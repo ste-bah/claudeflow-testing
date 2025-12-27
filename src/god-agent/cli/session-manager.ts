@@ -213,13 +213,6 @@ export class SessionManager {
     return sessions;
   }
 
-  /**
-   * Update session activity timestamp
-   */
-  async updateActivity(session: PipelineSession): Promise<void> {
-    session.lastActivityTime = Date.now();
-    await this.saveSession(session);
-  }
 
   /**
    * Update session status

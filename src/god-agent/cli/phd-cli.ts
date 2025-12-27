@@ -46,6 +46,8 @@ import { DynamicAgentGenerator } from './dynamic-agent-generator.js';
 import { ChapterStructureLoader } from './chapter-structure-loader.js';
 import { getUCMClient } from './ucm-daemon-client.js';
 import { SocketClient } from '../observability/socket-client.js';
+import { FinalStageOrchestrator, PROGRESS_MILESTONES } from './final-stage/index.js';
+import type { FinalStageOptions, FinalStageResult, ProgressReport, FinalStageState } from './final-stage/index.js';
 import type { IActivityEvent } from '../observability/types.js';
 
 // Lazy-initialized socket client for event emission
@@ -1274,6 +1276,310 @@ async function commandAbort(
   };
 }
 
+// ============================================================================
+// TASK-003: Finalize Command (Phase 8 Final Assembly)
+// ============================================================================
+
+/**
+ * CLI options interface for finalize command
+ */
+interface FinalizeCliOptions {
+  slug: string;
+  force?: boolean;
+  dryRun?: boolean;
+  threshold?: string;
+  verbose?: boolean;
+  sequential?: boolean;
+  skipValidation?: boolean;
+}
+
+/**
+ * finalize command - Run Phase 8 final paper assembly
+ * [REQ-PIPE-008] Per SPEC-FUNC-001 Section 3.1, CONSTITUTION Appendix B
+ * Aliases: final, phase8
+ */
+program
+  .command('finalize')
+  .alias('final')
+  .alias('phase8')
+  .description('Run Phase 8 final paper assembly - generates dissertation from research outputs')
+  .requiredOption('--slug <slug>', 'Research task slug (directory name)')
+  .option('--force', 'Overwrite existing final/ outputs', false)
+  .option('--dry-run', 'Preview mapping without generating chapters', false)
+  .option('--threshold <n>', 'Semantic matching threshold 0-1 (default: 0.30)', '0.30')
+  .option('--verbose', 'Enable detailed logging', false)
+  .option('--sequential', 'Write chapters sequentially (safer, slower)', false)
+  .option('--skip-validation', 'Skip quality validation (debug only)', false)
+  .action(async (options: FinalizeCliOptions) => {
+    try {
+      const result = await commandFinalize(options);
+
+      // Output result as JSON
+      console.log(JSON.stringify({
+        success: result.success,
+        dryRun: result.dryRun,
+        outputPath: result.outputPath,
+        totalWords: result.totalWords,
+        totalCitations: result.totalCitations,
+        chaptersGenerated: result.chaptersGenerated,
+        warnings: result.warnings,
+        errors: result.errors,
+        exitCode: result.exitCode
+      }, null, 2));
+
+      process.exit(result.exitCode);
+    } catch (error) {
+      handleFinalizeError(error);
+    }
+  });
+
+/**
+ * Format duration in human-readable form
+ */
+function formatDuration(ms: number): string {
+  if (ms < 0) return 'unknown';
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  }
+  return `${seconds}s`;
+}
+
+/**
+ * Create a simple progress bar
+ */
+function createProgressBar(progress: number, width: number = 20): string {
+  const filled = Math.floor((progress / 100) * width);
+  const empty = width - filled;
+  return '[' + '='.repeat(filled) + (filled < width ? '>' : '') + ' '.repeat(Math.max(0, empty - 1)) + ']';
+}
+
+/**
+ * Execute finalize command
+ * [REQ-PIPE-008] Per SPEC-FUNC-001 Section 3.1
+ *
+ * Exit Codes per CONSTITUTION Appendix B:
+ * 0 - SUCCESS: All phases completed successfully
+ * 1 - GENERAL_ERROR: Unspecified error
+ * 2 - MISSING_FILES: Required input files missing
+ * 3 - TOKEN_OVERFLOW: Context limit exceeded
+ * 4 - MAPPING_FAILURE: Chapter with zero sources
+ * 5 - VALIDATION_FAILURE: Output quality validation failed
+ * 6 - SECURITY_VIOLATION: SE-xxx rule violated
+ * 7 - CONSTITUTION_VIOLATION: Critical DI-xxx or FS-xxx rule violated
+ *
+ * @param cliOptions - Command line options
+ * @returns FinalStageResult with output details
+ */
+async function commandFinalize(cliOptions: FinalizeCliOptions): Promise<FinalStageResult> {
+  const basePath = process.cwd();
+
+  // Parse threshold (string from CLI to number)
+  const threshold = parseFloat(cliOptions.threshold ?? '0.30');
+  if (isNaN(threshold) || threshold < 0 || threshold > 1) {
+    throw new Error('Threshold must be a number between 0 and 1');
+  }
+
+  // Create orchestrator
+  const orchestrator = new FinalStageOrchestrator(basePath, cliOptions.slug);
+
+  // Track last phase for progress display
+  let lastPhase = '';
+  let phaseStartTime = Date.now();
+
+  // Set up progress callback [EX-004]
+  orchestrator.onProgress((report: ProgressReport) => {
+    // Detect phase change
+    if (report.phase !== lastPhase) {
+      if (lastPhase && cliOptions.verbose) {
+        // Print phase completion
+        const phaseDuration = Date.now() - phaseStartTime;
+        console.error(`  Completed in ${formatDuration(phaseDuration)}`);
+        console.error('');
+      }
+      lastPhase = report.phase;
+      phaseStartTime = Date.now();
+
+      // Print new phase header
+      if (cliOptions.verbose) {
+        console.error(`Phase: ${report.phase}`);
+      }
+    }
+
+    if (cliOptions.verbose) {
+      // Verbose mode: detailed output per SPEC-FUNC-001 Section 4.3
+      const progressStr = report.current >= 0 && report.total >= 0
+        ? ` (${report.current}/${report.total})`
+        : '';
+
+      // Calculate phase progress percentage
+      let phaseProgress = 0;
+      if (report.current >= 0 && report.total > 0) {
+        phaseProgress = Math.round((report.current / report.total) * 100);
+      }
+
+      // Calculate overall progress using milestones (for future use in estimated time)
+      const milestone = PROGRESS_MILESTONES[report.phase as FinalStageState];
+      if (milestone) {
+        const phaseRange = milestone.end - milestone.start;
+        // Could be used for estimated remaining time calculation
+        const _overallProgress = milestone.start + (phaseRange * (phaseProgress / 100));
+        void _overallProgress; // Suppress unused warning
+      }
+
+      const progressBar = createProgressBar(phaseProgress);
+      const elapsed = formatDuration(report.elapsedMs);
+
+      console.error(`  ${progressBar} ${phaseProgress}%${progressStr}`);
+      console.error(`  ${report.message}`);
+      console.error(`  Elapsed: ${elapsed}`);
+    } else {
+      // Simple mode: just dots
+      process.stdout.write('.');
+    }
+  });
+
+  // Build orchestrator options
+  const options: FinalStageOptions = {
+    force: cliOptions.force ?? false,
+    dryRun: cliOptions.dryRun ?? false,
+    threshold,
+    verbose: cliOptions.verbose ?? false,
+    sequential: cliOptions.sequential ?? false,
+    skipValidation: cliOptions.skipValidation ?? false
+  };
+
+  // Emit pipeline event for observability
+  emitPipelineEvent({
+    component: 'pipeline',
+    operation: 'phase8_started',
+    status: 'running',
+    metadata: {
+      slug: cliOptions.slug,
+      options: {
+        force: options.force,
+        dryRun: options.dryRun,
+        threshold: options.threshold,
+        sequential: options.sequential
+      }
+    }
+  });
+
+  // Execute Phase 8
+  const result = await orchestrator.execute(options);
+
+  // Emit completion event
+  emitPipelineEvent({
+    component: 'pipeline',
+    operation: 'phase8_completed',
+    status: result.success ? 'success' : 'error',
+    metadata: {
+      slug: cliOptions.slug,
+      success: result.success,
+      exitCode: result.exitCode,
+      chaptersGenerated: result.chaptersGenerated,
+      totalWords: result.totalWords,
+      totalCitations: result.totalCitations,
+      warningCount: result.warnings.length,
+      errorCount: result.errors.length
+    }
+  });
+
+  // Verbose output for success/failure
+  if (cliOptions.verbose) {
+    console.error(''); // Newline after progress dots
+
+    if (result.success) {
+      console.error('='.repeat(60));
+      console.error('[SUCCESS] Final paper generated');
+      console.error('='.repeat(60));
+      console.error('');
+      console.error(`  Output: ${result.outputPath}`);
+      console.error(`  Total words: ${result.totalWords?.toLocaleString() ?? 0}`);
+      console.error(`  Total citations: ${result.totalCitations ?? 0}`);
+      console.error(`  Chapters generated: ${result.chaptersGenerated}`);
+
+      // Show phase timings
+      const phaseTimings = orchestrator.getPhaseTimings();
+      if (Object.keys(phaseTimings).length > 0) {
+        console.error('');
+        console.error('Phase Timings:');
+        for (const [key, value] of Object.entries(phaseTimings)) {
+          if (key.endsWith('_duration')) {
+            const phaseName = key.replace('_duration', '');
+            console.error(`  ${phaseName}: ${formatDuration(value)}`);
+          }
+        }
+      }
+
+      // Show token usage
+      const tokenBudget = orchestrator.getTokenBudget();
+      if (tokenBudget) {
+        console.error('');
+        console.error(`Token Usage: ${tokenBudget.total.used.toLocaleString()} / ${tokenBudget.total.budget.toLocaleString()} (${tokenBudget.total.utilization})`);
+      }
+
+      if (result.warnings.length > 0) {
+        console.error('');
+        console.error(`Warnings (${result.warnings.length}):`);
+        for (const warning of result.warnings) {
+          console.error(`  - ${warning}`);
+        }
+      }
+    } else {
+      console.error('='.repeat(60));
+      console.error(`[FAILED] Exit code: ${result.exitCode}`);
+      console.error('='.repeat(60));
+      for (const err of result.errors) {
+        console.error(`  Error: ${err}`);
+      }
+    }
+  } else if (!cliOptions.verbose) {
+    // End the dots line for non-verbose mode
+    console.log('');
+  }
+
+  return result;
+}
+
+/**
+ * Handle finalize command errors with appropriate exit codes
+ * Per CONSTITUTION Appendix B
+ */
+function handleFinalizeError(error: unknown): never {
+  const err = error as Error;
+
+  // Map error messages to exit codes per CONSTITUTION Appendix B
+  let exitCode = 1; // Default: GENERAL_ERROR
+
+  if (err.message.includes('Security') || err.message.includes('Invalid research slug')) {
+    exitCode = 6; // SECURITY_VIOLATION
+  } else if (err.message.includes('not found') || err.message.includes('missing')) {
+    exitCode = 2; // MISSING_FILES
+  } else if (err.message.includes('Token') || err.message.includes('overflow')) {
+    exitCode = 3; // TOKEN_OVERFLOW
+  } else if (err.message.includes('mapping') || err.message.includes('zero sources')) {
+    exitCode = 4; // MAPPING_FAILURE
+  } else if (err.message.includes('validation') || err.message.includes('quality')) {
+    exitCode = 5; // VALIDATION_FAILURE
+  } else if (err.message.includes('Constitution') || err.message.includes('DI-') || err.message.includes('FS-')) {
+    exitCode = 7; // CONSTITUTION_VIOLATION
+  }
+
+  console.error(JSON.stringify({
+    error: err.message,
+    exitCode,
+    suggestion: exitCode === 2
+      ? 'Ensure research directory exists with 05-chapter-structure.md'
+      : exitCode === 6
+      ? 'Slug must be lowercase alphanumeric with dashes only'
+      : 'Check logs for details'
+  }));
+
+  process.exit(exitCode);
+}
+
 /**
  * Handle CLI errors
  */
@@ -1326,6 +1632,7 @@ export {
   commandList,
   commandResume,
   commandAbort,
+  commandFinalize,
   determineStyleProfile,
   loadStyleProfile,
   generatePipelineId,

@@ -58,6 +58,8 @@ export interface IActivityEvent {
   component: ActivityEventComponent;
   /** Operation name (e.g., agent_selected, step_completed) */
   operation: string;
+  /** Action name (alias for operation, for backwards compatibility) */
+  action?: string;
   /** Current status of the operation */
   status: ActivityEventStatus;
   /** Duration in milliseconds (optional, for completed operations) */

@@ -39,7 +39,7 @@ export abstract class UCMError extends Error {
 // ============================================================================
 
 export class DaemonError extends UCMError {
-  readonly code = 'UCM_DAEMON_ERROR';
+  readonly code: string = 'UCM_DAEMON_ERROR';
   readonly recoverable = true;
 }
 
@@ -99,7 +99,7 @@ export class DaemonIPCError extends DaemonError {
 // ============================================================================
 
 export class EmbeddingError extends UCMError {
-  readonly code = 'UCM_EMBEDDING_ERROR';
+  readonly code: string = 'UCM_EMBEDDING_ERROR';
   readonly recoverable = true;
 
   constructor(message: string, context?: Record<string, unknown>) {
@@ -139,7 +139,7 @@ export class EmbeddingBatchError extends EmbeddingError {
 // ============================================================================
 
 export class DESCError extends UCMError {
-  readonly code = 'UCM_DESC_ERROR';
+  readonly code: string = 'UCM_DESC_ERROR';
   readonly recoverable = true;
 
   constructor(message: string, context?: Record<string, unknown>) {
@@ -179,7 +179,7 @@ export class DESCChunkingError extends DESCError {
 // ============================================================================
 
 export class RecoveryError extends UCMError {
-  readonly code = 'UCM_RECOVERY_ERROR';
+  readonly code: string = 'UCM_RECOVERY_ERROR';
   readonly recoverable = true;
 }
 
@@ -233,7 +233,7 @@ export class MemoryRetrievalError extends RecoveryError {
 // ============================================================================
 
 export class TokenEstimationError extends UCMError {
-  readonly code = 'UCM_TOKEN_ESTIMATION_ERROR';
+  readonly code: string = 'UCM_TOKEN_ESTIMATION_ERROR';
   readonly recoverable = true;
 }
 
@@ -254,7 +254,7 @@ export class ContentClassificationError extends TokenEstimationError {
 // ============================================================================
 
 export class ConfigurationError extends UCMError {
-  readonly code = 'UCM_CONFIGURATION_ERROR';
+  readonly code: string = 'UCM_CONFIGURATION_ERROR';
   readonly recoverable = false;
 }
 
@@ -287,7 +287,7 @@ export class MissingConfigError extends ConfigurationError {
 // ============================================================================
 
 export class WorkflowAdapterError extends UCMError {
-  readonly code = 'UCM_WORKFLOW_ADAPTER_ERROR';
+  readonly code: string = 'UCM_WORKFLOW_ADAPTER_ERROR';
   readonly recoverable = true;
 }
 
@@ -319,7 +319,7 @@ export class AdapterDetectionError extends WorkflowAdapterError {
 // ============================================================================
 
 export class BudgetError extends UCMError {
-  readonly code = 'UCM_BUDGET_ERROR';
+  readonly code: string = 'UCM_BUDGET_ERROR';
   readonly recoverable = true;
 }
 

@@ -485,8 +485,7 @@ export type {
   QuadFusionResult,
   FusedSearchResult,
   SourceWeights,
-  SearchSourceMeta,
-  ISearchSource,
+  SearchSource,
 } from './search/index.js';
 
 // ==================== Observability ====================

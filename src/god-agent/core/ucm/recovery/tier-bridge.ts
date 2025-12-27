@@ -136,7 +136,7 @@ export class TierBridge {
           this.recordAccess(MemoryTier.COLD, true);
           const data = results[0].content as T;
           // Promote to warm on access
-          await this.promoteToWarm(key, data);
+          await this.demoteToWarm(key, data);
           return { data, tier: MemoryTier.COLD };
         }
       } catch (error) {
@@ -189,7 +189,7 @@ export class TierBridge {
    */
   public async demoteToWarm<T>(key: string, data: T): Promise<void> {
     if (!this.warmAdapter) {
-      throw new MemoryRetrievalError('Warm tier adapter not configured', { key });
+      throw new MemoryRetrievalError(key);
     }
 
     try {
@@ -200,11 +200,7 @@ export class TierBridge {
       stats.itemCount++;
       stats.sizeBytes += this.estimateSize(data);
     } catch (error) {
-      throw new MemoryRetrievalError(
-        'Failed to demote to warm tier',
-        { key },
-        error as Error
-      );
+      throw new MemoryRetrievalError(key, error as Error);
     }
   }
 
@@ -216,7 +212,7 @@ export class TierBridge {
    */
   public async archiveToCold<T>(key: string, data: T): Promise<void> {
     if (!this.coldAdapter) {
-      throw new MemoryRetrievalError('Cold tier adapter not configured', { key });
+      throw new MemoryRetrievalError(key);
     }
 
     try {
@@ -226,11 +222,7 @@ export class TierBridge {
       stats.itemCount++;
       stats.sizeBytes += this.estimateSize(data);
     } catch (error) {
-      throw new MemoryRetrievalError(
-        'Failed to archive to cold tier',
-        { key },
-        error as Error
-      );
+      throw new MemoryRetrievalError(key, error as Error);
     }
   }
 

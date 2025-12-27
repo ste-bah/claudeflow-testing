@@ -120,7 +120,7 @@ export class GNNEnhancer {
     embedding: Float32Array,
     graphOrContext?: TrajectoryGraph | string,
     hyperedges?: string[]
-  ): Promise<{ enhanced: Float32Array; original: Float32Array; cached: boolean }> {
+  ): Promise<{ enhanced: Float32Array; original: Float32Array; cached: boolean; enhancementTime?: number; nodeCount?: number }> {
     const startTime = performance.now();
     this.totalEnhancements++;
     const original = new Float32Array(embedding);
@@ -408,13 +408,14 @@ export class GNNEnhancer {
   /**
    * Get cache statistics
    */
-  getCacheStats(): ICacheStats & { hitRate: number; maxSize: number; totalEnhancements: number; totalCacheHits: number; memoryUsedMB: number } {
+  getCacheStats(): ICacheStats & { hitRate: number; maxSize: number; totalEnhancements: number; totalCacheHits: number; memoryUsedMB: number; averageEnhancementTime: number } {
     const stats = this.cacheManager.getCacheStats();
     const config = this.cacheManager.getConfig();
     const total = this.totalEnhancements;
     const hitRate = total > 0 ? this.totalCacheHits / total : 0;
     const memoryUsedMB = stats.memoryBytes / (1024 * 1024);
-    return { ...stats, hitRate, maxSize: config.maxSize, totalEnhancements: total, totalCacheHits: this.totalCacheHits, memoryUsedMB };
+    const averageEnhancementTime = total > 0 ? this.totalEnhancementTime / total : 0;
+    return { ...stats, hitRate, maxSize: config.maxSize, totalEnhancements: total, totalCacheHits: this.totalCacheHits, memoryUsedMB, averageEnhancementTime };
   }
 
   /**

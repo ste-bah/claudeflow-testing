@@ -65,7 +65,7 @@ export class TokenBudgetManager {
    * Calculate initial tier budgets based on constitution rules
    */
   private calculateTierBudgets(): ITierBudget {
-    const contextWindow = this.config.contextWindow;
+    const contextWindow = this.config.contextWindow ?? 200000;
     const maxOutput = this.maxOutputTokens;
     const availableForContext = contextWindow - maxOutput; // Reserve for output
 
@@ -123,7 +123,7 @@ export class TokenBudgetManager {
     const totalBudget = pinnedBudget + activeWindowBudget + archivedSummariesBudget;
 
     // Validate against context window (RULE-007)
-    const availableContext = this.config.contextWindow - this.maxOutputTokens;
+    const availableContext = (this.config.contextWindow ?? 200000) - this.maxOutputTokens;
     if (totalBudget > availableContext) {
       throw new BudgetAllocationError(totalBudget, availableContext);
     }

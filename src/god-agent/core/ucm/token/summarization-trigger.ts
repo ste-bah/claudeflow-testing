@@ -125,13 +125,14 @@ export class SummarizationTrigger {
     }
 
     // RULE-042: Standard summarization threshold at 70%
-    if (percentUsed >= this.config.summarizationThreshold) {
+    const summarizationThreshold = this.config.summarizationThreshold ?? 0.7;
+    if (percentUsed >= summarizationThreshold) {
       return {
         triggered: true,
-        reason: `Summarization threshold reached (${this.config.summarizationThreshold}%)`,
+        reason: `Summarization threshold reached (${summarizationThreshold}%)`,
         severity: 'normal',
         percentUsed,
-        threshold: this.config.summarizationThreshold,
+        threshold: summarizationThreshold,
         details: {
           message: 'Standard summarization to optimize context usage',
           action: 'scheduled-summarization'
@@ -181,7 +182,7 @@ export class SummarizationTrigger {
       reason: 'Usage within acceptable limits',
       severity: 'normal',
       percentUsed,
-      threshold: this.config.summarizationThreshold
+      threshold: this.config.summarizationThreshold ?? 0.7
     };
   }
 
@@ -262,7 +263,7 @@ export class SummarizationTrigger {
    */
   isProactiveRecommended(currentUsage: number, budgetAllocated: number): boolean {
     const percentUsed = (currentUsage / budgetAllocated) * 100;
-    return percentUsed >= this.config.summarizationThreshold && percentUsed < 80;
+    return percentUsed >= (this.config.summarizationThreshold ?? 0.7) && percentUsed < 80;
   }
 
   /**
@@ -277,16 +278,16 @@ export class SummarizationTrigger {
 
     // Find next threshold
     const thresholds = [
-      { percent: this.config.summarizationThreshold, severity: 'normal' as const },
+      { percent: this.config.summarizationThreshold ?? 0.7, severity: 'normal' as const },
       { percent: 80, severity: 'high' as const },
       { percent: 90, severity: 'critical' as const }
     ];
 
     for (const { percent, severity } of thresholds) {
-      if (percentUsed < percent) {
+      if (percent !== undefined && percentUsed < percent) {
         const tokensUntil = Math.floor((percent / 100) * budgetAllocated) - currentUsage;
         return {
-          threshold: percent,
+          threshold: percent as number,
           tokensUntil: Math.max(0, tokensUntil),
           severity
         };

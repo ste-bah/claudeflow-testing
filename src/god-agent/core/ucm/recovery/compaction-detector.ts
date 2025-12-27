@@ -84,11 +84,7 @@ export class CompactionDetector implements ICompactionDetector {
 
       return false;
     } catch (error) {
-      throw new CompactionDetectionError(
-        'Failed to detect compaction',
-        { message: message.substring(0, 100) },
-        error as Error
-      );
+      throw new CompactionDetectionError(error as Error);
     }
   }
 
@@ -97,8 +93,8 @@ export class CompactionDetector implements ICompactionDetector {
    *
    * @returns Timestamp in milliseconds, or 0 if never detected
    */
-  public getCompactionTimestamp(): number {
-    return this.state.timestamp;
+  public getCompactionTimestamp(): number | null {
+    return this.state.timestamp || null;
   }
 
   /**
