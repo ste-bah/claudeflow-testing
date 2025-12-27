@@ -353,7 +353,7 @@ export class HealthService {
 
   private handleError(error: unknown, id: string | number | null): JsonRpcResponse {
     if (error instanceof ServiceError) {
-      return this.errorResponse(String(error.code), error.message, id, error.details);
+      return this.errorResponse(Number(error.code) || ERROR_CODES.INTERNAL_ERROR, error.message, id, error.details);
     }
 
     const message = error instanceof Error ? error.message : 'Internal error';

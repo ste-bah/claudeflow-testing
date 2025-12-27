@@ -84,9 +84,7 @@ export class PinningManager {
     if (currentTokens + tokenCount > this.maxTokens) {
       // Try to make space by evicting lowest priority
       if (!this.makeSpace(tokenCount, priority)) {
-        throw new BudgetExceededError(
-          `Cannot pin agent ${agentId}: would exceed pinned token budget (${currentTokens + tokenCount} > ${this.maxTokens})`
-        );
+        throw new BudgetExceededError(currentTokens + tokenCount, this.maxTokens, `pinning-${agentId}`);
       }
     }
 

@@ -134,9 +134,7 @@ export class ContextCompositionEngine {
     remainingBudget -= pinnedTier.tokenCount;
 
     if (remainingBudget < 0) {
-      throw new BudgetExceededError(
-        `Pinned agents exceed context window (${pinnedTier.tokenCount} > ${contextWindow})`
-      );
+      throw new BudgetExceededError(pinnedTier.tokenCount, contextWindow, 'pinned-agents');
     }
 
     // TIER 2: DESC Prior Solutions (max 2)
@@ -270,7 +268,7 @@ export class ContextCompositionEngine {
       if (totalTokens + tokenCount > budget) break;
 
       agents.push({
-        agentId: result.agentId,
+        agentId: result.agentId ?? `desc-${i}`,
         content: result.content ?? '',
         tokenCount,
         tier: 'desc-prior',

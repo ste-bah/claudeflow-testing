@@ -109,6 +109,21 @@ export interface IActivityStream {
  * - [RULE-OBS-004]: Memory bounds enforcement
  */
 export class ActivityStream implements IActivityStream {
+  // Singleton instance
+  private static instance: ActivityStream | null = null;
+
+  // Static methods for singleton pattern
+  static async getInstance(): Promise<ActivityStream> {
+    if (!ActivityStream.instance) {
+      ActivityStream.instance = new ActivityStream();
+    }
+    return ActivityStream.instance;
+  }
+
+  static resetInstance(): void {
+    ActivityStream.instance = null;
+  }
+
   // Circular buffer storage
   private buffer: (IActivityEvent | null)[];
   private head: number = 0;  // Points to oldest element
@@ -432,33 +447,7 @@ export class ActivityStream implements IActivityStream {
 // =============================================================================
 
 /** Singleton instance for global access */
-let singletonInstance: ActivityStream | null = null;
-
-/**
- * Get the singleton ActivityStream instance
- * Creates one if it doesn't exist
- */
-ActivityStream.getInstance = async function(): Promise<ActivityStream> {
-  if (!singletonInstance) {
-    singletonInstance = new ActivityStream();
-  }
-  return singletonInstance;
-};
-
-/**
- * Reset the singleton (for testing)
- */
-ActivityStream.resetInstance = function(): void {
-  singletonInstance = null;
-};
-
-// Add static methods to class prototype
-declare module './activity-stream.js' {
-  interface ActivityStreamConstructor {
-    getInstance(): Promise<ActivityStream>;
-    resetInstance(): void;
-  }
-}
+// Singleton pattern methods are now defined as static methods in the class
 
 // =============================================================================
 // Default Export

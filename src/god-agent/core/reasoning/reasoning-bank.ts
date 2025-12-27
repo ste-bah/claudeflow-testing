@@ -93,7 +93,7 @@ export class ReasoningBank {
   private vectorDB: VectorDB;
   private gnnEnhancer: GNNEnhancer;
   private trajectoryTracker: TrajectoryTracker;
-  // @ts-expect-error Reserved for future auto-selection feature
+  // Reserved for future auto-selection feature
   private _modeSelector: ModeSelector;
   private config: ReasoningBankConfig;
   private initialized: boolean = false;

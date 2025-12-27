@@ -170,9 +170,7 @@ export class RecoveryService {
     return {
       compactionDetected,
       compactionTimestamp: compactionTimestamp
-        ? (typeof compactionTimestamp === 'number'
-            ? new Date(compactionTimestamp).toISOString()
-            : compactionTimestamp.toISOString())
+        ? new Date(typeof compactionTimestamp === 'object' && compactionTimestamp !== null ? (compactionTimestamp as Date).getTime() : compactionTimestamp as number).toISOString()
         : null,
       inRecoveryMode,
       requiresReconstruction: compactionDetected && !inRecoveryMode
@@ -230,7 +228,7 @@ export class RecoveryService {
       lastCompactionTimestamp: (() => {
         const ts = this.compactionDetector.getCompactionTimestamp();
         if (!ts) return null;
-        return typeof ts === 'number' ? new Date(ts).toISOString() : ts.toISOString();
+        return new Date(typeof ts === 'object' && ts !== null ? (ts as Date).getTime() : ts as number).toISOString();
       })(),
       lastRecoveryMetrics: lastMetrics,
       totalCompactionEvents: this.compactionCount,
@@ -290,7 +288,7 @@ export class RecoveryService {
 
   private handleError(error: unknown, id: string | number | null): JsonRpcResponse {
     if (error instanceof ServiceError) {
-      return this.errorResponse(String(error.code), error.message, id, error.details);
+      return this.errorResponse(Number(error.code) || ERROR_CODES.INTERNAL_ERROR, error.message, id, error.details);
     }
 
     const message = error instanceof Error ? error.message : 'Internal error';

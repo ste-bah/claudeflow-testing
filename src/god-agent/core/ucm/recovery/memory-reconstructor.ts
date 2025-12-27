@@ -98,13 +98,16 @@ export class MemoryReconstructor implements IMemoryReconstructor {
         activeWindow,
         archivedSummaries,
         dependencyGraph,
+        pipelinePhase: '',
+        lastCompletedAgent: '',
         timestamp: Date.now(),
         metrics: { ...this.metrics }
       };
     } catch (error) {
       throw new ContextReconstructionError(
-        'Failed to reconstruct context',
-        { hints },
+        this.metrics.agentsRecovered,
+        0,
+        this.metrics.failedKeys ?? [],
         error as Error
       );
     }
@@ -267,7 +270,7 @@ export class MemoryReconstructor implements IMemoryReconstructor {
       try {
         const results = await this.descAdapter.search(descQuery, this.descThreshold);
         if (results.length > 0 && results[0].score >= this.descThreshold) {
-          this.metrics.fallbacksUsed++;
+          this.metrics.fallbacksUsed = (this.metrics.fallbacksUsed ?? 0) + 1;
           return {
             data: results[0].content as T,
             source: 'desc',
@@ -314,9 +317,9 @@ export class MemoryReconstructor implements IMemoryReconstructor {
     let score = 0;
     let maxScore = 4;
 
-    if (context.pinnedAgents && context.pinnedAgents.length > 0) score++;
-    if (context.activeWindow && context.activeWindow.agentStates.length > 0) score++;
-    if (context.archivedSummaries && context.archivedSummaries.length > 0) score++;
+    if (context.pinnedAgents && (Array.isArray(context.pinnedAgents) ? context.pinnedAgents.length > 0 : context.pinnedAgents.size > 0)) score++;
+    if (context.activeWindow && (Array.isArray(context.activeWindow) ? context.activeWindow.length > 0 : context.activeWindow.agentStates?.length > 0)) score++;
+    if (context.archivedSummaries && (Array.isArray(context.archivedSummaries) ? context.archivedSummaries.length > 0 : context.archivedSummaries.size > 0)) score++;
     if (context.dependencyGraph && context.dependencyGraph.size > 0) score++;
 
     this.metrics.completeness = score / maxScore;
@@ -326,6 +329,9 @@ export class MemoryReconstructor implements IMemoryReconstructor {
    * Record an unrecoverable item
    */
   private recordUnrecoverable(type: string, id: string, reason: string): void {
+    if (!this.metrics.unrecoverableItems) {
+      this.metrics.unrecoverableItems = [];
+    }
     this.metrics.unrecoverableItems.push({
       type,
       id,

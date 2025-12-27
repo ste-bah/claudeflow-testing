@@ -125,7 +125,7 @@ export function createUCM(configOverrides?: Partial<IUniversalContextConfig>): U
     timeout: config.embedding.timeout
   });
   const episodeStore = new DualEmbeddingStore();
-  const episodeRetriever = new EpisodeRetriever(episodeStore, embeddingProxy, chunker);
+  const episodeRetriever = new EpisodeRetriever(episodeStore);
   const compactionDetector = new CompactionDetector();
   const tierBridge = new TierBridge();
   const contextEngine = new ContextCompositionEngine('general', config.tokenManagement.defaults.contextWindow);
@@ -189,7 +189,7 @@ export interface UCMInstance {
  */
 export async function startDaemon(configOverrides?: Partial<IUniversalContextConfig>): Promise<DaemonServer> {
   const config = loadConfigWithEnv(configOverrides);
-  const daemon = new DaemonServer(config.daemon.socketPath);
+  const daemon = new DaemonServer(config);
   await daemon.start();
   return daemon;
 }

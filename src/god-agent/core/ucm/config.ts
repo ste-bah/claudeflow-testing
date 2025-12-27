@@ -143,7 +143,10 @@ export function loadConfig(
     return { ...DEFAULT_UCM_CONFIG };
   }
 
-  return deepMerge(DEFAULT_UCM_CONFIG, overrides);
+  return deepMerge(
+    DEFAULT_UCM_CONFIG as unknown as Record<string, unknown>,
+    overrides as Record<string, unknown>
+  ) as unknown as IUniversalContextConfig;
 }
 
 /**
@@ -331,6 +334,9 @@ export function loadConfigWithEnv(
   overrides?: Partial<IUniversalContextConfig>
 ): IUniversalContextConfig {
   const envOverrides = getEnvOverrides();
-  const mergedOverrides = deepMerge(envOverrides, overrides ?? {});
+  const mergedOverrides = deepMerge(
+    envOverrides as Record<string, unknown>,
+    (overrides ?? {}) as Record<string, unknown>
+  ) as Partial<IUniversalContextConfig>;
   return loadAndValidateConfig(mergedOverrides);
 }

@@ -367,11 +367,12 @@ export class ExpressServer implements IExpressServer {
       });
 
       for (const event of agentEvents) {
-        const agentId = event.metadata?.executionId || event.metadata?.agentId || event.metadata?.agent;
+        const rawAgentId = event.metadata?.executionId || event.metadata?.agentId || event.metadata?.agent;
+        const agentId = rawAgentId ? String(rawAgentId) : null;
         if (agentId && !agentMap.has(agentId)) {
           agentMap.set(agentId, {
             id: agentId,
-            name: event.metadata?.agentName || event.metadata?.agentKey || agentId,
+            name: String(event.metadata?.agentName || event.metadata?.agentKey || agentId),
             type: event.metadata?.agentKey || event.metadata?.agentType,
             category: event.metadata?.agentCategory || event.metadata?.category || 'general',
             status: event.operation === 'agent_started' ? 'running' : 'idle',
@@ -388,14 +389,16 @@ export class ExpressServer implements IExpressServer {
       });
 
       for (const event of routingEvents) {
-        const agentId = event.metadata?.selectedAgent || event.metadata?.agentId;
-        if (agentId) {
-          if (agentMap.has(agentId)) {
-            agentMap.get(agentId).taskCount++;
+        const rawRoutingAgentId = event.metadata?.selectedAgent || event.metadata?.agentId;
+        const routingAgentId = rawRoutingAgentId ? String(rawRoutingAgentId) : null;
+        if (routingAgentId) {
+          if (agentMap.has(routingAgentId)) {
+            const agent = agentMap.get(routingAgentId);
+            if (agent) agent.taskCount++;
           } else {
-            agentMap.set(agentId, {
-              id: agentId,
-              name: agentId,
+            agentMap.set(routingAgentId, {
+              id: routingAgentId,
+              name: routingAgentId,
               category: event.metadata?.category || 'general',
               status: 'idle',
               lastSeen: event.timestamp,
@@ -441,23 +444,23 @@ export class ExpressServer implements IExpressServer {
       const pipelineMap = new Map<string, any>();
 
       for (const event of pipelineEvents) {
-        const pipelineId = event.metadata?.pipelineId || event.id;
-        const operation = event.operation || event.action;
+        const pipelineId = String(event.metadata?.pipelineId || event.id);
+        const operation = String(event.operation || event.action || '');
 
         if (!pipelineMap.has(pipelineId)) {
           // Initialize pipeline from first event
           pipelineMap.set(pipelineId, {
             id: pipelineId,
-            name: event.metadata?.name || event.metadata?.pipelineName || 'Unknown Pipeline',
+            name: String(event.metadata?.name || event.metadata?.pipelineName || 'Unknown Pipeline'),
             status: 'running',
-            totalSteps: event.metadata?.totalSteps || 0,
+            totalSteps: Number(event.metadata?.totalSteps || 0),
             completedSteps: 0,
             currentStep: null,
             steps: event.metadata?.steps || [],
             stages: [],
             startTime: event.timestamp,
             duration: 0,
-            taskType: event.metadata?.taskType || 'unknown',
+            taskType: String(event.metadata?.taskType || 'unknown'),
           });
         }
 
@@ -714,8 +717,8 @@ export class ExpressServer implements IExpressServer {
       
       const feedbackEvents = events.filter(e => e.operation === 'learning_feedback');
       const totalFeedback = feedbackEvents.length;
-      const avgQuality = totalFeedback > 0 
-        ? feedbackEvents.reduce((sum, e) => sum + (e.metadata?.quality || 0), 0) / totalFeedback
+      const avgQuality = totalFeedback > 0
+        ? feedbackEvents.reduce((sum, e) => sum + Number(e.metadata?.quality || 0), 0) / totalFeedback
         : 0;
       
       const recentPatterns = feedbackEvents.slice(0, 20).map(e => ({
@@ -751,8 +754,9 @@ export class ExpressServer implements IExpressServer {
       });
       
       const memoryEvents = events.filter(e => e.operation === 'memory_stored');
-      const linkedCount = memoryEvents.filter(e => 
-        e.metadata?.tags?.length > 0 || e.metadata?.trajectoryId
+      const tagsArray = (tags: unknown): unknown[] => Array.isArray(tags) ? tags : [];
+      const linkedCount = memoryEvents.filter(e =>
+        tagsArray(e.metadata?.tags).length > 0 || e.metadata?.trajectoryId
       ).length;
       
       const recentEpisodes = memoryEvents.slice(0, 20).map(e => ({
@@ -788,8 +792,8 @@ export class ExpressServer implements IExpressServer {
       });
       
       // Estimate context from recent memory events
-      const totalContentLength = events.reduce((sum, e) => 
-        sum + (e.metadata?.contentLength || 0), 0
+      const totalContentLength = events.reduce((sum, e) =>
+        sum + Number(e.metadata?.contentLength || 0), 0
       );
       const estimatedTokens = Math.floor(totalContentLength / 4); // rough estimate
       
@@ -879,7 +883,7 @@ export class ExpressServer implements IExpressServer {
 
       // Derive UCM metrics
       const ucmStored = ucmEvents.filter(e => e.action === 'stored' || e.action === 'created').length;
-      const ucmContextSize = ucmEvents.reduce((sum, e) => sum + (e.metadata?.tokenCount || 0), 0);
+      const ucmContextSize = ucmEvents.reduce((sum, e) => sum + Number(e.metadata?.tokenCount || 0), 0);
 
       // Derive IDESC metrics
       const idescOutcomes = idescEvents.filter(e => e.action === 'outcome_recorded').length;
@@ -912,7 +916,7 @@ export class ExpressServer implements IExpressServer {
       ).size;
 
       // Derive Token Budget metrics
-      const tokenUsage = tokenEvents.reduce((sum, e) => sum + (e.metadata?.tokens || 0), 0);
+      const tokenUsage = tokenEvents.reduce((sum, e) => sum + Number(e.metadata?.tokens || 0), 0);
       const tokenWarnings = tokenEvents.filter(e => e.action === 'warning' || e.metadata?.warning).length;
       const summarizations = tokenEvents.filter(e => e.action === 'summarized').length;
       const rollingWindowSize = tokenEvents.filter(e => e.metadata?.inWindow).length;
