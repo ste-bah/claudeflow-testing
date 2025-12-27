@@ -106,6 +106,8 @@ export interface FinalStageOptions {
   skipValidation?: boolean;
   /** Write chapters sequentially (safer, slower) */
   sequential?: boolean;
+  /** Style profile ID for consistent writing style (REQUIRED for quality output) */
+  styleProfileId?: string;
 }
 
 export interface SemanticMapperInput {

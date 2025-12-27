@@ -335,10 +335,15 @@ export interface CompleteOptions {
 /**
  * Response from the complete command
  * [REQ-PIPE-003]
+ * [PHASE-8-AUTO] Extended to include pipeline completion status
  */
 export interface CompleteResponse {
   success: boolean;
   nextAgent?: string;
+  /** True when all Phase 1-7 agents are complete */
+  pipelineComplete?: boolean;
+  /** True when Phase 8 finalize was automatically triggered */
+  phase8Triggered?: boolean;
 }
 
 /**

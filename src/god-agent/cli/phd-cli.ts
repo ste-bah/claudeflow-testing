@@ -896,10 +896,98 @@ async function commandComplete(
     }
   }
 
+  // [PHASE-8-AUTO] Check if pipeline is complete and trigger Phase 8 automatically
+  const pipelineComplete = !nextAgentKey && session.currentAgentIndex >= totalAgents;
+
+  if (pipelineComplete) {
+    console.error('[Pipeline] All Phase 1-7 agents complete. Triggering Phase 8 (finalize)...');
+
+    // Emit pipeline completion event
+    emitPipelineEvent({
+      component: 'pipeline',
+      operation: 'phases_1_7_complete',
+      status: 'success',
+      metadata: {
+        pipelineId: session.pipelineId,
+        completedAgents: session.completedAgents.length,
+        totalAgents,
+        triggeringPhase8: true,
+      },
+    });
+
+    // Extract slug from session (stored during init)
+    const slug = session.slug || session.pipelineId;
+
+    // Trigger Phase 8 finalize asynchronously (don't block)
+    // The user can also run it manually if needed
+    triggerPhase8Finalize(slug, session.styleProfileId).catch((error) => {
+      console.error(`[Phase 8] Auto-finalize failed: ${error}`);
+      console.error('[Phase 8] Run manually: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + slug);
+    });
+  }
+
   return {
     success: true,
-    nextAgent: nextAgentKey
+    nextAgent: nextAgentKey,
+    pipelineComplete,
+    phase8Triggered: pipelineComplete
   };
+}
+
+/**
+ * Trigger Phase 8 finalize after pipeline completion
+ * [PHASE-8-AUTO] Automatic integration with main pipeline
+ *
+ * @param slug - Research session slug
+ * @param styleProfileId - Optional style profile ID
+ */
+async function triggerPhase8Finalize(slug: string, styleProfileId?: string): Promise<void> {
+  console.error(`[Phase 8] Starting finalize for: ${slug}`);
+
+  const basePath = process.cwd();
+  const orchestrator = new FinalStageOrchestrator(basePath, slug);
+
+  // Set up progress callback
+  orchestrator.onProgress((report: ProgressReport) => {
+    const progress = report.total > 0 ? Math.round((report.current / report.total) * 100) : 0;
+    console.error(`[Phase 8] ${report.phase}: ${report.message} (${progress}%)`);
+  });
+
+  try {
+    const result = await orchestrator.execute({
+      force: false, // Don't overwrite existing final output
+      dryRun: false,
+      threshold: 0.30,
+      verbose: false,
+      sequential: true, // Safer for automatic execution
+      styleProfileId,
+    });
+
+    if (result.success) {
+      console.error(`[Phase 8] SUCCESS: Final paper generated`);
+      console.error(`[Phase 8] Output: ${result.outputPath}`);
+      console.error(`[Phase 8] Words: ${result.totalWords}, Citations: ${result.totalCitations}`);
+
+      // Emit Phase 8 completion event
+      emitPipelineEvent({
+        component: 'pipeline',
+        operation: 'phase8_auto_completed',
+        status: 'success',
+        metadata: {
+          slug,
+          outputPath: result.outputPath,
+          totalWords: result.totalWords,
+          totalCitations: result.totalCitations,
+        },
+      });
+    } else {
+      console.error(`[Phase 8] FAILED: ${result.errors?.join(', ')}`);
+      console.error(`[Phase 8] Warnings: ${result.warnings?.join(', ')}`);
+    }
+  } catch (error) {
+    console.error(`[Phase 8] Error during finalize:`, error);
+    throw error;
+  }
 }
 
 // ============================================================================

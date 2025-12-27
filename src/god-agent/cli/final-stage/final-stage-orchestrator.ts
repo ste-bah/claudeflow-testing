@@ -252,9 +252,13 @@ export class FinalStageOrchestrator {
   // Component instances (wired in TASK-009)
   private summaryExtractor: SummaryExtractor;
   private semanticMapper: SemanticMapper;
-  private chapterWriter: ChapterWriterAgent;
+  private chapterWriter: ChapterWriterAgent | null = null;  // Created lazily with style profile
   private paperCombiner: PaperCombiner;
   private styleApplier: StyleApplier;
+
+  // Style profile ID (passed to ChapterWriterAgent for LLM synthesis)
+  // CRITICAL: This MUST be set for proper academic writing output
+  private _styleProfileId: string | null = null;
 
   // Style profile (loaded during initialization)
   // Used internally by writeChapters and exposed via getStyleProfile()
@@ -294,13 +298,29 @@ export class FinalStageOrchestrator {
 
     this.tokenBudget = this.initializeTokenBudget();
 
-    // Initialize all components (TASK-009 wiring)
+    // Initialize most components (TASK-009 wiring)
+    // NOTE: ChapterWriterAgent is created lazily in getChapterWriter()
+    // to ensure style profile ID is available for LLM synthesis
     this.summaryExtractor = new SummaryExtractor(this.researchDir);
     this.semanticMapper = new SemanticMapper();
-    this.chapterWriter = new ChapterWriterAgent();
+    // this.chapterWriter is created lazily with style profile
     this.paperCombiner = new PaperCombiner();
     this.styleApplier = new StyleApplier();
     this._researchQuery = slug;
+  }
+
+  /**
+   * Get ChapterWriterAgent, creating it lazily with style profile ID
+   *
+   * CRITICAL: This ensures the style profile is always passed to the writer
+   * for proper LLM-based academic prose synthesis.
+   */
+  private getChapterWriter(): ChapterWriterAgent {
+    if (!this.chapterWriter) {
+      console.log(`[Orchestrator] Creating ChapterWriterAgent with style profile: ${this._styleProfileId || 'none'}`);
+      this.chapterWriter = new ChapterWriterAgent(this._styleProfileId || undefined);
+    }
+    return this.chapterWriter;
   }
 
   // ============================================
@@ -1510,35 +1530,75 @@ export class FinalStageOrchestrator {
 
   /**
    * Load style profile if available
-   * WIRED: Loads JSON style profile from .god-agent/style-profiles (TASK-009)
+   * WIRED: Loads JSON style profile from multiple locations (TASK-009)
+   *
+   * CRITICAL: Also stores the style profile ID for ChapterWriterAgent
+   * to use during LLM-based synthesis.
+   *
+   * Search order:
+   * 1. options.styleProfileId (explicit override)
+   * 2. .god-agent/style-profiles/<slug>.json
+   * 3. <researchDir>/style-profile.json
+   * 4. .agentdb/universal/style-profiles.json (academic-papers profile)
    *
    * @returns Style characteristics or null if not found
    */
   private async loadStyleProfile(): Promise<StyleCharacteristics | null> {
-    const profilePath = path.join(this.basePath, '.god-agent/style-profiles', `${this.slug}.json`);
+    // Check if styleProfileId was passed in options
+    if (this.options?.styleProfileId) {
+      this._styleProfileId = this.options.styleProfileId;
+      this.log('info', `Using explicit style profile ID: ${this._styleProfileId}`);
+    }
 
+    // Location 1: Slug-specific profile
+    const profilePath = path.join(this.basePath, '.god-agent/style-profiles', `${this.slug}.json`);
     try {
       const content = await fs.readFile(profilePath, 'utf-8');
       const profile = JSON.parse(content) as StyleCharacteristics;
-
-      // Store for use in chapter writing
       this._styleProfile = profile;
-
+      this._styleProfileId = this._styleProfileId || this.slug;  // Use slug as ID
+      this.log('info', `Loaded style profile from ${profilePath}`);
       return profile;
     } catch {
-      // No style profile found, try alternative locations
-      const altPath = path.join(this.researchDir, 'style-profile.json');
-      try {
-        const content = await fs.readFile(altPath, 'utf-8');
-        const profile = JSON.parse(content) as StyleCharacteristics;
-        this._styleProfile = profile;
-        return profile;
-      } catch {
-        // No style profile, use defaults
-        this._styleProfile = null;
-        return null;
-      }
+      // Continue to next location
     }
+
+    // Location 2: Research directory profile
+    const altPath = path.join(this.researchDir, 'style-profile.json');
+    try {
+      const content = await fs.readFile(altPath, 'utf-8');
+      const profile = JSON.parse(content) as StyleCharacteristics;
+      this._styleProfile = profile;
+      this._styleProfileId = this._styleProfileId || `${this.slug}-local`;  // Use slug-local as ID
+      this.log('info', `Loaded style profile from ${altPath}`);
+      return profile;
+    } catch {
+      // Continue to next location
+    }
+
+    // Location 3: AgentDB universal style profiles (look for academic-papers or first en-GB profile)
+    const agentDbPath = path.join(this.basePath, '.agentdb/universal/style-profiles.json');
+    try {
+      const content = await fs.readFile(agentDbPath, 'utf-8');
+      const data = JSON.parse(content) as { profiles: Record<string, { characteristics: StyleCharacteristics }> };
+
+      // Find academic-papers profile or any en-GB profile
+      for (const [key, value] of Object.entries(data.profiles)) {
+        if (key.startsWith('academic-papers') || value.characteristics?.regional?.languageVariant === 'en-GB') {
+          this._styleProfile = value.characteristics;
+          this._styleProfileId = this._styleProfileId || key;  // Use the profile key as ID
+          this.log('info', `Loaded style profile '${key}' from AgentDB (ID: ${this._styleProfileId})`);
+          return value.characteristics;
+        }
+      }
+    } catch {
+      // No AgentDB profiles available
+    }
+
+    // No style profile found
+    this._styleProfile = null;
+    this.log('debug', 'No style profile found, using defaults');
+    return null;
   }
 
   /**
@@ -1683,8 +1743,8 @@ export class FinalStageOrchestrator {
         }
       }
 
-      // Write chapter using ChapterWriterAgent
-      const chapterOutput = await this.chapterWriter.writeChapter({
+      // Write chapter using ChapterWriterAgent (with style profile for LLM synthesis)
+      const chapterOutput = await this.getChapterWriter().writeChapter({
         chapter: chapterDef,
         sources: chapterSources,
         style,
