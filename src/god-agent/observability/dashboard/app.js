@@ -684,10 +684,10 @@ class DashboardApp {
      */
     mapEventToActivity(event) {
         return {
-            id: event.eventId || Date.now() + Math.random(),
+            id: event.id || event.eventId || Date.now() + Math.random(),
             timestamp: event.timestamp,
-            component: event.eventType?.split('_')[0] || 'system',
-            status: event.metadata?.status || 'info',
+            component: event.component || 'system',
+            status: event.status || event.metadata?.status || 'info',
             message: this.formatEventMessage(event),
             metadata: event.metadata
         };
@@ -697,18 +697,31 @@ class DashboardApp {
      * Format event message for display
      */
     formatEventMessage(event) {
-        const type = event.eventType;
+        const op = event.operation || event.eventType || '';
         const meta = event.metadata || {};
 
-        if (type?.includes('agent')) {
-            return `Agent ${meta.type || meta.agentId} ${type.includes('started') ? 'started' : 'completed'}`;
-        } else if (type?.includes('pipeline')) {
-            return `Pipeline ${meta.type || meta.pipelineId} ${type.includes('started') ? 'started' : 'completed'}`;
-        } else if (type?.includes('routing')) {
-            return `Routed to ${meta.selectedAgent || 'unknown'}`;
+        // Generate human-readable message from operation and metadata
+        if (op === 'step_started') {
+            return `Step started: ${meta.stepName || meta.agentType || 'unknown'}`;
+        } else if (op === 'step_completed') {
+            return `Step completed: ${meta.stepName || meta.agentType || 'unknown'}`;
+        } else if (op === 'agent_started') {
+            return `Agent started: ${meta.agentName || meta.agentKey || 'unknown'}`;
+        } else if (op === 'agent_completed') {
+            return `Agent completed: ${meta.agentName || meta.agentKey || 'unknown'}`;
+        } else if (op === 'pipeline_started') {
+            return `Pipeline started: ${meta.type || meta.pipelineId || 'unknown'}`;
+        } else if (op === 'pipeline_completed') {
+            return `Pipeline completed: ${meta.type || meta.pipelineId || 'unknown'}`;
+        } else if (op === 'learning_feedback') {
+            return `Learning feedback: quality ${(meta.quality || 0).toFixed(2)}`;
+        } else if (op === 'memory_stored') {
+            return `Memory stored: ${meta.domain || 'unknown'} (${meta.contentLength || 0} chars)`;
+        } else if (op.includes('routing')) {
+            return `Routed to: ${meta.selectedAgent || 'unknown'}`;
         }
 
-        return event.message || type || 'System event';
+        return event.message || op || `${event.component || 'System'} event`;
     }
 
     /**
