@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "god-agent": "./dist/god-agent/cli.js"
+    "god-agent": "./dist/god-agent/cli.js",
+    "phd-cli": "./dist/god-agent/cli/phd-cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -36,9 +37,9 @@
     "ucm:start": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts start",
     "ucm:stop": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts stop",
     "ucm:status": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts status",
-    "god-agent:start": "npm run memory:start && npm run daemon:start && npm run ucm:start",
-    "god-agent:stop": "npm run ucm:stop && npm run daemon:stop && npm run memory:stop",
-    "god-agent:status": "npm run memory:status && npm run daemon:status && npm run ucm:status"
+    "god-agent:start": "npm run memory:start && npm run daemon:start && npm run ucm:start && npm run observe:start && echo '✅ All God Agent services started'",
+    "god-agent:stop": "npm run observe:stop && npm run ucm:stop && npm run daemon:stop && npm run memory:stop && echo '✅ All God Agent services stopped'",
+    "god-agent:status": "echo '=== God Agent Service Status ===' && npm run memory:status && npm run daemon:status && npm run ucm:status && npm run observe:status"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -48,7 +49,8 @@
     "markdown-it": "^14.1.0",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.17.2",
-    "proper-lockfile": "^4.1.2"
+    "proper-lockfile": "^4.1.2",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
@@ -59,6 +61,7 @@
     "@types/node": "^20.10.0",
     "@types/proper-lockfile": "^4.1.4",
     "@types/supertest": "^6.0.3",
+    "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^1.0.0",
     "js-yaml": "^4.1.1",
     "jsdom": "^27.3.0",
