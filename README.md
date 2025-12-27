@@ -10,6 +10,8 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Daemon Services](#daemon-services)
+- [PhD Research Pipeline (45 Agents)](#phd-research-pipeline-45-agents)
+- [Observability Dashboard](#observability-dashboard)
 - [Quick Start](#quick-start)
 - [Available Commands](#available-commands)
 - [Architecture](#architecture)
@@ -176,6 +178,117 @@ npm run observe:open
 ```
 
 Opens the observability dashboard at http://localhost:3847 showing active agents, pipelines, and activity stream.
+
+## PhD Research Pipeline (45 Agents)
+
+The God Agent includes a comprehensive 45-agent pipeline for academic research, dissertation writing, and systematic literature reviews. Each agent specializes in a specific phase of the research process.
+
+### Running the Pipeline
+
+```bash
+# Via slash command in Claude Code
+/god-research "Your research topic here"
+
+# Via CLI
+npx tsx src/god-agent/cli/phd-cli.ts start "Your research topic"
+npx tsx src/god-agent/cli/phd-cli.ts next <session-id>    # Advance to next agent
+npx tsx src/god-agent/cli/phd-cli.ts complete <session-id> <agent-name>  # Mark agent complete
+npx tsx src/god-agent/cli/phd-cli.ts status <session-id>  # Check progress
+```
+
+### Pipeline Phases & Agents
+
+| Phase | Agents | Description |
+|-------|--------|-------------|
+| **Foundation (1-5)** | ambiguity-clarifier, step-back-analyzer, self-ask-decomposer, research-planner, construct-definer | Problem framing, question decomposition, planning |
+| **Literature (6-12)** | literature-mapper, source-tier-classifier, systematic-reviewer, quality-assessor, bias-detector, evidence-synthesizer, pattern-analyst | Systematic review, quality assessment, evidence synthesis |
+| **Theory (13-17)** | thematic-synthesizer, theory-builder, theoretical-framework-analyst, contradiction-analyzer, gap-hunter | Theme synthesis, theory building, gap analysis |
+| **Design (18-25)** | hypothesis-generator, model-architect, method-designer, sampling-strategist, instrument-developer, validity-guardian, ethics-reviewer, analysis-planner | Research design, methodology, ethics |
+| **Writing (26-35)** | dissertation-architect, abstract-writer, introduction-writer, literature-review-writer, methodology-writer, results-writer, discussion-writer, conclusion-writer, apa-citation-specialist, citation-extractor | Document structure, section writing, citations |
+| **QA (36-45)** | adversarial-reviewer, confidence-quantifier, citation-validator, reproducibility-checker, risk-analyst, opportunity-identifier, context-tier-manager, file-length-manager, consistency-validator | Quality assurance, validation, final checks |
+
+### Rolling Context Windows & DESC
+
+The pipeline uses **Unbounded Context Memory (UCM)** with **DESC (Dual Embedding Symmetric Chunking)** to manage context across the 45 agents:
+
+#### How It Works
+
+1. **Episode Storage**: Each agent's work is stored as an "episode" with:
+   - Input context and task description
+   - Agent outputs and decisions
+   - Outcome tracking (success/failure)
+   - Vector embeddings for semantic search
+
+2. **Rolling Context Window**: As agents complete:
+   - Recent episodes are kept in "hot" tier (immediate access)
+   - Older episodes move to "warm" tier (vector-searchable)
+   - Archived episodes go to "cold" tier (on-demand retrieval)
+
+3. **DESC Injection**: Before each agent runs:
+   - System queries UCM for relevant prior episodes
+   - Injects summarized context from previous agents
+   - Provides confidence scores based on past outcomes
+   - Warns about negative examples (past failures)
+
+4. **Context Flow**:
+```
+Agent 1 → Episode 1 → UCM Store
+                ↓
+Agent 2 ← DESC Inject (Episode 1 summary) → Episode 2 → UCM Store
+                                                  ↓
+Agent 3 ← DESC Inject (Episodes 1-2 summaries) → Episode 3 → UCM Store
+                                                        ↓
+                        ... continues through 45 agents ...
+```
+
+#### Key Benefits
+
+- **No Context Loss**: Work from early agents preserved and accessible
+- **Semantic Retrieval**: Later agents can query for specific information
+- **Outcome Learning**: System learns from successes and failures
+- **Automatic Summarization**: Long outputs compressed intelligently
+
+## Observability Dashboard
+
+The dashboard at **http://localhost:3847** provides real-time monitoring of the God Agent system.
+
+### Dashboard Panels
+
+| Panel | Description |
+|-------|-------------|
+| **Active Agents** | Currently running agents with status (idle/busy/error) |
+| **Pipelines** | Active PhD pipelines showing progress (X/45 steps completed) |
+| **Activity Stream** | Real-time event log of agent operations |
+| **UCM & IDESC** | Episodes stored, context size, injection rates |
+| **Token Budget** | Context usage percentage, warnings, summarization count |
+| **Daemon Health** | Service uptime, events processed, memory usage |
+| **Agent Registry** | Total agents available, categories, selection stats |
+| **Memory Panels** | Reasoning traces, episodes, hyperedges, interactions |
+
+### Real-Time Updates
+
+The dashboard uses:
+- **Server-Sent Events (SSE)** for live activity streaming
+- **5-second polling** for agents, pipelines, and metrics
+- **WebSocket IPC** for daemon communication
+
+### Screenshot Guide
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  GOD AGENT OBSERVABILITY DASHBOARD                          │
+├─────────────────┬─────────────────┬─────────────────────────┤
+│  Active Agents  │    Pipelines    │    Activity Stream      │
+│  ┌───────────┐  │  ┌───────────┐  │  • Agent started: X     │
+│  │ agent-1 ◉ │  │  │ PhD-001   │  │  • Step completed: Y    │
+│  │ agent-2 ◎ │  │  │ 18/45 ███ │  │  • Episode stored       │
+│  └───────────┘  │  └───────────┘  │  • Context injected     │
+├─────────────────┴─────────────────┴─────────────────────────┤
+│  UCM & IDESC    │  Token Budget   │  Daemon Health          │
+│  Episodes: 142  │  Usage: 14.2%   │  Status: Healthy        │
+│  Injections: 89 │  Warnings: 0    │  Uptime: 2h 15m         │
+└─────────────────┴─────────────────┴─────────────────────────┘
+```
 
 ## Quick Start
 
