@@ -45,6 +45,38 @@ import { SessionNotFoundError, SessionCorruptedError, SessionExpiredError } from
 import { DynamicAgentGenerator } from './dynamic-agent-generator.js';
 import { ChapterStructureLoader } from './chapter-structure-loader.js';
 import { getUCMClient } from './ucm-daemon-client.js';
+import { SocketClient } from '../observability/socket-client.js';
+import type { IActivityEvent } from '../observability/types.js';
+
+// Lazy-initialized socket client for event emission
+let socketClient: SocketClient | null = null;
+
+async function getSocketClient(): Promise<SocketClient | null> {
+  if (!socketClient) {
+    try {
+      socketClient = new SocketClient({ verbose: false });
+      await socketClient.connect();
+    } catch {
+      // Non-blocking - observability is optional
+      return null;
+    }
+  }
+  return socketClient;
+}
+
+function emitPipelineEvent(event: Omit<IActivityEvent, 'id' | 'timestamp'>): void {
+  getSocketClient().then(client => {
+    if (!client) return;
+    try {
+      const fullEvent: IActivityEvent = {
+        id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: Date.now(),
+        ...event,
+      };
+      client.send(fullEvent);
+    } catch { /* ignore */ }
+  });
+}
 
 const program = new Command();
 
@@ -576,6 +608,23 @@ When you complete this task, end your response with:
   // Update session activity time
   await sessionManager.updateActivity(session);
 
+  // Emit step_started event for dashboard observability
+  emitPipelineEvent({
+    component: 'pipeline',
+    operation: 'step_started',
+    status: 'running',
+    metadata: {
+      pipelineId: session.pipelineId,
+      stepId: `step_${session.pipelineId}_${session.currentAgentIndex}`,
+      stepName: agentConfig.key,
+      stepIndex: session.currentAgentIndex,
+      agentType: agentConfig.key,
+      phase: getPhaseName(agentConfig.phase),
+      totalSteps: totalAgents,
+      progress: progress.percentage,
+    },
+  });
+
   if (options.verbose) {
     console.error(`[DEBUG] Next agent: ${agentConfig.key}`);
     console.error(`[DEBUG] Phase: ${agentConfig.phase} (${getPhaseName(agentConfig.phase)})`);
@@ -756,6 +805,24 @@ async function commandComplete(
 
   // Persist updated session
   await sessionManager.saveSession(session);
+
+  // Emit step_completed event for dashboard observability
+  emitPipelineEvent({
+    component: 'pipeline',
+    operation: 'step_completed',
+    status: 'success',
+    durationMs: Date.now() - session.lastActivityTime,
+    metadata: {
+      pipelineId: session.pipelineId,
+      stepId: `step_${session.pipelineId}_${session.currentAgentIndex - 1}`,
+      stepName: agentKey,
+      agentType: agentKey,
+      phase: getPhaseName(session.currentPhase),
+      completedSteps: session.completedAgents.length,
+      totalSteps: totalAgents,
+      progress: Math.round((session.completedAgents.length / totalAgents) * 100),
+    },
+  });
 
   // [UCM-DESC] Store completed agent result as episode for future retrieval
   if (output !== null && typeof output === 'object') {
