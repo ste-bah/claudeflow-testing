@@ -67,11 +67,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; \"$ROOT/.claude/hooks/pre-task.sh\"'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/pre-task.sh\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; \"$ROOT/.claude/hooks/pre-task.sh\" || true'"
           },
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; npx tsx \"$ROOT/scripts/hooks/ucm-desc-injector.ts\"'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-desc-injector.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-desc-injector.ts\" || true'"
           }
         ]
       },
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-command --command \"{}\" --validate-safety true --prepare-resources true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-command --command \"{}\" --validate-safety true --prepare-resources true || true'"
           }
         ]
       },
@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-edit --file \"{}\" --auto-assign-agents true --load-context true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-edit --file \"{}\" --auto-assign-agents true --load-context true || true'"
           }
         ]
       }
@@ -100,11 +100,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; \"$ROOT/.claude/hooks/post-task.sh\"'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/post-task.sh\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; \"$ROOT/.claude/hooks/post-task.sh\" || true'"
           },
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; npx tsx \"$ROOT/scripts/hooks/ucm-post-task-archive.ts\"'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-post-task-archive.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-post-task-archive.ts\" || true'"
           }
         ]
       },
@@ -113,7 +113,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks post-command --command \"{}\" --track-metrics true --store-results true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks post-command --command \"{}\" --track-metrics true --store-results true || true'"
           }
         ]
       },
@@ -122,7 +122,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks post-edit --file \"{}\" --format true --update-memory true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks post-edit --file \"{}\" --format true --update-memory true || true'"
           }
         ]
       }
@@ -152,15 +152,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent && npx claude-flow@alpha hooks session-end --generate-summary true --persist-state true --export-metrics true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx claude-flow@alpha hooks session-end --generate-summary true --persist-state true --export-metrics true || true'"
           },
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent && \"$ROOT/.claude/hooks/god-agent-save.sh\"'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/god-agent-save.sh\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; \"$ROOT/.claude/hooks/god-agent-save.sh\" || true'"
           },
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\" --action=stop'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-session-start.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\" --action=stop || true'"
           }
         ]
       }
@@ -170,7 +170,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && cd \"$ROOT\" && source ~/.profile && nvm use 22 --silent; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\"'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-session-start.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\" || true'"
           }
         ]
       }
@@ -180,6 +180,6 @@
   "enabledMcpjsonServers": ["claude-flow@alpha", "ruv-swarm", "serena"],
   "statusLine": {
     "type": "command",
-    "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo \".\") && \"$ROOT/.claude/statusline-command.sh\"'"
+    "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/statusline-command.sh\" ] && \"$ROOT/.claude/statusline-command.sh\" || echo \"\"'"
   }
 }
