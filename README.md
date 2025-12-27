@@ -30,18 +30,54 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - **Style Profiles**: Learn and apply writing styles from documents
 - **Claude Flow Integration**: Multi-agent swarm coordination
 
-## Quick Setup (Automated)
+## Quick Setup (Automated) ⚡ RECOMMENDED
 
-For a fresh machine, run the automated setup script:
+**For a fresh machine, the setup script handles everything automatically:**
 
 ```bash
+# Clone or download the repository first, then:
+cd god-agent-package
+
+# Run the complete setup
 chmod +x scripts/packaging/setup-god-agent.sh
 ./scripts/packaging/setup-god-agent.sh
 ```
 
-This installs everything: NVM, Node.js 22, Claude Code CLI, claude-flow, Python venv, Serena MCP, and configures all MCP servers.
+### What the Setup Script Installs
 
-After setup, add to your `~/.bashrc` or `~/.profile`:
+| Component | Purpose |
+|-----------|---------|
+| **NVM + Node.js 22** | JavaScript runtime (required) |
+| **Claude Code CLI** | Anthropic's official CLI tool |
+| **claude-flow@alpha** | Multi-agent swarm coordination |
+| **ruv-swarm** | Enhanced swarm capabilities |
+| **Python 3.11+ venv** | For Serena and embedding server |
+| **Serena MCP** | Language server protocol integration |
+| **Embedding API** | Vector similarity search (1536D) |
+| **.mcp.json** | MCP server configuration |
+
+### Setup Options
+
+```bash
+# Full installation (recommended)
+./scripts/packaging/setup-god-agent.sh
+
+# Skip specific components
+./scripts/packaging/setup-god-agent.sh --skip-nvm       # Already have Node.js 22
+./scripts/packaging/setup-god-agent.sh --skip-python    # Already have Python 3.11+
+./scripts/packaging/setup-god-agent.sh --skip-serena    # Don't need Serena MCP
+./scripts/packaging/setup-god-agent.sh --skip-embedding # Don't need embedding server
+
+# Minimal install (core only)
+./scripts/packaging/setup-god-agent.sh --minimal
+
+# Show all options
+./scripts/packaging/setup-god-agent.sh --help
+```
+
+### Post-Setup Configuration
+
+After the script completes, add to your `~/.bashrc` or `~/.profile`:
 
 ```bash
 export NVM_DIR="$HOME/.nvm"
@@ -49,7 +85,25 @@ export NVM_DIR="$HOME/.nvm"
 nvm alias default 22
 ```
 
-Then: `source ~/.bashrc && claude`
+Then reload and start:
+
+```bash
+source ~/.bashrc
+claude  # Start Claude Code CLI
+```
+
+### Verify Installation
+
+```bash
+# Check all components
+node --version          # Should be v22.x.x
+claude --version        # Claude Code CLI version
+npx claude-flow@alpha --version
+python3 --version       # Should be 3.11+
+
+# Test God Agent
+npx tsx src/god-agent/universal/cli.ts status
+```
 
 ## Prerequisites (Manual Install)
 
