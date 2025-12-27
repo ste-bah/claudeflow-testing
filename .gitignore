@@ -12,7 +12,7 @@
 .swarm/
 config/
 coordination/
-memory/
+/memory/
 # serena/ - Now tracked in repository (commented out after adding complete codebase)
 
 # Ignore blueprint configuration files
