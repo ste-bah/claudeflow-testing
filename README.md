@@ -9,6 +9,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Prerequisites (Manual Install)](#prerequisites-manual-install)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Daemon Services](#daemon-services)
 - [Quick Start](#quick-start)
 - [Available Commands](#available-commands)
 - [Architecture](#architecture)
@@ -130,6 +131,51 @@ Add to your Claude Code settings (`.claude/settings.local.json`):
   }
 }
 ```
+
+## Daemon Services
+
+The God Agent system uses multiple background daemons for memory, context management, and observability. Use these commands to manage all services:
+
+### Start All Services
+
+```bash
+npm run god-agent:start
+```
+
+This starts all four daemons in order:
+1. **Memory Daemon** - Persistent memory and vector storage
+2. **Core Daemon** - Main event processing and IPC
+3. **UCM Daemon** - Unbounded Context Memory management
+4. **Observability Daemon** - Dashboard and metrics (http://localhost:3847)
+
+### Stop All Services
+
+```bash
+npm run god-agent:stop
+```
+
+### Check Service Status
+
+```bash
+npm run god-agent:status
+```
+
+### Individual Service Control
+
+| Service | Start | Stop | Status |
+|---------|-------|------|--------|
+| Memory | `npm run memory:start` | `npm run memory:stop` | `npm run memory:status` |
+| Core Daemon | `npm run daemon:start` | `npm run daemon:stop` | `npm run daemon:status` |
+| UCM | `npm run ucm:start` | `npm run ucm:stop` | `npm run ucm:status` |
+| Observability | `npm run observe:start` | `npm run observe:stop` | `npm run observe:status` |
+
+### Open Dashboard
+
+```bash
+npm run observe:open
+```
+
+Opens the observability dashboard at http://localhost:3847 showing active agents, pipelines, and activity stream.
 
 ## Quick Start
 
