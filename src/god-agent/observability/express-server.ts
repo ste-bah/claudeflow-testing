@@ -947,7 +947,9 @@ export class ExpressServer implements IExpressServer {
           communities: communities || Math.min(5, Math.floor(eventStats.dbEventCount / 10)),
         },
         token: {
-          usage: tokenUsage || eventStats.dbEventCount * 200,
+          // Usage should be a ratio (0-1), not raw token count
+          // Estimate ~200 tokens per event, budget is ~200K tokens
+          usage: tokenUsage || Math.min((eventStats.dbEventCount * 200) / 200000, 1),
           warnings: tokenWarnings,
           summarizations: summarizations,
           rollingWindowSize: rollingWindowSize || 50,
