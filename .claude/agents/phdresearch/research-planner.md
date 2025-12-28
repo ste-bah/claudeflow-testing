@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: research-planner
 type: meta-analyst
 color: "#1A237E"

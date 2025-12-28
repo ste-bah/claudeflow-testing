@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: consistency-validator
 type: qa-validator
 color: "#D32F2F"

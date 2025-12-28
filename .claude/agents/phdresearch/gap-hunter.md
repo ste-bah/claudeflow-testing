@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: gap-hunter
 type: analytical-specialist
 color: "#D84315"

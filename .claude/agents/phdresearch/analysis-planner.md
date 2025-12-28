@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: analysis-planner
 type: statistical-architect
 color: "#00796B"

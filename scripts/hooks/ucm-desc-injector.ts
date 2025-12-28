@@ -9,6 +9,7 @@
 
 import * as net from 'net';
 import * as readline from 'readline';
+import { PhdPipelineAdapter } from '../../src/god-agent/core/ucm/adapters/phd-pipeline-adapter.js';
 
 interface HookInput {
   tool_name: string;
@@ -48,7 +49,76 @@ interface RPCResponse {
 
 const SOCKET_PATH = '/tmp/godagent-ucm.sock';
 const RETRIEVE_TIMEOUT = 2000; // 2 seconds
-const MAX_SIMILAR_SOLUTIONS = 3;
+const DEFAULT_WINDOW_SIZE = 3; // RULE-010
+
+// Singleton adapter instance for phase detection
+const phdAdapter = new PhdPipelineAdapter();
+
+/**
+ * Get rolling window size for current phase per CONSTITUTION rules
+ * RULE-010: Default 3
+ * RULE-011: Planning 2
+ * RULE-012: Research 3
+ * RULE-013: Writing 5
+ * RULE-014: QA 10
+ *
+ * @param phase - Current pipeline phase (string or number)
+ * @param agentType - Optional agent type for fallback detection
+ * @param task - Optional task description for fallback detection
+ * @returns Rolling window size
+ */
+function getWindowSizeForPhase(
+  phase?: string,
+  agentType?: string,
+  task?: string
+): number {
+  // First try using PhdPipelineAdapter for consistent phase detection
+  const context = {
+    phase: phase || '',
+    agentId: agentType || '',
+    task: task || ''
+  };
+
+  // If adapter detects PhD pipeline, use its window size logic
+  if (phdAdapter.detect(context)) {
+    return phdAdapter.getWindowSize(context);
+  }
+
+  // Fallback to inline logic for non-PhD contexts or direct phase values
+  const normalizedPhase = (phase || '').toLowerCase();
+
+  switch (normalizedPhase) {
+    // RULE-011: Planning phase
+    case 'planning':
+    case 'foundation':
+    case '1':
+      return 2;
+
+    // RULE-012: Research/Discovery phase
+    case 'research':
+    case 'discovery':
+    case '2':
+    case '3':
+      return 3;
+
+    // RULE-013: Writing/Synthesis phase
+    case 'writing':
+    case 'synthesis':
+    case '6':
+      return 5;
+
+    // RULE-014: QA/Review phase
+    case 'qa':
+    case 'review':
+    case 'quality':
+    case '7':
+      return 10;
+
+    // RULE-010: Default
+    default:
+      return DEFAULT_WINDOW_SIZE;
+  }
+}
 
 /**
  * Call UCM daemon via JSON-RPC over Unix socket
@@ -107,17 +177,23 @@ async function callDaemon(method: string, params: any): Promise<any> {
 
 /**
  * Retrieve similar prior solutions from DESC with task context
+ *
+ * @param query - The search query
+ * @param agentType - Optional agent type for context
+ * @param taskContext - Optional task context with metadata
+ * @param topK - Maximum number of episodes to retrieve (phase-aware window size)
  */
 async function retrieveSimilarSolutions(
   query: string,
   agentType?: string,
-  taskContext?: any
+  taskContext?: any,
+  topK: number = DEFAULT_WINDOW_SIZE
 ): Promise<any[]> {
   try {
     const result = await callDaemon('desc.retrieve', {
       query,
       agentType,
-      topK: MAX_SIMILAR_SOLUTIONS,
+      topK,
       threshold: 0.7, // Minimum similarity score (will be adjusted by filter)
       taskContext: taskContext || {
         agentId: agentType,
@@ -134,17 +210,23 @@ async function retrieveSimilarSolutions(
 
 /**
  * Inject similar solutions into prompt with task context
+ *
+ * @param originalPrompt - The original task prompt
+ * @param agentType - Optional agent type for context
+ * @param taskContext - Optional task context with metadata
+ * @param maxEpisodes - Maximum episodes to retrieve (phase-aware window size)
  */
 async function injectSolutions(
   originalPrompt: string,
   agentType?: string,
-  taskContext?: any
+  taskContext?: any,
+  maxEpisodes: number = DEFAULT_WINDOW_SIZE
 ): Promise<{ prompt: string; filtered: number; total: number }> {
   try {
     const result = await callDaemon('desc.inject', {
       prompt: originalPrompt,
       agentType,
-      maxSolutions: MAX_SIMILAR_SOLUTIONS,
+      maxEpisodes, // Fixed: was maxSolutions (wrong param name)
       taskContext: taskContext || {
         agentId: agentType,
         task: originalPrompt
@@ -235,16 +317,41 @@ async function processHook(input: HookInput): Promise<HookOutput> {
       };
     }
 
+    // Extract phase from tool_input for phase-aware window sizing
+    // Phase can come from direct property or nested in metadata
+    const phase = input.tool_input.phase ||
+                  input.tool_input.metadata?.phase ||
+                  input.tool_input.pipelinePhase ||
+                  '';
+
+    // Get phase-aware window size per CONSTITUTION RULE-010 to RULE-014
+    const windowSize = getWindowSizeForPhase(
+      String(phase),
+      subagent_type,
+      prompt
+    );
+
+    console.error(
+      `[UCM-DESC-Injector] Phase: ${phase || 'default'}, Window size: ${windowSize}`
+    );
+
     // Build task context for filtering
     const taskContext = {
       agentId: subagent_type,
       task: prompt,
       sessionId: input.session_id,
+      phase: phase,
+      windowSize: windowSize,
       metadata: input.tool_input
     };
 
-    // Retrieve and inject similar solutions with context
-    const injectionResult = await injectSolutions(prompt, subagent_type, taskContext);
+    // Retrieve and inject similar solutions with phase-aware window size
+    const injectionResult = await injectSolutions(
+      prompt,
+      subagent_type,
+      taskContext,
+      windowSize
+    );
 
     if (injectionResult.prompt === prompt) {
       return {

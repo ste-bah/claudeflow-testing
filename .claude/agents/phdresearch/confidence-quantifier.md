@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "confidence-quantifier"
 description: "Agent #40/43 - Uncertainty quantification specialist | Assign probability estimates to claims, calibrate confidence, express epistemic humility"
 triggers:

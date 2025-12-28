@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: context-tier-manager
 type: meta-analyst
 color: "#0D47A1"

@@ -268,6 +268,12 @@ export class FinalStageOrchestrator {
   // Used for metadata generation and exposed via getResearchQuery()
   private _researchQuery: string = '';
 
+  // Cached intermediate results for prompt generation
+  // Populated during execute() or initialize()
+  private _chapterStructure: ChapterStructure | null = null;
+  private _summaries: AgentOutputSummary[] | null = null;
+  private _mapping: SemanticMapperOutput | null = null;
+
   // ============================================
   // Constructor
   // ============================================
@@ -318,7 +324,10 @@ export class FinalStageOrchestrator {
   private getChapterWriter(): ChapterWriterAgent {
     if (!this.chapterWriter) {
       console.log(`[Orchestrator] Creating ChapterWriterAgent with style profile: ${this._styleProfileId || 'none'}`);
-      this.chapterWriter = new ChapterWriterAgent(this._styleProfileId || undefined);
+      this.chapterWriter = new ChapterWriterAgent(
+        this._styleProfileId || undefined,
+        this.researchDir || undefined
+      );
     }
     return this.chapterWriter;
   }
@@ -339,6 +348,30 @@ export class FinalStageOrchestrator {
    */
   getResearchQuery(): string {
     return this._researchQuery;
+  }
+
+  /**
+   * Get the cached chapter structure (available after INITIALIZING phase)
+   * Used by CLI for --generate-prompts
+   */
+  getChapterStructure(): ChapterStructure | null {
+    return this._chapterStructure;
+  }
+
+  /**
+   * Get the cached summaries (available after SUMMARIZING phase)
+   * Used by CLI for --generate-prompts
+   */
+  getSummaries(): AgentOutputSummary[] | null {
+    return this._summaries;
+  }
+
+  /**
+   * Get the cached semantic mapping (available after MAPPING phase)
+   * Used by CLI for --generate-prompts
+   */
+  getMapping(): SemanticMapperOutput | null {
+    return this._mapping;
   }
 
   // ============================================
@@ -401,6 +434,7 @@ export class FinalStageOrchestrator {
       // Phase 8.1: Load chapter structure
       this.log('info', 'Loading chapter structure');
       const structure = await this.loadChapterStructure();
+      this._chapterStructure = structure;
       this.log('debug', `Loaded ${structure.totalChapters} chapters`, {
         chapters: structure.totalChapters,
         estimatedWords: structure.estimatedTotalWords
@@ -490,6 +524,7 @@ export class FinalStageOrchestrator {
       }
 
       const summaries = filesToSummarize;
+      this._summaries = summaries;
       this.updateTokenBudget('summaryExtraction', this.calculateSummaryTokens(summaries));
 
       this.log('info', `Summarized ${summaries.length} files`, {
@@ -518,6 +553,7 @@ export class FinalStageOrchestrator {
         summaries,
         options.threshold ?? 0.30
       );
+      this._mapping = mapping;
 
       this.log('info', 'Semantic mapping complete', {
         chaptersWithSources: mapping.mappings.filter(m => m.sourceCount > 0).length,
@@ -1802,6 +1838,74 @@ export class FinalStageOrchestrator {
     }
 
     return chapters;
+  }
+
+  /**
+   * Generate synthesis prompts for Claude Code to spawn chapter-synthesizer agents
+   *
+   * This is the PREFERRED method for high-quality output. Instead of writing
+   * chapters directly (which uses basic concatenation), this generates prompts
+   * that Claude Code can use to spawn the chapter-synthesizer agent for each
+   * chapter.
+   *
+   * @param structure - Chapter structure from dissertation-architect
+   * @param summaries - Output summaries from scanner
+   * @param mapping - Chapter-to-source mapping
+   * @returns Array of synthesis prompts for Claude Code Task tool
+   */
+  async generateSynthesisPrompts(
+    structure: ChapterStructure,
+    summaries: AgentOutputSummary[],
+    mapping: SemanticMapperOutput
+  ): Promise<import('./chapter-writer-agent.js').ChapterSynthesisPrompt[]> {
+    const prompts: import('./chapter-writer-agent.js').ChapterSynthesisPrompt[] = [];
+    const style = this._styleProfile;
+
+    // Create index for fast source lookup
+    const summaryByIndex = new Map<number, AgentOutputSummary>();
+    for (const summary of summaries) {
+      summaryByIndex.set(summary.index, summary);
+    }
+
+    console.log(`[Orchestrator] Generating ${structure.totalChapters} synthesis prompts with style profile: ${this._styleProfileId || 'default'}`);
+
+    for (const chapterDef of structure.chapters) {
+      // Find mapping for this chapter
+      const chapterMapping = mapping.mappings.find(
+        (m) => m.chapterNumber === chapterDef.number
+      );
+
+      // Collect sources for this chapter
+      const chapterSources: AgentOutputSummary[] = [];
+      if (chapterMapping) {
+        for (const sourceIndex of chapterMapping.allSources) {
+          const source = summaryByIndex.get(sourceIndex);
+          if (source) {
+            chapterSources.push(source);
+          }
+        }
+      }
+
+      // Generate synthesis prompt using ChapterWriterAgent
+      const prompt = await this.getChapterWriter().generateSynthesisPrompt({
+        chapter: chapterDef,
+        sources: chapterSources,
+        style,
+        allChapters: structure.chapters,
+        tokenBudget: this.tokenBudget.phases.chapterWriting.allocatedPerChapter
+      });
+
+      prompts.push(prompt);
+
+      this.log('debug', `Generated synthesis prompt for Chapter ${chapterDef.number}`, {
+        chapter: chapterDef.number,
+        title: chapterDef.title,
+        sections: prompt.sections.length,
+        styleProfile: prompt.styleProfileId
+      });
+    }
+
+    return prompts;
   }
 
   /**

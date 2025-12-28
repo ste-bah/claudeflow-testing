@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: opportunity-identifier
 type: gap-analyst
 color: "#FFC107"

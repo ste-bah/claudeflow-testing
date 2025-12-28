@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: evidence-synthesizer
 type: synthesis-specialist
 color: "#00695C"

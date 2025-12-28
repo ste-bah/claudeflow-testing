@@ -59,7 +59,7 @@ interface RPCResponse {
 // Constants
 // ============================================================================
 
-const SOCKET_PATH = process.env.UCM_DAEMON_SOCKET || '/tmp/godagent-db.sock';
+const SOCKET_PATH = process.env.UCM_DAEMON_SOCKET || '/tmp/godagent-ucm.sock';
 const RECORD_TIMEOUT = 5000; // 5 seconds
 
 // Regex to extract episode IDs from injected prior solutions

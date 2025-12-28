@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: bias-detector
 type: bias-analyst
 color: "#E65100"

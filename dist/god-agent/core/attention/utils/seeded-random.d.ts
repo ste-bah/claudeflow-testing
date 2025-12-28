@@ -1,0 +1,48 @@
+/**
+ * Seeded Random Number Generator
+ * Uses Linear Congruential Generator (LCG) for deterministic sequences.
+ *
+ * Reference: Numerical Recipes in C (Press et al.)
+ *
+ * NOT cryptographically secure - for weight initialization testing only.
+ */
+/**
+ * Simple Linear Congruential Generator for deterministic testing
+ *
+ * @example
+ * ```typescript
+ * const rng = new SeededRandom(42);
+ * const value1 = rng.next(); // 0.388... (deterministic)
+ * const value2 = rng.next(); // 0.776... (deterministic)
+ * ```
+ */
+export declare class SeededRandom {
+    private state;
+    /**
+     * Initialize with seed value
+     * @param seed Integer seed (0 to 2^32-1)
+     */
+    constructor(seed: number);
+    /**
+     * Generate next random number in [0, 1)
+     *
+     * LCG formula: X_{n+1} = (a * X_n + c) mod m
+     * Parameters from Numerical Recipes:
+     * - a = 1664525 (multiplier)
+     * - c = 1013904223 (increment)
+     * - m = 2^32 (modulus)
+     *
+     * @returns Pseudo-random number in [0, 1)
+     */
+    next(): number;
+    /**
+     * Reset generator to initial seed state
+     * @param seed New seed value
+     */
+    reset(seed: number): void;
+    /**
+     * Get current internal state (for debugging)
+     */
+    getState(): number;
+}
+//# sourceMappingURL=seeded-random.d.ts.map

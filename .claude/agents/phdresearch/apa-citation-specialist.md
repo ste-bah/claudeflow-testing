@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: apa-citation-specialist
 type: citation-expert
 color: "#4A148C"

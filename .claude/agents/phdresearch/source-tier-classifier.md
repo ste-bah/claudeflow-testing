@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: source-tier-classifier
 type: meta-analyst
 color: "#BF360C"

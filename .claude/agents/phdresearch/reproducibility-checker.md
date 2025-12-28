@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "reproducibility-checker"
 description: "Agent #42/43 - Reproducibility verification specialist | Ensure methods, data, and analyses fully documented for independent replication"
 triggers:

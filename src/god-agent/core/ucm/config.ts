@@ -334,9 +334,6 @@ export function loadConfigWithEnv(
   overrides?: Partial<IUniversalContextConfig>
 ): IUniversalContextConfig {
   const envOverrides = getEnvOverrides();
-  const mergedOverrides = deepMerge(
-    envOverrides as Record<string, unknown>,
-    (overrides ?? {}) as Record<string, unknown>
-  ) as Partial<IUniversalContextConfig>;
+  const mergedOverrides = deepMerge(envOverrides, overrides ?? {});
   return loadAndValidateConfig(mergedOverrides);
 }

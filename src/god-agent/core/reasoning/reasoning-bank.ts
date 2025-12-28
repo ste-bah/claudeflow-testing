@@ -93,8 +93,7 @@ export class ReasoningBank {
   private vectorDB: VectorDB;
   private gnnEnhancer: GNNEnhancer;
   private trajectoryTracker: TrajectoryTracker;
-  // Reserved for future auto-selection feature
-  private _modeSelector: ModeSelector;
+  private _modeSelector: ModeSelector; // Reserved for future auto-selection feature
   private config: ReasoningBankConfig;
   private initialized: boolean = false;
   private sonaEngine?: SonaEngine;
@@ -108,12 +107,12 @@ export class ReasoningBank {
     this.provenanceStore = deps.provenanceStore;
     this.config = { ...DEFAULT_CONFIG, ...deps.config };
 
-    // Initialize GNN enhancer with proper config (1536D per architecture diagram)
+    // Initialize GNN enhancer with proper config
     this.gnnEnhancer = new GNNEnhancer({
-      inputDim: 1536,
-      outputDim: 1536,
+      inputDim: 768,
+      outputDim: 1024,
       numLayers: 3,
-      attentionHeads: 12,
+      attentionHeads: 8,
       dropout: 0.1,
       maxNodes: 50
     });
@@ -371,11 +370,11 @@ export class ReasoningBank {
    * Leverages graph structure to improve context understanding.
    */
   private async contextualReasoning(request: IReasoningRequest): Promise<IReasoningResponse> {
-    // Note: VectorDB only supports 1536D vectors
-    // Always use original 1536D query for search (GNN enhancement is for response only)
-    const searchEmbedding = request.query.length === 1536
+    // Note: VectorDB only supports 768D vectors
+    // Always use original 768D query for search (GNN enhancement is for response only)
+    const searchEmbedding = request.query.length === 768
       ? request.query
-      : request.query.slice(0, 1536) as unknown as Float32Array;
+      : request.query.slice(0, 768) as unknown as Float32Array;
 
     // Search VectorDB for similar contexts
     const results = await this.vectorDB.search(
@@ -555,9 +554,9 @@ export class ReasoningBank {
       throw new Error('Query embedding is required');
     }
 
-    // Validate embedding dimensions (1536 for base)
-    if (request.query.length !== 1536) {
-      assertDimensions(request.query, 1536, 'Query embedding');
+    // Validate embedding dimensions (768 for base, 1024 for enhanced)
+    if (request.query.length !== 768 && request.query.length !== 1024) {
+      assertDimensions(request.query, 768, 'Query embedding');
     }
 
     if (request.maxResults !== undefined && request.maxResults <= 0) {

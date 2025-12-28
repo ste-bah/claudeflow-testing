@@ -306,7 +306,7 @@ export interface IRetrievalResult {
   tokenCount?: number;
   content?: string;
   agentId?: string;
-  similarity?: number;  // Alias for maxSimilarity
+  similarity?: number;
 }
 
 /**
@@ -324,7 +324,7 @@ export interface IRetrievalOptions {
 // ============================================================================
 
 /**
- * Pinned agent record for recovery
+ * Reconstructed context after compaction recovery
  */
 export interface IPinnedAgent {
   agentId: string;
@@ -333,9 +333,6 @@ export interface IPinnedAgent {
   priority: number;
 }
 
-/**
- * Active window state for recovery
- */
 export interface IActiveWindow {
   agentStates: Array<{ agentId: string; state: unknown }>;
   taskQueue: string[];
@@ -343,9 +340,6 @@ export interface IActiveWindow {
   estimatedTokens: number;
 }
 
-/**
- * Archived summary record for recovery
- */
 export interface IArchivedSummary {
   id: string;
   timestamp: number;
@@ -353,9 +347,6 @@ export interface IArchivedSummary {
   agentId?: string;
 }
 
-/**
- * Dependency graph node for recovery
- */
 export interface IDependencyNode {
   agentId: string;
   dependencies: Set<string>;
@@ -363,9 +354,6 @@ export interface IDependencyNode {
   depth: number;
 }
 
-/**
- * Reconstructed context after compaction recovery
- */
 export interface IReconstructedContext {
   pinnedAgents: Map<string, string> | IPinnedAgent[];
   activeWindow: string[] | IActiveWindow;

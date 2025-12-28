@@ -31,11 +31,104 @@ import type {
   PhaseStatus
 } from './types.js';
 import type { StyleCharacteristics } from '../../universal/style-analyzer.js';
-import Anthropic from '@anthropic-ai/sdk';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { getStyleProfileManager } from '../../universal/style-profile.js';
 import { StyleAnalyzer } from '../../universal/style-analyzer.js';
+
+/**
+ * Supported phdresearch agent types for chapter writing
+ * Maps to agents in .claude/agents/phdresearch/
+ */
+export type ChapterAgentType =
+  | 'introduction-writer'
+  | 'literature-review-writer'
+  | 'theoretical-framework-analyst'
+  | 'methodology-writer'
+  | 'results-writer'
+  | 'discussion-writer'
+  | 'conclusion-writer'
+  | 'apa-citation-specialist'
+  | 'chapter-synthesizer';
+
+/**
+ * Dynamically select the appropriate phdresearch agent based on chapter title
+ * Maps chapter content type to specialized writing agents
+ *
+ * @param chapterTitle - The title of the chapter being written
+ * @returns The appropriate agent type for this chapter
+ */
+export function getAgentForChapter(chapterTitle: string): ChapterAgentType {
+  const title = chapterTitle.toLowerCase();
+
+  // Introduction variants
+  if (title.includes('introduction') || title.includes('background') || title.includes('overview')) {
+    return 'introduction-writer';
+  }
+
+  // Literature Review variants
+  if (title.includes('literature') || title.includes('review') || title.includes('related work') || title.includes('prior work')) {
+    return 'literature-review-writer';
+  }
+
+  // Theoretical Framework variants
+  if (title.includes('theoretical') || title.includes('framework') || title.includes('conceptual') || title.includes('theory')) {
+    return 'theoretical-framework-analyst';
+  }
+
+  // Methodology variants
+  if (title.includes('method') || title.includes('approach') || title.includes('design') || title.includes('procedure')) {
+    return 'methodology-writer';
+  }
+
+  // Results variants
+  if (title.includes('result') || title.includes('finding') || title.includes('analysis') || title.includes('data')) {
+    return 'results-writer';
+  }
+
+  // Discussion variants
+  if (title.includes('discussion') || title.includes('interpretation') || title.includes('implication')) {
+    return 'discussion-writer';
+  }
+
+  // Conclusion variants
+  if (title.includes('conclusion') || title.includes('summary') || title.includes('future work') || title.includes('recommendation')) {
+    return 'conclusion-writer';
+  }
+
+  // References/Bibliography variants
+  if (title.includes('reference') || title.includes('bibliograph') || title.includes('citation') || title.includes('sources')) {
+    return 'apa-citation-specialist';
+  }
+
+  // Fallback for any other chapter type
+  return 'chapter-synthesizer';
+}
+
+/**
+ * Chapter synthesis prompt for Claude Code Task tool
+ * Contains all data needed to spawn a specialized chapter writing agent
+ */
+export interface ChapterSynthesisPrompt {
+  /** Chapter number */
+  chapterNumber: number;
+  /** Chapter title */
+  chapterTitle: string;
+  /** Section details */
+  sections: Array<{ id: string; title: string; wordTarget: number }>;
+  /** Research content organized by section */
+  researchContent: Record<string, string>;
+  /** Style profile ID to apply */
+  styleProfileId: string | null;
+  /** Output file path */
+  outputPath: string;
+  /** Total word target */
+  wordTarget: number;
+  /** Agent type to spawn - dynamically selected based on chapter title */
+  agentType: ChapterAgentType;
+  /** Full prompt for the agent */
+  prompt: string;
+}
 
 /**
  * Section content during synthesis
@@ -95,39 +188,24 @@ interface WordCountResult {
  */
 export class ChapterWriterAgent {
   /**
-   * Anthropic LLM client for actual prose generation
-   */
-  private client: Anthropic | null = null;
-
-  /**
    * Style profile ID for consistent academic writing style
    */
   private styleProfileId?: string;
 
   /**
-   * Cached chapter-synthesizer agent prompt
+   * Research directory for output paths
    */
-  private cachedAgentPrompt?: string;
+  private researchDir?: string;
 
   /**
-   * Model to use for generation
-   */
-  private model = 'claude-sonnet-4-20250514';
-
-  /**
-   * Create ChapterWriterAgent with LLM support
+   * Create ChapterWriterAgent
    *
    * @param styleProfileId - Optional style profile ID for consistent style application
-   * @param apiKey - Optional Anthropic API key (defaults to ANTHROPIC_API_KEY env var)
+   * @param researchDir - Optional research directory for output paths
    */
-  constructor(styleProfileId?: string, apiKey?: string) {
+  constructor(styleProfileId?: string, researchDir?: string) {
     this.styleProfileId = styleProfileId;
-
-    // Initialize Anthropic client if API key available
-    const key = apiKey || process.env.ANTHROPIC_API_KEY;
-    if (key) {
-      this.client = new Anthropic({ apiKey: key });
-    }
+    this.researchDir = researchDir;
   }
 
   /**
@@ -164,11 +242,233 @@ export class ChapterWriterAgent {
   };
 
   /**
-   * Write a chapter from mapped source summaries
+   * Generate synthesis prompts for Claude Code to spawn chapter-synthesizer agents
    *
-   * CRITICAL: This method now uses LLM-based synthesis when available.
-   * It calls synthesizeSectionAsync with the chapter-synthesizer agent prompt
-   * and style profile to generate clean academic prose.
+   * This is the PREFERRED method - outputs prompts that Claude Code can use
+   * to spawn the chapter-synthesizer agent for each chapter.
+   *
+   * @param input - Chapter writer input with chapter definition, sources, style
+   * @returns Synthesis prompt for Claude Code Task tool
+   */
+  async generateSynthesisPrompt(input: ChapterWriterInput): Promise<ChapterSynthesisPrompt> {
+    const { chapter, sources, style } = input;
+
+    // Calculate word targets per section
+    const wordsPerSection = Math.floor(chapter.wordTarget / chapter.sections.length);
+
+    // Build research content organized by section
+    const researchContent: Record<string, string> = {};
+    const sections: Array<{ id: string; title: string; wordTarget: number }> = [];
+
+    for (let i = 0; i < chapter.sections.length; i++) {
+      const sectionId = chapter.sections[i];
+      const sectionTitle = chapter.sectionTitles[i] || `Section ${sectionId}`;
+
+      // Find relevant content from sources for this section
+      const relevantContent = this.findRelevantContent(sources, sectionTitle, chapter);
+
+      // Deduplicate
+      const deduplicatedContent = this.deduplicateContent(relevantContent);
+
+      // Sort by phase (later phases = more synthesized)
+      const sorted = [...deduplicatedContent.paragraphs].sort((a, b) => b.phase - a.phase);
+      researchContent[sectionId] = sorted.map(p => p.text).join('\n\n');
+
+      sections.push({
+        id: sectionId,
+        title: sectionTitle,
+        wordTarget: wordsPerSection
+      });
+    }
+
+    // CRITICAL: Load style profile (this is NON-NEGOTIABLE)
+    // First try to load from style profile ID, then from passed style, then defaults
+    let styleReqs: string;
+    if (this.styleProfileId) {
+      // Load full style profile from AgentDB by ID
+      styleReqs = await this.loadStyleProfile();
+      console.log(`[ChapterWriter] Using style profile: ${this.styleProfileId}`);
+    } else if (style) {
+      // Use passed style characteristics
+      styleReqs = this.formatStyleRequirements(style);
+      console.log('[ChapterWriter] Using passed style characteristics');
+    } else {
+      // Use defaults
+      styleReqs = this.getDefaultStyleRequirements();
+      console.warn('[ChapterWriter] No style profile - using UK English academic defaults');
+    }
+
+    // Generate the full prompt for the agent
+    const prompt = this.buildAgentPrompt(chapter, sections, researchContent, styleReqs);
+
+    const outputPath = this.researchDir
+      ? join(this.researchDir, 'final', 'chapters', `chapter-${chapter.number}.md`)
+      : `final/chapters/chapter-${chapter.number}.md`;
+
+    // Dynamically select the appropriate agent based on chapter title
+    const selectedAgent = getAgentForChapter(chapter.title);
+    console.log(`[ChapterWriterAgent] Chapter "${chapter.title}" mapped to agent: ${selectedAgent}`);
+
+    return {
+      chapterNumber: chapter.number,
+      chapterTitle: chapter.title,
+      sections,
+      researchContent,
+      styleProfileId: this.styleProfileId || null,
+      outputPath,
+      wordTarget: chapter.wordTarget,
+      agentType: selectedAgent,
+      prompt
+    };
+  }
+
+  /**
+   * Format style requirements for the agent prompt
+   *
+   * CRITICAL: This method uses StyleAnalyzer to generate comprehensive
+   * style requirements. The style profile is NON-NEGOTIABLE.
+   */
+  private formatStyleRequirements(style: StyleCharacteristics): string {
+    // Use StyleAnalyzer to generate comprehensive style prompt
+    const analyzer = new StyleAnalyzer();
+    const stylePrompt = analyzer.generateStylePrompt(style);
+
+    const lines: string[] = [];
+    lines.push('## MANDATORY STYLE REQUIREMENTS');
+    lines.push('');
+    lines.push('**CRITICAL: These style requirements are NON-NEGOTIABLE. Apply them to ALL output.**');
+    lines.push('');
+    lines.push(stylePrompt);
+    lines.push('');
+
+    // Add explicit language variant requirements
+    if (style.regional?.languageVariant === 'en-GB') {
+      lines.push('### UK English Spelling (REQUIRED)');
+      lines.push('- Use -ise endings: organise, recognise, emphasise, synthesise, characterise');
+      lines.push('- Use -our endings: behaviour, colour, favour, honour, labour');
+      lines.push('- Use -re endings: centre, metre, theatre');
+      lines.push('- Use "towards" not "toward", "got" not "gotten"');
+      lines.push('- Use "whilst" alongside "while", "amongst" alongside "among"');
+      lines.push('');
+    }
+
+    // Add academic register requirements
+    lines.push('### Academic Register (REQUIRED)');
+    lines.push('- Write in third person (avoid "I", "we", "you")');
+    lines.push('- Use NO contractions (cannot NOT can\'t, do not NOT don\'t)');
+    lines.push('- Use formal vocabulary throughout');
+    lines.push('- Use hedging language where appropriate (suggests, indicates, may, appears)');
+    lines.push('- Use passive voice where appropriate for objectivity');
+    lines.push('');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Load and format complete style profile from AgentDB
+   *
+   * This loads the full style profile by ID and formats it
+   * for inclusion in the synthesis prompt.
+   */
+  private async loadStyleProfile(): Promise<string> {
+    if (!this.styleProfileId) {
+      console.warn('[ChapterWriter] No style profile ID - using defaults');
+      return this.getDefaultStyleRequirements();
+    }
+
+    try {
+      const styleManager = getStyleProfileManager();
+      const profile = styleManager.getProfile(this.styleProfileId);
+
+      if (profile?.characteristics) {
+        console.log(`[ChapterWriter] Loaded style profile: ${this.styleProfileId}`);
+        return this.formatStyleRequirements(profile.characteristics);
+      }
+    } catch (error) {
+      console.error(`[ChapterWriter] Failed to load style profile ${this.styleProfileId}:`, error);
+    }
+
+    console.warn('[ChapterWriter] Falling back to default style requirements');
+    return this.getDefaultStyleRequirements();
+  }
+
+  /**
+   * Get default UK English academic style requirements
+   */
+  private getDefaultStyleRequirements(): string {
+    return `## MANDATORY STYLE REQUIREMENTS
+
+**CRITICAL: These style requirements are NON-NEGOTIABLE. Apply them to ALL output.**
+
+### UK English Spelling (REQUIRED)
+- Use -ise endings: organise, recognise, emphasise, synthesise, characterise
+- Use -our endings: behaviour, colour, favour, honour, labour
+- Use -re endings: centre, metre, theatre
+- Use "towards" not "toward", "got" not "gotten"
+
+### Academic Register (REQUIRED)
+- Write in third person (avoid "I", "we", "you")
+- Use NO contractions (cannot NOT can't, do not NOT don't)
+- Use formal vocabulary throughout
+- Use hedging language where appropriate (suggests, indicates, may, appears)
+- Use passive voice where appropriate for objectivity
+
+### Citation Style: APA 7th Edition
+- In-text: (Author, Year) or Author (Year)
+- Integrate citations naturally into prose
+- Do NOT dump multiple citations at end of sentences
+`;
+  }
+
+  /**
+   * Build the full prompt for the chapter-synthesizer agent
+   */
+  private buildAgentPrompt(
+    chapter: ChapterDefinition,
+    sections: Array<{ id: string; title: string; wordTarget: number }>,
+    researchContent: Record<string, string>,
+    styleReqs: string
+  ): string {
+    const lines: string[] = [];
+
+    lines.push(`# Chapter ${chapter.number}: ${chapter.title}`);
+    lines.push('');
+    lines.push(`**Word Target**: ${chapter.wordTarget} words`);
+    lines.push('');
+    lines.push(styleReqs);
+    lines.push('## Sections to Write');
+    lines.push('');
+
+    for (const section of sections) {
+      lines.push(`### ${section.id} ${section.title}`);
+      lines.push(`**Target**: ${section.wordTarget} words`);
+      lines.push('');
+      lines.push('**Research Content** (transform to prose, do NOT copy):');
+      lines.push('```');
+      lines.push(researchContent[section.id] || '[No content found]');
+      lines.push('```');
+      lines.push('');
+    }
+
+    lines.push('## Instructions');
+    lines.push('');
+    lines.push('1. Transform the research content above into clean academic prose');
+    lines.push('2. DO NOT copy research artifacts (Q1:, FLAG:, Confidence:, etc.)');
+    lines.push('3. Integrate citations naturally (Author, Year) format');
+    lines.push('4. Meet word count targets (±10%)');
+    lines.push('5. Apply the style requirements exactly');
+    lines.push('6. Write in third person with academic register');
+    lines.push('');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Write a chapter from mapped source summaries (basic concatenation)
+   *
+   * NOTE: This is a FALLBACK method that does basic concatenation.
+   * For proper academic prose, use generateSynthesisPrompt() and have
+   * Claude Code spawn the chapter-synthesizer agent.
    *
    * @param input - Chapter writer input with chapter definition, sources, style
    * @returns Complete chapter output with content, citations, metrics
@@ -178,15 +478,7 @@ export class ChapterWriterAgent {
     const warnings: string[] = [];
     let tokensUsed = 0;
 
-    // Log synthesis mode
-    if (this.client) {
-      console.log(`[ChapterWriter] Using LLM synthesis for Chapter ${chapter.number}: ${chapter.title}`);
-      if (this.styleProfileId) {
-        console.log(`[ChapterWriter] Style profile: ${this.styleProfileId}`);
-      }
-    } else {
-      console.warn(`[ChapterWriter] WARNING: No LLM client - falling back to concatenation`);
-    }
+    console.log(`[ChapterWriter] Basic concatenation for Chapter ${chapter.number} (use generateSynthesisPrompt for LLM synthesis)`);
 
     // Calculate word targets per section
     const wordsPerSection = Math.floor(chapter.wordTarget / chapter.sections.length);
@@ -208,47 +500,15 @@ export class ChapterWriterAgent {
         );
       }
 
-      // Prepare research content for synthesis
-      const sorted = [...deduplicatedContent.paragraphs].sort((a, b) => b.phase - a.phase);
-      const researchContent = sorted.map(p => p.text).join('\n\n');
-
-      let synthesized: { content: string; wordCount: number; tokensUsed: number };
-
-      // USE LLM SYNTHESIS IF CLIENT AVAILABLE (PREFERRED PATH)
-      if (this.client && researchContent.length > 0) {
-        try {
-          synthesized = await this.synthesizeSectionAsync(
-            sectionId,
-            sectionTitle,
-            researchContent,
-            wordsPerSection,
-            chapter,
-            style
-          );
-        } catch (error) {
-          console.error(`[ChapterWriter] LLM synthesis failed for ${sectionId}:`, error);
-          warnings.push(`Section ${sectionId}: LLM synthesis failed, using fallback`);
-          // Fallback to basic concatenation
-          synthesized = this.synthesizeSection(
-            sectionId,
-            sectionTitle,
-            deduplicatedContent.paragraphs,
-            wordsPerSection,
-            chapter,
-            style
-          );
-        }
-      } else {
-        // Fallback: basic concatenation (NOT recommended)
-        synthesized = this.synthesizeSection(
-          sectionId,
-          sectionTitle,
-          deduplicatedContent.paragraphs,
-          wordsPerSection,
-          chapter,
-          style
-        );
-      }
+      // Basic concatenation fallback
+      const synthesized = this.synthesizeSection(
+        sectionId,
+        sectionTitle,
+        deduplicatedContent.paragraphs,
+        wordsPerSection,
+        chapter,
+        style
+      );
 
       // Extract citations from synthesized content
       const citations = this.extractCitations(synthesized.content, sources);
@@ -753,277 +1013,45 @@ Write the complete chapter now:
   }
 
   /**
-   * Synthesize section content from paragraphs using LLM
+   * Synthesize section content from paragraphs (basic concatenation fallback)
    *
-   * CRITICAL: This method calls the LLM with the chapter-synthesizer agent prompt
-   * to transform raw research findings into clean academic prose. It does NOT
-   * simply concatenate paragraphs.
+   * NOTE: This is a FALLBACK method. For proper LLM-based synthesis,
+   * use generateSynthesisPrompt() and have Claude Code spawn the
+   * chapter-synthesizer agent.
    */
   private synthesizeSection(
     sectionId: string,
     sectionTitle: string,
     paragraphs: ParagraphMeta[],
     targetWords: number,
-    chapter: ChapterDefinition,
+    _chapter: ChapterDefinition,
     style: StyleCharacteristics | null
   ): { content: string; wordCount: number; tokensUsed: number } {
-    // If LLM client available, use LLM-based synthesis (async wrapper)
-    // For synchronous compatibility, we use a flag to track if we should use LLM
-    // The actual LLM call happens in writeChapter via synthesizeSectionAsync
-
-    // For now, collect and prepare the research content for LLM synthesis
     // Sort paragraphs by phase (later phases first, as they're more refined)
     const sorted = [...paragraphs].sort((a, b) => b.phase - a.phase);
 
-    // Prepare research content (raw material for LLM)
-    const researchContent = sorted.map(p => p.text).join('\n\n');
+    // Basic concatenation (NOT recommended - use generateSynthesisPrompt instead)
+    let content = `## ${sectionId} ${sectionTitle}\n\n`;
+    let currentWords = 0;
+    let tokensUsed = 0;
 
-    // If no LLM client, fall back to basic concatenation with warning
-    if (!this.client) {
-      console.warn('[ChapterWriter] No LLM client - using basic concatenation (NOT recommended)');
-      let content = `## ${sectionId} ${sectionTitle}\n\n`;
-      let currentWords = 0;
-      let tokensUsed = 0;
-
-      for (const para of sorted) {
-        let text = para.text;
-        if (style?.regional?.languageVariant === 'en-GB') {
-          text = this.applyBritishSpelling(text);
-        }
-        if (currentWords + para.wordCount <= targetWords * 1.3) {
-          content += text + '\n\n';
-          currentWords += para.wordCount;
-          tokensUsed += this.estimateTokens(text);
-        }
+    for (const para of sorted) {
+      let text = para.text;
+      if (style?.regional?.languageVariant === 'en-GB') {
+        text = this.applyBritishSpelling(text);
       }
-
-      return { content, wordCount: this.countWords(content), tokensUsed };
+      if (currentWords + para.wordCount <= targetWords * 1.3) {
+        content += text + '\n\n';
+        currentWords += para.wordCount;
+        tokensUsed += this.estimateTokens(text);
+      }
     }
 
-    // Store data for async synthesis (called from writeChapter)
-    // Return placeholder that will be replaced by LLM output
-    return {
-      content: `__LLM_SECTION_PLACEHOLDER__${sectionId}__`,
-      wordCount: targetWords, // Estimated
-      tokensUsed: 0,
-      // Store metadata for async processing
-    } as { content: string; wordCount: number; tokensUsed: number; _pendingLLM?: {
-      sectionId: string;
-      sectionTitle: string;
-      researchContent: string;
-      targetWords: number;
-      chapter: ChapterDefinition;
-      style: StyleCharacteristics | null;
-    }};
+    return { content, wordCount: this.countWords(content), tokensUsed };
   }
 
-  /**
-   * Synthesize section content using LLM (async version)
-   *
-   * CRITICAL: This is the core method that transforms research into prose.
-   * It MUST use the style profile - this is non-negotiable.
-   */
-  private async synthesizeSectionAsync(
-    sectionId: string,
-    sectionTitle: string,
-    researchContent: string,
-    targetWords: number,
-    chapter: ChapterDefinition,
-    style: StyleCharacteristics | null
-  ): Promise<{ content: string; wordCount: number; tokensUsed: number }> {
-    if (!this.client) {
-      throw new Error('LLM client not initialized - cannot synthesize section');
-    }
-
-    // 1. Load chapter-synthesizer agent prompt (REQUIRED)
-    const agentPrompt = await this.loadChapterSynthesizerPrompt();
-
-    // 2. Build style system prompt (MUST USE STYLE PROFILE)
-    const stylePrompt = await this.buildStyleSystemPrompt();
-
-    // 3. Build the complete system prompt
-    const systemPrompt = `${agentPrompt}
-
-${stylePrompt}
-
-CRITICAL REQUIREMENTS:
-- You are synthesizing Section ${sectionId}: ${sectionTitle}
-- Target word count: ${targetWords} words (±10%)
-- Chapter context: ${chapter.title}
-- Transform the research content below into CLEAN ACADEMIC PROSE
-- Do NOT include any research artifacts (Q1:, FLAG:, Confidence:, etc.)
-- Do NOT use bullet points - write flowing paragraphs
-- Integrate citations naturally (Author, Year)
-- Use proper transitions between paragraphs`;
-
-    // 4. Build user prompt with research content
-    const userPrompt = `## Research Content to Synthesize
-
-The following is raw research output. Transform this into clean academic prose for Section ${sectionId}: ${sectionTitle}.
-
----
-${researchContent}
----
-
-Write the section now as publication-ready academic prose. Begin with "## ${sectionId} ${sectionTitle}" and write ${targetWords} words of clean, flowing prose.`;
-
-    // 5. Call LLM
-    console.log(`[ChapterWriter] Calling LLM for section ${sectionId} (target: ${targetWords} words)`);
-    const startTime = Date.now();
-
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: Math.min(Math.ceil(targetWords * 2), 8000),
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    });
-
-    // 6. Extract content
-    let content = response.content
-      .filter((block) => block.type === 'text')
-      .map((block) => (block as Anthropic.TextBlock).text)
-      .join('\n');
-
-    // 7. Apply final UK spelling if needed (belt and suspenders)
-    if (style?.regional?.languageVariant === 'en-GB') {
-      content = this.applyBritishSpelling(content);
-    }
-
-    const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
-    const latencyMs = Date.now() - startTime;
-
-    console.log(`[ChapterWriter] Section ${sectionId} synthesized in ${latencyMs}ms (${tokensUsed} tokens)`);
-
-    return {
-      content,
-      wordCount: this.countWords(content),
-      tokensUsed,
-    };
-  }
-
-  /**
-   * Load the chapter-synthesizer agent prompt
-   *
-   * Loads from .claude/agents/phdresearch/chapter-synthesizer.md
-   */
-  private async loadChapterSynthesizerPrompt(): Promise<string> {
-    // Return cached prompt if available
-    if (this.cachedAgentPrompt) {
-      return this.cachedAgentPrompt;
-    }
-
-    try {
-      // Find project root (look for .claude directory)
-      let projectRoot = process.cwd();
-      const maxDepth = 5;
-      for (let i = 0; i < maxDepth; i++) {
-        const claudeDir = join(projectRoot, '.claude');
-        try {
-          await readFile(join(claudeDir, 'settings.json'));
-          break; // Found .claude directory
-        } catch {
-          projectRoot = join(projectRoot, '..');
-        }
-      }
-
-      const agentPath = join(
-        projectRoot,
-        '.claude/agents/phdresearch/chapter-synthesizer.md'
-      );
-
-      const content = await readFile(agentPath, 'utf-8');
-
-      // Extract prompt content (after YAML frontmatter)
-      const parts = content.split('---');
-      if (parts.length >= 3) {
-        // Skip frontmatter, get the markdown body
-        this.cachedAgentPrompt = parts.slice(2).join('---').trim();
-      } else {
-        this.cachedAgentPrompt = content;
-      }
-
-      console.log('[ChapterWriter] Loaded chapter-synthesizer agent prompt');
-      return this.cachedAgentPrompt;
-    } catch (error) {
-      console.error('[ChapterWriter] Failed to load chapter-synthesizer prompt:', error);
-
-      // Fallback: minimal synthesis instructions
-      return `You are a professional academic writer. Transform research findings into clean, publication-ready academic prose.
-
-ABSOLUTE PROHIBITIONS (NEVER INCLUDE):
-- Q1:, Q2:, Q3: markers
-- FLAG:, Confidence:, Score:
-- CRITICAL UNKNOWNS, HYPOTHESIS TO TEST
-- Bullet points (convert to flowing prose)
-- Agent markers, phase markers
-- Research workflow artifacts
-
-Write flowing academic paragraphs with naturally integrated citations.`;
-    }
-  }
-
-  /**
-   * Build style system prompt from style profile
-   *
-   * CRITICAL: This method MUST return style instructions.
-   * The style profile is NON-NEGOTIABLE for the final paper.
-   */
-  private async buildStyleSystemPrompt(): Promise<string> {
-    // Get style profile manager
-    const styleManager = getStyleProfileManager();
-
-    // If we have a specific style profile ID, use it
-    if (this.styleProfileId) {
-      const profile = styleManager.getProfile(this.styleProfileId);
-      if (profile?.characteristics) {
-        const analyzer = new StyleAnalyzer();
-        const stylePrompt = analyzer.generateStylePrompt(profile.characteristics);
-        console.log(`[ChapterWriter] Using style profile: ${this.styleProfileId}`);
-        return `--- MANDATORY WRITING STYLE ---
-${stylePrompt}
-
-STYLE REQUIREMENTS ARE NON-NEGOTIABLE. Apply them to ALL output.`;
-      }
-    }
-
-    // Fallback: try to load default profile
-    const profiles = styleManager.listProfiles();
-    if (profiles.length > 0) {
-      const defaultProfile = profiles[0];
-      const profile = styleManager.getProfile(defaultProfile.id);
-      if (profile?.characteristics) {
-        const analyzer = new StyleAnalyzer();
-        const stylePrompt = analyzer.generateStylePrompt(profile.characteristics);
-        console.log(`[ChapterWriter] Using default style profile: ${defaultProfile.id}`);
-        return `--- MANDATORY WRITING STYLE ---
-${stylePrompt}
-
-STYLE REQUIREMENTS ARE NON-NEGOTIABLE. Apply them to ALL output.`;
-      }
-    }
-
-    // Ultimate fallback: UK English academic style
-    console.warn('[ChapterWriter] No style profile found - using UK English academic defaults');
-    return `--- MANDATORY WRITING STYLE ---
-Language Variant: British English (UK)
-- Use -ise endings (organise, recognise, emphasise, synthesise)
-- Use -our endings (behaviour, colour, favour)
-- Use -re endings (centre, metre)
-- Use "towards" not "toward", "got" not "gotten"
-
-Academic Register:
-- Formal vocabulary throughout
-- Third person (avoid "I" and "we")
-- No contractions (use "cannot" not "can't")
-- Appropriate hedging (suggests, indicates, may)
-- Passive voice where appropriate for objectivity
-
-Citation Style: APA 7th Edition
-- In-text: (Author, Year) or Author (Year)
-- Integrate citations naturally into prose
-
-STYLE REQUIREMENTS ARE NON-NEGOTIABLE. Apply them to ALL output.`;
-  }
+  // NOTE: LLM synthesis removed - use generateSynthesisPrompt() and have
+  // Claude Code spawn the chapter-synthesizer agent instead.
 
   // ============================================
   // Private: Word Count Enforcement

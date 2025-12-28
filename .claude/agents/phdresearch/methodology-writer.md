@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: methodology-writer
 type: section-writer
 color: "#D84315"

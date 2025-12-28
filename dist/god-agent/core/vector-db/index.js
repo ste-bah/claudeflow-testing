@@ -1,0 +1,21 @@
+/**
+ * God Agent VectorDB Module
+ *
+ * Implements: TASK-VDB-001
+ * Referenced by: God Agent core system
+ *
+ * High-performance vector database with k-NN search for 768D embeddings.
+ * Enforces strict validation contract per constitution.md VEC-01 through VEC-05.
+ * Supports automatic backend selection (native Rust or JavaScript fallback).
+ */
+// Main VectorDB class
+export { VectorDB } from './vector-db.js';
+// Type definitions - enum (value export)
+export { DistanceMetric } from './types.js';
+// Backend class (value export)
+export { FallbackHNSW } from './fallback-hnsw.js';
+// Backend selector class (value export)
+export { BackendSelector } from './backend-selector.js';
+// Distance metrics (exported for direct use if needed)
+export { cosineSimilarity, euclideanDistance, dotProduct, manhattanDistance, getMetricFunction, isSimilarityMetric } from './distance-metrics.js';
+//# sourceMappingURL=index.js.map

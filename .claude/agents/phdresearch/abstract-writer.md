@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: abstract-writer
 type: synthesis-writer
 color: "#00838F"

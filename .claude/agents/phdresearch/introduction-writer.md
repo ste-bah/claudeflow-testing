@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: introduction-writer
 type: section-writer
 color: "#2E7D32"

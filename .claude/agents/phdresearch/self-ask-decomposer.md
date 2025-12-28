@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: self-ask-decomposer
 type: meta-analyst
 color: "#311B92"

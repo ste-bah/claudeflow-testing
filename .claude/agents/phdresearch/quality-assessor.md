@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: quality-assessor
 type: methodological-evaluator
 color: "#1565C0"

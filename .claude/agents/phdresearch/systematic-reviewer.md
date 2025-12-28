@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: systematic-reviewer
 type: meta-analyst
 color: "#004D40"

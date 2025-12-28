@@ -93,8 +93,8 @@ export class CompactionDetector implements ICompactionDetector {
    *
    * @returns Timestamp in milliseconds, or 0 if never detected
    */
-  public getCompactionTimestamp(): number | null {
-    return this.state.timestamp || null;
+  public getCompactionTimestamp(): number {
+    return this.state.timestamp;
   }
 
   /**

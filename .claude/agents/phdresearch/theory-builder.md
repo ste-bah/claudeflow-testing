@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: theory-builder
 type: theoretical-architect
 color: "#3F51B5"

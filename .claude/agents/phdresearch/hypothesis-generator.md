@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: hypothesis-generator
 type: hypothesis-specialist
 color: "#009688"

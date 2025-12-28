@@ -31,6 +31,9 @@ import type { IEmbeddingProvider } from '../core/memory/types.js';
 import { AnthropicWritingGenerator, type IWritingGenerator } from '../core/writing/index.js';
 import { HybridSearchProvider, type IWebSearchProvider } from '../core/search/index.js';
 
+// DESC: Episode injection for prior solutions (RULE-010: default window size 3)
+import { UCMDaemonClient, getUCMClient } from '../cli/ucm-daemon-client.js';
+
 // DAI-001: Dynamic Agent Integration
 import {
   AgentRegistry,
@@ -92,6 +95,12 @@ export interface UniversalConfig {
   enablePersistence?: boolean;
   /** Storage directory (default: .agentdb/universal) */
   storageDir?: string;
+  /** Enable DESC episode injection for prior solutions (default: true) */
+  enableDESC?: boolean;
+  /** DESC similarity threshold for episode matching (default: 0.80) */
+  descThreshold?: number;
+  /** DESC maximum episodes to inject (default: 3 per RULE-010) */
+  descMaxEpisodes?: number;
 }
 
 export interface Interaction {
@@ -197,6 +206,8 @@ export interface AskResult {
   agentPrompt?: string;
   /** Interaction ID for reference */
   interactionId: string;
+  /** DESC: Number of prior solution episodes injected (RULE-010) */
+  descEpisodesInjected?: number;
 }
 
 /**
@@ -314,6 +325,9 @@ export class UniversalAgent {
   // MEM-001: Multi-Process Memory Client
   private memoryClient!: MemoryClient;
 
+  // DESC: UCM Daemon client for episode injection (RULE-010)
+  private ucmClient!: UCMDaemonClient;
+
   constructor(config: UniversalConfig = {}) {
     const storageDir = config.storageDir ?? '.agentdb/universal';
     const enablePersistence = config.enablePersistence ?? true;
@@ -327,6 +341,10 @@ export class UniversalAgent {
       enableWebSearch: config.enableWebSearch ?? true,
       enablePersistence,
       storageDir,
+      // DESC: Episode injection settings (RULE-010: default window size 3)
+      enableDESC: config.enableDESC ?? true,
+      descThreshold: config.descThreshold ?? 0.80,
+      descMaxEpisodes: config.descMaxEpisodes ?? 3,
     };
 
     // Configure GodAgent with persistence enabled
@@ -491,6 +509,25 @@ export class UniversalAgent {
     } catch (error) {
       // Non-fatal: memory client is optional enhancement
       this.log(`MEM-001: Memory client initialization failed: ${error}`);
+    }
+
+    // DESC: Initialize UCM client for episode injection (RULE-010)
+    if (this.config.enableDESC) {
+      try {
+        this.ucmClient = getUCMClient();
+        const isHealthy = await this.ucmClient.isHealthy();
+        if (isHealthy) {
+          this.log(`DESC: UCM client initialized (threshold: ${this.config.descThreshold}, maxEpisodes: ${this.config.descMaxEpisodes})`);
+        } else {
+          this.log('DESC: UCM daemon not healthy, episode injection will attempt auto-start on first use');
+        }
+      } catch (error) {
+        // Non-fatal: DESC is optional enhancement
+        this.log(`DESC: UCM client initialization failed: ${error}`);
+        this.ucmClient = getUCMClient(); // Still assign for potential later use
+      }
+    } else {
+      this.log('DESC: Episode injection disabled');
     }
 
     this.log(`Runtime: ${result.runtime.type}`);
@@ -786,6 +823,10 @@ export class UniversalAgent {
     let agentUsed: string;
     let result: string;
 
+    // DESC: Inject prior solutions before processing (RULE-010: window size 3)
+    const descResult = await this.injectDESCEpisodes(description, { command: 'god-task', mode: 'general' });
+    const augmentedDescription = descResult.augmentedPrompt;
+
     // Step 1: Check for explicit agent override FIRST (skip analysis if provided)
     if (options.agent) {
       this.log(`DAI-003 task(): Using explicit agent override: ${options.agent}`);
@@ -820,9 +861,9 @@ export class UniversalAgent {
       };
       agentUsed = options.agent;
     } else {
-      // Step 2: Analyze the task (only when routing is needed)
+      // Step 2: Analyze the task (only when routing is needed, use augmented description)
       this.log(`DAI-003 task(): Analyzing task...`);
-      const analysis = await this.taskAnalyzer.analyze(description);
+      const analysis = await this.taskAnalyzer.analyze(augmentedDescription);
 
       // Step 3: Route via RoutingEngine
       this.log(`DAI-003 task(): Routing via RoutingEngine...`);
@@ -954,6 +995,15 @@ export class UniversalAgent {
       this.log(`Warning: Failed to submit routing feedback: ${error}`);
     }
 
+    // DESC: Store episode for future learning (non-blocking, only if successful)
+    if (executionSuccess) {
+      this.storeDESCEpisode(description, result, {
+        command: 'god-task',
+        mode: 'general',
+        quality: 0.8, // Tasks that complete successfully get a good quality score
+      }).catch(err => this.log(`DESC: Background storage error: ${err}`));
+    }
+
     return {
       result,
       routing,
@@ -979,14 +1029,18 @@ export class UniversalAgent {
 
     const interactionId = this.generateId();
 
-    // DAI-001: Dynamic agent selection
-    const agentSelection = await this.selectAgentForTask(input);
+    // DESC: Inject prior solutions before processing (RULE-010: window size 3)
+    const descResult = await this.injectDESCEpisodes(input, { command: 'god-ask', mode: options.mode });
+    const augmentedInput = descResult.augmentedPrompt;
+
+    // DAI-001: Dynamic agent selection (use augmented input for better context)
+    const agentSelection = await this.selectAgentForTask(augmentedInput);
     const mode = options.mode ?? (agentSelection.selection.analysis.taskType as AgentMode);
 
     this.log(`[${mode.toUpperCase()}] Processing: ${input.slice(0, 50)}...`);
     this.log(`DAI-001: Selected agent '${agentSelection.selection.selected.key}' (${agentSelection.selection.selected.category})`);
 
-    // Get embedding for trajectory creation
+    // Get embedding for trajectory creation (use original input for embedding consistency)
     const embedding = await this.embed(input);
 
     // Create trajectory if bridge available (FR-11)
@@ -1056,6 +1110,13 @@ export class UniversalAgent {
       await this.learnFromInteraction(interaction);
     }
 
+    // DESC: Store episode for future learning (non-blocking)
+    this.storeDESCEpisode(input, output, {
+      command: 'god-ask',
+      mode,
+      quality: qualityScore,
+    }).catch(err => this.log(`DESC: Background storage error: ${err}`));
+
     // Return based on options
     if (options.returnResult) {
       return {
@@ -1070,6 +1131,8 @@ export class UniversalAgent {
         selectedAgentCategory: agentSelection.selection.selected.category,
         taskType: agentSelection.selection.analysis.taskType,
         agentPrompt: agentSelection.prompt,
+        // DESC fields
+        descEpisodesInjected: descResult.episodesUsed,
       };
     }
 
@@ -1088,8 +1151,12 @@ export class UniversalAgent {
   } = {}): Promise<CodeResult> {
     await this.ensureInitialized();
 
-    // DAI-001: Dynamic agent selection for code tasks
-    const agentSelection = await this.selectAgentForTask(task);
+    // DESC: Inject prior solutions before processing (RULE-010: window size 3)
+    const descResult = await this.injectDESCEpisodes(task, { command: 'god-code', mode: 'code' });
+    const augmentedTask = descResult.augmentedPrompt;
+
+    // DAI-001: Dynamic agent selection for code tasks (use augmented task)
+    const agentSelection = await this.selectAgentForTask(augmentedTask);
     this.log(`DAI-001 code(): Selected agent '${agentSelection.selection.selected.key}' (${agentSelection.selection.selected.category})`);
 
     // Create trajectory for learning (FR-11)
@@ -1147,6 +1214,20 @@ export class UniversalAgent {
       }
     }
 
+    // DESC: Store episode for future learning (non-blocking)
+    const codeQuality = estimateQuality({
+      id: trajectoryId ?? this.generateId(),
+      mode: 'code',
+      input: task,
+      output: code,
+      timestamp: Date.now(),
+    });
+    this.storeDESCEpisode(task, code, {
+      command: 'god-code',
+      mode: 'code',
+      quality: codeQuality,
+    }).catch(err => this.log(`DESC: Background storage error: ${err}`));
+
     return {
       task,
       code,
@@ -1173,8 +1254,12 @@ export class UniversalAgent {
   } = {}): Promise<ResearchResult> {
     await this.ensureInitialized();
 
-    // DAI-001: Dynamic agent selection for research tasks
-    const agentSelection = await this.selectAgentForTask(query);
+    // DESC: Inject prior solutions before processing (RULE-010: window size 3)
+    const descResult = await this.injectDESCEpisodes(query, { command: 'god-research', mode: 'research' });
+    const augmentedQuery = descResult.augmentedPrompt;
+
+    // DAI-001: Dynamic agent selection for research tasks (use augmented query)
+    const agentSelection = await this.selectAgentForTask(augmentedQuery);
     this.log(`DAI-001 research(): Selected agent '${agentSelection.selection.selected.key}' (${agentSelection.selection.selected.category})`);
 
     const depth = options.depth ?? 'standard';
@@ -1257,23 +1342,31 @@ export class UniversalAgent {
     const synthesis = agentSelection.prompt;
 
     // Auto-feedback if trajectory exists (FR-11)
+    let researchQuality = 0.7;
     if (this.config.autoLearn && this.trajectoryBridge && trajectoryId) {
-      const quality = estimateQuality({
+      researchQuality = estimateQuality({
         id: trajectoryId,
         mode: 'research',
         input: query,
         output: synthesis,
         timestamp: Date.now(),
       });
-      if (quality >= this.config.autoStoreThreshold) {
+      if (researchQuality >= this.config.autoStoreThreshold) {
         try {
-          await this.trajectoryBridge.submitFeedback(trajectoryId, quality, { implicit: true });
-          this.log(`Research auto-feedback: quality=${quality.toFixed(2)}`);
+          await this.trajectoryBridge.submitFeedback(trajectoryId, researchQuality, { implicit: true });
+          this.log(`Research auto-feedback: quality=${researchQuality.toFixed(2)}`);
         } catch (error) {
           this.log(`Warning: Research auto-feedback failed: ${error}`);
         }
       }
     }
+
+    // DESC: Store episode for future learning (non-blocking)
+    this.storeDESCEpisode(query, synthesis, {
+      command: 'god-research',
+      mode: 'research',
+      quality: researchQuality,
+    }).catch(err => this.log(`DESC: Background storage error: ${err}`));
 
     return {
       query,
@@ -1368,8 +1461,12 @@ export class UniversalAgent {
   } = {}): Promise<WriteResult> {
     await this.ensureInitialized();
 
-    // DAI-001: Dynamic agent selection for write tasks
-    const agentSelection = await this.selectAgentForTask(topic);
+    // DESC: Inject prior solutions before processing (RULE-010: window size 3)
+    const descResult = await this.injectDESCEpisodes(topic, { command: 'god-write', mode: 'write' });
+    const augmentedTopic = descResult.augmentedPrompt;
+
+    // DAI-001: Dynamic agent selection for write tasks (use augmented topic)
+    const agentSelection = await this.selectAgentForTask(augmentedTopic);
     this.log(`DAI-001 write(): Selected agent '${agentSelection.selection.selected.key}' (${agentSelection.selection.selected.category})`);
 
     const style = options.style ?? 'professional';
@@ -1416,23 +1513,31 @@ export class UniversalAgent {
     });
 
     // Auto-feedback if trajectory exists (FR-11)
+    let writeQuality = 0.7;
     if (this.config.autoLearn && this.trajectoryBridge && trajectoryId) {
-      const quality = estimateQuality({
+      writeQuality = estimateQuality({
         id: trajectoryId,
         mode: 'write',
         input: topic,
         output: content,
         timestamp: Date.now(),
       });
-      if (quality >= this.config.autoStoreThreshold) {
+      if (writeQuality >= this.config.autoStoreThreshold) {
         try {
-          await this.trajectoryBridge.submitFeedback(trajectoryId, quality, { implicit: true });
-          this.log(`Write auto-feedback: quality=${quality.toFixed(2)}`);
+          await this.trajectoryBridge.submitFeedback(trajectoryId, writeQuality, { implicit: true });
+          this.log(`Write auto-feedback: quality=${writeQuality.toFixed(2)}`);
         } catch (error) {
           this.log(`Warning: Write auto-feedback failed: ${error}`);
         }
       }
     }
+
+    // DESC: Store episode for future learning (non-blocking)
+    this.storeDESCEpisode(topic, content, {
+      command: 'god-write',
+      mode: 'write',
+      quality: writeQuality,
+    }).catch(err => this.log(`DESC: Background storage error: ${err}`));
 
     return {
       topic,
@@ -1739,6 +1844,91 @@ export class UniversalAgent {
   }
 
   // ==================== Helper Methods ====================
+
+  // ==================== DESC Episode Injection ====================
+
+  /**
+   * Inject prior solutions from DESC episodic memory (RULE-010)
+   * Uses default window size of 3 episodes for general agent work
+   *
+   * @param prompt - The original prompt to augment
+   * @param context - Additional context for logging/metadata
+   * @returns Augmented prompt with prior solutions or original on error
+   */
+  private async injectDESCEpisodes(
+    prompt: string,
+    context?: { command?: string; mode?: AgentMode }
+  ): Promise<{ augmentedPrompt: string; episodesUsed: number; episodeIds: string[] }> {
+    // Skip if DESC is disabled or client not initialized
+    if (!this.config.enableDESC || !this.ucmClient) {
+      return { augmentedPrompt: prompt, episodesUsed: 0, episodeIds: [] };
+    }
+
+    try {
+      const result = await this.ucmClient.injectSolutions(prompt, {
+        threshold: this.config.descThreshold,
+        maxEpisodes: this.config.descMaxEpisodes, // RULE-010: default 3
+        agentType: context?.mode ?? 'general',
+        metadata: {
+          source: 'universal-agent',
+          command: context?.command ?? 'unknown',
+          timestamp: Date.now(),
+        },
+      });
+
+      if (result.episodesUsed > 0) {
+        this.log(`DESC: Injected ${result.episodesUsed} prior solutions for ${context?.command ?? 'task'}`);
+      }
+
+      return result;
+    } catch (error) {
+      // Graceful fallback - don't block execution if DESC fails
+      this.log(`DESC: Episode injection failed, using original prompt: ${error}`);
+      return { augmentedPrompt: prompt, episodesUsed: 0, episodeIds: [] };
+    }
+  }
+
+  /**
+   * Store a completed episode for future DESC retrieval
+   *
+   * @param queryText - The original query/prompt
+   * @param answerText - The generated response/result
+   * @param context - Additional context for metadata
+   */
+  private async storeDESCEpisode(
+    queryText: string,
+    answerText: string,
+    context?: { command?: string; mode?: AgentMode; quality?: number }
+  ): Promise<void> {
+    // Skip if DESC is disabled or client not initialized
+    if (!this.config.enableDESC || !this.ucmClient) {
+      return;
+    }
+
+    // Only store high-quality episodes (above threshold)
+    const quality = context?.quality ?? 0.7;
+    if (quality < this.config.autoStoreThreshold) {
+      this.log(`DESC: Skipping episode storage (quality ${quality.toFixed(2)} < threshold ${this.config.autoStoreThreshold})`);
+      return;
+    }
+
+    try {
+      const result = await this.ucmClient.storeEpisode(queryText, answerText, {
+        source: 'universal-agent',
+        command: context?.command ?? 'unknown',
+        mode: context?.mode ?? 'general',
+        quality,
+        timestamp: Date.now(),
+      });
+
+      if (result.success) {
+        this.log(`DESC: Stored episode ${result.episodeId} for future learning`);
+      }
+    } catch (error) {
+      // Non-fatal: don't block on storage failures
+      this.log(`DESC: Episode storage failed: ${error}`);
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private _detectMode(input: string): AgentMode {

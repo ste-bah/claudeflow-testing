@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: theoretical-framework-analyst
 type: meta-analyst
 color: "#4A148C"

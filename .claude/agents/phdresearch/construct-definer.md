@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: construct-definer
 type: conceptual-analyst
 color: "#C2185B"

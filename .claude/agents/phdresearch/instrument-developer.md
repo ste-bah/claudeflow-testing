@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: instrument-developer
 type: measurement-specialist
 color: "#4CAF50"

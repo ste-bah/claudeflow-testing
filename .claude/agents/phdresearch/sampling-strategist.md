@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: sampling-strategist
 type: sampling-specialist
 color: "#00BCD4"

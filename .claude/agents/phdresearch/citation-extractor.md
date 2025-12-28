@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: citation-extractor
 type: researcher
 color: "#1B5E20"

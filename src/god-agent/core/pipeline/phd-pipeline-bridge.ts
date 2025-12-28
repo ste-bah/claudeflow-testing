@@ -125,11 +125,13 @@ export class PhDPipelineBridge extends PipelineBridge {
       parts.push(`\nCitation Requirement: Minimum ${citationReq} academic sources`);
     }
 
-    // Style profile for Phase 6 (Writing)
-    if (agentConfig.phase === WRITING_PHASE_ID) {
-      const stylePrompt = this.getStylePromptSync();
+    // Style profile for ALL phases (UK English, academic conventions)
+    // Applied to all agents to ensure consistent language throughout research outputs
+    const stylePrompt = this.getStylePromptSync();
+    if (stylePrompt && stylePrompt !== this.getDefaultStylePrompt()) {
       parts.push('\n--- Writing Style Requirements ---');
       parts.push(stylePrompt);
+      parts.push('\nIMPORTANT: Apply these style requirements to ALL written output.');
     }
 
     // Critical agent warning

@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: model-architect
 type: structural-modeler
 color: "#FF5722"

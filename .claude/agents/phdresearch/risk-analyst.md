@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: risk-analyst
 type: quality-assurance
 color: "#BF360C"

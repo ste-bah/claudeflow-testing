@@ -1,0 +1,1732 @@
+/**
+ * Sona Engine
+ * TASK-SON-001 - Trajectory Tracking and Weight Management
+ * TASK-SON-002 - LoRA-Style Weight Updates and Persistence
+ *
+ * Implements trajectory-based learning for pattern weight adaptation.
+ * Enables 10-30% improvement on repeated task types without retraining.
+ *
+ * Performance targets:
+ * - createTrajectory(): <1ms
+ * - getWeight(): <1ms
+ * - getWeights(): <5ms
+ * - provideFeedback(): <15ms
+ */
+import { writeFile, readFile, rename, mkdir, readdir, unlink } from 'fs/promises';
+import { existsSync } from 'fs';
+import { dirname, join } from 'path';
+import { EmbeddingProviderFactory } from '../memory/embedding-provider.js';
+import { FeedbackValidationError, WeightPersistenceError, RollbackLoopError, CheckpointError, } from './sona-types.js';
+import { TrajectoryStreamManager } from './trajectory-stream-manager.js';
+import { generateTrajectoryID, generateCheckpointID, validateTrajectoryInput, validateAndApplyConfig, DEFAULT_INITIAL_WEIGHT, clampWeight, cosineSimilarity, arithmeticMean, validateFeedbackQuality, calculateReward, calculateGradient, calculateWeightUpdate, updateFisherInformation, crc32, DEFAULT_FISHER_INFORMATION, FISHER_DECAY_RATE, AUTO_SAVE_THROTTLE_MS, AUTO_PATTERN_QUALITY_THRESHOLD, WEIGHT_FILE_VERSION, } from './sona-utils.js';
+/**
+ * Simple mutex for weight update concurrency control
+ */
+class SimpleMutex {
+    locked = false;
+    queue = [];
+    async acquire() {
+        return new Promise((resolve) => {
+            const tryAcquire = () => {
+                if (!this.locked) {
+                    this.locked = true;
+                    resolve(() => this.release());
+                }
+                else {
+                    this.queue.push(tryAcquire);
+                }
+            };
+            tryAcquire();
+        });
+    }
+    release() {
+        this.locked = false;
+        const next = this.queue.shift();
+        if (next) {
+            next();
+        }
+    }
+}
+export class SonaEngine {
+    trajectories = new Map();
+    weights = new Map();
+    fisherInformation = new Map();
+    patterns = new Map();
+    config;
+    initialized = false;
+    embeddingProvider;
+    // FIX: Callback for pattern creation to connect to PatternStore
+    patternCreatedCallback;
+    // Weight update state (TASK-SON-002)
+    weightUpdateMutex = new SimpleMutex();
+    lastAutoSave = 0;
+    weightsFilePath = '.agentdb/sona/sona_weights.bin';
+    // Drift detection and checkpointing state (TASK-SON-003)
+    baselineWeights = new Map();
+    checkpoints = new Map();
+    checkpointsDir = '.agentdb/universal/checkpoints';
+    rollbackCount = 0;
+    lastRollbackTime = 0;
+    static ROLLBACK_WINDOW_MS = 300000; // 5 minutes
+    static MAX_ROLLBACKS_IN_WINDOW = 3;
+    // Trajectory streaming state (TECH-TRJ-001)
+    streamManager;
+    rollbackState = {
+        lastRollbackCheckpointId: null,
+        lastRollbackAt: null,
+        rollbackCount: 0
+    };
+    baselineCheckpointIds = new Set();
+    // Metrics tracking
+    metrics = {
+        totalTrajectories: 0,
+        trajectoriesByRoute: {},
+        averageQualityByRoute: {},
+        improvementPercentage: {},
+        patternsCreated: 0,
+        patternsPruned: 0,
+        currentDrift: 0,
+        checkpointsCreated: 0,
+        rollbacksTriggered: 0,
+        lastUpdated: Date.now(),
+    };
+    constructor(config = {}) {
+        this.config = validateAndApplyConfig(config);
+        // Apply checkpointsDir from config if provided
+        if (config.checkpointsDir) {
+            this.checkpointsDir = config.checkpointsDir;
+        }
+    }
+    /**
+     * Initialize the Sona Engine
+     */
+    async initialize() {
+        if (this.initialized) {
+            return;
+        }
+        // Initialize embedding provider (SPEC-EMB-002)
+        this.embeddingProvider = await EmbeddingProviderFactory.getProvider();
+        this.initialized = true;
+    }
+    /**
+     * Enable trajectory streaming to disk (TECH-TRJ-001)
+     *
+     * @param config - Optional streaming configuration
+     */
+    async enableStreaming(config) {
+        this.streamManager = new TrajectoryStreamManager(config ?? {});
+        await this.streamManager.initialize();
+        console.log('[SonaEngine] Trajectory streaming enabled');
+    }
+    /**
+     * Set the weights file path for persistence
+     */
+    setWeightsFilePath(path) {
+        this.weightsFilePath = path;
+    }
+    /**
+     * FIX: Set callback for pattern creation notifications
+     * This connects SonaEngine patterns to PatternStore for reasoning
+     *
+     * @param callback - Function to call when a pattern is created
+     */
+    onPatternCreated(callback) {
+        this.patternCreatedCallback = callback;
+    }
+    /**
+     * Create a new trajectory for a reasoning path
+     *
+     * @param route - Task type (e.g., "reasoning.causal")
+     * @param patterns - Pattern IDs used in this trajectory
+     * @param context - Context IDs that influenced the outcome
+     * @returns Generated TrajectoryID
+     * @throws TrajectoryValidationError if validation fails
+     */
+    createTrajectory(route, patterns, context = []) {
+        const startTime = performance.now();
+        // 1. Validate input
+        const input = { route, patterns, context };
+        validateTrajectoryInput(input);
+        // 2. Generate unique TrajectoryID
+        const trajectoryId = generateTrajectoryID();
+        // 3. Create ITrajectory object
+        const trajectory = {
+            id: trajectoryId,
+            route,
+            patterns: [...patterns], // Copy to prevent mutation
+            context: [...context],
+            createdAt: Date.now(),
+            steps: input.steps ? [...input.steps] : undefined,
+        };
+        // 4. Store in memory map
+        this.trajectories.set(trajectoryId, trajectory);
+        // 4.5. FIX: Stream to disk if enabled (fire-and-forget for sync method)
+        if (this.streamManager) {
+            this.streamManager.addTrajectory(trajectory).catch(error => {
+                console.warn(`[SonaEngine] Failed to stream trajectory ${trajectoryId}:`, error);
+            });
+        }
+        // 5. Initialize route weights if first trajectory for this route
+        if (!this.weights.has(route)) {
+            this.weights.set(route, new Map());
+        }
+        // 6. Initialize weights for new patterns (default: 0.0)
+        const routeWeights = this.weights.get(route);
+        for (const patternId of patterns) {
+            if (!routeWeights.has(patternId)) {
+                routeWeights.set(patternId, DEFAULT_INITIAL_WEIGHT);
+            }
+        }
+        // 7. Update metrics
+        this.metrics.totalTrajectories++;
+        this.metrics.trajectoriesByRoute[route] = (this.metrics.trajectoriesByRoute[route] || 0) + 1;
+        this.metrics.lastUpdated = Date.now();
+        // 8. Track performance
+        if (this.config.trackPerformance) {
+            const elapsed = performance.now() - startTime;
+            if (elapsed > 1) {
+                console.warn(`SonaEngine.createTrajectory() took ${elapsed.toFixed(2)}ms, exceeds 1ms target`);
+            }
+        }
+        // 9. Reset rollback state if progressed (TECH-TRJ-001)
+        this.resetRollbackStateIfProgressed();
+        return trajectoryId;
+    }
+    /**
+     * Create a trajectory with a specific ID (for bridging with TrajectoryTracker)
+     *
+     * Same as createTrajectory but accepts an existing trajectory ID.
+     * Used when syncing trajectories from ReasoningBank's TrajectoryTracker.
+     *
+     * @param trajectoryId - Existing trajectory ID to use
+     * @param route - Task type (e.g., "reasoning.causal")
+     * @param patterns - Pattern IDs used in this trajectory
+     * @param context - Context IDs that influenced the outcome
+     * @throws TrajectoryValidationError if validation fails
+     */
+    createTrajectoryWithId(trajectoryId, route, patterns, context = []) {
+        // Skip if trajectory already exists
+        if (this.trajectories.has(trajectoryId)) {
+            return;
+        }
+        // Validate input
+        const input = { route, patterns, context };
+        validateTrajectoryInput(input);
+        // Create ITrajectory object with provided ID
+        const trajectory = {
+            id: trajectoryId,
+            route,
+            patterns: [...patterns],
+            context: [...context],
+            createdAt: Date.now(),
+            steps: input.steps ? [...input.steps] : undefined,
+        };
+        // Store in memory map
+        this.trajectories.set(trajectoryId, trajectory);
+        // FIX: Stream to disk if enabled (fire-and-forget for sync method)
+        if (this.streamManager) {
+            this.streamManager.addTrajectory(trajectory).catch(error => {
+                console.warn(`[SonaEngine] Failed to stream trajectory ${trajectoryId}:`, error);
+            });
+        }
+        // Initialize route weights if first trajectory for this route
+        if (!this.weights.has(route)) {
+            this.weights.set(route, new Map());
+        }
+        // Initialize weights for new patterns (default: 0.0)
+        const routeWeights = this.weights.get(route);
+        for (const patternId of patterns) {
+            if (!routeWeights.has(patternId)) {
+                routeWeights.set(patternId, DEFAULT_INITIAL_WEIGHT);
+            }
+        }
+        // Update metrics
+        this.metrics.totalTrajectories++;
+        this.metrics.trajectoriesByRoute[route] = (this.metrics.trajectoriesByRoute[route] || 0) + 1;
+        this.metrics.lastUpdated = Date.now();
+    }
+    /**
+     * Get weight for a single pattern in a route
+     *
+     * @param patternId - Pattern ID to get weight for
+     * @param route - Task type/route
+     * @returns Weight value (0.0 if not found)
+     */
+    async getWeight(patternId, route) {
+        // 1. Check if route exists
+        const routeWeights = this.weights.get(route);
+        if (!routeWeights) {
+            return DEFAULT_INITIAL_WEIGHT;
+        }
+        // 2. Check if pattern weight exists
+        const weight = routeWeights.get(patternId);
+        if (weight === undefined) {
+            return DEFAULT_INITIAL_WEIGHT;
+        }
+        return weight;
+    }
+    /**
+     * Get all weights for a route as Float32Array
+     *
+     * @param route - Task type/route
+     * @returns Float32Array of weights (empty if route not found)
+     */
+    async getWeights(route) {
+        // 1. Check if route exists
+        const routeWeights = this.weights.get(route);
+        if (!routeWeights) {
+            return new Float32Array(0);
+        }
+        // 2. Convert Map to Float32Array
+        const weightsArray = new Float32Array(routeWeights.size);
+        let i = 0;
+        for (const weight of routeWeights.values()) {
+            weightsArray[i++] = weight;
+        }
+        return weightsArray;
+    }
+    /**
+     * Get weights with pattern ID mapping for a route
+     *
+     * @param route - Task type/route
+     * @returns Array of {patternId, weight} pairs
+     */
+    async getWeightsWithIds(route) {
+        const routeWeights = this.weights.get(route);
+        if (!routeWeights) {
+            return [];
+        }
+        const result = [];
+        for (const [patternId, weight] of routeWeights) {
+            result.push({ patternId, weight });
+        }
+        return result;
+    }
+    /**
+     * Set weight for a pattern (for testing and manual adjustment)
+     *
+     * @param patternId - Pattern ID
+     * @param route - Task type/route
+     * @param weight - Weight value (-1 to 1)
+     */
+    setWeight(patternId, route, weight) {
+        // Ensure route exists
+        if (!this.weights.has(route)) {
+            this.weights.set(route, new Map());
+        }
+        // Clamp and set weight
+        const routeWeights = this.weights.get(route);
+        routeWeights.set(patternId, clampWeight(weight));
+    }
+    /**
+     * Get a trajectory by ID
+     *
+     * @param trajectoryId - Trajectory ID
+     * @returns ITrajectory or null if not found
+     */
+    getTrajectory(trajectoryId) {
+        return this.trajectories.get(trajectoryId) || null;
+    }
+    /**
+     * List all trajectories, optionally filtered by route
+     *
+     * @param route - Optional route filter
+     * @returns Array of trajectories
+     */
+    listTrajectories(route) {
+        const allTrajectories = Array.from(this.trajectories.values());
+        if (route) {
+            return allTrajectories.filter(t => t.route === route);
+        }
+        return allTrajectories;
+    }
+    /**
+     * Get trajectory count, optionally filtered by route
+     *
+     * @param route - Optional route filter
+     * @returns Number of trajectories
+     */
+    getTrajectoryCount(route) {
+        if (route) {
+            return this.listTrajectories(route).length;
+        }
+        return this.trajectories.size;
+    }
+    /**
+     * Get all routes with initialized weights
+     *
+     * @returns Array of route strings
+     */
+    getRoutes() {
+        return Array.from(this.weights.keys());
+    }
+    /**
+     * Get number of patterns for a route
+     *
+     * @param route - Task type/route
+     * @returns Number of patterns with weights
+     */
+    getPatternCount(route) {
+        const routeWeights = this.weights.get(route);
+        return routeWeights ? routeWeights.size : 0;
+    }
+    /**
+     * Check if a route has been initialized
+     *
+     * @param route - Task type/route
+     * @returns true if route exists
+     */
+    hasRoute(route) {
+        return this.weights.has(route);
+    }
+    /**
+     * Get learning metrics
+     *
+     * @returns Current learning metrics
+     */
+    getMetrics() {
+        // Calculate average quality per route
+        for (const route of this.getRoutes()) {
+            const routeTrajectories = this.listTrajectories(route);
+            const qualityScores = routeTrajectories
+                .filter(t => t.quality !== undefined)
+                .map(t => t.quality);
+            if (qualityScores.length > 0) {
+                this.metrics.averageQualityByRoute[route] = arithmeticMean(qualityScores);
+            }
+        }
+        return { ...this.metrics };
+    }
+    /**
+     * Calculate drift from baseline weights
+     *
+     * @param baselineWeights - Baseline weight vector
+     * @returns Drift metrics
+     */
+    calculateDrift(baselineWeights) {
+        // Get current weights as flat array
+        const currentWeights = this.getAllWeightsFlat();
+        // Handle size mismatch
+        if (currentWeights.length !== baselineWeights.length) {
+            // Expand or contract baseline to match current
+            const adjustedBaseline = new Float32Array(currentWeights.length);
+            for (let i = 0; i < adjustedBaseline.length; i++) {
+                adjustedBaseline[i] = i < baselineWeights.length ? baselineWeights[i] : 0;
+            }
+            return this.computeDriftMetrics(currentWeights, adjustedBaseline);
+        }
+        return this.computeDriftMetrics(currentWeights, baselineWeights);
+    }
+    /**
+     * Compute drift metrics from two weight vectors
+     */
+    computeDriftMetrics(current, baseline) {
+        const similarity = cosineSimilarity(current, baseline);
+        const drift = 1 - similarity;
+        let status = 'NORMAL';
+        if (drift > this.config.driftRejectThreshold) {
+            status = 'REJECT';
+        }
+        else if (drift > this.config.driftAlertThreshold) {
+            status = 'ALERT';
+        }
+        this.metrics.currentDrift = drift;
+        return {
+            currentWeights: current,
+            baselineWeights: baseline,
+            drift,
+            alertThreshold: this.config.driftAlertThreshold,
+            rejectThreshold: this.config.driftRejectThreshold,
+            timestamp: Date.now(),
+            status,
+        };
+    }
+    /**
+     * Get all weights as a flat Float32Array
+     */
+    getAllWeightsFlat() {
+        let totalSize = 0;
+        for (const routeWeights of this.weights.values()) {
+            totalSize += routeWeights.size;
+        }
+        const flat = new Float32Array(totalSize);
+        let i = 0;
+        for (const routeWeights of this.weights.values()) {
+            for (const weight of routeWeights.values()) {
+                flat[i++] = weight;
+            }
+        }
+        return flat;
+    }
+    /**
+     * Clear all data (for testing)
+     */
+    clear() {
+        this.trajectories.clear();
+        this.weights.clear();
+        this.fisherInformation.clear();
+        this.metrics = {
+            totalTrajectories: 0,
+            trajectoriesByRoute: {},
+            averageQualityByRoute: {},
+            improvementPercentage: {},
+            patternsCreated: 0,
+            patternsPruned: 0,
+            currentDrift: 0,
+            checkpointsCreated: 0,
+            rollbacksTriggered: 0,
+            lastUpdated: Date.now(),
+        };
+    }
+    // ==================== TASK-SON-002: Weight Update Methods ====================
+    /**
+     * Provide feedback for a trajectory and update pattern weights
+     *
+     * @param trajectoryId - Trajectory ID to provide feedback for
+     * @param quality - Quality score (0-1)
+     * @param options - Optional parameters for weight updates
+     * @returns Weight update result
+     * @throws FeedbackValidationError if validation fails
+     */
+    async provideFeedback(trajectoryId, quality, options = {}) {
+        const startTime = performance.now();
+        // 1. Validate quality
+        validateFeedbackQuality(quality);
+        // 2. Retrieve trajectory
+        const trajectory = this.trajectories.get(trajectoryId);
+        if (!trajectory) {
+            throw new FeedbackValidationError(`Trajectory ${trajectoryId} not found`);
+        }
+        // 3. If empty patterns, still try auto-pattern creation for high-quality trajectories
+        // FIX: This was previously an early return that skipped auto-pattern creation entirely
+        // The chicken-and-egg problem: trajectories with no patterns never got to create patterns
+        if (trajectory.patterns.length === 0) {
+            trajectory.quality = quality;
+            // Still attempt auto-pattern creation for high-quality empty-pattern trajectories
+            let patternAutoCreated = false;
+            if (quality > AUTO_PATTERN_QUALITY_THRESHOLD) {
+                try {
+                    const patternId = await this.createPatternFromTrajectory(trajectory);
+                    if (patternId) {
+                        console.log(`[SonaEngine] Auto-created pattern ${patternId} from high-quality trajectory ` +
+                            `${trajectoryId} (no prior patterns - bootstrap)`);
+                        patternAutoCreated = true;
+                    }
+                }
+                catch (error) {
+                    console.warn('[SonaEngine] Pattern auto-creation failed (empty patterns):', error);
+                }
+            }
+            return {
+                trajectoryId,
+                patternsUpdated: 0,
+                reward: 0,
+                patternAutoCreated,
+                elapsedMs: performance.now() - startTime,
+            };
+        }
+        // 4. Acquire weight update lock
+        const release = await this.weightUpdateMutex.acquire();
+        try {
+            // 5. Get L-Score (use provided or default to 1.0)
+            const lScore = options.lScore ?? 1.0;
+            // 6. Calculate trajectory success rate
+            const trajectorySuccessRate = this.calculateTrajectorySuccessRate(trajectory.route);
+            // 7. Ensure route weights and Fisher Information maps exist
+            if (!this.weights.has(trajectory.route)) {
+                this.weights.set(trajectory.route, new Map());
+            }
+            const routeWeights = this.weights.get(trajectory.route);
+            const routeFisher = this.ensureFisherMap(trajectory.route);
+            // 8. Update weights for each pattern
+            let patternsUpdated = 0;
+            for (const patternId of trajectory.patterns) {
+                // Get similarity (from options or default)
+                const similarity = options.similarities?.get(patternId) ?? 0.8;
+                // Calculate reward
+                const reward = calculateReward(quality, lScore, trajectorySuccessRate);
+                // Calculate gradient (centered around 0.5)
+                const gradient = calculateGradient(reward, similarity);
+                // Get Fisher Information (importance)
+                const importance = routeFisher.get(patternId) ?? DEFAULT_FISHER_INFORMATION;
+                // Calculate weight update with EWC++ regularization
+                const weightChange = calculateWeightUpdate(gradient, this.config.learningRate, this.config.regularization, importance);
+                // Get current weight
+                const currentWeight = routeWeights.get(patternId) ?? DEFAULT_INITIAL_WEIGHT;
+                // Apply update
+                let newWeight = currentWeight + weightChange;
+                // Clamp to [-1, 1] range
+                newWeight = clampWeight(newWeight);
+                // NaN/Infinity detection
+                if (!Number.isFinite(newWeight)) {
+                    console.warn(`NaN/Infinity detected in weight update for pattern ${patternId}, skipping`);
+                    continue;
+                }
+                // Store updated weight
+                routeWeights.set(patternId, newWeight);
+                // Update Fisher Information (exponential moving average of squared gradients)
+                const newImportance = updateFisherInformation(importance, gradient, FISHER_DECAY_RATE);
+                routeFisher.set(patternId, newImportance);
+                patternsUpdated++;
+            }
+            // 9. Calculate cumulative reward for trajectory
+            const trajectoryReward = calculateReward(quality, lScore, trajectorySuccessRate);
+            trajectory.quality = quality;
+            trajectory.reward = trajectoryReward;
+            // 10. Auto-create pattern if quality > 0.8
+            // FIX: Removed trajectory.patterns.length > 0 requirement to bootstrap learning
+            // High-quality trajectories should create patterns even without existing patterns
+            // This fixes the chicken-and-egg problem where patterns couldn't be created
+            // because no patterns existed to match against
+            let patternAutoCreated = false;
+            if (quality > AUTO_PATTERN_QUALITY_THRESHOLD) {
+                // Set flag to indicate pattern auto-creation was triggered
+                patternAutoCreated = true;
+                // Attempt to create pattern (may fail if embedding provider not initialized)
+                try {
+                    const patternId = await this.createPatternFromTrajectory(trajectory);
+                    if (patternId) {
+                        console.log(`[SonaEngine] Auto-created pattern ${patternId} from high-quality trajectory ${trajectoryId}`);
+                    }
+                }
+                catch (error) {
+                    console.warn('[SonaEngine] Pattern auto-creation failed:', error);
+                }
+            }
+            // 11. Auto-save weights (throttled)
+            if (!options.skipAutoSave) {
+                const now = Date.now();
+                if (now - this.lastAutoSave > AUTO_SAVE_THROTTLE_MS) {
+                    try {
+                        await this.saveWeights();
+                        this.lastAutoSave = now;
+                    }
+                    catch (error) {
+                        console.warn('Auto-save failed:', error);
+                    }
+                }
+            }
+            // 12. Update metrics
+            this.metrics.lastUpdated = Date.now();
+            // 13. Check performance target
+            const elapsedMs = performance.now() - startTime;
+            if (this.config.trackPerformance && elapsedMs > 15) {
+                console.warn(`provideFeedback() took ${elapsedMs.toFixed(2)}ms, exceeds 15ms target`);
+            }
+            return {
+                trajectoryId,
+                patternsUpdated,
+                reward: trajectoryReward,
+                patternAutoCreated,
+                elapsedMs,
+            };
+        }
+        finally {
+            release(); // Release mutex
+        }
+    }
+    /**
+     * Ensure Fisher Information map exists for a route
+     */
+    ensureFisherMap(route) {
+        if (!this.fisherInformation.has(route)) {
+            this.fisherInformation.set(route, new Map());
+        }
+        return this.fisherInformation.get(route);
+    }
+    /**
+     * Calculate trajectory success rate for a route
+     * (Historical average quality for this route)
+     */
+    calculateTrajectorySuccessRate(route) {
+        const routeTrajectories = this.listTrajectories(route);
+        const qualityScores = routeTrajectories
+            .filter(t => t.quality !== undefined)
+            .map(t => t.quality);
+        if (qualityScores.length === 0) {
+            return 0.5; // Default success rate
+        }
+        return arithmeticMean(qualityScores);
+    }
+    /**
+     * Get Fisher Information for a pattern
+     */
+    getFisherInformation(patternId, route) {
+        const routeFisher = this.fisherInformation.get(route);
+        if (!routeFisher) {
+            return DEFAULT_FISHER_INFORMATION;
+        }
+        return routeFisher.get(patternId) ?? DEFAULT_FISHER_INFORMATION;
+    }
+    /**
+     * Set Fisher Information for a pattern (for testing)
+     */
+    setFisherInformation(patternId, route, importance) {
+        const routeFisher = this.ensureFisherMap(route);
+        routeFisher.set(patternId, importance);
+    }
+    // ==================== Binary Weight Persistence ====================
+    /**
+     * Save weights to binary file
+     *
+     * @param path - Optional file path (uses default if not provided)
+     */
+    async saveWeights(path) {
+        const targetPath = path ?? this.weightsFilePath;
+        try {
+            // 1. Ensure directory exists
+            const dir = dirname(targetPath);
+            if (!existsSync(dir)) {
+                await mkdir(dir, { recursive: true });
+            }
+            // 2. Serialize weights to binary format
+            const serialized = this.serializeWeightsBinary();
+            // 3. Write to temp file + rename (atomic write)
+            const tempPath = `${targetPath}.tmp`;
+            await writeFile(tempPath, serialized);
+            await rename(tempPath, targetPath);
+        }
+        catch (error) {
+            throw new WeightPersistenceError('save', error.message);
+        }
+    }
+    /**
+     * Load weights from binary file
+     *
+     * @param path - File path to load from
+     */
+    async loadWeights(path) {
+        const targetPath = path ?? this.weightsFilePath;
+        // 1. Check if file exists
+        if (!existsSync(targetPath)) {
+            console.warn(`Weights file ${targetPath} not found, initializing with defaults`);
+            return;
+        }
+        try {
+            // 2. Read binary file
+            const buffer = await readFile(targetPath);
+            // 3. Deserialize
+            this.deserializeWeightsBinary(buffer);
+        }
+        catch (error) {
+            throw new WeightPersistenceError('load', error.message);
+        }
+    }
+    /**
+     * Serialize weights to binary format
+     * Format: [version(4), metadataLen(4), metadata(JSON), weights(Float32), fisher(Float32), checksum(4)]
+     */
+    serializeWeightsBinary() {
+        // 1. Build pattern mapping
+        const patternMapping = [];
+        for (const [route, routeWeights] of this.weights.entries()) {
+            for (const patternId of routeWeights.keys()) {
+                patternMapping.push({ route, patternId });
+            }
+        }
+        // 2. Prepare metadata
+        const metadata = {
+            version: WEIGHT_FILE_VERSION,
+            routes: Array.from(this.weights.keys()),
+            patternCounts: Object.fromEntries(Array.from(this.weights.entries()).map(([route, weights]) => [route, weights.size])),
+            timestamp: Date.now(),
+            patternMapping,
+        };
+        const metadataJson = JSON.stringify(metadata);
+        const metadataBuffer = Buffer.from(metadataJson, 'utf-8');
+        // 3. Serialize weights
+        const weightsData = [];
+        for (const { route, patternId } of patternMapping) {
+            const routeWeights = this.weights.get(route);
+            const weight = routeWeights?.get(patternId) ?? DEFAULT_INITIAL_WEIGHT;
+            weightsData.push(weight);
+        }
+        const weightsBuffer = Buffer.allocUnsafe(weightsData.length * 4);
+        for (let i = 0; i < weightsData.length; i++) {
+            weightsBuffer.writeFloatLE(weightsData[i], i * 4);
+        }
+        // 4. Serialize Fisher Information
+        const fisherData = [];
+        for (const { route, patternId } of patternMapping) {
+            const routeFisher = this.fisherInformation.get(route);
+            const importance = routeFisher?.get(patternId) ?? DEFAULT_FISHER_INFORMATION;
+            fisherData.push(importance);
+        }
+        const fisherBuffer = Buffer.allocUnsafe(fisherData.length * 4);
+        for (let i = 0; i < fisherData.length; i++) {
+            fisherBuffer.writeFloatLE(fisherData[i], i * 4);
+        }
+        // 5. Assemble buffer (without checksum)
+        const versionBuffer = Buffer.allocUnsafe(4);
+        versionBuffer.writeUInt32LE(WEIGHT_FILE_VERSION, 0);
+        const metadataLengthBuffer = Buffer.allocUnsafe(4);
+        metadataLengthBuffer.writeUInt32LE(metadataBuffer.length, 0);
+        const dataBuffer = Buffer.concat([
+            versionBuffer,
+            metadataLengthBuffer,
+            metadataBuffer,
+            weightsBuffer,
+            fisherBuffer,
+        ]);
+        // 6. Calculate checksum
+        const checksum = crc32(dataBuffer);
+        const checksumBuffer = Buffer.allocUnsafe(4);
+        checksumBuffer.writeUInt32LE(checksum, 0);
+        return Buffer.concat([dataBuffer, checksumBuffer]);
+    }
+    /**
+     * Deserialize weights from binary format
+     */
+    deserializeWeightsBinary(buffer) {
+        // 1. Parse version
+        const version = buffer.readUInt32LE(0);
+        if (version !== WEIGHT_FILE_VERSION) {
+            throw new Error(`Unsupported weights file version: ${version}`);
+        }
+        // 2. Parse metadata
+        const metadataLength = buffer.readUInt32LE(4);
+        const metadataBuffer = buffer.subarray(8, 8 + metadataLength);
+        const metadata = JSON.parse(metadataBuffer.toString('utf-8'));
+        if (!metadata.patternMapping) {
+            throw new Error('Weight file missing pattern mapping');
+        }
+        // 3. Calculate expected sizes
+        const patternCount = metadata.patternMapping.length;
+        const weightsStart = 8 + metadataLength;
+        const weightsEnd = weightsStart + (patternCount * 4);
+        const fisherEnd = weightsEnd + (patternCount * 4);
+        const checksumStart = fisherEnd;
+        // 4. Verify checksum
+        const storedChecksum = buffer.readUInt32LE(checksumStart);
+        const calculatedChecksum = crc32(buffer.subarray(0, checksumStart));
+        if (storedChecksum !== calculatedChecksum) {
+            throw new Error(`Checksum mismatch: stored=${storedChecksum}, calculated=${calculatedChecksum}`);
+        }
+        // 5. Parse weights
+        const weightsBuffer = buffer.subarray(weightsStart, weightsEnd);
+        const fisherBuffer = buffer.subarray(weightsEnd, fisherEnd);
+        // 6. Clear existing data
+        this.weights.clear();
+        this.fisherInformation.clear();
+        // 7. Reconstruct weight maps
+        for (let i = 0; i < patternCount; i++) {
+            const { route, patternId } = metadata.patternMapping[i];
+            const weight = weightsBuffer.readFloatLE(i * 4);
+            const fisher = fisherBuffer.readFloatLE(i * 4);
+            // Ensure route map exists
+            if (!this.weights.has(route)) {
+                this.weights.set(route, new Map());
+            }
+            if (!this.fisherInformation.has(route)) {
+                this.fisherInformation.set(route, new Map());
+            }
+            this.weights.get(route).set(patternId, weight);
+            this.fisherInformation.get(route).set(patternId, fisher);
+        }
+    }
+    /**
+     * Export state for persistence
+     */
+    toJSON() {
+        // Serialize trajectories
+        const trajectories = Array.from(this.trajectories.values()).map(t => ({
+            id: t.id,
+            route: t.route,
+            patterns: t.patterns,
+            context: t.context,
+            createdAt: t.createdAt,
+            quality: t.quality,
+            reward: t.reward,
+        }));
+        // Serialize weights
+        const weights = [];
+        for (const [route, routeWeights] of this.weights) {
+            const weightEntries = Array.from(routeWeights.entries()).map(([patternId, weight]) => ({
+                patternId,
+                weight,
+            }));
+            weights.push({ route, weights: weightEntries });
+        }
+        return {
+            version: '1.0.0',
+            trajectories,
+            weights,
+            timestamp: Date.now(),
+        };
+    }
+    /**
+     * Import state from persistence
+     */
+    fromJSON(data) {
+        this.clear();
+        // Import trajectories
+        for (const t of data.trajectories) {
+            const trajectory = {
+                id: t.id,
+                route: t.route,
+                patterns: t.patterns,
+                context: t.context,
+                createdAt: t.createdAt,
+                quality: t.quality,
+                reward: t.reward,
+            };
+            this.trajectories.set(t.id, trajectory);
+        }
+        // Import weights
+        for (const rw of data.weights) {
+            const routeWeights = new Map();
+            for (const entry of rw.weights) {
+                routeWeights.set(entry.patternId, entry.weight);
+            }
+            this.weights.set(rw.route, routeWeights);
+        }
+        // Update metrics
+        this.metrics.totalTrajectories = this.trajectories.size;
+        for (const route of this.weights.keys()) {
+            this.metrics.trajectoriesByRoute[route] = this.listTrajectories(route).length;
+        }
+        this.metrics.lastUpdated = Date.now();
+    }
+    /**
+     * Get statistics about the Sona Engine
+     */
+    getStats() {
+        const routes = this.getRoutes();
+        let totalPatterns = 0;
+        for (const route of routes) {
+            totalPatterns += this.getPatternCount(route);
+        }
+        return {
+            trajectoryCount: this.trajectories.size,
+            routeCount: routes.length,
+            totalPatterns,
+            avgPatternsPerRoute: routes.length > 0 ? totalPatterns / routes.length : 0,
+        };
+    }
+    // ==================== TASK-SON-003: Drift Detection and Checkpointing ====================
+    /**
+     * Set the checkpoints directory path
+     */
+    setCheckpointsDir(path) {
+        this.checkpointsDir = path;
+    }
+    /**
+     * Set baseline weights (for drift comparison)
+     */
+    setBaselineWeights(weights) {
+        if (weights) {
+            this.baselineWeights = this.deepCopyWeights(weights);
+        }
+        else {
+            // Use current weights as baseline
+            this.baselineWeights = this.deepCopyWeights(this.weights);
+        }
+    }
+    /**
+     * Check drift from baseline weights
+     *
+     * @param autoRollback - If true, automatically rollback when drift > reject threshold
+     * @returns Drift metrics
+     */
+    async checkDrift(autoRollback = true) {
+        const startTime = performance.now();
+        // 1. Flatten current weights to single vector
+        const currentWeightsVector = this.flattenWeightsToVector(this.weights);
+        // 2. If baseline empty, initialize from current
+        if (this.baselineWeights.size === 0) {
+            this.baselineWeights = this.deepCopyWeights(this.weights);
+            const result = {
+                currentWeights: currentWeightsVector,
+                baselineWeights: currentWeightsVector,
+                drift: 0.0,
+                alertThreshold: this.config.driftAlertThreshold,
+                rejectThreshold: this.config.driftRejectThreshold,
+                timestamp: Date.now(),
+                status: 'NORMAL',
+            };
+            return result;
+        }
+        // 3. Flatten baseline weights
+        const baselineWeightsVector = this.flattenWeightsToVector(this.baselineWeights);
+        // 4. Handle size mismatch (new patterns added)
+        let adjustedBaseline = baselineWeightsVector;
+        if (currentWeightsVector.length !== baselineWeightsVector.length) {
+            adjustedBaseline = new Float32Array(currentWeightsVector.length);
+            for (let i = 0; i < adjustedBaseline.length; i++) {
+                adjustedBaseline[i] = i < baselineWeightsVector.length ? baselineWeightsVector[i] : 0;
+            }
+        }
+        // 5. Calculate cosine similarity and drift
+        const similarity = cosineSimilarity(currentWeightsVector, adjustedBaseline);
+        const drift = 1 - similarity;
+        // 6. Determine status
+        let status = 'NORMAL';
+        if (drift > this.config.driftRejectThreshold) {
+            status = 'REJECT';
+            console.warn(`Drift REJECT: ${drift.toFixed(4)} > ${this.config.driftRejectThreshold} threshold`);
+            // Auto-rollback if enabled
+            if (autoRollback) {
+                await this.rollbackToCheckpoint();
+            }
+        }
+        else if (drift > this.config.driftAlertThreshold) {
+            status = 'ALERT';
+            console.warn(`Drift ALERT: ${drift.toFixed(4)} > ${this.config.driftAlertThreshold} threshold`);
+        }
+        // 7. Update metrics
+        this.metrics.currentDrift = drift;
+        // 8. Get most recent checkpoint ID
+        const checkpointId = this.getMostRecentCheckpointId();
+        // 9. Check performance target
+        if (this.config.trackPerformance) {
+            const elapsedMs = performance.now() - startTime;
+            if (elapsedMs > 5) {
+                console.warn(`checkDrift() took ${elapsedMs.toFixed(2)}ms, exceeds 5ms target`);
+            }
+        }
+        return {
+            currentWeights: currentWeightsVector,
+            baselineWeights: adjustedBaseline,
+            drift,
+            alertThreshold: this.config.driftAlertThreshold,
+            rejectThreshold: this.config.driftRejectThreshold,
+            timestamp: Date.now(),
+            checkpointId,
+            status,
+        };
+    }
+    /**
+     * Create a checkpoint of current weights
+     *
+     * @param reason - Reason for creating checkpoint
+     * @param markAsBaseline - Optional flag to mark checkpoint as baseline (TECH-TRJ-001)
+     * @returns Checkpoint ID
+     */
+    async createCheckpoint(reason = 'manual', markAsBaseline) {
+        const startTime = performance.now();
+        // 1. Generate checkpoint ID
+        const checkpointId = generateCheckpointID();
+        // 2. Calculate current drift (without auto-rollback)
+        const driftMetrics = await this.checkDrift(false);
+        // 3. Determine if this should be a baseline (TECH-TRJ-001)
+        const isBaseline = markAsBaseline ?? this.shouldAutoMarkAsBaseline();
+        // 4. Deep copy weights and Fisher Information
+        const weightSnapshot = this.deepCopyWeights(this.weights);
+        const fisherSnapshot = this.deepCopyWeights(this.fisherInformation);
+        // 5. Calculate metadata
+        const trajectoriesProcessed = this.trajectories.size;
+        const trajectoriesWithQuality = Array.from(this.trajectories.values())
+            .filter(t => t.quality !== undefined);
+        const averageQuality = trajectoriesWithQuality.length > 0
+            ? trajectoriesWithQuality.reduce((sum, t) => sum + (t.quality || 0), 0) / trajectoriesWithQuality.length
+            : 0;
+        // 6. Create checkpoint object
+        const checkpoint = {
+            id: checkpointId,
+            weights: weightSnapshot,
+            fisherInformation: fisherSnapshot,
+            timestamp: Date.now(),
+            drift: driftMetrics.drift,
+            metadata: {
+                trajectoriesProcessed,
+                averageQuality,
+                reason,
+            },
+        };
+        // 7. Store in memory
+        this.checkpoints.set(checkpointId, checkpoint);
+        // 8. Track baseline if marked (TECH-TRJ-001)
+        if (isBaseline) {
+            this.baselineCheckpointIds.add(checkpointId);
+            console.log(`[SonaEngine] Created BASELINE checkpoint ${checkpointId}`);
+        }
+        // 9. Persist to disk
+        await this.saveCheckpoint(checkpoint);
+        // 10. Prune old checkpoints
+        await this.pruneCheckpoints();
+        // 11. Update metrics
+        this.metrics.checkpointsCreated++;
+        // 12. Reset rollback state if progressed (TECH-TRJ-001)
+        this.resetRollbackStateIfProgressed();
+        // 13. Check performance target
+        if (this.config.trackPerformance) {
+            const elapsedMs = performance.now() - startTime;
+            if (elapsedMs > 50) {
+                console.warn(`createCheckpoint() took ${elapsedMs.toFixed(2)}ms, exceeds 50ms target`);
+            }
+        }
+        return checkpointId;
+    }
+    /**
+     * Rollback weights to a checkpoint
+     *
+     * @param checkpointId - Specific checkpoint ID (uses most recent if not provided)
+     * @throws RollbackLoopError if too many rollbacks in short time or attempting to rollback to same checkpoint without progress (TECH-TRJ-001)
+     */
+    async rollbackToCheckpoint(checkpointId) {
+        const startTime = performance.now();
+        const targetId = checkpointId ?? this.getMostRecentCheckpointId();
+        // Note: targetId can be undefined if no checkpoints exist - this is handled later
+        // 1. CRITICAL-004: Check for rollback loop BEFORE executing rollback (TECH-TRJ-001)
+        if (targetId && this.streamManager && this.rollbackState.lastRollbackCheckpointId === targetId) {
+            // Check if we've progressed past this checkpoint since last rollback
+            const hasProgressed = await this.hasProgressedPastCheckpoint(targetId);
+            if (!hasProgressed) {
+                // This is a loop - rolling back to same checkpoint without progress
+                throw new RollbackLoopError(this.rollbackState.rollbackCount, Date.now() - (this.rollbackState.lastRollbackAt ?? 0));
+            }
+            // Progressed past checkpoint, reset state and allow rollback
+            console.log(`[SonaEngine] Allowing re-rollback to ${targetId} - learning progressed past checkpoint`);
+        }
+        // 2. Detect rollback loop (original logic)
+        const now = Date.now();
+        if (now - this.lastRollbackTime < SonaEngine.ROLLBACK_WINDOW_MS) {
+            this.rollbackCount++;
+            if (this.rollbackCount >= SonaEngine.MAX_ROLLBACKS_IN_WINDOW) {
+                throw new RollbackLoopError(this.rollbackCount, SonaEngine.ROLLBACK_WINDOW_MS);
+            }
+        }
+        else {
+            this.rollbackCount = 1;
+        }
+        this.lastRollbackTime = now;
+        // 3. Get checkpoint to restore
+        let checkpoint;
+        if (targetId) {
+            checkpoint = this.checkpoints.get(targetId);
+        }
+        else {
+            checkpoint = this.getMostRecentCheckpoint();
+        }
+        if (!checkpoint) {
+            // No checkpoint available, restore to baseline (0.5 for all weights)
+            console.warn('No checkpoint available for rollback, restoring to baseline');
+            if (this.baselineWeights.size > 0) {
+                this.weights = this.deepCopyWeights(this.baselineWeights);
+                this.fisherInformation.clear();
+            }
+            else {
+                // If no baseline, reset all weights to default (0.5)
+                for (const [route, routeWeights] of this.weights.entries()) {
+                    for (const patternId of routeWeights.keys()) {
+                        routeWeights.set(patternId, DEFAULT_INITIAL_WEIGHT);
+                    }
+                }
+            }
+            // Save restored weights to disk
+            await this.saveWeights();
+            // Update metrics
+            this.metrics.rollbacksTriggered++;
+            return;
+        }
+        // 4. Record this rollback in stream manager (TECH-TRJ-001)
+        if (this.streamManager && targetId) {
+            await this.streamManager.recordRollback(targetId);
+        }
+        // 5. Update local rollback state (TECH-TRJ-001)
+        this.rollbackState = {
+            lastRollbackCheckpointId: targetId ?? null,
+            lastRollbackAt: Date.now(),
+            rollbackCount: this.rollbackState.rollbackCount + 1
+        };
+        // 6. Restore weights and Fisher Information
+        this.weights = this.deepCopyWeights(checkpoint.weights);
+        this.fisherInformation = this.deepCopyWeights(checkpoint.fisherInformation);
+        // 7. Save restored weights to disk
+        await this.saveWeights();
+        // 8. Update metrics
+        this.metrics.rollbacksTriggered++;
+        // 9. Check performance target
+        if (this.config.trackPerformance) {
+            const elapsedMs = performance.now() - startTime;
+            if (elapsedMs > 100) {
+                console.warn(`rollbackToCheckpoint() took ${elapsedMs.toFixed(2)}ms, exceeds 100ms target`);
+            }
+        }
+        console.info(`Weights rolled back to checkpoint: ${checkpoint.id}`);
+    }
+    /**
+     * Get checkpoint by ID
+     */
+    getCheckpoint(checkpointId) {
+        return this.checkpoints.get(checkpointId);
+    }
+    /**
+     * List all checkpoints
+     */
+    listCheckpoints() {
+        return Array.from(this.checkpoints.values())
+            .sort((a, b) => b.timestamp - a.timestamp);
+    }
+    /**
+     * Get checkpoint count
+     */
+    getCheckpointCount() {
+        return this.checkpoints.size;
+    }
+    // ==================== Checkpoint Persistence ====================
+    /**
+     * Save a checkpoint to disk
+     */
+    async saveCheckpoint(checkpoint) {
+        try {
+            // Ensure directory exists
+            if (!existsSync(this.checkpointsDir)) {
+                await mkdir(this.checkpointsDir, { recursive: true });
+            }
+            // Serialize checkpoint
+            const serialized = this.serializeCheckpoint(checkpoint);
+            const filePath = join(this.checkpointsDir, `${checkpoint.id}.json`);
+            await writeFile(filePath, JSON.stringify(serialized, null, 2));
+        }
+        catch (error) {
+            throw new CheckpointError('save', error.message);
+        }
+    }
+    /**
+     * Load a checkpoint from disk
+     */
+    async loadCheckpoint(checkpointId) {
+        const filePath = join(this.checkpointsDir, `${checkpointId}.json`);
+        if (!existsSync(filePath)) {
+            return undefined;
+        }
+        try {
+            const content = await readFile(filePath, 'utf-8');
+            const serialized = JSON.parse(content);
+            return this.deserializeCheckpoint(serialized);
+        }
+        catch (error) {
+            throw new CheckpointError('load', error.message);
+        }
+    }
+    /**
+     * Load all checkpoints from disk
+     */
+    async loadAllCheckpoints() {
+        if (!existsSync(this.checkpointsDir)) {
+            return;
+        }
+        try {
+            const files = await readdir(this.checkpointsDir);
+            for (const file of files) {
+                if (file.endsWith('.json')) {
+                    const checkpointId = file.replace('.json', '');
+                    const checkpoint = await this.loadCheckpoint(checkpointId);
+                    if (checkpoint) {
+                        this.checkpoints.set(checkpoint.id, checkpoint);
+                    }
+                }
+            }
+        }
+        catch (error) {
+            console.warn('Failed to load checkpoints:', error);
+        }
+    }
+    /**
+     * Prune old checkpoints (keep last N)
+     */
+    async pruneCheckpoints() {
+        const maxCheckpoints = this.config.maxCheckpoints;
+        if (this.checkpoints.size <= maxCheckpoints) {
+            return;
+        }
+        // Sort by timestamp (oldest first)
+        const sorted = Array.from(this.checkpoints.values())
+            .sort((a, b) => a.timestamp - b.timestamp);
+        // Remove oldest checkpoints
+        const toRemove = sorted.slice(0, sorted.length - maxCheckpoints);
+        for (const checkpoint of toRemove) {
+            this.checkpoints.delete(checkpoint.id);
+            // Delete file
+            const filePath = join(this.checkpointsDir, `${checkpoint.id}.json`);
+            try {
+                if (existsSync(filePath)) {
+                    await unlink(filePath);
+                }
+            }
+            catch {
+                // Ignore file deletion errors
+            }
+        }
+    }
+    // ==================== Checkpoint Serialization ====================
+    /**
+     * Serialize checkpoint for persistence
+     */
+    serializeCheckpoint(checkpoint) {
+        const weights = [];
+        for (const [route, routeWeights] of checkpoint.weights) {
+            weights.push({
+                route,
+                patterns: Array.from(routeWeights.entries()).map(([id, weight]) => ({ id, weight })),
+            });
+        }
+        const fisherInformation = [];
+        for (const [route, routeFisher] of checkpoint.fisherInformation) {
+            fisherInformation.push({
+                route,
+                patterns: Array.from(routeFisher.entries()).map(([id, importance]) => ({ id, importance })),
+            });
+        }
+        return {
+            id: checkpoint.id,
+            weights,
+            fisherInformation,
+            timestamp: checkpoint.timestamp,
+            drift: checkpoint.drift,
+            metadata: checkpoint.metadata,
+        };
+    }
+    /**
+     * Deserialize checkpoint from persistence
+     */
+    deserializeCheckpoint(serialized) {
+        const weights = new Map();
+        for (const { route, patterns } of serialized.weights) {
+            const routeWeights = new Map();
+            for (const { id, weight } of patterns) {
+                routeWeights.set(id, weight);
+            }
+            weights.set(route, routeWeights);
+        }
+        const fisherInformation = new Map();
+        for (const { route, patterns } of serialized.fisherInformation) {
+            const routeFisher = new Map();
+            for (const { id, importance } of patterns) {
+                routeFisher.set(id, importance);
+            }
+            fisherInformation.set(route, routeFisher);
+        }
+        return {
+            id: serialized.id,
+            weights,
+            fisherInformation,
+            timestamp: serialized.timestamp,
+            drift: serialized.drift,
+            metadata: serialized.metadata,
+        };
+    }
+    // ==================== Utility Methods ====================
+    /**
+     * Flatten weights map to Float32Array
+     */
+    flattenWeightsToVector(weights) {
+        const allWeights = [];
+        for (const routeWeights of weights.values()) {
+            for (const weight of routeWeights.values()) {
+                allWeights.push(weight);
+            }
+        }
+        return new Float32Array(allWeights);
+    }
+    /**
+     * Deep copy weights map
+     */
+    deepCopyWeights(weights) {
+        const copy = new Map();
+        for (const [route, routeWeights] of weights.entries()) {
+            const routeCopy = new Map();
+            for (const [patternId, value] of routeWeights.entries()) {
+                routeCopy.set(patternId, value);
+            }
+            copy.set(route, routeCopy);
+        }
+        return copy;
+    }
+    /**
+     * Get the most recent checkpoint
+     */
+    getMostRecentCheckpoint() {
+        if (this.checkpoints.size === 0) {
+            return undefined;
+        }
+        let mostRecent;
+        for (const checkpoint of this.checkpoints.values()) {
+            if (!mostRecent || checkpoint.timestamp > mostRecent.timestamp) {
+                mostRecent = checkpoint;
+            }
+        }
+        return mostRecent;
+    }
+    /**
+     * Get the most recent checkpoint ID
+     */
+    getMostRecentCheckpointId() {
+        const mostRecent = this.getMostRecentCheckpoint();
+        return mostRecent?.id;
+    }
+    /**
+     * Reset rollback counter (for testing)
+     */
+    resetRollbackCounter() {
+        this.rollbackCount = 0;
+        this.lastRollbackTime = 0;
+    }
+    // ==================== Pattern Auto-Creation ====================
+    /**
+     * Create a reusable pattern from a high-quality trajectory
+     * SPEC-SON-001: Now uses real steps from trajectory
+     *
+     * @param trajectory - High-quality trajectory to convert to pattern
+     * @returns Pattern ID if created, null otherwise
+     */
+    async createPatternFromTrajectory(trajectory) {
+        // Validate trajectory has steps (log warning but continue if missing)
+        if (!trajectory.steps || trajectory.steps.length === 0) {
+            console.warn(`[SonaEngine] Trajectory ${trajectory.id} has no steps for pattern creation`);
+            // Still create pattern but log warning
+        }
+        // Only create patterns from high-quality trajectories
+        if (!trajectory.quality || trajectory.quality < AUTO_PATTERN_QUALITY_THRESHOLD) {
+            return null;
+        }
+        try {
+            // Generate pattern embedding from trajectory
+            const patternEmbedding = await this.generatePatternEmbedding(trajectory);
+            // Compress steps for storage efficiency
+            const compressedSteps = this.compressStepsForPattern(trajectory.steps || []);
+            // Generate human-readable description
+            const description = this.generatePatternDescription(trajectory);
+            // Extract domain and tags
+            const domain = this.inferDomain(trajectory.route);
+            const tags = this.extractTags(trajectory);
+            // Create pattern metadata
+            const pattern = {
+                id: `pattern_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                sourceTrajectory: trajectory.id,
+                embedding: patternEmbedding,
+                quality: trajectory.quality,
+                steps: compressedSteps, // ✅ Real steps, not empty array
+                createdAt: Date.now(),
+                usageCount: 0,
+                taskType: 'learning',
+                template: description,
+                successRate: trajectory.quality,
+                sonaWeight: trajectory.quality,
+                updatedAt: new Date(),
+                metadata: {
+                    domain,
+                    description,
+                    tags,
+                    stepCount: compressedSteps.length,
+                    compressionRatio: trajectory.steps
+                        ? (compressedSteps.length / trajectory.steps.length).toFixed(2)
+                        : '0',
+                },
+            };
+            // Store in patterns map
+            this.patterns.set(pattern.id, pattern);
+            // Update metrics
+            this.metrics.patternsCreated++;
+            // FIX: Notify callback to add pattern to PatternStore for reasoning
+            if (this.patternCreatedCallback) {
+                try {
+                    await this.patternCreatedCallback(pattern);
+                    console.info(`[SonaEngine] Pattern ${pattern.id} synced to PatternStore`);
+                }
+                catch (callbackError) {
+                    console.warn(`[SonaEngine] Failed to sync pattern to PatternStore:`, callbackError);
+                }
+            }
+            console.info(`[SonaEngine] Created pattern ${pattern.id} from trajectory ${trajectory.id} ` +
+                `(quality: ${trajectory.quality.toFixed(3)}, steps: ${compressedSteps.length})`);
+            return pattern.id;
+        }
+        catch (error) {
+            console.warn('[SonaEngine] Failed to create pattern from trajectory:', error);
+            return null;
+        }
+    }
+    /**
+     * Compress steps for storage efficiency
+     * SPEC-SON-001
+     */
+    compressStepsForPattern(steps) {
+        const maxStepsInPattern = 50; // Limit steps per pattern
+        const maxResultLength = 500; // Truncate results
+        // If too many steps, sample important ones
+        let selectedSteps = steps;
+        if (steps.length > maxStepsInPattern) {
+            // Keep first, last, and sample middle
+            const middle = steps.slice(1, -1);
+            const sampleRate = Math.floor(middle.length / (maxStepsInPattern - 2));
+            const sampledMiddle = middle.filter((_, i) => i % sampleRate === 0);
+            selectedSteps = [steps[0], ...sampledMiddle.slice(0, maxStepsInPattern - 2), steps[steps.length - 1]];
+        }
+        return selectedSteps.map(step => {
+            // FIX: Handle undefined result
+            const result = step.result ?? '';
+            const resultLength = result.length;
+            return {
+                stepId: step.stepId,
+                action: step.action,
+                actionParams: this.compressParams(step.actionParams),
+                result: resultLength > maxResultLength
+                    ? result.slice(0, maxResultLength) + '...'
+                    : result,
+                confidence: step.confidence ?? 0.5,
+                timestamp: step.timestamp,
+                resultRef: resultLength > maxResultLength
+                    ? { type: 'memory', id: `${step.stepId}_full` }
+                    : step.resultRef,
+                metadata: {
+                    duration: step.metadata?.duration,
+                    patternId: step.metadata?.patternId,
+                },
+            };
+        });
+    }
+    /**
+     * Compress action parameters
+     */
+    compressParams(params) {
+        // FIX: Handle undefined/null params
+        if (!params) {
+            return {};
+        }
+        const compressed = {};
+        const maxValueLength = 200;
+        const maxArrayLength = 10;
+        for (const [key, value] of Object.entries(params)) {
+            if (typeof value === 'string' && value.length > maxValueLength) {
+                compressed[key] = value.slice(0, maxValueLength) + '...';
+            }
+            else if (Array.isArray(value) && value.length > maxArrayLength) {
+                compressed[key] = value.slice(0, maxArrayLength);
+            }
+            else {
+                compressed[key] = value;
+            }
+        }
+        return compressed;
+    }
+    /**
+     * Generate human-readable pattern description
+     */
+    generatePatternDescription(trajectory) {
+        if (!trajectory.steps || trajectory.steps.length === 0) {
+            return `Pattern from route ${trajectory.route}`;
+        }
+        const actions = trajectory.steps.map(s => s.action);
+        const uniqueActions = [...new Set(actions)];
+        if (uniqueActions.length <= 3) {
+            return `Pattern: ${uniqueActions.join(' → ')} (${trajectory.steps.length} steps)`;
+        }
+        return `Pattern: ${uniqueActions.slice(0, 3).join(' → ')}... (${trajectory.steps.length} steps)`;
+    }
+    /**
+     * Infer domain from trajectory route
+     */
+    inferDomain(route) {
+        const parts = route.split('.');
+        return parts[0] || 'general';
+    }
+    /**
+     * Extract tags from trajectory
+     */
+    extractTags(trajectory) {
+        const tags = new Set();
+        // Add route components as tags
+        trajectory.route.split('.').forEach(part => tags.add(part));
+        // Add action types as tags
+        trajectory.steps?.forEach(step => {
+            tags.add(step.action);
+        });
+        // Add quality tier
+        if (trajectory.quality) {
+            if (trajectory.quality >= 0.9)
+                tags.add('high-quality');
+            else if (trajectory.quality >= 0.7)
+                tags.add('good-quality');
+        }
+        return Array.from(tags);
+    }
+    /**
+     * Generate embedding for a trajectory pattern
+     *
+     * @param trajectory - Trajectory to generate embedding from
+     * @returns Pattern embedding as Float32Array
+     */
+    async generatePatternEmbedding(trajectory) {
+        // Get route weights for this trajectory
+        const routeWeights = this.weights.get(trajectory.route);
+        if (!routeWeights) {
+            // No weights available, return default embedding
+            return new Float32Array(1536).fill(0);
+        }
+        // Create weighted embedding from pattern weights
+        const result = new Float32Array(1536);
+        let totalWeight = 0;
+        for (const patternId of trajectory.patterns) {
+            const weight = routeWeights.get(patternId) ?? DEFAULT_INITIAL_WEIGHT;
+            // Use real semantic embedding from provider (SPEC-EMB-002)
+            const patternHash = await this.hashStringToFloat32Array(patternId);
+            for (let i = 0; i < 1536; i++) {
+                result[i] += patternHash[i] * Math.abs(weight);
+            }
+            totalWeight += Math.abs(weight);
+        }
+        // Normalize by total weight
+        if (totalWeight > 0) {
+            for (let i = 0; i < 1536; i++) {
+                result[i] /= totalWeight;
+            }
+        }
+        // Normalize to unit length
+        const norm = Math.sqrt(result.reduce((sum, v) => sum + v * v, 0));
+        if (norm > 0) {
+            for (let i = 0; i < 1536; i++) {
+                result[i] /= norm;
+            }
+        }
+        return result;
+    }
+    /**
+     * Generate semantic embedding for a string using the real embedding provider (SPEC-EMB-002)
+     *
+     * @param str - String to embed
+     * @returns Float32Array of length 1536 with semantic embedding
+     */
+    async hashStringToFloat32Array(str) {
+        // Use real embedding provider (LocalEmbeddingProvider with all-mpnet-base-v2)
+        return this.embeddingProvider.embed(str);
+    }
+    /**
+     * Get all created patterns
+     *
+     * @returns Array of patterns
+     */
+    getPatterns() {
+        return Array.from(this.patterns.values());
+    }
+    /**
+     * Get pattern by ID
+     *
+     * @param patternId - Pattern ID
+     * @returns Pattern or undefined
+     */
+    getPatternById(patternId) {
+        return this.patterns.get(patternId);
+    }
+    /**
+     * Get pattern count
+     *
+     * @returns Number of patterns
+     */
+    getPatternStorageCount() {
+        return this.patterns.size;
+    }
+    // ==================== TECH-TRJ-001: Trajectory Streaming Methods ====================
+    /**
+     * Get current rollback state (TECH-TRJ-001)
+     *
+     * @returns Rollback state information
+     */
+    getRollbackState() {
+        return { ...this.rollbackState };
+    }
+    /**
+     * Check if learning has progressed past a checkpoint (TECH-TRJ-001)
+     *
+     * Progress is defined as:
+     * 1. New trajectories created since checkpoint
+     * 2. New checkpoint created since last rollback
+     * 3. Weight changes above threshold since checkpoint
+     *
+     * @param checkpointId - Checkpoint to check progress against
+     * @returns true if learning has progressed past checkpoint
+     */
+    async hasProgressedPastCheckpoint(checkpointId) {
+        const checkpoint = this.checkpoints.get(checkpointId);
+        if (!checkpoint)
+            return false;
+        const lastRollbackTime = this.rollbackState.lastRollbackAt ?? 0;
+        // Check 1: New trajectories since last rollback?
+        const recentTrajectories = Array.from(this.trajectories.values())
+            .filter(t => t.createdAt > lastRollbackTime);
+        if (recentTrajectories.length > 0) {
+            // Learning happened - new trajectories created
+            return true;
+        }
+        // Check 2: New checkpoint created since last rollback?
+        const checkpoints = this.listCheckpoints();
+        const newerCheckpoints = checkpoints.filter(c => c.timestamp > lastRollbackTime);
+        if (newerCheckpoints.length > 0) {
+            // Progress saved - new checkpoint created
+            return true;
+        }
+        // Check 3: Significant weight changes?
+        const weightDiff = this.calculateWeightDifference(checkpoint.weights, this.weights);
+        if (weightDiff > 0.01) { // 1% threshold
+            return true;
+        }
+        // No progress detected
+        return false;
+    }
+    /**
+     * Calculate weight difference between two weight storages (TECH-TRJ-001)
+     *
+     * @param weights1 - First weight storage
+     * @param weights2 - Second weight storage
+     * @returns Normalized difference (0 = identical, 1 = completely different)
+     */
+    calculateWeightDifference(weights1, weights2) {
+        const vec1 = this.flattenWeightsToVector(weights1);
+        const vec2 = this.flattenWeightsToVector(weights2);
+        // Handle size mismatch
+        const maxLen = Math.max(vec1.length, vec2.length);
+        if (maxLen === 0)
+            return 0;
+        let sumSquaredDiff = 0;
+        for (let i = 0; i < maxLen; i++) {
+            const v1 = i < vec1.length ? vec1[i] : 0;
+            const v2 = i < vec2.length ? vec2[i] : 0;
+            sumSquaredDiff += (v1 - v2) ** 2;
+        }
+        return Math.sqrt(sumSquaredDiff / maxLen);
+    }
+    /**
+     * Determine if a checkpoint should be automatically marked as baseline (TECH-TRJ-001)
+     *
+     * @returns true if checkpoint should be marked as baseline
+     */
+    shouldAutoMarkAsBaseline() {
+        const existingCheckpoints = this.listCheckpoints();
+        // Rule 1: First checkpoint ever created
+        if (existingCheckpoints.length === 0) {
+            return true;
+        }
+        // Rule 2: No baseline exists yet
+        const hasBaseline = existingCheckpoints.length > 0 && this.baselineCheckpointIds.size > 0;
+        if (!hasBaseline) {
+            return true;
+        }
+        // Rule 3: Every 10th checkpoint
+        const totalCheckpoints = existingCheckpoints.length + 1;
+        if (totalCheckpoints % 10 === 0) {
+            return true;
+        }
+        return false;
+    }
+    /**
+     * Reset rollback state when learning makes progress (TECH-TRJ-001)
+     *
+     * Called automatically when:
+     * 1. New trajectory is created (indicates progress)
+     * 2. New checkpoint is created (indicates progress worth saving)
+     */
+    resetRollbackStateIfProgressed() {
+        // Only reset if we have a last rollback to check against
+        if (!this.rollbackState.lastRollbackCheckpointId) {
+            return;
+        }
+        // Keep rollbackCount for metrics, but clear the loop detection state
+        this.rollbackState = {
+            lastRollbackCheckpointId: null,
+            lastRollbackAt: null,
+            rollbackCount: this.rollbackState.rollbackCount
+        };
+    }
+}
+//# sourceMappingURL=sona-engine.js.map

@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: dissertation-architect
 type: structure-planner
 color: "#1565C0"

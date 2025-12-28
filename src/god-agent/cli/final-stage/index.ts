@@ -92,7 +92,8 @@ export { SummaryExtractor } from './summary-extractor.js';
 export { SemanticMapper } from './semantic-mapper.js';
 
 // TASK-006: ChapterWriterAgent - IMPLEMENTED
-export { ChapterWriterAgent } from './chapter-writer-agent.js';
+export { ChapterWriterAgent, getAgentForChapter } from './chapter-writer-agent.js';
+export type { ChapterSynthesisPrompt, ChapterAgentType } from './chapter-writer-agent.js';
 
 // TASK-007: PaperCombiner - IMPLEMENTED
 export { PaperCombiner } from './paper-combiner.js';

@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: chapter-synthesizer
 type: prose-generator
 color: "#1565C0"

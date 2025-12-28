@@ -1899,11 +1899,11 @@ export class SonaEngine {
 
     if (!routeWeights) {
       // No weights available, return default embedding
-      return new Float32Array(1536).fill(0);
+      return new Float32Array(768).fill(0);
     }
 
     // Create weighted embedding from pattern weights
-    const result = new Float32Array(1536);
+    const result = new Float32Array(768);
     let totalWeight = 0;
 
     for (const patternId of trajectory.patterns) {
@@ -1912,7 +1912,7 @@ export class SonaEngine {
       // Use real semantic embedding from provider (SPEC-EMB-002)
       const patternHash = await this.hashStringToFloat32Array(patternId);
 
-      for (let i = 0; i < 1536; i++) {
+      for (let i = 0; i < 768; i++) {
         result[i] += patternHash[i] * Math.abs(weight);
       }
       totalWeight += Math.abs(weight);
@@ -1920,7 +1920,7 @@ export class SonaEngine {
 
     // Normalize by total weight
     if (totalWeight > 0) {
-      for (let i = 0; i < 1536; i++) {
+      for (let i = 0; i < 768; i++) {
         result[i] /= totalWeight;
       }
     }
@@ -1928,7 +1928,7 @@ export class SonaEngine {
     // Normalize to unit length
     const norm = Math.sqrt(result.reduce((sum, v) => sum + v * v, 0));
     if (norm > 0) {
-      for (let i = 0; i < 1536; i++) {
+      for (let i = 0; i < 768; i++) {
         result[i] /= norm;
       }
     }
@@ -1940,7 +1940,7 @@ export class SonaEngine {
    * Generate semantic embedding for a string using the real embedding provider (SPEC-EMB-002)
    *
    * @param str - String to embed
-   * @returns Float32Array of length 1536 with semantic embedding
+   * @returns Float32Array of length 768 with semantic embedding
    */
   private async hashStringToFloat32Array(str: string): Promise<Float32Array> {
     // Use real embedding provider (LocalEmbeddingProvider with all-mpnet-base-v2)

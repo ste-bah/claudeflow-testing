@@ -50,7 +50,7 @@ interface RPCResponse {
   id: number;
 }
 
-const SOCKET_PATH = '/tmp/godagent-db.sock';
+const SOCKET_PATH = '/tmp/godagent-ucm.sock';
 const RPC_TIMEOUT = 3000; // 3 seconds
 const MIN_CONTENT_SIZE = 100; // Minimum content size to archive
 

@@ -623,6 +623,41 @@ export class SummaryExtractor {
       /^`+.*`+$/,  // Lines that are just backticks/file paths
       /^\(THIS FILE\)/i,
       /^---+$/,  // Horizontal rules (often used as metadata separators)
+
+      // Research artifact patterns (internal workflow markers)
+      // These patterns account for markdown formatting: headings (###), bold (**), bullets (-)
+      /^(?:#{1,4}\s*)?(?:\d+\.\s*)?\*?\*?Q\d+\*?\*?:/,  // Research questions like Q1:, **Q9**:, 1. **Q1**:
+      /^(?:-\s*)?\*?\*?FLAG\*?\*?:/i,  // Internal flags
+      /^(?:-\s*)?\*?\*?XP\s+Earned\*?\*?:/i,  // Gamification metadata
+      /^(?:-\s*)?\*?\*?Measurable\s+Criteria\*?\*?:/i,  // Evaluation blocks
+      /^(?:#{1,4}\s*)?(?:-\s*)?\*?\*?Step-Back\s+Analysis\*?\*?:/i,  // Analysis headers (with optional heading)
+      /^(?:-\s*)?\*?\*?Category\*?\*?:/i,  // Category markers
+      /^(?:-\s*)?\*?\*?Evidence\*?\*?:/i,  // Evidence markers
+      /^(?:-\s*)?\*?\*?Gaps?\*?\*?:/i,  // Gap markers
+      /^(?:-\s*)?\*?\*?Section\s+\d+\.\d+\s+[A-Z]/,  // Duplicate section markers
+      /^(?:-\s*)?\[\d+%\s*-\s*\d+%\]/,  // Confidence intervals like [62-72%]
+      /^(?:-\s*)?\*?\*?Confidence\*?\*?:\s*\d+%/i,  // Confidence percentages
+      /^(?:-\s*)?\*?\*?Prior\*?\*?:/i,  // Prior probability
+      /^(?:-\s*)?\*?\*?Posterior\*?\*?:/i,  // Posterior probability
+      /^(?:-\s*)?\*?\*?Likelihood\*?\*?:/i,  // Likelihood ratio
+      /^(?:-\s*)?\*?\*?Score\*?\*?:\s*\d/i,  // Score lines
+      /^(?:-\s*)?\*?\*?Rating\*?\*?:/i,  // Rating lines
+      /^(?:-\s*)?\*?\*?Assessment\*?\*?:/i,  // Assessment markers
+      /^(?:-\s*)?\*?\*?Verdict\*?\*?:/i,  // Verdict lines
+      /^(?:-\s*)?\*?\*?Recommendation\*?\*?:/i,  // Recommendation markers
+      /^(?:-\s*)?\*?\*?Research\s+Goal\*?\*?:/i,  // Research goal headers
+      /^(?:-\s*)?\*?\*?Average\s+Confidence\s+Score\*?\*?:/i,  // Average confidence
+      /^(?:-\s*)?\*?\*?Research\s+Flags\*?\*?:/i,  // Research flags
+      /^(?:-\s*)?\*?\*?Total\s+Questions\s+Generated\*?\*?:/i,  // Question counts
+      /^(?:-\s*)?\*?\*?Domain\*?\*?:/i,  // Domain markers
+      /^(?:-\s*)?\*?\*?Subject\*?\*?:/i,  // Subject markers
+      /^(?:-\s*)?\*?\*?Supporting\s+Evidence\*?\*?:/i,  // Supporting evidence markers
+      /^(?:#{1,4}\s*)?\*?\*?CRITICAL\s*\([^)]*\)\*?\*?$/i,  // CRITICAL headers
+      /^(?:#{1,4}\s*)?\*?\*?IMPORTANT\s*\([^)]*\)\*?\*?$/i,  // IMPORTANT headers
+      /^(?:#{1,4}\s*)?\*?\*?SUFFICIENT\s+CONFIDENCE\*?\*?\s*\([^)]*\)?$/i,  // Confidence headers
+      /^(?:-\s*)?\*?\*?CRITICAL\s+UNKNOWNS?\*?\*?\s*\([^)]*\)?$/i,  // Critical unknowns headers
+      /^(?:-\s*)?\*?\*?CRITICAL\*?\*?:\s*\d+\s+terms?/i,  // Critical term counts
+      /^Evidence\s+Quality\s+Scoring\s*\([^)]*\)/i,  // Evidence quality scoring headers
     ];
 
     for (const line of lines) {

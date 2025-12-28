@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: thematic-synthesizer
 type: synthesis-specialist
 color: "#E91E63"

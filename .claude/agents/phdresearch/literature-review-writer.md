@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: literature-review-writer
 type: section-writer
 color: "#6A1B9A"

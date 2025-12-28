@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: pattern-analyst
 type: meta-pattern-specialist
 color: "#4A148C"

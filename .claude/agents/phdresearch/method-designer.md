@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: method-designer
 type: methodology-architect
 color: "#9C27B0"

@@ -43,7 +43,7 @@ interface RPCResponse {
   id: number;
 }
 
-const SOCKET_PATH = '/tmp/godagent-db.sock';
+const SOCKET_PATH = '/tmp/godagent-ucm.sock';
 const RPC_TIMEOUT = 5000; // 5 seconds for recovery operations
 const MAX_CONTEXT_CHUNKS = 10;
 

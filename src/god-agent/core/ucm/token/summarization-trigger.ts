@@ -129,7 +129,7 @@ export class SummarizationTrigger {
     if (percentUsed >= summarizationThreshold) {
       return {
         triggered: true,
-        reason: `Summarization threshold reached (${summarizationThreshold}%)`,
+        reason: `Summarization threshold reached (${this.config.summarizationThreshold}%)`,
         severity: 'normal',
         percentUsed,
         threshold: summarizationThreshold,
@@ -277,8 +277,9 @@ export class SummarizationTrigger {
     const percentUsed = (currentUsage / budgetAllocated) * 100;
 
     // Find next threshold
+    const summarizationThreshold = this.config.summarizationThreshold ?? 0.7;
     const thresholds = [
-      { percent: this.config.summarizationThreshold ?? 0.7, severity: 'normal' as const },
+      { percent: summarizationThreshold, severity: 'normal' as const },
       { percent: 80, severity: 'high' as const },
       { percent: 90, severity: 'critical' as const }
     ];
@@ -287,7 +288,7 @@ export class SummarizationTrigger {
       if (percent !== undefined && percentUsed < percent) {
         const tokensUntil = Math.floor((percent / 100) * budgetAllocated) - currentUsage;
         return {
-          threshold: percent as number,
+          threshold: percent,
           tokensUntil: Math.max(0, tokensUntil),
           severity
         };

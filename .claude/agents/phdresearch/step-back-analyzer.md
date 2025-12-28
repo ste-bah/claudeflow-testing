@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: step-back-analyzer
 type: meta-analyst
 color: "#6A1B9A"

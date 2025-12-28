@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: ethics-reviewer
 type: compliance-guardian
 color: "#C62828"

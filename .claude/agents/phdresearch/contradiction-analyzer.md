@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: contradiction-analyzer
 type: critical-analyst
 color: "#6A1B9A"

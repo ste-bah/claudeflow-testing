@@ -1,4 +1,5 @@
 ---
+tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: validity-guardian
 type: validity-defender
 color: "#1565C0"

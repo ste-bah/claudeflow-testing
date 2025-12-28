@@ -1,0 +1,474 @@
+/**
+ * Sona Engine
+ * TASK-SON-001 - Trajectory Tracking and Weight Management
+ * TASK-SON-002 - LoRA-Style Weight Updates and Persistence
+ *
+ * Implements trajectory-based learning for pattern weight adaptation.
+ * Enables 10-30% improvement on repeated task types without retraining.
+ *
+ * Performance targets:
+ * - createTrajectory(): <1ms
+ * - getWeight(): <1ms
+ * - getWeights(): <5ms
+ * - provideFeedback(): <15ms
+ */
+import type { TrajectoryID, PatternID, Route, Weight, WeightStorage, ITrajectory, ISonaConfig, ILearningMetrics, IDriftMetrics, ISerializedSonaState, IWeightUpdateResult, CheckpointReason, ICheckpointFull, IReasoningStep } from './sona-types.js';
+import type { ITrajectoryStreamConfig, IRollbackState } from '../types/trajectory-streaming-types.js';
+/**
+ * Sona Engine - Trajectory-Based Learning
+ *
+ * Manages trajectories and pattern weights for adaptive learning.
+ * Supports EWC++ regularized weight updates with Fisher Information.
+ * Includes drift detection and automatic rollback (TASK-SON-003).
+ */
+/**
+ * Pattern interface for learned reusable patterns
+ */
+interface Pattern {
+    id: string;
+    sourceTrajectory: TrajectoryID;
+    embedding: Float32Array;
+    quality: number;
+    steps: IReasoningStep[];
+    createdAt: number;
+    usageCount: number;
+    taskType?: string;
+    template?: string;
+    successRate?: number;
+    sonaWeight?: number;
+    updatedAt?: Date;
+    metadata?: {
+        domain?: string;
+        description?: string;
+        tags?: string[];
+        stepCount?: number;
+        compressionRatio?: string;
+    };
+}
+export declare class SonaEngine {
+    private trajectories;
+    private weights;
+    private fisherInformation;
+    private patterns;
+    private config;
+    private initialized;
+    private embeddingProvider;
+    private patternCreatedCallback?;
+    private weightUpdateMutex;
+    private lastAutoSave;
+    private weightsFilePath;
+    private baselineWeights;
+    private checkpoints;
+    private checkpointsDir;
+    private rollbackCount;
+    private lastRollbackTime;
+    private static readonly ROLLBACK_WINDOW_MS;
+    private static readonly MAX_ROLLBACKS_IN_WINDOW;
+    private streamManager?;
+    private rollbackState;
+    private baselineCheckpointIds;
+    private metrics;
+    constructor(config?: ISonaConfig);
+    /**
+     * Initialize the Sona Engine
+     */
+    initialize(): Promise<void>;
+    /**
+     * Enable trajectory streaming to disk (TECH-TRJ-001)
+     *
+     * @param config - Optional streaming configuration
+     */
+    enableStreaming(config?: Partial<ITrajectoryStreamConfig>): Promise<void>;
+    /**
+     * Set the weights file path for persistence
+     */
+    setWeightsFilePath(path: string): void;
+    /**
+     * FIX: Set callback for pattern creation notifications
+     * This connects SonaEngine patterns to PatternStore for reasoning
+     *
+     * @param callback - Function to call when a pattern is created
+     */
+    onPatternCreated(callback: (pattern: Pattern) => Promise<void>): void;
+    /**
+     * Create a new trajectory for a reasoning path
+     *
+     * @param route - Task type (e.g., "reasoning.causal")
+     * @param patterns - Pattern IDs used in this trajectory
+     * @param context - Context IDs that influenced the outcome
+     * @returns Generated TrajectoryID
+     * @throws TrajectoryValidationError if validation fails
+     */
+    createTrajectory(route: Route, patterns: PatternID[], context?: string[]): TrajectoryID;
+    /**
+     * Create a trajectory with a specific ID (for bridging with TrajectoryTracker)
+     *
+     * Same as createTrajectory but accepts an existing trajectory ID.
+     * Used when syncing trajectories from ReasoningBank's TrajectoryTracker.
+     *
+     * @param trajectoryId - Existing trajectory ID to use
+     * @param route - Task type (e.g., "reasoning.causal")
+     * @param patterns - Pattern IDs used in this trajectory
+     * @param context - Context IDs that influenced the outcome
+     * @throws TrajectoryValidationError if validation fails
+     */
+    createTrajectoryWithId(trajectoryId: TrajectoryID, route: Route, patterns: PatternID[], context?: string[]): void;
+    /**
+     * Get weight for a single pattern in a route
+     *
+     * @param patternId - Pattern ID to get weight for
+     * @param route - Task type/route
+     * @returns Weight value (0.0 if not found)
+     */
+    getWeight(patternId: PatternID, route: Route): Promise<Weight>;
+    /**
+     * Get all weights for a route as Float32Array
+     *
+     * @param route - Task type/route
+     * @returns Float32Array of weights (empty if route not found)
+     */
+    getWeights(route: Route): Promise<Float32Array>;
+    /**
+     * Get weights with pattern ID mapping for a route
+     *
+     * @param route - Task type/route
+     * @returns Array of {patternId, weight} pairs
+     */
+    getWeightsWithIds(route: Route): Promise<Array<{
+        patternId: PatternID;
+        weight: Weight;
+    }>>;
+    /**
+     * Set weight for a pattern (for testing and manual adjustment)
+     *
+     * @param patternId - Pattern ID
+     * @param route - Task type/route
+     * @param weight - Weight value (-1 to 1)
+     */
+    setWeight(patternId: PatternID, route: Route, weight: Weight): void;
+    /**
+     * Get a trajectory by ID
+     *
+     * @param trajectoryId - Trajectory ID
+     * @returns ITrajectory or null if not found
+     */
+    getTrajectory(trajectoryId: TrajectoryID): ITrajectory | null;
+    /**
+     * List all trajectories, optionally filtered by route
+     *
+     * @param route - Optional route filter
+     * @returns Array of trajectories
+     */
+    listTrajectories(route?: Route): ITrajectory[];
+    /**
+     * Get trajectory count, optionally filtered by route
+     *
+     * @param route - Optional route filter
+     * @returns Number of trajectories
+     */
+    getTrajectoryCount(route?: Route): number;
+    /**
+     * Get all routes with initialized weights
+     *
+     * @returns Array of route strings
+     */
+    getRoutes(): Route[];
+    /**
+     * Get number of patterns for a route
+     *
+     * @param route - Task type/route
+     * @returns Number of patterns with weights
+     */
+    getPatternCount(route: Route): number;
+    /**
+     * Check if a route has been initialized
+     *
+     * @param route - Task type/route
+     * @returns true if route exists
+     */
+    hasRoute(route: Route): boolean;
+    /**
+     * Get learning metrics
+     *
+     * @returns Current learning metrics
+     */
+    getMetrics(): ILearningMetrics;
+    /**
+     * Calculate drift from baseline weights
+     *
+     * @param baselineWeights - Baseline weight vector
+     * @returns Drift metrics
+     */
+    calculateDrift(baselineWeights: Float32Array): IDriftMetrics;
+    /**
+     * Compute drift metrics from two weight vectors
+     */
+    private computeDriftMetrics;
+    /**
+     * Get all weights as a flat Float32Array
+     */
+    private getAllWeightsFlat;
+    /**
+     * Clear all data (for testing)
+     */
+    clear(): void;
+    /**
+     * Provide feedback for a trajectory and update pattern weights
+     *
+     * @param trajectoryId - Trajectory ID to provide feedback for
+     * @param quality - Quality score (0-1)
+     * @param options - Optional parameters for weight updates
+     * @returns Weight update result
+     * @throws FeedbackValidationError if validation fails
+     */
+    provideFeedback(trajectoryId: TrajectoryID, quality: number, options?: {
+        lScore?: number;
+        similarities?: Map<PatternID, number>;
+        skipAutoSave?: boolean;
+    }): Promise<IWeightUpdateResult>;
+    /**
+     * Ensure Fisher Information map exists for a route
+     */
+    private ensureFisherMap;
+    /**
+     * Calculate trajectory success rate for a route
+     * (Historical average quality for this route)
+     */
+    private calculateTrajectorySuccessRate;
+    /**
+     * Get Fisher Information for a pattern
+     */
+    getFisherInformation(patternId: PatternID, route: Route): number;
+    /**
+     * Set Fisher Information for a pattern (for testing)
+     */
+    setFisherInformation(patternId: PatternID, route: Route, importance: number): void;
+    /**
+     * Save weights to binary file
+     *
+     * @param path - Optional file path (uses default if not provided)
+     */
+    saveWeights(path?: string): Promise<void>;
+    /**
+     * Load weights from binary file
+     *
+     * @param path - File path to load from
+     */
+    loadWeights(path?: string): Promise<void>;
+    /**
+     * Serialize weights to binary format
+     * Format: [version(4), metadataLen(4), metadata(JSON), weights(Float32), fisher(Float32), checksum(4)]
+     */
+    private serializeWeightsBinary;
+    /**
+     * Deserialize weights from binary format
+     */
+    private deserializeWeightsBinary;
+    /**
+     * Export state for persistence
+     */
+    toJSON(): ISerializedSonaState;
+    /**
+     * Import state from persistence
+     */
+    fromJSON(data: ISerializedSonaState): void;
+    /**
+     * Get statistics about the Sona Engine
+     */
+    getStats(): {
+        trajectoryCount: number;
+        routeCount: number;
+        totalPatterns: number;
+        avgPatternsPerRoute: number;
+    };
+    /**
+     * Set the checkpoints directory path
+     */
+    setCheckpointsDir(path: string): void;
+    /**
+     * Set baseline weights (for drift comparison)
+     */
+    setBaselineWeights(weights?: WeightStorage): void;
+    /**
+     * Check drift from baseline weights
+     *
+     * @param autoRollback - If true, automatically rollback when drift > reject threshold
+     * @returns Drift metrics
+     */
+    checkDrift(autoRollback?: boolean): Promise<IDriftMetrics>;
+    /**
+     * Create a checkpoint of current weights
+     *
+     * @param reason - Reason for creating checkpoint
+     * @param markAsBaseline - Optional flag to mark checkpoint as baseline (TECH-TRJ-001)
+     * @returns Checkpoint ID
+     */
+    createCheckpoint(reason?: CheckpointReason, markAsBaseline?: boolean): Promise<string>;
+    /**
+     * Rollback weights to a checkpoint
+     *
+     * @param checkpointId - Specific checkpoint ID (uses most recent if not provided)
+     * @throws RollbackLoopError if too many rollbacks in short time or attempting to rollback to same checkpoint without progress (TECH-TRJ-001)
+     */
+    rollbackToCheckpoint(checkpointId?: string): Promise<void>;
+    /**
+     * Get checkpoint by ID
+     */
+    getCheckpoint(checkpointId: string): ICheckpointFull | undefined;
+    /**
+     * List all checkpoints
+     */
+    listCheckpoints(): ICheckpointFull[];
+    /**
+     * Get checkpoint count
+     */
+    getCheckpointCount(): number;
+    /**
+     * Save a checkpoint to disk
+     */
+    private saveCheckpoint;
+    /**
+     * Load a checkpoint from disk
+     */
+    loadCheckpoint(checkpointId: string): Promise<ICheckpointFull | undefined>;
+    /**
+     * Load all checkpoints from disk
+     */
+    loadAllCheckpoints(): Promise<void>;
+    /**
+     * Prune old checkpoints (keep last N)
+     */
+    private pruneCheckpoints;
+    /**
+     * Serialize checkpoint for persistence
+     */
+    private serializeCheckpoint;
+    /**
+     * Deserialize checkpoint from persistence
+     */
+    private deserializeCheckpoint;
+    /**
+     * Flatten weights map to Float32Array
+     */
+    private flattenWeightsToVector;
+    /**
+     * Deep copy weights map
+     */
+    private deepCopyWeights;
+    /**
+     * Get the most recent checkpoint
+     */
+    private getMostRecentCheckpoint;
+    /**
+     * Get the most recent checkpoint ID
+     */
+    private getMostRecentCheckpointId;
+    /**
+     * Reset rollback counter (for testing)
+     */
+    resetRollbackCounter(): void;
+    /**
+     * Create a reusable pattern from a high-quality trajectory
+     * SPEC-SON-001: Now uses real steps from trajectory
+     *
+     * @param trajectory - High-quality trajectory to convert to pattern
+     * @returns Pattern ID if created, null otherwise
+     */
+    private createPatternFromTrajectory;
+    /**
+     * Compress steps for storage efficiency
+     * SPEC-SON-001
+     */
+    private compressStepsForPattern;
+    /**
+     * Compress action parameters
+     */
+    private compressParams;
+    /**
+     * Generate human-readable pattern description
+     */
+    private generatePatternDescription;
+    /**
+     * Infer domain from trajectory route
+     */
+    private inferDomain;
+    /**
+     * Extract tags from trajectory
+     */
+    private extractTags;
+    /**
+     * Generate embedding for a trajectory pattern
+     *
+     * @param trajectory - Trajectory to generate embedding from
+     * @returns Pattern embedding as Float32Array
+     */
+    private generatePatternEmbedding;
+    /**
+     * Generate semantic embedding for a string using the real embedding provider (SPEC-EMB-002)
+     *
+     * @param str - String to embed
+     * @returns Float32Array of length 1536 with semantic embedding
+     */
+    private hashStringToFloat32Array;
+    /**
+     * Get all created patterns
+     *
+     * @returns Array of patterns
+     */
+    getPatterns(): Pattern[];
+    /**
+     * Get pattern by ID
+     *
+     * @param patternId - Pattern ID
+     * @returns Pattern or undefined
+     */
+    getPatternById(patternId: string): Pattern | undefined;
+    /**
+     * Get pattern count
+     *
+     * @returns Number of patterns
+     */
+    getPatternStorageCount(): number;
+    /**
+     * Get current rollback state (TECH-TRJ-001)
+     *
+     * @returns Rollback state information
+     */
+    getRollbackState(): IRollbackState;
+    /**
+     * Check if learning has progressed past a checkpoint (TECH-TRJ-001)
+     *
+     * Progress is defined as:
+     * 1. New trajectories created since checkpoint
+     * 2. New checkpoint created since last rollback
+     * 3. Weight changes above threshold since checkpoint
+     *
+     * @param checkpointId - Checkpoint to check progress against
+     * @returns true if learning has progressed past checkpoint
+     */
+    private hasProgressedPastCheckpoint;
+    /**
+     * Calculate weight difference between two weight storages (TECH-TRJ-001)
+     *
+     * @param weights1 - First weight storage
+     * @param weights2 - Second weight storage
+     * @returns Normalized difference (0 = identical, 1 = completely different)
+     */
+    private calculateWeightDifference;
+    /**
+     * Determine if a checkpoint should be automatically marked as baseline (TECH-TRJ-001)
+     *
+     * @returns true if checkpoint should be marked as baseline
+     */
+    private shouldAutoMarkAsBaseline;
+    /**
+     * Reset rollback state when learning makes progress (TECH-TRJ-001)
+     *
+     * Called automatically when:
+     * 1. New trajectory is created (indicates progress)
+     * 2. New checkpoint is created (indicates progress worth saving)
+     */
+    private resetRollbackStateIfProgressed;
+}
+export {};
+//# sourceMappingURL=sona-engine.d.ts.map
