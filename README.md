@@ -756,6 +756,7 @@ god-agent-package/
 │   └── skills/                   # Skills library
 ├── scripts/
 │   ├── packaging/                # Setup & package scripts
+│   ├── migration/                # Vector dimension migration
 │   └── hooks/                    # Claude Code hooks
 ├── serena/                       # Serena MCP server
 ├── .serena/                      # Serena config + memories
@@ -764,6 +765,26 @@ god-agent-package/
 ├── docs/                         # Documentation
 └── package.json
 ```
+
+## Migration
+
+### Vector Dimension Migration (768 → 1536)
+
+If upgrading from an older version that used 768-dimension embeddings to the current 1536-dimension format:
+
+```bash
+# Detect current vector dimensions in your database
+npx tsx scripts/migration/detect-vector-dimensions.ts
+
+# Migrate vectors from 768 to 1536 dimensions
+npx tsx scripts/migration/migrate-768-to-1536.ts
+```
+
+The migration script:
+- Backs up existing data before migration
+- Converts 768D vectors to 1536D using zero-padding or interpolation
+- Updates all episode stores, trajectory data, and pattern embeddings
+- Validates migrated vectors for correctness
 
 ## Troubleshooting
 
