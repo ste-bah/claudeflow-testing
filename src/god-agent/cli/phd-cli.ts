@@ -51,9 +51,266 @@ import { SocketClient } from '../observability/socket-client.js';
 import { FinalStageOrchestrator, PROGRESS_MILESTONES } from './final-stage/index.js';
 import type { FinalStageOptions, FinalStageResult, ProgressReport, FinalStageState } from './final-stage/index.js';
 import type { IActivityEvent } from '../observability/types.js';
+// Implements RULE-025, RULE-028, RULE-031: SonaEngine integration for trajectory tracking
+import { createProductionSonaEngine } from '../core/learning/sona-engine.js';
+import type { SonaEngine } from '../core/learning/sona-engine.js';
+import type { TrajectoryID } from '../core/learning/sona-types.js';
 
 // Lazy-initialized socket client for event emission
 let socketClient: SocketClient | null = null;
+
+// Lazy-initialized SonaEngine for trajectory tracking (RULE-031)
+let sonaEngine: SonaEngine | null = null;
+// Active trajectory map: sessionId -> Map<agentKey -> trajectoryId>
+const activeTrajectories: Map<string, Map<string, TrajectoryID>> = new Map();
+
+/**
+ * Get or initialize SonaEngine instance (lazy initialization)
+ * Implements RULE-008: All learning data MUST persist to SQLite
+ * Implements RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference
+ */
+function getSonaEngine(): SonaEngine | null {
+  if (!sonaEngine) {
+    try {
+      // Use production factory to ensure persistence (RULE-008, RULE-074)
+      sonaEngine = createProductionSonaEngine({
+        learningRate: 0.01,
+        trackPerformance: true,
+      });
+      if (sonaEngine.isPersistenceEnabled()) {
+        console.error('[PHD-CLI] SonaEngine initialized with persistence enabled');
+      } else {
+        console.error('[PHD-CLI] Warning: SonaEngine persistence not enabled');
+      }
+    } catch (error) {
+      console.error(`[PHD-CLI] Failed to initialize SonaEngine: ${error}`);
+      return null;
+    }
+  }
+  return sonaEngine;
+}
+
+/**
+ * Create trajectory for agent execution start
+ * Implements RULE-025: TrajectoryTracker MUST call SonaEngine.createTrajectoryWithId()
+ * @param sessionId - Pipeline session ID
+ * @param agentKey - Agent being executed
+ * @param agentIndex - Agent index in pipeline
+ * @param query - Original research query
+ * @returns TrajectoryID if created, null otherwise
+ */
+function createAgentTrajectory(
+  sessionId: string,
+  agentKey: string,
+  agentIndex: number,
+  query: string
+): TrajectoryID | null {
+  const engine = getSonaEngine();
+  if (!engine) return null;
+
+  try {
+    // Generate trajectory ID: phd-{sessionId}-{agentIndex}-{agentKey}
+    const trajectoryId: TrajectoryID = `phd-${sessionId.slice(0, 8)}-${agentIndex}-${agentKey}`;
+    const route = `phd.pipeline.${agentKey}`;
+    const patterns: string[] = [`agent:${agentKey}`, `phase:${Math.floor(agentIndex / 10) + 1}`];
+    const context: string[] = [sessionId, query.slice(0, 100)];
+
+    // Create trajectory with explicit ID (RULE-025)
+    engine.createTrajectoryWithId(trajectoryId, route, patterns, context);
+
+    // Store in active trajectories map for feedback later
+    if (!activeTrajectories.has(sessionId)) {
+      activeTrajectories.set(sessionId, new Map());
+    }
+    activeTrajectories.get(sessionId)!.set(agentKey, trajectoryId);
+
+    return trajectoryId;
+  } catch (error) {
+    console.error(`[PHD-CLI] Failed to create trajectory for ${agentKey}: ${error}`);
+    return null;
+  }
+}
+
+/**
+ * Record feedback for completed agent
+ * Implements RULE-028: All feedback MUST be persisted before acknowledgment
+ * @param sessionId - Pipeline session ID
+ * @param agentKey - Agent that completed
+ * @param output - Agent output (for quality assessment)
+ * @returns Promise<boolean> - true if feedback recorded
+ */
+async function recordAgentFeedback(
+  sessionId: string,
+  agentKey: string,
+  output: unknown
+): Promise<boolean> {
+  const engine = getSonaEngine();
+  if (!engine) return false;
+
+  // Get trajectory ID from active map
+  const sessionTrajectories = activeTrajectories.get(sessionId);
+  if (!sessionTrajectories) {
+    console.error(`[PHD-CLI] No active trajectories for session ${sessionId}`);
+    return false;
+  }
+
+  const trajectoryId = sessionTrajectories.get(agentKey);
+  if (!trajectoryId) {
+    console.error(`[PHD-CLI] No trajectory found for agent ${agentKey}`);
+    return false;
+  }
+
+  try {
+    // Calculate quality based on output (RULE-033, RULE-034)
+    const quality = assessOutputQuality(output);
+
+    // Record feedback (RULE-028: persist before acknowledgment)
+    await engine.provideFeedback(trajectoryId, quality, {
+      skipAutoSave: false, // Ensure immediate persistence
+    });
+
+    // Remove from active trajectories after feedback
+    sessionTrajectories.delete(agentKey);
+    if (sessionTrajectories.size === 0) {
+      activeTrajectories.delete(sessionId);
+    }
+
+    console.error(`[PHD-CLI] Recorded feedback for ${agentKey}: quality=${quality.toFixed(2)}`);
+    return true;
+  } catch (error) {
+    console.error(`[PHD-CLI] Failed to record feedback for ${agentKey}: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * Assess output quality for feedback
+ * Implements RULE-033, RULE-034: Quality assessment on results
+ */
+function assessOutputQuality(output: unknown): number {
+  if (output === null || output === undefined) {
+    return 0.3; // Minimal quality for null output
+  }
+
+  let quality = 0.4; // Base quality
+
+  if (typeof output === 'object') {
+    const outputStr = JSON.stringify(output);
+
+    // RULE-034 calibration
+    if (outputStr.length > 500) quality += 0.05;
+    if (outputStr.length > 2000) quality += 0.10;
+
+    // Check for structured content
+    const outputObj = output as Record<string, unknown>;
+    if (outputObj.summary || outputObj.result || outputObj.content) {
+      quality += 0.10; // Structured output bonus
+    }
+
+    // Check for code blocks (common in research outputs)
+    if (outputStr.includes('```')) {
+      quality += 0.15;
+    }
+
+    // Check for detailed analysis markers
+    if (outputStr.includes('## ') || outputStr.includes('### ')) {
+      quality += 0.10;
+    }
+  } else if (typeof output === 'string') {
+    if (output.length > 500) quality += 0.05;
+    if (output.length > 2000) quality += 0.10;
+  }
+
+  // Cap at 0.95 (never assume perfection)
+  return Math.min(0.95, quality);
+}
+
+/**
+ * Pattern insight from past learnings
+ * Implements RULE-031: Use learned patterns to improve behavior
+ */
+interface PatternInsight {
+  patternId: string;
+  weight: number;
+  description: string;
+}
+
+/**
+ * Query top-weighted patterns for an agent route
+ * Implements RULE-031: TrajectoryTracker integration with SonaEngine
+ * @param agentKey - Agent key to query patterns for
+ * @param limit - Maximum patterns to return (default 3)
+ * @returns Array of pattern insights sorted by weight
+ */
+async function getTopPatternsForAgent(
+  agentKey: string,
+  limit: number = 3
+): Promise<PatternInsight[]> {
+  const engine = getSonaEngine();
+  if (!engine) return [];
+
+  try {
+    const route = `phd.pipeline.${agentKey}`;
+    const weightsWithIds = await engine.getWeightsWithIds(route);
+
+    if (weightsWithIds.length === 0) {
+      return [];
+    }
+
+    // Sort by weight descending, take top N
+    const sorted = weightsWithIds
+      .filter(w => w.weight > 0) // Only positive weights (successful patterns)
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, limit);
+
+    // Get pattern details
+    const patterns = engine.getPatterns();
+    const patternMap = new Map(patterns.map(p => [p.id, p]));
+
+    return sorted.map(({ patternId, weight }) => {
+      const pattern = patternMap.get(patternId);
+      return {
+        patternId,
+        weight,
+        description: pattern?.metadata?.description ||
+                     pattern?.metadata?.domain ||
+                     `Pattern from ${patternId}`,
+      };
+    });
+  } catch (error) {
+    console.error(`[PHD-CLI] Failed to query patterns for ${agentKey}: ${error}`);
+    return [];
+  }
+}
+
+/**
+ * Format pattern insights for prompt injection
+ * Implements RULE-031: Close the learning loop by using past patterns
+ * @param patterns - Pattern insights to format
+ * @returns Formatted string for prompt injection
+ */
+function formatPatternsForPrompt(patterns: PatternInsight[]): string {
+  if (patterns.length === 0) {
+    return '';
+  }
+
+  const lines = [
+    '\n## LEARNED PATTERNS (from past successful executions)',
+    'The following patterns have been learned from high-quality past outputs:',
+    '',
+  ];
+
+  patterns.forEach((p, i) => {
+    const confidence = Math.round(p.weight * 100);
+    lines.push(`${i + 1}. **${p.patternId}** (confidence: ${confidence}%)`);
+    lines.push(`   ${p.description}`);
+    lines.push('');
+  });
+
+  lines.push('Consider these patterns when executing your task.\n');
+
+  return lines.join('\n');
+}
 
 async function getSocketClient(): Promise<SocketClient | null> {
   if (!socketClient) {
@@ -681,6 +938,33 @@ When you complete this task, end your response with:
     }
   }
 
+  // [SONA-PATTERNS] Inject learned patterns from past successful executions
+  // Queries SonaEngine for top-weighted patterns and appends to prompt
+  let patternsInjectionResult: { patternsUsed: number; patternIds: string[]; totalWeight: number } = { patternsUsed: 0, patternIds: [], totalWeight: 0 };
+  try {
+    const patterns = await getTopPatternsForAgent(agentConfig.key, 3);
+    if (patterns.length > 0) {
+      const patternsPrompt = formatPatternsForPrompt(patterns);
+      prompt = prompt + patternsPrompt;
+      patternsInjectionResult = {
+        patternsUsed: patterns.length,
+        patternIds: patterns.map(p => p.patternId),
+        totalWeight: patterns.reduce((sum, p) => sum + p.weight, 0),
+      };
+
+      if (options.verbose) {
+        console.error(`[SONA-PATTERNS] Injected ${patterns.length} learned patterns for ${agentConfig.key} (total weight: ${patternsInjectionResult.totalWeight.toFixed(2)})`);
+      }
+    } else if (options.verbose) {
+      console.error(`[SONA-PATTERNS] No learned patterns found for ${agentConfig.key}`);
+    }
+  } catch (error) {
+    // Pattern injection is optional - continue without it (graceful fallback)
+    if (options.verbose) {
+      console.error(`[SONA-PATTERNS] Injection skipped: ${error}`);
+    }
+  }
+
   // Build AgentDetails
   const agentDetails: AgentDetails = {
     index: session.currentAgentIndex,
@@ -706,6 +990,17 @@ When you complete this task, end your response with:
 
   // Update session activity time
   await sessionManager.updateActivity(session);
+
+  // [RULE-025] Create trajectory for agent execution tracking
+  const trajectoryId = createAgentTrajectory(
+    session.sessionId,
+    agentConfig.key,
+    session.currentAgentIndex,
+    session.query
+  );
+  if (trajectoryId) {
+    console.error(`[PHD-CLI] Created trajectory ${trajectoryId} for ${agentConfig.key}`);
+  }
 
   // Emit step_started event for dashboard observability
   emitPipelineEvent({
@@ -739,6 +1034,11 @@ When you complete this task, end your response with:
       episodesInjected: descInjectionResult.episodesUsed,
       episodeIds: descInjectionResult.episodeIds,
       windowSize: descInjectionResult.windowSize,
+    } : undefined,
+    patterns: patternsInjectionResult.patternsUsed > 0 ? {
+      patternsInjected: patternsInjectionResult.patternsUsed,
+      patternIds: patternsInjectionResult.patternIds,
+      totalWeight: patternsInjectionResult.totalWeight,
     } : undefined,
   };
 }
@@ -936,6 +1236,16 @@ async function commandComplete(
 
   // Persist updated session
   await sessionManager.saveSession(session);
+
+  // [RULE-028] Record feedback for completed agent BEFORE acknowledgment
+  const feedbackRecorded = await recordAgentFeedback(
+    session.sessionId,
+    agentKey,
+    output
+  );
+  if (feedbackRecorded) {
+    console.error(`[PHD-CLI] Feedback persisted for ${agentKey}`);
+  }
 
   // Emit step_completed event for dashboard observability
   emitPipelineEvent({

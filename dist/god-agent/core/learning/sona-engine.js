@@ -21,6 +21,9 @@ import { FeedbackValidationError, WeightPersistenceError, RollbackLoopError, Che
 import { TrajectoryStreamManager } from './trajectory-stream-manager.js';
 import { generateTrajectoryID, generateCheckpointID, validateTrajectoryInput, validateAndApplyConfig, DEFAULT_INITIAL_WEIGHT, clampWeight, cosineSimilarity, arithmeticMean, validateFeedbackQuality, calculateReward, calculateGradient, calculateWeightUpdate, updateFisherInformation, crc32, DEFAULT_FISHER_INFORMATION, FISHER_DECAY_RATE, AUTO_SAVE_THROTTLE_MS, AUTO_PATTERN_QUALITY_THRESHOLD, WEIGHT_FILE_VERSION, } from './sona-utils.js';
 import { VECTOR_DIM } from '../validation/constants.js';
+import { TrajectoryMetadataDAO } from '../database/dao/trajectory-metadata-dao.js';
+import { PatternDAO } from '../database/dao/pattern-dao.js';
+import { LearningFeedbackDAO } from '../database/dao/learning-feedback-dao.js';
 /**
  * Simple mutex for weight update concurrency control
  */
@@ -79,6 +82,16 @@ export class SonaEngine {
         rollbackCount: 0
     };
     baselineCheckpointIds = new Set();
+    // ============================================================
+    // DATABASE PERSISTENCE (TASK-PERSIST-004)
+    // RULE-008: ALL learning data MUST be stored in SQLite
+    // RULE-074: Map as primary storage is FORBIDDEN in production
+    // ============================================================
+    databaseConnection;
+    trajectoryMetadataDAO;
+    patternDAO;
+    learningFeedbackDAO;
+    persistenceEnabled = false;
     // Metrics tracking
     metrics = {
         totalTrajectories: 0,
@@ -98,6 +111,43 @@ export class SonaEngine {
         if (config.checkpointsDir) {
             this.checkpointsDir = config.checkpointsDir;
         }
+        // ============================================================
+        // DATABASE PERSISTENCE INITIALIZATION (TASK-PERSIST-004)
+        // RULE-008: ALL learning data MUST be stored in SQLite
+        // ============================================================
+        if (config.databaseConnection) {
+            this.databaseConnection = config.databaseConnection;
+            this.trajectoryMetadataDAO = new TrajectoryMetadataDAO(config.databaseConnection);
+            this.patternDAO = new PatternDAO(config.databaseConnection);
+            this.learningFeedbackDAO = new LearningFeedbackDAO(config.databaseConnection);
+            this.persistenceEnabled = true;
+        }
+        else if (process.env.SONA_REQUIRE_PERSISTENCE === 'true') {
+            // RULE-074: In production, Map as primary storage is FORBIDDEN
+            throw new Error('CONSTITUTION VIOLATION (RULE-074): SonaEngine requires database persistence in production. ' +
+                'Use createProductionSonaEngine() factory or provide databaseConnection in config. ' +
+                'Set SONA_REQUIRE_PERSISTENCE=false only for testing.');
+        }
+    }
+    /**
+     * Check if database persistence is enabled
+     * @returns True if DAOs are initialized and ready
+     */
+    isPersistenceEnabled() {
+        return this.persistenceEnabled;
+    }
+    /**
+     * Get database statistics for observability
+     * @returns DAO statistics or null if persistence is disabled
+     */
+    getDatabaseStats() {
+        if (!this.persistenceEnabled)
+            return null;
+        return {
+            trajectoryMetadata: this.trajectoryMetadataDAO.getStats(),
+            patterns: this.patternDAO.getStats(),
+            feedback: this.learningFeedbackDAO.getStats()
+        };
     }
     /**
      * Initialize the Sona Engine
@@ -246,6 +296,29 @@ export class SonaEngine {
             this.streamManager.addTrajectory(trajectory).catch(error => {
                 console.warn(`[SonaEngine] Failed to stream trajectory ${trajectoryId}:`, error);
             });
+        }
+        // ============================================================
+        // DATABASE PERSISTENCE (TASK-PERSIST-005)
+        // RULE-008: ALL trajectory data MUST be stored in SQLite
+        // ============================================================
+        if (this.persistenceEnabled && this.trajectoryMetadataDAO) {
+            try {
+                const metadataInput = {
+                    id: trajectoryId,
+                    filePath: `.agentdb/sona/trajectories/${trajectoryId}.bin`,
+                    fileOffset: 0, // Will be updated by stream manager
+                    fileLength: 0, // Will be updated on completion
+                    route,
+                    stepCount: patterns.length,
+                    createdAt: trajectory.createdAt,
+                    status: 'active'
+                };
+                this.trajectoryMetadataDAO.insert(metadataInput);
+            }
+            catch (error) {
+                // Log but don't fail - in-memory storage still works
+                console.warn(`[SonaEngine] Failed to persist trajectory metadata ${trajectoryId}:`, error);
+            }
         }
         // Initialize route weights if first trajectory for this route
         if (!this.weights.has(route)) {
@@ -659,6 +732,37 @@ export class SonaEngine {
             }
             // 12. Update metrics
             this.metrics.lastUpdated = Date.now();
+            // ============================================================
+            // DATABASE PERSISTENCE (TASK-PERSIST-006)
+            // RULE-008: ALL learning feedback MUST be stored in SQLite
+            // ============================================================
+            if (this.persistenceEnabled && this.learningFeedbackDAO) {
+                try {
+                    const feedbackId = `fb-${trajectoryId}-${Date.now()}`;
+                    const feedbackInput = {
+                        id: feedbackId,
+                        trajectoryId,
+                        quality,
+                        outcome: quality >= 0.5 ? (quality >= 0.8 ? 'positive' : 'neutral') : 'negative',
+                        taskType: trajectory.route,
+                        agentId: 'sona-engine', // Will be overridden by caller if available
+                        resultLength: trajectory.steps?.length ?? 0,
+                        hasCodeBlocks: false,
+                        createdAt: Date.now()
+                    };
+                    this.learningFeedbackDAO.insert(feedbackInput);
+                    // Update trajectory status if completed
+                    if (this.trajectoryMetadataDAO) {
+                        const status = quality >= 0.5 ? 'completed' : 'failed';
+                        this.trajectoryMetadataDAO.updateStatus(trajectoryId, status, Date.now());
+                        this.trajectoryMetadataDAO.updateQuality(trajectoryId, quality);
+                    }
+                }
+                catch (error) {
+                    // Log but don't fail - in-memory operations still complete
+                    console.warn(`[SonaEngine] Failed to persist feedback for ${trajectoryId}:`, error);
+                }
+            }
             // 13. Check performance target
             const elapsedMs = performance.now() - startTime;
             if (this.config.trackPerformance && elapsedMs > 15) {
@@ -1582,6 +1686,37 @@ export class SonaEngine {
             };
             // Store in patterns map
             this.patterns.set(pattern.id, pattern);
+            // ============================================================
+            // DATABASE PERSISTENCE (TASK-PERSIST-007)
+            // RULE-008: ALL pattern data MUST be stored in SQLite
+            // ============================================================
+            if (this.persistenceEnabled && this.patternDAO) {
+                try {
+                    const patternInput = {
+                        id: pattern.id,
+                        name: `pattern-${trajectory.route}-${Date.now()}`,
+                        context: JSON.stringify({
+                            sourceTrajectory: trajectory.id,
+                            route: trajectory.route,
+                            domain
+                        }),
+                        action: pattern.template || description,
+                        outcome: trajectory.quality >= 0.8 ? 'success' : 'partial',
+                        embedding: patternEmbedding,
+                        weight: pattern.sonaWeight ?? 0.5,
+                        trajectoryIds: [trajectory.id],
+                        agentId: 'sona-engine',
+                        taskType: trajectory.route,
+                        createdAt: pattern.createdAt,
+                        tags: tags
+                    };
+                    this.patternDAO.insert(patternInput);
+                }
+                catch (error) {
+                    // Log but don't fail - in-memory storage still works
+                    console.warn(`[SonaEngine] Failed to persist pattern ${pattern.id}:`, error);
+                }
+            }
             // Update metrics
             this.metrics.patternsCreated++;
             // FIX: Notify callback to add pattern to PatternStore for reasoning
@@ -1922,5 +2057,41 @@ export class SonaEngine {
             rollbackCount: this.rollbackState.rollbackCount
         };
     }
+}
+// ============================================================
+// PRODUCTION FACTORY FUNCTION (TASK-PERSIST-004)
+// ============================================================
+import { getDatabaseConnection } from '../database/connection.js';
+/**
+ * Create a SonaEngine with database persistence REQUIRED
+ *
+ * RULE-008: ALL learning data MUST be stored in SQLite
+ * RULE-074: Map as primary storage is FORBIDDEN in production
+ *
+ * This factory function ensures the SonaEngine is properly configured
+ * with SQLite persistence. Use this in production code.
+ *
+ * @param config - Optional SonaConfig (database connection will be added)
+ * @param dbPath - Optional database path (defaults to .god-agent/learning.db)
+ * @returns SonaEngine with persistence enabled
+ *
+ * @example
+ * ```typescript
+ * // Production usage
+ * const engine = createProductionSonaEngine();
+ *
+ * // With custom config
+ * const engine = createProductionSonaEngine({
+ *   learningRate: 0.02,
+ *   trackPerformance: true
+ * });
+ * ```
+ */
+export function createProductionSonaEngine(config = {}, dbPath) {
+    const databaseConnection = getDatabaseConnection(dbPath);
+    return new SonaEngine({
+        ...config,
+        databaseConnection
+    });
 }
 //# sourceMappingURL=sona-engine.js.map

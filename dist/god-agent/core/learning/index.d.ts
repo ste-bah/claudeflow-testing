@@ -17,7 +17,7 @@
  * - getWeights(): <5ms
  * - provideFeedback(): <15ms
  */
-export { SonaEngine } from './sona-engine.js';
+export { SonaEngine, createProductionSonaEngine } from './sona-engine.js';
 export { TrajectoryValidationError, WeightUpdateError, DriftExceededError, FeedbackValidationError, WeightPersistenceError, RollbackLoopError, CheckpointError, } from './sona-types.js';
 export type { TrajectoryID, PatternID, Route, Weight, RouteWeights, WeightStorage, ITrajectory, ITrajectoryInput, IWeightUpdateParams, ILearningMetrics, DriftStatus, IDriftMetrics, ICheckpoint, ISonaConfig, ISonaConfig as SonaEngineConfig, // Alias for compatibility
 ISerializedTrajectory, ISerializedRouteWeights, ISerializedSonaState, FisherInformationStorage, IFeedbackInput, IWeightUpdateResult, IWeightFileMetadata, ISerializedFisherEntry, CheckpointReason, ICheckpointFull, ISerializedCheckpoint, IReasoningStep, ReasoningStepAction, IStepCaptureConfig, ISonaEngine, } from './sona-types.js';

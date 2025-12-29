@@ -17,7 +17,7 @@ import { UnifiedSearch, } from './search/index.js';
 import { MemoryClient } from './memory-server/index.js';
 import { MemoryEngine } from './memory/index.js';
 import { ReasoningBank, PatternMatcher, CausalMemory, ProvenanceStore, } from './reasoning/index.js';
-import { SonaEngine } from './learning/index.js';
+import { SonaEngine, createProductionSonaEngine } from './learning/index.js';
 import { RelayRaceOrchestrator, } from './orchestration/index.js';
 import { CompressionManager, } from './compression/index.js';
 import { AttentionFactory, } from './attention/index.js';
@@ -245,11 +245,50 @@ export class GodAgent {
      */
     async initializeLearning() {
         this.log('Initializing Layer 4: Learning');
-        // SonaEngine
-        this.sonaEngine = new SonaEngine({
-            learningRate: 0.001,
-            ...this.config.learning,
-        });
+        // TASK-PERSIST-009: Check persistence requirement
+        // Default to true in production, can be overridden for testing
+        const requirePersistence = process.env.SONA_REQUIRE_PERSISTENCE !== 'false';
+        // TASK-PERSIST-009: Use createProductionSonaEngine for persistence-enabled engine
+        if (requirePersistence) {
+            try {
+                this.sonaEngine = createProductionSonaEngine({
+                    learningRate: 0.001,
+                    ...this.config.learning,
+                });
+                this.log('SonaEngine created with database persistence enabled');
+            }
+            catch (error) {
+                // If database connection fails, fall back to in-memory with warning
+                console.warn('[GodAgent] Failed to create SonaEngine with persistence:', error);
+                console.warn('[GodAgent] Falling back to in-memory SonaEngine (learning data will NOT persist)');
+                this.sonaEngine = new SonaEngine({
+                    learningRate: 0.001,
+                    ...this.config.learning,
+                });
+            }
+        }
+        else {
+            // Testing mode: use in-memory SonaEngine
+            this.sonaEngine = new SonaEngine({
+                learningRate: 0.001,
+                ...this.config.learning,
+            });
+            this.log('SonaEngine created in testing mode (SONA_REQUIRE_PERSISTENCE=false)');
+        }
+        // TASK-PERSIST-009: Verify persistence status after creation
+        if (this.sonaEngine.isPersistenceEnabled()) {
+            const dbStats = this.sonaEngine.getDatabaseStats();
+            if (dbStats) {
+                this.log(`SonaEngine persistence verified - DAOs initialized`);
+                this.log(`  Trajectory metadata: ${JSON.stringify(dbStats.trajectoryMetadata)}`);
+                this.log(`  Patterns: ${JSON.stringify(dbStats.patterns)}`);
+                this.log(`  Feedback: ${JSON.stringify(dbStats.feedback)}`);
+            }
+        }
+        else {
+            console.warn('[GodAgent] WARNING: SonaEngine persistence is DISABLED - learning data will NOT be saved to database');
+            console.warn('[GodAgent] Set SONA_REQUIRE_PERSISTENCE=true and ensure database connection for production use');
+        }
         // Enable trajectory streaming to disk (SPEC-TRJ-001)
         // FIX: Added enabled: true to actually enable streaming
         await this.sonaEngine.enableStreaming({

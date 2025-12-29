@@ -114,10 +114,6 @@ export function validateRegularization(lambda) {
         throw new TrajectoryValidationError(`Regularization ${lambda} out of range [0.01, 1.0]`);
     }
 }
-/**
- * Validate Sona configuration
- * @returns Validated config with defaults applied
- */
 export function validateAndApplyConfig(config = {}) {
     const validated = {
         learningRate: config.learningRate ?? DEFAULT_LEARNING_RATE,
@@ -128,6 +124,7 @@ export function validateAndApplyConfig(config = {}) {
         trackPerformance: config.trackPerformance ?? false,
         maxCheckpoints: config.maxCheckpoints ?? DEFAULT_MAX_CHECKPOINTS,
         checkpointsDir: config.checkpointsDir ?? '.agentdb/universal/checkpoints',
+        databaseConnection: config.databaseConnection, // TASK-PERSIST-004: Optional
     };
     // Validate ranges
     if (validated.learningRate < 0.001 || validated.learningRate > 0.1) {

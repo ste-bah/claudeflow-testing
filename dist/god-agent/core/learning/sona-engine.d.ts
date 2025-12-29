@@ -14,6 +14,9 @@
  */
 import type { TrajectoryID, PatternID, Route, Weight, WeightStorage, ITrajectory, ISonaConfig, ILearningMetrics, IDriftMetrics, ISerializedSonaState, IWeightUpdateResult, CheckpointReason, ICheckpointFull, IReasoningStep } from './sona-types.js';
 import type { ITrajectoryStreamConfig, IRollbackState } from '../types/trajectory-streaming-types.js';
+import { TrajectoryMetadataDAO } from '../database/dao/trajectory-metadata-dao.js';
+import { PatternDAO } from '../database/dao/pattern-dao.js';
+import { LearningFeedbackDAO } from '../database/dao/learning-feedback-dao.js';
 /**
  * Sona Engine - Trajectory-Based Learning
  *
@@ -67,8 +70,27 @@ export declare class SonaEngine {
     private streamManager?;
     private rollbackState;
     private baselineCheckpointIds;
+    private databaseConnection?;
+    private trajectoryMetadataDAO?;
+    private patternDAO?;
+    private learningFeedbackDAO?;
+    private persistenceEnabled;
     private metrics;
     constructor(config?: ISonaConfig);
+    /**
+     * Check if database persistence is enabled
+     * @returns True if DAOs are initialized and ready
+     */
+    isPersistenceEnabled(): boolean;
+    /**
+     * Get database statistics for observability
+     * @returns DAO statistics or null if persistence is disabled
+     */
+    getDatabaseStats(): {
+        trajectoryMetadata: ReturnType<TrajectoryMetadataDAO['getStats']>;
+        patterns: ReturnType<PatternDAO['getStats']>;
+        feedback: ReturnType<LearningFeedbackDAO['getStats']>;
+    } | null;
     /**
      * Initialize the Sona Engine
      */
@@ -474,5 +496,31 @@ export declare class SonaEngine {
      */
     private resetRollbackStateIfProgressed;
 }
+/**
+ * Create a SonaEngine with database persistence REQUIRED
+ *
+ * RULE-008: ALL learning data MUST be stored in SQLite
+ * RULE-074: Map as primary storage is FORBIDDEN in production
+ *
+ * This factory function ensures the SonaEngine is properly configured
+ * with SQLite persistence. Use this in production code.
+ *
+ * @param config - Optional SonaConfig (database connection will be added)
+ * @param dbPath - Optional database path (defaults to .god-agent/learning.db)
+ * @returns SonaEngine with persistence enabled
+ *
+ * @example
+ * ```typescript
+ * // Production usage
+ * const engine = createProductionSonaEngine();
+ *
+ * // With custom config
+ * const engine = createProductionSonaEngine({
+ *   learningRate: 0.02,
+ *   trackPerformance: true
+ * });
+ * ```
+ */
+export declare function createProductionSonaEngine(config?: Omit<ISonaConfig, 'databaseConnection'>, dbPath?: string): SonaEngine;
 export {};
 //# sourceMappingURL=sona-engine.d.ts.map

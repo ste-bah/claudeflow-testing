@@ -157,8 +157,15 @@ export function validateRegularization(lambda: number): void {
  * Validate Sona configuration
  * @returns Validated config with defaults applied
  */
-export function validateAndApplyConfig(config: ISonaConfig = {}): Required<ISonaConfig> {
-  const validated: Required<ISonaConfig> = {
+/**
+ * Configuration type with databaseConnection optional (not Required)
+ * TASK-PERSIST-004: Database connection is optional in config
+ */
+export type ValidatedSonaConfig = Omit<Required<ISonaConfig>, 'databaseConnection'> &
+  Pick<ISonaConfig, 'databaseConnection'>;
+
+export function validateAndApplyConfig(config: ISonaConfig = {}): ValidatedSonaConfig {
+  const validated: ValidatedSonaConfig = {
     learningRate: config.learningRate ?? DEFAULT_LEARNING_RATE,
     regularization: config.regularization ?? DEFAULT_REGULARIZATION,
     driftAlertThreshold: config.driftAlertThreshold ?? DEFAULT_DRIFT_ALERT_THRESHOLD,
@@ -167,6 +174,7 @@ export function validateAndApplyConfig(config: ISonaConfig = {}): Required<ISona
     trackPerformance: config.trackPerformance ?? false,
     maxCheckpoints: config.maxCheckpoints ?? DEFAULT_MAX_CHECKPOINTS,
     checkpointsDir: config.checkpointsDir ?? '.agentdb/universal/checkpoints',
+    databaseConnection: config.databaseConnection, // TASK-PERSIST-004: Optional
   };
 
   // Validate ranges

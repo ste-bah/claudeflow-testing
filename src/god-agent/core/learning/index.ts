@@ -21,7 +21,7 @@
 // ===== SONA ENGINE =====
 
 // Main SonaEngine class
-export { SonaEngine } from './sona-engine.js';
+export { SonaEngine, createProductionSonaEngine } from './sona-engine.js';
 
 // ===== TYPES =====
 

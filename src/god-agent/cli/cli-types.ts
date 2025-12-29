@@ -321,6 +321,13 @@ export interface NextResponse {
     /** Phase-aware window size used for retrieval (RULE-010 to RULE-014) */
     windowSize: number;
   };
+  /** SonaEngine learned patterns injection info */
+  patterns?: {
+    patternsInjected: number;
+    patternIds: string[];
+    /** Combined weight of injected patterns */
+    totalWeight: number;
+  };
 }
 
 // ============================================================================

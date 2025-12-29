@@ -70,7 +70,12 @@ export declare function validateRegularization(lambda: number): void;
  * Validate Sona configuration
  * @returns Validated config with defaults applied
  */
-export declare function validateAndApplyConfig(config?: ISonaConfig): Required<ISonaConfig>;
+/**
+ * Configuration type with databaseConnection optional (not Required)
+ * TASK-PERSIST-004: Database connection is optional in config
+ */
+export type ValidatedSonaConfig = Omit<Required<ISonaConfig>, 'databaseConnection'> & Pick<ISonaConfig, 'databaseConnection'>;
+export declare function validateAndApplyConfig(config?: ISonaConfig): ValidatedSonaConfig;
 /**
  * Clamp weight to valid range [-1, 1]
  */

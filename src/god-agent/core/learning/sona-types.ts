@@ -199,6 +199,18 @@ export interface ISonaConfig {
   maxCheckpoints?: number;
   /** Directory for checkpoint storage (default: .agentdb/universal/checkpoints) */
   checkpointsDir?: string;
+  /**
+   * Database connection for SQLite persistence (TASK-PERSIST-004)
+   *
+   * RULE-008: ALL learning data MUST be stored in SQLite
+   * RULE-074: Map as primary storage is FORBIDDEN
+   *
+   * When provided, SonaEngine will persist all trajectories, feedback, and patterns
+   * to SQLite via the corresponding DAOs.
+   *
+   * Use createProductionSonaEngine() factory to enforce this in production.
+   */
+  databaseConnection?: import('../database/connection.js').IDatabaseConnection;
 }
 
 // ==================== Error Types ====================
