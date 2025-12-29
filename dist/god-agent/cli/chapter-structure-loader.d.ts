@@ -45,6 +45,12 @@ export declare class ChapterStructureLoader {
     private readonly agentsDir;
     constructor(basePath?: string);
     /**
+     * Possible file patterns for chapter structure (in priority order)
+     * - Primary: 05-dissertation-architect.md (current pipeline naming: {index}-{agent-key}.md)
+     * - Legacy: 05-chapter-structure.md (backward compatibility)
+     */
+    private static readonly STRUCTURE_FILE_PATTERNS;
+    /**
      * Load and parse the locked chapter structure for a research session
      * [REQ-PIPE-041, REQ-PIPE-042]
      *
@@ -54,8 +60,23 @@ export declare class ChapterStructureLoader {
     loadChapterStructure(slug: string): Promise<ChapterStructure>;
     /**
      * Parse chapter structure from markdown file
+     * Supports both JSON code blocks (preferred) and markdown-only format (fallback)
      */
     private parseStructure;
+    /**
+     * Normalize field names across different JSON schema versions
+     * Handles: assignedAgent -> writerAgent, wordTarget -> targetWords, etc.
+     */
+    private normalizeStructure;
+    /**
+     * Parse chapter structure from markdown headings when no JSON is available
+     * This is a fallback for legacy or manually-created structure files
+     */
+    private parseFromMarkdown;
+    /**
+     * Infer writer agent from chapter number and title
+     */
+    private inferWriterAgent;
     /**
      * Validate a chapter definition has required fields
      * [REQ-PIPE-043]

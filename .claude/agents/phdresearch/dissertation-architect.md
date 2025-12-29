@@ -243,6 +243,37 @@ For EACH chapter, define:
 5. NOT propose alternative structures
 
 **ENFORCEMENT**: Any agent creating content referencing non-existent chapters FAILS validation.
+
+## MACHINE-READABLE STRUCTURE (REQUIRED)
+
+At the END of your output, include this JSON block for Phase 8 finalizer parsing:
+
+\`\`\`json
+{
+  "locked": true,
+  "dateLocked": "[YYYY-MM-DD]",
+  "lockedBy": "dissertation-architect (#6/46)",
+  "totalChapters": [N],
+  "structureType": "[standard|extended|comprehensive]",
+  "chapters": [
+    {
+      "number": 1,
+      "title": "[Chapter 1 Title]",
+      "purpose": "[Purpose]",
+      "writerAgent": "[assigned-agent-key]",
+      "sections": ["1.1 Section", "1.2 Section"],
+      "targetWords": 5000,
+      "outputFile": "chapter-01.md"
+    }
+  ],
+  "writerMapping": {
+    "chapter-01.md": "[agent-key]",
+    "chapter-02.md": "[agent-key]"
+  }
+}
+\`\`\`
+
+**CRITICAL**: This JSON block is REQUIRED for Phase 8 (final-stage) to work. Without it, the finalizer cannot parse chapter structure.
 ```
 
 ## MEMORY STORAGE (CRITICAL)
