@@ -55,6 +55,10 @@ The learning system has been completely overhauled to fix critical issues where 
 - **Vector Validation** (`src/god-agent/core/validation/vector-validation.ts`): Validates embedding dimensions, normalization, and similarity thresholds
 - **40+ Attention Mechanisms** (`src/god-agent/core/attention/mechanisms/`): Including Flash Attention, Sparse Transformer, Linformer, Performer, Longformer, Hyena, and more
 - **UCM Daemon Services**: Context, Health, Recovery, and DESC services with JSON-RPC 2.0 interface
+- **Hooks System** (`src/god-agent/core/hooks/`): Extensible hooks framework with handlers:
+  - Quality Assessment Trigger: Automatic quality evaluation after task completion
+  - Auto-Injection: Automatic DESC context injection into prompts
+  - Task Result Capture: Captures task outputs for learning pipeline
 - **Hook Runner** (`src/god-agent/core/executor/hook-runner.ts`): Safe hook execution with timeout and sandboxing
 
 ### Architecture Improvements
