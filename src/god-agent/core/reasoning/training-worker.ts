@@ -289,7 +289,7 @@ class TrainingWorker {
    * Compute centroid of trajectory embeddings
    */
   private computeQueryEmbedding(trajectories: TrajectoryWithFeedback[]): Float32Array {
-    const dim = trajectories[0]?.embedding.length ?? 768;
+    const dim = trajectories[0]?.embedding.length ?? 1536;
     const centroid = new Float32Array(dim);
 
     for (const traj of trajectories) {

@@ -34,12 +34,12 @@ export type {
 } from './hyperedge-types.js';
 
 // Q&A Store
-export { QAStore } from './qa/qa-store.js';
 export type { QAStoreConfig } from './qa/qa-store.js';
+export { QAStore } from './qa/qa-store.js';
 
 // Causal Store
-export { CausalStore } from './causal/causal-store.js';
 export type { CausalStoreConfig } from './causal/causal-store.js';
+export { CausalStore } from './causal/causal-store.js';
 
 // Loop Detection
 export { LoopDetector, validateNoCycles } from './causal/loop-detector.js';
@@ -52,13 +52,17 @@ export {
 } from './community/index.js';
 
 // Anomaly Detection
+export type {
+  AnomalyAlert,
+  AlertSeverity,
+  BatchDetectionResult,
+} from './anomaly/index.js';
+
+export type { GraphStructure } from './anomaly/graph-anomaly-detector.js';
+
 export {
   LOFDetector,
   GraphAnomalyDetector,
   AnomalyDetector,
   createAnomalyDetector,
-  type AnomalyAlert,
-  type AlertSeverity,
-  type BatchDetectionResult
 } from './anomaly/index.js';
-export type { GraphStructure } from './anomaly/graph-anomaly-detector.js';

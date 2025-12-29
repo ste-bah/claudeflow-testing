@@ -14,6 +14,7 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -22,7 +23,7 @@ import {
 } from '../utils/index.js';
 
 export interface RealRoutingTransformerAttentionConfig {
-  dimension?: number;      // default 768
+  dimension?: number;      // default VECTOR_DIM=1536
   numHeads?: number;       // default 12
   numClusters?: number;    // default 16 (k)
   numRoutes?: number;      // default 4 (r - clusters per query)
@@ -49,7 +50,7 @@ export class RealRoutingTransformerAttention implements IAttentionMechanism {
   private wo: Float32Array; // [dimension, dimension]
 
   constructor(config: RealRoutingTransformerAttentionConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.numClusters = config.numClusters ?? 16;
     this.numRoutes = config.numRoutes ?? 4;

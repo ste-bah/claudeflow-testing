@@ -20,6 +20,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -77,7 +78,7 @@ export class RealLongformerAttention implements IAttentionMechanism {
    * Initialize Longformer attention mechanism
    *
    * @param config Configuration options
-   * @param config.dimension Model dimension (default: 768)
+   * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
    * @param config.numHeads Number of attention heads (default: 8)
    * @param config.windowSize One-sided window size (default: 64)
    * @param config.globalIndices Indices of global attention tokens (default: [0])
@@ -93,7 +94,7 @@ export class RealLongformerAttention implements IAttentionMechanism {
     globalIndices?: number[];
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.numHeads = config?.numHeads ?? 8;
     this.windowSize = config?.windowSize ?? 64;
     this.globalIndices = new Set(config?.globalIndices ?? [0]);

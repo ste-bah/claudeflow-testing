@@ -71,4 +71,5 @@ export {
 export { DaemonServer } from './daemon-server.js';
 
 // Message Handler (TASK-DAEMON-002)
-export { MessageHandler, type IServiceRegistry } from './message-handler.js';
+export type { IServiceRegistry } from './message-handler.js';
+export { MessageHandler } from './message-handler.js';

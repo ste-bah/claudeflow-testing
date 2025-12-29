@@ -164,7 +164,7 @@ export class ShadowVectorSearch {
    * 3. For each result, calculate both hypothesis and shadow similarities
    * 4. Classify and filter by refutation strength
    *
-   * @param hypothesisVector - Query vector (768-dim, L2-normalized)
+   * @param hypothesisVector - Query vector (1536-dim, L2-normalized)
    * @param options - Search options
    * @returns Array of contradictions sorted by refutation strength
    */
@@ -267,7 +267,7 @@ export class ShadowVectorSearch {
   /**
    * Find supporting evidence for a hypothesis
    *
-   * @param hypothesisVector - Query vector (768-dim, L2-normalized)
+   * @param hypothesisVector - Query vector (1536-dim, L2-normalized)
    * @param k - Maximum results
    * @returns Array of supporting evidence
    */

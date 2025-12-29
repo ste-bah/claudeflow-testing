@@ -19,14 +19,14 @@ export interface IHNSWBackend {
    * Insert a vector into the index
    *
    * @param id - Unique vector identifier
-   * @param vector - The vector data (768D, L2-normalized, validated)
+   * @param vector - The vector data (VECTOR_DIM (1536D), L2-normalized, validated)
    */
   insert(id: VectorID, vector: Float32Array): void;
 
   /**
    * Search for k nearest neighbors
    *
-   * @param query - Query vector (768D, L2-normalized, validated)
+   * @param query - Query vector (VECTOR_DIM (1536D), L2-normalized, validated)
    * @param k - Number of neighbors to return
    * @param includeVectors - Whether to include vector data in results
    * @returns Array of search results, sorted by similarity (best first)

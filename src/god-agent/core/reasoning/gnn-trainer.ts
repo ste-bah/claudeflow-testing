@@ -26,7 +26,7 @@
  * @module src/god-agent/core/reasoning/gnn-trainer
  */
 
-import type { GNNEnhancer } from './gnn-enhancer.js';
+import type { GNNEnhancer, LayerActivationCache, ForwardResult } from './gnn-enhancer.js';
 import type { WeightManager } from './weight-manager.js';
 import type { IDatabaseConnection } from '../database/connection.js';
 import {
@@ -306,7 +306,9 @@ export class GNNTrainer {
   private ewcRegularizer: EWCRegularizer;
   private fisherDiagonal: Map<string, Float32Array>;
   private optimalWeights: Map<string, Float32Array>;
-  private gradientHistory: Float32Array[];
+  // Gradient history stores per-layer gradients from each batch for Fisher computation
+  // Each entry is a Map from layerId to 2D weight gradients (Float32Array[])
+  private gradientHistory: Map<string, Float32Array[]>[];
 
   /**
    * Create a new GNNTrainer
@@ -372,12 +374,12 @@ export class GNNTrainer {
    *
    * Implements the core training loop for one batch:
    * 1. Create triplets from trajectories
-   * 2. Compute forward pass (embeddings are already enhanced)
+   * 2. Compute forward pass with activation collection for backpropagation
    * 3. Compute contrastive loss
-   * 4. Compute gradients via backward pass
-   * 5. Update weights with Adam optimizer
+   * 4. Backward pass using chain rule via layer_backward()
+   * 5. Update weights using Adam optimizer
    *
-   * Implements: TASK-GNN-005, RULE-028 (feedback persisted)
+   * Implements: TASK-GNN-005, RULE-028 (feedback persisted), GAP-GNN-002
    *
    * @param trajectories - Batch of trajectories with quality feedback
    * @returns Training result with loss and gradient metrics
@@ -408,6 +410,15 @@ export class GNNTrainer {
       return this.createEmptyResult();
     }
 
+    // Implements GAP-GNN-002: Forward pass with activation collection for backpropagation
+    // collectActivations=true captures pre/post activation values required by layer_backward()
+    const forwardResult: ForwardResult = await this.gnnEnhancer.enhance(
+      queryEmbedding,
+      undefined,  // No graph context
+      undefined,  // No hyperedges
+      true        // collectActivations=true for backpropagation
+    );
+
     // Compute loss and gradients
     const loss = this.contrastiveLoss.compute(pairs);
     const gradientBatch = this.contrastiveLoss.backward(pairs);
@@ -416,8 +427,16 @@ export class GNNTrainer {
     const gradientNorm = this.computeGradientNorm(gradientBatch);
 
     // Update weights if we have active gradients
+    // Implements GAP-GNN-002: Pass activation cache for proper backpropagation
     if (gradientBatch.activeCount > 0 && loss > 0) {
-      await this.updateWeights(gradientBatch);
+      // Collect gradients for Fisher computation (GAP-GNN-004)
+      // Compute backward pass to get per-layer weight gradients
+      const weightGradients = this.computeBackwardPass(gradientBatch, forwardResult.activationCache);
+      if (weightGradients.size > 0) {
+        this.gradientHistory.push(weightGradients);
+      }
+
+      await this.updateWeights(gradientBatch, forwardResult.activationCache);
     }
 
     // Record training history
@@ -746,8 +765,82 @@ export class GNNTrainer {
     this.epochsWithoutImprovement = 0;
     this.totalBatchesTrained = 0;
     this.optimizer.reset();
+    this.gradientHistory = [];
 
     logger.info('Trainer reset');
+  }
+
+  /**
+   * Call after completing a training task to update Fisher information
+   * for continual learning protection.
+   *
+   * Implements GAP-GNN-004: Fisher tracking for EWC
+   *
+   * This method:
+   * 1. Computes Fisher diagonal from collected gradient history
+   * 2. Updates the Fisher estimate using online EWC
+   * 3. Snapshots current weights as optimal for this task
+   * 4. Persists Fisher and optimal weights to disk (RULE-028)
+   * 5. Clears gradient history for the next task
+   *
+   * @param taskId - Identifier for the completed task (for logging)
+   */
+  async completeTask(taskId: string): Promise<void> {
+    if (this.gradientHistory.length === 0) {
+      logger.warn('No gradients collected for Fisher update', { taskId });
+      return;
+    }
+
+    // Convert gradient history to format expected by EWC updateFisher
+    // gradientHistory is already Map<string, Float32Array>[] which matches the API
+    const numSamples = this.gradientHistory.length;
+
+    // Flatten per-layer gradients for Fisher computation
+    // The EWC updateFisher expects gradients as Map<string, Float32Array>[]
+    const layerGradients = this.flattenGradientHistoryToLayerArrays();
+
+    // Update Fisher diagonal with online EWC
+    const result = this.ewcRegularizer.updateFisher(
+      this.fisherDiagonal,
+      layerGradients,
+      numSamples
+    );
+
+    this.fisherDiagonal = result.fisher;
+
+    // Snapshot optimal weights from this task
+    this.optimalWeights = this.getCurrentWeightsFlattened();
+
+    // Persist to disk (RULE-028)
+    await this.ewcRegularizer.saveFisher(this.fisherDiagonal, 'fisher.json');
+    await this.saveOptimalWeights();
+
+    // Clear gradient history for next task
+    this.gradientHistory = [];
+
+    logger.info('Task completed, Fisher updated', {
+      taskId,
+      fisherParams: this.countFisherParams(result.fisher),
+      samples: result.numSamples,
+      computeTimeMs: result.computeTimeMs.toFixed(2),
+    });
+  }
+
+  /**
+   * Get the number of tasks that have been completed (for EWC tracking)
+   */
+  getEWCTaskCount(): number {
+    return this.ewcRegularizer.getTaskCount();
+  }
+
+  /**
+   * Get Fisher statistics for diagnostics
+   */
+  getFisherStats(): ReturnType<EWCRegularizer['getFisherStats']> | null {
+    if (this.fisherDiagonal.size === 0) {
+      return null;
+    }
+    return this.ewcRegularizer.getFisherStats(this.fisherDiagonal);
   }
 
   /**
@@ -815,9 +908,18 @@ export class GNNTrainer {
   }
 
   /**
-   * Update weights using Adam optimizer
+   * Update weights using Adam optimizer with proper backpropagation
+   *
+   * Implements: GAP-GNN-002 - Uses computeBackwardPass with activation cache
+   * instead of the heuristic distributeGradients method.
+   *
+   * @param gradientBatch - Gradients from contrastive loss
+   * @param activationCache - Activation cache from forward pass for backpropagation
    */
-  private async updateWeights(gradientBatch: GradientBatch): Promise<void> {
+  private async updateWeights(
+    gradientBatch: GradientBatch,
+    activationCache: LayerActivationCache[]
+  ): Promise<void> {
     const layerIds = this.weightManager.getLayerIds();
 
     // Get current weights
@@ -833,10 +935,9 @@ export class GNNTrainer {
       return;
     }
 
-    // Create gradient map from gradient batch
-    // For now, we use a simplified approach where the embedding gradients
-    // are distributed to the layer weights based on the layer architecture
-    const gradients = this.distributeGradients(gradientBatch, currentWeights);
+    // Implements GAP-GNN-002: Use proper chain-rule backpropagation
+    // instead of heuristic gradient distribution
+    const gradients = this.computeBackwardPass(gradientBatch, activationCache);
 
     // Apply Adam optimizer
     const updatedWeights = applyAdamTo2DWeights(this.optimizer, currentWeights, gradients);
@@ -847,66 +948,76 @@ export class GNNTrainer {
       this.applyEWCRegularization(updatedWeights, currentWeights);
     }
 
-    // Update weight manager with new weights
+    // Implements TASK-WM-003, GAP-WM-001: Direct weight updates via new API
     for (const [layerId, weights] of updatedWeights) {
-      // Re-initialize with updated weights
-      const config = this.weightManager.getConfig(layerId);
-      if (config) {
-        // Clear and re-set weights (WeightManager doesn't have direct setter)
-        // This is a workaround - ideally WeightManager would have updateWeights()
-        this.weightManager.initializeWeights(layerId, {
-          ...config,
-          initialization: 'random', // Will be overwritten
-        });
-        // Manually set via internal access - this is a limitation
-        // In production, WeightManager should expose setWeights()
-      }
+      this.weightManager.setWeights(layerId, weights);
     }
   }
 
   /**
-   * Distribute embedding gradients to layer weights
-   * Maps the contrastive loss gradients to the GNN layer structure
+   * Implements GAP-GNN-002: Proper backpropagation via gnn-backprop.ts
+   *
+   * Computes weight gradients using chain rule through all GNN layers.
+   * Replaces the heuristic distributeGradients() that used hardcoded scales.
+   *
+   * Backpropagation order (reverse of forward pass):
+   * 1. Start with output gradient (dL/dOutput) from contrastive loss
+   * 2. For each layer in reverse order (layer3 -> layer2 -> layer1):
+   *    a. Call layer_backward() with activation cache
+   *    b. Store weight gradients (dW) for optimizer
+   *    c. Propagate input gradient (dx) to previous layer
+   *
+   * @param gradientBatch - Gradients from contrastive loss (dQuery is the output gradient)
+   * @param activationCache - Activation cache from forward pass, one per layer in forward order
+   * @returns Map of layerId to weight gradients for optimizer update
    */
-  private distributeGradients(
+  private computeBackwardPass(
     gradientBatch: GradientBatch,
-    currentWeights: Map<string, Float32Array[]>
+    activationCache: LayerActivationCache[]
   ): Map<string, Float32Array[]> {
-    const gradients = new Map<string, Float32Array[]>();
+    const weightGradients = new Map<string, Float32Array[]>();
 
-    // For each layer, compute gradient based on the embedding gradients
-    // This is a simplified distribution - in full implementation would
-    // use proper chain rule through all layers
-    for (const [layerId, weights] of currentWeights) {
-      const numRows = weights.length;
-      const numCols = weights[0]?.length ?? 0;
-
-      // Scale gradient by layer position
-      // Earlier layers get smaller gradients (gradient attenuation)
-      const layerScale = layerId.includes('layer1') ? 0.1 :
-                         layerId.includes('layer2') ? 0.3 :
-                         layerId.includes('layer3') ? 0.5 : 0.1;
-
-      const layerGradients: Float32Array[] = [];
-
-      for (let r = 0; r < numRows; r++) {
-        const rowGrad = new Float32Array(numCols);
-
-        // Distribute embedding gradients to weight rows
-        // Use the accumulated gradients from contrastive loss
-        const gradientSource = gradientBatch.dQuery;
-        for (let c = 0; c < numCols; c++) {
-          const gradIdx = (r * numCols + c) % gradientSource.length;
-          rowGrad[c] = gradientSource[gradIdx] * layerScale / numRows;
-        }
-
-        layerGradients.push(rowGrad);
-      }
-
-      gradients.set(layerId, layerGradients);
+    // Handle edge case: no activation cache (fallback to empty gradients)
+    if (!activationCache || activationCache.length === 0) {
+      logger.warn('computeBackwardPass called without activation cache, returning empty gradients');
+      return weightGradients;
     }
 
-    return gradients;
+    // Start with output gradient (dL/dOutput from contrastive loss)
+    let currentGradient = gradientBatch.dQuery;
+
+    // Reverse layer order for backprop (chain rule: work backwards through layers)
+    // activationCache is in forward order [layer1, layer2, layer3]
+    // We iterate backwards: layer3 -> layer2 -> layer1
+    for (let i = activationCache.length - 1; i >= 0; i--) {
+      const cache = activationCache[i];
+
+      // Validate cache entry has required data
+      if (!cache.input || !cache.weights || !cache.preActivation || !cache.postActivation) {
+        logger.warn('Incomplete activation cache for layer', { layerId: cache.layerId, index: i });
+        continue;
+      }
+
+      // Call layer_backward from gnn-backprop.ts
+      // This computes both weight gradients (dW) and input gradient (dx) using chain rule
+      const result = layer_backward(
+        currentGradient,
+        cache.input,
+        cache.weights,
+        cache.preActivation,
+        cache.postActivation,
+        'relu',  // Activation function (matches GNN config default)
+        true     // useResidual (matches GNN config default)
+      );
+
+      // Store weight gradients for this layer (used by optimizer)
+      weightGradients.set(cache.layerId, result.dW);
+
+      // Propagate gradient to previous layer (chain rule)
+      currentGradient = result.dx;
+    }
+
+    return weightGradients;
   }
 
   // Implements GAP-GNN-004: Load persisted EWC state
@@ -924,6 +1035,101 @@ export class GNNTrainer {
       // First run - no persisted state yet
       logger.debug('No EWC state to load', { error: error instanceof Error ? error.message : 'unknown' });
     }
+  }
+
+  /**
+   * Implements GAP-GNN-004: Flatten gradient history to layer-wise arrays
+   *
+   * Converts the gradient history (array of per-batch Maps) into the format
+   * expected by EWCRegularizer.updateFisher(), which needs an array of
+   * Map<string, Float32Array> where each entry represents gradients from one batch.
+   *
+   * The gradientHistory stores Map<string, Float32Array[]>[] (2D weight arrays),
+   * so we flatten each 2D array to 1D for Fisher computation.
+   *
+   * @returns Array of gradient maps suitable for Fisher computation
+   */
+  private flattenGradientHistoryToLayerArrays(): Map<string, Float32Array>[] {
+    // Each entry in gradientHistory is a Map<string, Float32Array[]> where
+    // Float32Array[] is per-row weights. We need to flatten each to Float32Array.
+    const result: Map<string, Float32Array>[] = [];
+
+    for (const batchGradients of this.gradientHistory) {
+      const flattenedBatch = new Map<string, Float32Array>();
+
+      for (const [layerId, gradients2D] of batchGradients) {
+        // gradients2D is Float32Array[] (2D) - flatten to 1D
+        const totalLen = gradients2D.reduce((sum, row) => sum + row.length, 0);
+        const flat = new Float32Array(totalLen);
+        let offset = 0;
+        for (const row of gradients2D) {
+          flat.set(row, offset);
+          offset += row.length;
+        }
+        flattenedBatch.set(layerId, flat);
+      }
+
+      result.push(flattenedBatch);
+    }
+
+    return result;
+  }
+
+  /**
+   * Implements GAP-GNN-004: Get flattened current weights for optimal snapshot
+   *
+   * Retrieves all weights from WeightManager and flattens them from 2D arrays
+   * to 1D Float32Arrays for storage as optimal weights reference.
+   *
+   * @returns Map of layerId to flattened weights
+   */
+  private getCurrentWeightsFlattened(): Map<string, Float32Array> {
+    const result = new Map<string, Float32Array>();
+
+    for (const layerId of this.weightManager.getLayerIds()) {
+      const weights = this.weightManager.getWeights(layerId);
+      if (weights && weights.length > 0) {
+        // Flatten 2D weights to 1D
+        const totalLength = weights.reduce((sum, row) => sum + row.length, 0);
+        const flat = new Float32Array(totalLength);
+        let offset = 0;
+        for (const row of weights) {
+          flat.set(row, offset);
+          offset += row.length;
+        }
+        result.set(layerId, flat);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Implements GAP-GNN-004: Save optimal weights to disk
+   *
+   * Persists the optimal weights snapshot using the EWC regularizer's
+   * saveFisher method (reused for consistency in serialization format).
+   *
+   * RULE-028: All learning state must be persisted
+   */
+  private async saveOptimalWeights(): Promise<void> {
+    await this.ewcRegularizer.saveFisher(this.optimalWeights, 'optimal-weights.json');
+  }
+
+  /**
+   * Implements GAP-GNN-004: Count total Fisher parameters
+   *
+   * Helper for logging Fisher update statistics.
+   *
+   * @param fisher - Fisher diagonal map
+   * @returns Total number of parameters with Fisher values
+   */
+  private countFisherParams(fisher: Map<string, Float32Array>): number {
+    let count = 0;
+    for (const arr of fisher.values()) {
+      count += arr.length;
+    }
+    return count;
   }
 
   /**

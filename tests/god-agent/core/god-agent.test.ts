@@ -18,12 +18,14 @@ import {
   godAgent,
   type GodAgentConfig,
 } from '../../../src/god-agent/core/god-agent.js';
+import { VECTOR_DIM } from '../../../src/god-agent/core/validation/constants.js';
 
 describe('GodAgent API Structure', () => {
   let agent: GodAgent;
 
   // Helper to create normalized embedding
-  const createEmbedding = (dim: number = 768): Float32Array => {
+  // TASK-VEC-001-007: Default dimension changed from 768 to VECTOR_DIM (1536)
+  const createEmbedding = (dim: number = VECTOR_DIM): Float32Array => {
     const arr = new Float32Array(dim);
     let sumSq = 0;
     for (let i = 0; i < dim; i++) {
@@ -59,9 +61,10 @@ describe('GodAgent API Structure', () => {
     });
 
     it('should accept custom configuration', () => {
+      // TASK-VEC-001-007: Use VECTOR_DIM constant
       const customConfig: GodAgentConfig = {
         vectorDB: {
-          dimensions: 768,
+          dimensions: VECTOR_DIM,
           metric: 'cosine',
         },
         graphDB: {
@@ -198,13 +201,13 @@ describe('GodAgent API Structure', () => {
       await expect(
         agent.store({
           content: 'test',
-          embedding: createEmbedding(768),
+          embedding: createEmbedding(VECTOR_DIM),
         })
       ).rejects.toThrow('not initialized');
     });
 
     it('should throw when calling query before initialization', async () => {
-      await expect(agent.query(createEmbedding(768))).rejects.toThrow(
+      await expect(agent.query(createEmbedding(VECTOR_DIM))).rejects.toThrow(
         'not initialized'
       );
     });
@@ -339,9 +342,10 @@ describe('GodAgent API Structure', () => {
 
   describe('Configuration', () => {
     it('should accept vector DB configuration', () => {
+      // TASK-VEC-001-007: Use VECTOR_DIM constant
       const config: GodAgentConfig = {
         vectorDB: {
-          dimensions: 768,
+          dimensions: VECTOR_DIM,
           metric: 'cosine',
           M: 32,
           efConstruction: 200,

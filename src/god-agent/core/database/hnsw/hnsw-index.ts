@@ -197,7 +197,7 @@ export class HNSWIndex {
   /**
    * Create a new HNSW index
    *
-   * @param dimension - Vector dimension (e.g., 768 for embeddings)
+   * @param dimension - Vector dimension (e.g., 1536 for OpenAI embeddings)
    * @param config - Optional HNSW configuration
    */
   constructor(dimension: number, config?: Partial<HNSWConfig>) {

@@ -18,6 +18,7 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -50,7 +51,7 @@ export class RealClusteredAttention implements IAttentionMechanism {
   private readonly Wo: Float32Array;
 
   constructor(config: ClusteredAttentionConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.numClusters = config.numClusters ?? 32;
     this.seed = config.seed ?? 42;

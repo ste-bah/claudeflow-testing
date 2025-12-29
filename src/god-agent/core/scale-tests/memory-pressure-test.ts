@@ -10,6 +10,7 @@
  */
 
 import { MemoryMonitor, type MemoryThreshold } from './utils/memory-monitor.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 
 // ==================== Types ====================
 
@@ -270,7 +271,7 @@ export class MemoryPressureTest {
    */
   private async simulateOperation(): Promise<void> {
     // Allocate small buffer
-    const buffer = new Float32Array(768);
+    const buffer = new Float32Array(VECTOR_DIM);
     for (let i = 0; i < buffer.length; i++) {
       buffer[i] = Math.random();
     }

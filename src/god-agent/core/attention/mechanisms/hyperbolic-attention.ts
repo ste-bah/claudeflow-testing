@@ -20,6 +20,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -69,7 +70,7 @@ export class RealHyperbolicAttention implements IAttentionMechanism {
    * Initialize Hyperbolic attention mechanism
    *
    * @param config Configuration options
-   * @param config.dimension Model dimension (default: 768)
+   * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
    * @param config.numHeads Number of attention heads (default: 8)
    * @param config.curvature Curvature of hyperbolic space (default: -1.0)
    * @param config.seed Random seed for initialization (optional)
@@ -83,7 +84,7 @@ export class RealHyperbolicAttention implements IAttentionMechanism {
     curvature?: number;
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.numHeads = config?.numHeads ?? 8;
     this.curvature = config?.curvature ?? -1.0;
 

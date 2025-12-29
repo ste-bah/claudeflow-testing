@@ -17,6 +17,7 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -25,7 +26,7 @@ import {
 } from '../utils/index.js';
 
 export interface SynthesizerAttentionConfig {
-  dimension?: number;      // Feature dimension (default: 768)
+  dimension?: number;      // Feature dimension (default: VECTOR_DIM=1536)
   numHeads?: number;       // Number of attention heads (default: 12)
   maxSeqLen?: number;      // Maximum sequence length for learned patterns (default: 512)
   bottleneck?: number;     // Bottleneck dimension (default: dimension / 2)
@@ -70,7 +71,7 @@ export class RealSynthesizerAttention implements IAttentionMechanism {
   private readonly rng: SeededRandom;
 
   constructor(config: SynthesizerAttentionConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.maxSeqLen = config.maxSeqLen ?? 512;
     this.bottleneck = config.bottleneck ?? Math.floor(this.dimension / 2);

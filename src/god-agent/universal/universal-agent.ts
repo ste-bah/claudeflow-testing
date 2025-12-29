@@ -40,6 +40,9 @@ const universalLogger = createComponentLogger('UniversalAgent', {
 // DESC: Episode injection for prior solutions (RULE-010: default window size 3)
 import { UCMDaemonClient, getUCMClient } from '../cli/ucm-daemon-client.js';
 
+// DAEMON-003: Core daemon client for EpisodeStore/GraphDB IPC
+import { CoreDaemonClient, getCoreDaemonClient } from '../cli/core-daemon-client.js';
+
 // DAI-001: Dynamic Agent Integration
 import {
   AgentRegistry,
@@ -107,6 +110,8 @@ export interface UniversalConfig {
   descThreshold?: number;
   /** DESC maximum episodes to inject (default: 3 per RULE-010) */
   descMaxEpisodes?: number;
+  /** Enable Core Daemon for EpisodeStore/GraphDB IPC (default: true) */
+  enableCoreDaemon?: boolean;
 }
 
 export interface Interaction {
@@ -380,6 +385,9 @@ export class UniversalAgent {
   // DESC: UCM Daemon client for episode injection (RULE-010)
   private ucmClient!: UCMDaemonClient;
 
+  // DAEMON-003: Core Daemon client for EpisodeStore/GraphDB IPC
+  private coreDaemonClient!: CoreDaemonClient;
+
   constructor(config: UniversalConfig = {}) {
     const storageDir = config.storageDir ?? '.agentdb/universal';
     const enablePersistence = config.enablePersistence ?? true;
@@ -398,6 +406,8 @@ export class UniversalAgent {
       enableDESC: config.enableDESC ?? true,
       descThreshold: config.descThreshold ?? 0.80,
       descMaxEpisodes: config.descMaxEpisodes ?? 3,
+      // DAEMON-003: Core daemon for EpisodeStore/GraphDB IPC (default: enabled)
+      enableCoreDaemon: config.enableCoreDaemon ?? true,
     };
 
     // Configure GodAgent with persistence enabled
@@ -563,6 +573,23 @@ export class UniversalAgent {
     } catch (error) {
       // Non-fatal: memory client is optional enhancement
       this.log(`MEM-001: Memory client initialization failed: ${error}`);
+    }
+
+    // DAEMON-003: Initialize Core Daemon client for EpisodeStore/GraphDB IPC
+    if (this.config.enableCoreDaemon !== false) {
+      try {
+        this.coreDaemonClient = getCoreDaemonClient();
+        const isHealthy = await this.coreDaemonClient.isHealthy();
+        if (isHealthy) {
+          this.log('DAEMON-003: Core daemon client connected');
+        } else {
+          this.log('DAEMON-003: Core daemon not healthy, will auto-start on first use');
+        }
+      } catch (error) {
+        // Non-fatal: core daemon is optional enhancement
+        this.log(`DAEMON-003: Core daemon client init failed: ${error}`);
+        this.coreDaemonClient = getCoreDaemonClient();
+      }
     }
 
     // DESC: Initialize UCM client for episode injection (RULE-010)

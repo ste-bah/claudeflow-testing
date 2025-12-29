@@ -12,7 +12,7 @@ import { createServiceHandler, type ServiceHandler } from '../service-registry.j
  * GNN service parameters
  */
 export interface IGNNEnhanceParams {
-  embedding: number[]; // 768D
+  embedding: number[]; // VECTOR_DIM (1536D)
   trajectoryGraph?: {
     nodes: Array<{
       id: string;
@@ -50,13 +50,13 @@ export function createGNNService(gnnEnhancer: GNNEnhancer): ServiceHandler {
       // Convert trajectory graph if provided
       const graph = trajectoryGraph
         ? {
-            nodes: trajectoryGraph.nodes.map((n) => ({
-              id: n.id,
-              embedding: new Float32Array(n.embedding),
-              metadata: n.metadata,
-            })),
-            edges: trajectoryGraph.edges,
-          }
+          nodes: trajectoryGraph.nodes.map((n) => ({
+            id: n.id,
+            embedding: new Float32Array(n.embedding),
+            metadata: n.metadata,
+          })),
+          edges: trajectoryGraph.edges,
+        }
         : undefined;
 
       const result = await gnnEnhancer.enhance(embeddingArray, graph);

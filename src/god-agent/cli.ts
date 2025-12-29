@@ -49,7 +49,7 @@ program
 
     const start = performance.now();
     for (let i = 0; i < iterations; i++) {
-      const embedding = new Float32Array(768).fill(Math.random());
+      const embedding = new Float32Array(1536).fill(Math.random());
       await agent.store({ content: `item-${i}`, embedding });
     }
     const elapsed = performance.now() - start;

@@ -89,7 +89,7 @@ class GNNCircuitBreaker {
   constructor(
     private readonly threshold: number,
     private readonly resetTimeout: number
-  ) {}
+  ) { }
 
   /**
    * Execute function with circuit breaker protection
@@ -253,7 +253,7 @@ export class GNNSearchAdapter {
   /**
    * Enhance embedding with GNN
    *
-   * @param embedding - Raw embedding (768D)
+   * @param embedding - Raw embedding (VECTOR_DIM, default 1536D)
    * @param query - Query string for graph context
    * @returns Enhanced embedding (1024D) or original on failure
    */

@@ -16,6 +16,7 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -27,7 +28,7 @@ import {
  * Configuration for Luna Attention
  */
 export interface LunaAttentionConfig {
-  /** Model dimension (default: 768) */
+  /** Model dimension (default: VECTOR_DIM=1536) */
   dimension?: number;
   /** Number of attention heads (default: 12) */
   numHeads?: number;
@@ -62,7 +63,7 @@ export class RealLunaAttention implements IAttentionMechanism {
   private readonly wo: Float32Array; // [dimension, dimension]
 
   constructor(config: LunaAttentionConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.projectedLength = config.projectedLength ?? 64;
 

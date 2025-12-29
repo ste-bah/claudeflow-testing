@@ -38,8 +38,8 @@ export {
 } from './vector-validation.js';
 
 // Retry utilities (TASK-ERR-004, RULE-072)
+export type { IRetryOptions } from './retry.js';
 export {
-  IRetryOptions,
   RetryExhaustedError,
   sleep,
   withRetry,

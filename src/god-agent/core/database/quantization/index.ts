@@ -7,10 +7,9 @@
  * Provides Int8 vector quantization for memory-efficient storage.
  */
 
-// Types
-export {
+// Types (interfaces)
+export type {
   QuantizationConfig,
-  DEFAULT_QUANTIZATION_CONFIG,
   QuantizedVector,
   QuantizedVectorBatch,
   QuantizationMemoryStats,
@@ -18,6 +17,9 @@ export {
   StoredQuantizedVector,
   QuantizedSearchResult,
 } from './quantization-types.js';
+
+// Values (constants)
+export { DEFAULT_QUANTIZATION_CONFIG } from './quantization-types.js';
 
 // Core quantizer
 export { Int8Quantizer } from './int8-quantizer.js';

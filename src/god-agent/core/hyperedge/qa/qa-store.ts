@@ -66,7 +66,7 @@ export class QAStore {
    * Create a Q&A hyperedge
    *
    * @param question - Question text
-   * @param questionEmbedding - 768-dimensional question embedding
+   * @param questionEmbedding - VECTOR_DIM (1536)-dimensional question embedding
    * @param answers - Array of answers with confidence and evidence
    * @param evidence - Optional additional evidence node IDs
    * @returns Created Q&A hyperedge
@@ -190,7 +190,7 @@ export class QAStore {
   /**
    * Find Q&A hyperedges by question similarity
    *
-   * @param queryEmbedding - Query embedding (768D)
+   * @param queryEmbedding - Query embedding (VECTOR_DIM = 1536D)
    * @param k - Number of results to return (default: 10)
    * @returns Top-k Q&A hyperedges ranked by similarity
    *

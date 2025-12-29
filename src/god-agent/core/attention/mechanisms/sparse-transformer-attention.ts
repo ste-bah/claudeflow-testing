@@ -18,6 +18,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -70,7 +71,7 @@ export class RealSparseTransformerAttention implements IAttentionMechanism {
    * Initialize Sparse Transformer attention mechanism
    *
    * @param config Configuration options
-   * @param config.dimension Model dimension (default: 768)
+   * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
    * @param config.numHeads Number of attention heads (default: 8)
    * @param config.stride Strided attention interval (default: 16)
    * @param config.localSize Local attention window size (default: 16)
@@ -86,7 +87,7 @@ export class RealSparseTransformerAttention implements IAttentionMechanism {
     localSize?: number;
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.numHeads = config?.numHeads ?? 8;
     this.stride = config?.stride ?? 16;
     this.localSize = config?.localSize ?? 16;

@@ -13,6 +13,7 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -21,7 +22,7 @@ import {
 } from '../utils/index.js';
 
 export interface MegaAttentionConfig {
-  dimension?: number;      // Hidden dimension (default: 768)
+  dimension?: number;      // Hidden dimension (default: VECTOR_DIM=1536)
   numHeads?: number;       // Number of heads (default: 1, MEGA uses single-head)
   emaAlpha?: number;       // EMA decay factor (default: 0.9, range: 0-1)
   seed?: number;           // Random seed for reproducibility
@@ -47,7 +48,7 @@ export class RealMegaAttention implements IAttentionMechanism {
   private emaState: Float32Array | null = null;
 
   constructor(config?: MegaAttentionConfig) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.numHeads = config?.numHeads ?? 1;
     this.emaAlpha = config?.emaAlpha ?? 0.9;
 

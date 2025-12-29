@@ -19,10 +19,11 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf } from '../utils/index.js';
 
 export interface AFTAttentionConfig {
-  dimension?: number;    // Feature dimension (default: 768)
+  dimension?: number;    // Feature dimension (default: VECTOR_DIM=1536)
   numHeads?: number;     // Number of attention heads (default: 12)
   maxSeqLen?: number;    // Maximum sequence length for position bias (default: 512)
   seed?: number;         // Random seed for reproducibility
@@ -47,7 +48,7 @@ export class RealAFTAttention implements IAttentionMechanism {
   private positionBias: Float32Array;
 
   constructor(config: AFTAttentionConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.maxSeqLen = config.maxSeqLen ?? 512;
     this.headDim = this.dimension / this.numHeads;

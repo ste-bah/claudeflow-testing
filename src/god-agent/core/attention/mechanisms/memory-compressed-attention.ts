@@ -17,6 +17,7 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -52,7 +53,7 @@ export class RealMemoryCompressedAttention implements IAttentionMechanism {
   private readonly Wo: Float32Array;
 
   constructor(config: MemoryCompressedAttentionConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.compressionFactor = config.compressionFactor ?? 4;
 

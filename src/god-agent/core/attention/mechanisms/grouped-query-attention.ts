@@ -19,6 +19,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -78,7 +79,7 @@ export class RealGroupedQueryAttention implements IAttentionMechanism {
    * Initialize Grouped-Query Attention mechanism
    *
    * @param config Configuration options
-   * @param config.dimension Model dimension (default: 768)
+   * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
    * @param config.numHeads Number of query heads (default: 8)
    * @param config.numKVHeads Number of key-value heads (default: 2)
    * @param config.seed Random seed for deterministic initialization (optional)
@@ -92,7 +93,7 @@ export class RealGroupedQueryAttention implements IAttentionMechanism {
     numKVHeads?: number;
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.numHeads = config?.numHeads ?? 8;
     this.numKVHeads = config?.numKVHeads ?? 2;
 
@@ -378,6 +379,6 @@ export class RealGroupedQueryAttention implements IAttentionMechanism {
    */
   getParameterCount(): number {
     return 2 * this.dimension * this.dimension +
-           2 * this.dimension * this.numKVHeads * this.headDim;
+      2 * this.dimension * this.numKVHeads * this.headDim;
   }
 }

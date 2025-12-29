@@ -6,11 +6,15 @@
  * Constitution: RULE-008, RULE-046, RULE-085
  */
 
-// Core connection exports
-export {
-  DatabaseConnection,
+// Core connection exports (types)
+export type {
   IDatabaseConnection,
   DatabaseConfig,
+} from './connection.js';
+
+// Core connection exports (values)
+export {
+  DatabaseConnection,
   getDatabaseConnection,
   closeDatabaseConnection,
   hasConnection,
@@ -21,20 +25,32 @@ export {
 export { EpisodeDAO } from './dao/episode-dao.js';
 
 // Cache exports (TASK-DESC-005: LRU cache with eviction)
-export {
-  LRUCache,
+export type {
   ILRUCacheMetrics,
   EvictionCallback,
   SizeCalculator,
+} from './cache/lru-cache.js';
+
+export {
+  LRUCache,
   createEpisodeSizeCalculator,
 } from './cache/lru-cache.js';
 
 // HNSW exports (TASK-PERF-001: O(log n) vector search)
+// Types
+export type {
+  HNSWConfig,
+  HNSWSearchResult,
+  SerializedIndex,
+  SerializedNode,
+  CandidateEntry,
+  DistanceFunction,
+} from './hnsw/index.js';
+
+// Values
 export {
   HNSWIndex,
   HNSWNode,
-  HNSWConfig,
-  HNSWSearchResult,
   DEFAULT_HNSW_CONFIG,
   cosineDistance,
   euclideanDistance,
@@ -45,15 +61,20 @@ export {
 } from './hnsw/index.js';
 
 // Quantization exports (TASK-PERF-002: 4x memory reduction)
-export {
-  Int8Quantizer,
-  QuantizedVectorStorage,
+// Types
+export type {
   QuantizationConfig,
-  DEFAULT_QUANTIZATION_CONFIG,
   QuantizedVector,
   QuantizedVectorBatch,
   QuantizationMemoryStats,
   QuantizationQualityMetrics,
   StoredQuantizedVector,
   QuantizedSearchResult,
+} from './quantization/index.js';
+
+// Values
+export {
+  Int8Quantizer,
+  QuantizedVectorStorage,
+  DEFAULT_QUANTIZATION_CONFIG,
 } from './quantization/index.js';

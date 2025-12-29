@@ -22,6 +22,7 @@ import {
   EpisodeValidationError,
   EpisodeStorageError,
 } from '../../../../src/god-agent/core/episode/episode-types.js';
+import { VECTOR_DIM } from '../../../../src/god-agent/core/validation/constants.js';
 
 describe('EpisodeStore', () => {
   let store: EpisodeStore;
@@ -51,10 +52,11 @@ describe('EpisodeStore', () => {
 
   /**
    * Helper to create a test embedding
+   * TASK-VEC-001-007: Use VECTOR_DIM constant for embedding dimensions
    */
   function createTestEmbedding(seed = 0): Float32Array {
-    const embedding = new Float32Array(768);
-    for (let i = 0; i < 768; i++) {
+    const embedding = new Float32Array(VECTOR_DIM);
+    for (let i = 0; i < VECTOR_DIM; i++) {
       embedding[i] = Math.sin(i + seed) * 0.1;
     }
     return embedding;
@@ -62,10 +64,11 @@ describe('EpisodeStore', () => {
 
   /**
    * Helper to create similar embeddings
+   * TASK-VEC-001-007: Use VECTOR_DIM constant for embedding dimensions
    */
   function createSimilarEmbedding(base: Float32Array, variance = 0.01): Float32Array {
-    const similar = new Float32Array(768);
-    for (let i = 0; i < 768; i++) {
+    const similar = new Float32Array(VECTOR_DIM);
+    for (let i = 0; i < VECTOR_DIM; i++) {
       similar[i] = base[i] + (Math.random() - 0.5) * variance;
     }
     return similar;
@@ -152,7 +155,7 @@ describe('EpisodeStore', () => {
       expect(episode!.startTime).toBe(1000000);
       expect(episode!.endTime).toBe(2000000);
       expect(episode!.embedding).toBeInstanceOf(Float32Array);
-      expect(episode!.embedding.length).toBe(768);
+      expect(episode!.embedding.length).toBe(VECTOR_DIM);
       expect(episode!.metadata.agentType).toBe('optimizer');
       expect(episode!.metadata.outcome).toBe('partial');
       expect(episode!.metadata.tags).toEqual(['optimization']);

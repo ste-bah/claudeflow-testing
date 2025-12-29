@@ -8,6 +8,8 @@
  * - Automatic fallback triggering
  */
 
+import { VECTOR_DIM } from '../validation/constants.js';
+
 // ==================== Types ====================
 
 /**
@@ -223,7 +225,7 @@ export class FallbackValidator {
    * Test L2 normalization equivalence
    */
   async testL2Normalize(): Promise<EquivalenceTest> {
-    const testVector = this.generateTestVector(768);
+    const testVector = this.generateTestVector(VECTOR_DIM);
 
     try {
       const nativeStart = performance.now();
@@ -268,8 +270,8 @@ export class FallbackValidator {
    * Test cosine similarity equivalence
    */
   async testCosineSimilarity(): Promise<EquivalenceTest> {
-    const a = this.generateNormalizedVector(768);
-    const b = this.generateNormalizedVector(768);
+    const a = this.generateNormalizedVector(VECTOR_DIM);
+    const b = this.generateNormalizedVector(VECTOR_DIM);
 
     try {
       const nativeStart = performance.now();
@@ -314,8 +316,8 @@ export class FallbackValidator {
    * Test dot product equivalence
    */
   async testDotProduct(): Promise<EquivalenceTest> {
-    const a = this.generateTestVector(768);
-    const b = this.generateTestVector(768);
+    const a = this.generateTestVector(VECTOR_DIM);
+    const b = this.generateTestVector(VECTOR_DIM);
 
     try {
       const nativeStart = performance.now();
@@ -360,8 +362,8 @@ export class FallbackValidator {
    * Test Euclidean distance equivalence
    */
   async testEuclideanDistance(): Promise<EquivalenceTest> {
-    const a = this.generateTestVector(768);
-    const b = this.generateTestVector(768);
+    const a = this.generateTestVector(VECTOR_DIM);
+    const b = this.generateTestVector(VECTOR_DIM);
 
     try {
       const nativeStart = performance.now();
@@ -409,9 +411,9 @@ export class FallbackValidator {
     // Create test vectors and query
     const vectors = Array.from({ length: 100 }, (_, i) => ({
       id: `v${i}`,
-      vector: this.generateNormalizedVector(768),
+      vector: this.generateNormalizedVector(VECTOR_DIM),
     }));
-    const query = this.generateNormalizedVector(768);
+    const query = this.generateNormalizedVector(VECTOR_DIM);
     const k = 10;
 
     try {
@@ -476,7 +478,7 @@ export class FallbackValidator {
       // Try operation - should fall back to JS
       const result = await this.executeWithFallback(
         'l2Normalize',
-        [this.generateTestVector(768)]
+        [this.generateTestVector(VECTOR_DIM)]
       );
 
       return {

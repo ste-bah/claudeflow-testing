@@ -27,6 +27,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -87,7 +88,7 @@ export class RealHyenaAttention implements IAttentionMechanism {
    * Initialize Hyena attention mechanism
    *
    * @param config Configuration options
-   * @param config.dimension Model dimension (default: 768)
+   * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
    * @param config.numHeads Number of attention heads (default: 8)
    * @param config.order Hyena recursion depth (default: 2)
    * @param config.filterSize Internal filter MLP size (default: 64)
@@ -102,7 +103,7 @@ export class RealHyenaAttention implements IAttentionMechanism {
     filterSize?: number;
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.numHeads = config?.numHeads ?? 8;
     this.order = config?.order ?? 2;
     this.filterSize = config?.filterSize ?? 64;

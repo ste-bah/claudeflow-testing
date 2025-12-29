@@ -10,7 +10,7 @@
  * - Template-based retrieval of successful reasoning patterns
  * - Hypergraph-based causal reasoning with multi-cause support
  * - Unified reasoning interface with 4 modes (pattern-match, causal-inference, contextual, hybrid)
- * - GNN-enhanced embeddings (768D → 1024D)
+ * - GNN-enhanced embeddings (1536D → 1024D)
  * - Trajectory tracking for Sona feedback
  *
  * Performance targets:

@@ -27,6 +27,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -78,7 +79,7 @@ export class RealRWKVAttention implements IAttentionMechanism {
    * Initialize RWKV attention mechanism
    *
    * @param config Configuration options
-   * @param config.dimension Model dimension (default: 768)
+   * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
    * @param config.seed Random seed for initialization (optional)
    *
    * @throws Error if dimension < 1
@@ -87,7 +88,7 @@ export class RealRWKVAttention implements IAttentionMechanism {
     dimension?: number;
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
 
     // Validate configuration
     if (this.dimension < 1) {
@@ -274,7 +275,7 @@ export class RealRWKVAttention implements IAttentionMechanism {
       const mixed = new Float32Array(this.dimension);
       for (let d = 0; d < this.dimension; d++) {
         mixed[d] = this.timeMix[d] * currentToken[d] +
-                   (1 - this.timeMix[d]) * prevToken[d];
+          (1 - this.timeMix[d]) * prevToken[d];
       }
 
       // Step 2: Compute r, k, v from mixed input

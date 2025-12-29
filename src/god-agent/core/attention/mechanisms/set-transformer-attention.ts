@@ -19,6 +19,7 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -27,7 +28,7 @@ import {
 } from '../utils/index.js';
 
 export interface SetTransformerConfig {
-  dimension?: number;         // Embedding dimension (default: 768)
+  dimension?: number;         // Embedding dimension (default: VECTOR_DIM=1536)
   numHeads?: number;          // Number of attention heads (default: 12)
   numInducingPoints?: number; // Number of inducing points m (default: 32)
   seed?: number;              // Random seed for initialization
@@ -197,7 +198,7 @@ export class RealSetTransformerAttention implements IAttentionMechanism {
   private readonly mab2: MultiheadAttentionBlock; // X → H
 
   constructor(config: SetTransformerConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.numInducingPoints = config.numInducingPoints ?? 32;
 

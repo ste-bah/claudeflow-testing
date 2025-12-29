@@ -20,6 +20,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf } from '../utils/index.js';
 
 export class RealAxialAttention implements IAttentionMechanism {
@@ -43,7 +44,7 @@ export class RealAxialAttention implements IAttentionMechanism {
     axisSize?: number;   // √N for reshaping (default: inferred)
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 64;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.numHeads = config?.numHeads ?? 4;
 
     // Validate heads divide dimension evenly

@@ -20,7 +20,7 @@ export interface INode {
   id: NodeID;
   type: string;
   properties: Record<string, unknown>;
-  embedding?: number[]; // Optional 768D embedding
+  embedding?: number[]; // Optional VECTOR_DIM (1536D) embedding
   createdAt: number; // Unix timestamp
   updatedAt: number;
 }
@@ -73,7 +73,7 @@ export interface IIntegrityReport {
   orphanNodes: NodeID[];
   invalidHyperedges: HyperedgeID[]; // Hyperedges with < 3 nodes
   expiredTemporalHyperedges: HyperedgeID[];
-  dimensionMismatches: NodeID[]; // Nodes with embeddings != 768D
+  dimensionMismatches: NodeID[]; // Nodes with embeddings != VECTOR_DIM (1536D)
   isValid: boolean;
   timestamp: number;
 }
@@ -84,7 +84,7 @@ export interface GraphDBOptions {
   enablePersistence?: boolean; // Enable JSON file persistence
   lockTimeout?: number; // File lock timeout in ms (default: 5000)
   validateDimensions?: boolean; // Validate embedding dimensions (default: true)
-  expectedDimensions?: number; // Expected embedding dimensions (default: 768)
+  expectedDimensions?: number; // Expected embedding dimensions (default: VECTOR_DIM = 1536)
 }
 
 // Node Creation Options

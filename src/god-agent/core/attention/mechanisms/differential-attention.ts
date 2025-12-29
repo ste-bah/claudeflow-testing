@@ -28,6 +28,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -79,7 +80,7 @@ export class RealDifferentialAttention implements IAttentionMechanism {
    * Initialize Differential attention mechanism
    *
    * @param config Configuration options
-   * @param config.dimension Model dimension (default: 768)
+   * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
    * @param config.numHeads Number of attention heads (default: 8)
    * @param config.lambda Initial subtraction coefficient (default: 0.8)
    * @param config.seed Random seed for initialization (optional)
@@ -93,7 +94,7 @@ export class RealDifferentialAttention implements IAttentionMechanism {
     lambda?: number;
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.numHeads = config?.numHeads ?? 8;
     this.lambda = config?.lambda ?? 0.8;
 

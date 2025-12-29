@@ -35,6 +35,7 @@ import {
   createDaemonError,
   generateClientId,
 } from './daemon-types.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 import { EpisodeStore } from '../episode/episode-store.js';
 import { GraphDB } from '../graph-db/graph-db.js';
 import { FallbackGraph } from '../graph-db/fallback-graph.js';
@@ -65,7 +66,7 @@ export interface DaemonServerConfig extends Partial<Omit<DaemonConfig, 'socketPa
   storageDir?: string;
   /** Enable verbose logging for store operations */
   verbose?: boolean;
-  /** Expected embedding dimension for GraphDB (default: 768) */
+  /** Expected embedding dimension for GraphDB (default: VECTOR_DIM = 1536) */
   embeddingDimension?: number;
   /** Data directory for GraphDB (default: .agentdb/graphs) */
   graphDataDir?: string;
@@ -77,7 +78,7 @@ export interface DaemonServerConfig extends Partial<Omit<DaemonConfig, 'socketPa
 const DEFAULT_STORAGE_CONFIG = {
   storageDir: '.god-agent',
   verbose: false,
-  embeddingDimension: 768,
+  embeddingDimension: VECTOR_DIM,
   graphDataDir: '.agentdb/graphs',
 };
 

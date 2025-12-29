@@ -2,10 +2,12 @@
  * God Agent End-to-End Integration Test
  *
  * Verifies the complete store → query → learn cycle works
+ * TASK-VEC-001-007: Updated to use VECTOR_DIM constant
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { GodAgent } from '../../src/god-agent/core/god-agent.js';
+import { VECTOR_DIM } from '../../src/god-agent/core/validation/constants.js';
 
 describe('God Agent E2E Integration', () => {
   let agent: GodAgent;
@@ -27,12 +29,12 @@ describe('God Agent E2E Integration', () => {
   });
 
   function createRandomEmbedding(): Float32Array {
-    const embedding = new Float32Array(768);
-    for (let i = 0; i < 768; i++) {
+    const embedding = new Float32Array(VECTOR_DIM);
+    for (let i = 0; i < VECTOR_DIM; i++) {
       embedding[i] = (Math.random() - 0.5) * 2;
     }
     const norm = Math.sqrt(embedding.reduce((s, v) => s + v * v, 0));
-    for (let i = 0; i < 768; i++) {
+    for (let i = 0; i < VECTOR_DIM; i++) {
       embedding[i] /= norm;
     }
     return embedding;

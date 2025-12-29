@@ -73,7 +73,7 @@ export class RealDilatedAttention implements IAttentionMechanism {
 
     // Validate initialization
     if (hasNaNOrInf(this.wQuery) || hasNaNOrInf(this.wKey) ||
-        hasNaNOrInf(this.wValue) || hasNaNOrInf(this.wOutput)) {
+      hasNaNOrInf(this.wValue) || hasNaNOrInf(this.wOutput)) {
       throw new Error('Weight initialization produced NaN or Inf values');
     }
   }

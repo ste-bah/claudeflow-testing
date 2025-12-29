@@ -23,6 +23,7 @@
  */
 
 import { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import {
   SeededRandom,
   xavierUniform,
@@ -73,7 +74,7 @@ export class RealMambaAttention implements IAttentionMechanism {
    * Initialize Mamba attention mechanism
    *
    * @param config Configuration options
-   * @param config.dimension Model dimension (default: 768)
+   * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
    * @param config.stateSize SSM state dimension (default: 16)
    * @param config.expandFactor Inner dimension expansion (default: 2)
    * @param config.seed Random seed for initialization (optional)
@@ -86,7 +87,7 @@ export class RealMambaAttention implements IAttentionMechanism {
     expandFactor?: number;
     seed?: number;
   }) {
-    this.dimension = config?.dimension ?? 768;
+    this.dimension = config?.dimension ?? VECTOR_DIM;
     this.stateSize = config?.stateSize ?? 16;
     this.expandFactor = config?.expandFactor ?? 2;
 

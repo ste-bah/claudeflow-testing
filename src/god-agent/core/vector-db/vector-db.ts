@@ -19,7 +19,7 @@ import { METRICS } from '../observability/metrics.js';
 
 /**
  * High-level vector database with automatic validation
- * Enforces 768D, L2-normalized vectors at all insertion boundaries
+ * Enforces VECTOR_DIM (1536D), L2-normalized vectors at all insertion boundaries
  * Automatically selects optimal HNSW backend (native Rust or JavaScript fallback)
  */
 export class VectorDB {
@@ -122,7 +122,7 @@ export class VectorDB {
    * Insert a vector into the database
    * Automatically generates a UUID for the vector
    *
-   * @param vector - Vector to insert (must be 768D, L2-normalized, finite)
+   * @param vector - Vector to insert (must be VECTOR_DIM (1536D), L2-normalized, finite)
    * @returns The generated vector ID
    * @throws GraphDimensionMismatchError if dimension mismatch
    * @throws NotNormalizedError if not L2-normalized
@@ -187,7 +187,7 @@ export class VectorDB {
    * Insert a vector with a specific ID
    *
    * @param id - Vector identifier
-   * @param vector - Vector to insert (must be 768D, L2-normalized, finite)
+   * @param vector - Vector to insert (must be VECTOR_DIM (1536D), L2-normalized, finite)
    * @throws GraphDimensionMismatchError if dimension mismatch
    * @throws NotNormalizedError if not L2-normalized
    * @throws InvalidVectorValueError if contains NaN/Infinity
@@ -322,7 +322,7 @@ export class VectorDB {
   /**
    * Search for k nearest neighbors
    *
-   * @param query - Query vector (must be 768D, L2-normalized, finite)
+   * @param query - Query vector (must be VECTOR_DIM (1536D), L2-normalized, finite)
    * @param k - Number of neighbors to return (default: 10)
    * @param includeVectors - Whether to include vector data in results (default: false)
    * @returns Array of search results, sorted by similarity (best first)

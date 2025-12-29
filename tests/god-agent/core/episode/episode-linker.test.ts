@@ -22,6 +22,7 @@ import {
   EpisodeValidationError,
   EpisodeStorageError,
 } from '../../../../src/god-agent/core/episode/episode-types.js';
+import { VECTOR_DIM } from '../../../../src/god-agent/core/validation/constants.js';
 
 describe('EpisodeLinker', () => {
   let store: EpisodeStore;
@@ -63,8 +64,9 @@ describe('EpisodeLinker', () => {
     agentType = 'test-agent',
     description = 'Test episode'
   ): Promise<string> {
-    const embedding = new Float32Array(768);
-    for (let i = 0; i < 768; i++) {
+    // TASK-VEC-001-007: Use VECTOR_DIM constant for embedding dimensions
+    const embedding = new Float32Array(VECTOR_DIM);
+    for (let i = 0; i < VECTOR_DIM; i++) {
       embedding[i] = Math.random();
     }
 
@@ -375,8 +377,9 @@ describe('EpisodeLinker', () => {
 
     it('should retrieve semantic context (similar episodes)', async () => {
       // Create episodes with similar embeddings
-      const baseEmbedding = new Float32Array(768);
-      for (let i = 0; i < 768; i++) {
+      // TASK-VEC-001-007: Use VECTOR_DIM constant for embedding dimensions
+      const baseEmbedding = new Float32Array(VECTOR_DIM);
+      for (let i = 0; i < VECTOR_DIM; i++) {
         baseEmbedding[i] = Math.random();
       }
 

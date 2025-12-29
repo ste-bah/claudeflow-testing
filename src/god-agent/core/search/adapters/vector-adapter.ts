@@ -33,7 +33,7 @@ export class VectorSourceAdapter {
   /**
    * Execute vector similarity search
    *
-   * @param embedding - Query embedding (768 dimensions)
+   * @param embedding - Query embedding (VECTOR_DIM dimensions, default 1536)
    * @param topK - Maximum results to return
    * @param timeoutMs - Timeout in milliseconds
    * @returns Source execution result

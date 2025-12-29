@@ -10,6 +10,7 @@
 
 import { PlatformDetector } from './platform-detector.js';
 import { RuntimeType, RUNTIME_PERFORMANCE } from './runtime-selector.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 
 // ==================== Types ====================
 
@@ -97,7 +98,7 @@ export interface PerformanceComparatorConfig {
 export const DEFAULT_COMPARATOR_CONFIG: PerformanceComparatorConfig = {
   iterations: 1000,
   warmupIterations: 100,
-  dimensions: 768,
+  dimensions: VECTOR_DIM,
   verbose: false,
 };
 

@@ -240,8 +240,8 @@ export class RealBlockSparseAttention implements IAttentionMechanism {
 
         // Exclude self and adjacent blocks
         if (randBlockIdx !== blockIdx &&
-            randBlockIdx !== blockIdx - 1 &&
-            randBlockIdx !== blockIdx + 1) {
+          randBlockIdx !== blockIdx - 1 &&
+          randBlockIdx !== blockIdx + 1) {
           randomBlocks.add(randBlockIdx);
         }
         attempts++;

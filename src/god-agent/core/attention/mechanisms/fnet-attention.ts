@@ -14,9 +14,10 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 
 export interface FNetConfig {
-  dimension?: number;      // Feature dimension (default: 768)
+  dimension?: number;      // Feature dimension (default: VECTOR_DIM=1536)
   numHeads?: number;       // For compatibility with interface (ignored in FNet)
   seed?: number;           // For potential future use
   useApproximateDFT?: boolean; // Use faster approximation (default: false)
@@ -46,7 +47,7 @@ export class RealFNetAttention implements IAttentionMechanism {
   private lastSeqLen?: number;
 
   constructor(config: FNetConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.useApproximateDFT = config.useApproximateDFT ?? false;
 

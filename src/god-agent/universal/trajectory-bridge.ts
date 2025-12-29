@@ -94,7 +94,7 @@ export class TrajectoryBridge {
    *
    * @param input - User input text
    * @param mode - Agent mode (code, research, write, general)
-   * @param embedding - Query embedding vector (768 dimensions)
+   * @param embedding - Query embedding vector (1536 dimensions, VECTOR_DIM)
    * @returns Trajectory result with ID and patterns
    */
   async createTrajectoryFromInteraction(

@@ -13,16 +13,18 @@ export { HNSWIndex } from './hnsw-index.js';
 // Node structure
 export { HNSWNode } from './hnsw-node.js';
 
-// Types
-export {
+// Types (interfaces - ESM requires `export type`)
+export type {
   HNSWConfig,
   HNSWSearchResult,
-  DEFAULT_HNSW_CONFIG,
   SerializedIndex,
   SerializedNode,
   CandidateEntry,
   DistanceFunction,
 } from './hnsw-types.js';
+
+// Values (constants)
+export { DEFAULT_HNSW_CONFIG } from './hnsw-types.js';
 
 // Distance functions
 export {

@@ -17,10 +17,11 @@
  */
 
 import type { IAttentionMechanism } from '../attention-types.js';
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf } from '../utils/index.js';
 
 export interface MultiHeadLatentAttentionConfig {
-  dimension?: number;      // Model dimension (default: 768)
+  dimension?: number;      // Model dimension (default: VECTOR_DIM=1536)
   numHeads?: number;       // Number of attention heads (default: 12)
   numLatents?: number;     // Number of latent queries (default: 64)
   seed?: number;          // Random seed for initialization
@@ -45,7 +46,7 @@ export class RealMultiHeadLatentAttention implements IAttentionMechanism {
   private readonly Wo: Float32Array; // [dimension × dimension]
 
   constructor(config: MultiHeadLatentAttentionConfig = {}) {
-    this.dimension = config.dimension ?? 768;
+    this.dimension = config.dimension ?? VECTOR_DIM;
     this.numHeads = config.numHeads ?? 12;
     this.numLatents = config.numLatents ?? 64;
     this.seed = config.seed ?? 42;

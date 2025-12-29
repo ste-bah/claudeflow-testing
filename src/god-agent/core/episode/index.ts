@@ -7,21 +7,32 @@
  * Exports episode storage functionality for episodic memory management.
  */
 
+// Types
+export type {
+  EpisodeStoreOptions,
+} from './episode-store.js';
+
+export type {
+  IndexStats,
+} from './time-index.js';
+
+export type {
+  LinkType,
+  EpisodeContext,
+  LinkDirection,
+} from './episode-linker.js';
+
+// Values
 export {
   EpisodeStore,
-  type EpisodeStoreOptions,
 } from './episode-store.js';
 
 export {
   TimeIndex,
-  type IndexStats,
 } from './time-index.js';
 
 export {
   EpisodeLinker,
-  type LinkType,
-  type EpisodeContext,
-  type LinkDirection,
 } from './episode-linker.js';
 
 export {
