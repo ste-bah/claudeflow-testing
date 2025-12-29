@@ -84,8 +84,8 @@ class TrainingWorker {
   private startTime: number = 0;
 
   constructor(data: WorkerData) {
-    // Deserialize trajectories
-    this.trajectories = data.trajectories.map(t => ({
+    // Deserialize trajectories with defensive null check
+    this.trajectories = (data.trajectories ?? []).map(t => ({
       id: t.id,
       embedding: new Float32Array(t.embedding),
       enhancedEmbedding: t.enhancedEmbedding ? new Float32Array(t.enhancedEmbedding) : undefined,

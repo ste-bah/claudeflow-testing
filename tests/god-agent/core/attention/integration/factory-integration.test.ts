@@ -66,8 +66,8 @@ describe('AttentionFactory Integration', () => {
       const mech1 = factory.create('standard', { seed: 42 }) as RealStandardAttention;
       const mech2 = factory.create('standard', { seed: 42 }) as RealStandardAttention;
 
-      // Create identical inputs
-      const query = new Float32Array(768);
+      // Create identical inputs (default dimension is VECTOR_DIM=1536)
+      const query = new Float32Array(1536);
       query.fill(1.0);
 
       const output1 = mech1.forward(query, query, query);
@@ -233,11 +233,11 @@ describe('AttentionFactory Integration', () => {
 
     it('should report correct parameter count', () => {
       const mechanism = factory.create('standard', {
-        dimension: 768,
+        dimension: 1536,
       }) as RealStandardAttention;
 
-      // 4 weight matrices (Wq, Wk, Wv, Wo) each of size [768 × 768]
-      const expectedParams = 4 * 768 * 768;
+      // 4 weight matrices (Wq, Wk, Wv, Wo) each of size [1536 × 1536]
+      const expectedParams = 4 * 1536 * 1536;
 
       expect(mechanism.getParameterCount()).toBe(expectedParams);
     });

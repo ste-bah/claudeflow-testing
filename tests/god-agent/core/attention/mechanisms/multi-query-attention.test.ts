@@ -145,17 +145,18 @@ describe('RealMultiQueryAttention - ANTI-009 Fix', () => {
 
   describe('MQA-Specific Properties', () => {
     it('should have fewer parameters than standard attention', () => {
-      const mqa = new RealMultiQueryAttention({ dimension: 768, numHeads: 8 });
+      const mqa = new RealMultiQueryAttention({ dimension: 1536, numHeads: 12 });
 
-      // Standard: 4 × dim² = 4 × 768² = 2,359,296
-      const standardParams = 4 * 768 * 768;
+      // Standard: 4 × dim² = 4 × 1536² = 9,437,184
+      const standardParams = 4 * 1536 * 1536;
 
-      // MQA: 2×dim² + 2×dim×headDim = 2×768² + 2×768×96 = 1,179,648 + 147,456 = 1,327,104
+      // MQA: 2×dim² + 2×dim×headDim = 2×1536² + 2×1536×128 = 4,718,592 + 393,216 = 5,111,808
+      // headDim = dim/numHeads = 1536/12 = 128
       const mqaParams = mqa.getParameterCount();
 
       // MQA should have significantly fewer parameters
       expect(mqaParams).toBeLessThan(standardParams);
-      expect(mqaParams).toBe(2 * 768 * 768 + 2 * 768 * 96);
+      expect(mqaParams).toBe(2 * 1536 * 1536 + 2 * 1536 * 128);
     });
 
     it('should share K,V across all query heads', () => {

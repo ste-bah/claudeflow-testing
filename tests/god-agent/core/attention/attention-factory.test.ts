@@ -162,7 +162,7 @@ describe('AttentionMechanismRegistry', () => {
 
     it('should create mechanism with config', () => {
       // Use dimension divisible by numHeads (12) for RealFlashAttention
-      const mechanism = registry.createMechanism('flash', { dimension: 768 });
+      const mechanism = registry.createMechanism('flash', { dimension: 1536 });
       expect(mechanism.name).toBe('flash');
     });
 
@@ -443,19 +443,19 @@ describe('DualSpaceAttention', () => {
 
   describe('Forward Pass', () => {
     it('should compute attention output', () => {
-      const query = new Float32Array(768).fill(0.5);
-      const key = new Float32Array(768).fill(0.5);
-      const value = new Float32Array(768).fill(1.0);
+      const query = new Float32Array(1536).fill(0.5);
+      const key = new Float32Array(1536).fill(0.5);
+      const value = new Float32Array(1536).fill(1.0);
 
       const output = dualSpace.forward(query, key, value);
 
-      expect(output.length).toBe(768);
+      expect(output.length).toBe(1536);
     });
 
     it('should produce weighted combination', () => {
-      const query = new Float32Array(768).fill(0.5);
-      const key = new Float32Array(768).fill(0.5);
-      const value = new Float32Array(768).fill(1.0);
+      const query = new Float32Array(1536).fill(0.5);
+      const key = new Float32Array(1536).fill(0.5);
+      const value = new Float32Array(1536).fill(1.0);
 
       // With alpha=0.5, output should be average of both mechanisms
       const output = dualSpace.forward(query, key, value);

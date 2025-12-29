@@ -40,7 +40,7 @@ describe('RealAxialAttention', () => {
 
     it('should initialize with default configuration', () => {
       const defaultAttn = new RealAxialAttention();
-      expect(defaultAttn.getParameterCount()).toBe(4 * 64 * 64);
+      expect(defaultAttn.getParameterCount()).toBe(4 * 1536 * 1536);
     });
 
     it('should use custom seed for reproducibility', () => {

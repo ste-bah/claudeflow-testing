@@ -19,7 +19,7 @@ describe('RealGlobalAttention', () => {
     const attention = new RealGlobalAttention();
 
     expect(attention.name).toBe('global');
-    expect(attention.getParameterCount()).toBe(4 * 768 * 768);
+    expect(attention.getParameterCount()).toBe(4 * 1536 * 1536);
   });
 
   it('should initialize with custom configuration', () => {

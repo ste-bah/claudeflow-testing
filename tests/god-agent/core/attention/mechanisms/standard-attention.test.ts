@@ -85,12 +85,11 @@ function arraysEqual(a: Float32Array, b: Float32Array, tolerance: number = 1e-6)
 
 describe('RealStandardAttention - Constructor', () => {
   describe('Default Configuration', () => {
-    it('should create with default dimension (768) and heads (12)', () => {
-      // Note: Production default is 768, not VECTOR_DIM. Tests that need VECTOR_DIM
-      // explicitly pass dimension: VECTOR_DIM in config.
+    it('should create with default dimension (VECTOR_DIM=1536) and heads (12)', () => {
+      // Note: Production default is VECTOR_DIM=1536 since VEC-001 migration.
       const attention = new RealStandardAttention();
       expect(attention.name).toBe('standard');
-      expect(attention.getParameterCount()).toBe(4 * 768 * 768);
+      expect(attention.getParameterCount()).toBe(4 * 1536 * 1536);
     });
 
     it('should be named "standard"', () => {
@@ -445,10 +444,10 @@ describe('RealStandardAttention - Numerical Stability', () => {
 
 describe('RealStandardAttention - Parameter Count', () => {
   describe('Formula: 4 x dim^2', () => {
-    it('should return 4 x dim^2 for default dimension (768)', () => {
-      // Note: Production default is 768, not VECTOR_DIM
+    it('should return 4 x dim^2 for default dimension (VECTOR_DIM=1536)', () => {
+      // Note: Production default is VECTOR_DIM=1536 since VEC-001 migration
       const attention = new RealStandardAttention();
-      expect(attention.getParameterCount()).toBe(4 * 768 * 768);
+      expect(attention.getParameterCount()).toBe(4 * 1536 * 1536);
     });
 
     it('should return correct count for dimension 64', () => {

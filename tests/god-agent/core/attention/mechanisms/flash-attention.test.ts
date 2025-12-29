@@ -18,7 +18,7 @@ describe('RealFlashAttention', () => {
     it('should initialize with default config', () => {
       const attention = new RealFlashAttention();
       expect(attention.name).toBe('flash');
-      expect(attention.getParameterCount()).toBe(4 * 768 * 768);
+      expect(attention.getParameterCount()).toBe(4 * 1536 * 1536);
     });
 
     it('should initialize with custom config', () => {

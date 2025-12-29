@@ -42,7 +42,7 @@ describe('RealSetTransformerAttention', () => {
       const attention2 = new RealSetTransformerAttention({ seed: 123 });
 
       const seqLen = 4;
-      const dim = 768;
+      const dim = 1536;  // VECTOR_DIM since VEC-001 migration
       const input = new Float32Array(seqLen * dim);
       for (let i = 0; i < input.length; i++) {
         input[i] = Math.sin(i * 0.01);
@@ -91,16 +91,16 @@ describe('RealSetTransformerAttention', () => {
   describe('Parameter Count', () => {
     it('should calculate correct parameter count for default config', () => {
       const attention = new RealSetTransformerAttention({
-        dimension: 768,
+        dimension: 1536,
         numHeads: 12,
         numInducingPoints: 32,
       });
 
-      // Inducing points: 32 × 768 = 24,576
-      // MAB1 (4 projections): 4 × 768² = 2,359,296
-      // MAB2 (4 projections): 4 × 768² = 2,359,296
-      // Total: 4,743,168
-      const expected = 32 * 768 + 2 * (4 * 768 * 768);
+      // Inducing points: 32 × 1536 = 49,152
+      // MAB1 (4 projections): 4 × 1536² = 9,437,184
+      // MAB2 (4 projections): 4 × 1536² = 9,437,184
+      // Total: 18,923,520
+      const expected = 32 * 1536 + 2 * (4 * 1536 * 1536);
       expect(attention.getParameterCount()).toBe(expected);
     });
 

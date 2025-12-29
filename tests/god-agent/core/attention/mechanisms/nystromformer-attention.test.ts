@@ -10,7 +10,7 @@ describe('RealNystromformerAttention', () => {
     it('should initialize with default config', () => {
       const attention = new RealNystromformerAttention();
       expect(attention.name).toBe('nystromformer');
-      expect(attention.getParameterCount()).toBe(4 * 768 * 768);
+      expect(attention.getParameterCount()).toBe(4 * 1536 * 1536);
     });
 
     it('should initialize with custom config', () => {
@@ -355,7 +355,7 @@ describe('RealNystromformerAttention', () => {
         { dimension: 64, expected: 4 * 64 * 64 },
         { dimension: 128, expected: 4 * 128 * 128 },
         { dimension: 256, expected: 4 * 256 * 256 },
-        { dimension: 768, expected: 4 * 768 * 768 },
+        { dimension: 1536, expected: 4 * 1536 * 1536 },
       ];
 
       for (const config of configs) {

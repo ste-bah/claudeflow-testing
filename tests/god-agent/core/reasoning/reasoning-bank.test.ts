@@ -781,7 +781,8 @@ describe('ReasoningBank', () => {
       });
 
       // Mock addCausalLink to throw error
-      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      // Note: The logger uses console.log for all output (including warnings) via ConsoleLogHandler
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const addCausalLinkSpy = vi.spyOn(causalMemory, 'addCausalLink')
         .mockRejectedValue(new Error('Simulated causal link error'));
 
@@ -802,14 +803,17 @@ describe('ReasoningBank', () => {
 
       await expect(reasoningBank.provideFeedback(feedback)).resolves.not.toThrow();
 
-      // Verify warning was logged
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Hyperedge creation failed'),
-        expect.any(Error)
+      // Verify warning was logged (logger outputs JSON via console.log)
+      const logCalls = consoleLogSpy.mock.calls.map(call => call[0]);
+      const hyperedgeWarning = logCalls.find(log =>
+        typeof log === 'string' &&
+        log.includes('Hyperedge creation failed') &&
+        log.includes('"level":"WARN"')
       );
+      expect(hyperedgeWarning).toBeDefined();
 
       addCausalLinkSpy.mockRestore();
-      consoleWarnSpy.mockRestore();
+      consoleLogSpy.mockRestore();
     });
 
     it('should create nodes before creating links', async () => {

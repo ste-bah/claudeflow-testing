@@ -405,13 +405,13 @@ describe('RealMemoryCompressedAttention', () => {
   describe('Parameter Count', () => {
     it('should return correct parameter count', () => {
       const attention = new RealMemoryCompressedAttention({
-        dimension: 768,
+        dimension: 1536,
         numHeads: 12,
         compressionFactor: 4,
       });
 
       // 4 projection matrices: Wq, Wk, Wv, Wo
-      const expected = 4 * 768 * 768;
+      const expected = 4 * 1536 * 1536;
       expect(attention.getParameterCount()).toBe(expected);
     });
 
