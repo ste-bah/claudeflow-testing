@@ -40,7 +40,7 @@ export interface TrajectoryResult {
 export interface FeedbackResult {
   /** Number of weight updates applied */
   weightUpdates: number;
-  /** Whether a new pattern was auto-created (quality > 0.8) */
+  /** Whether a new pattern was auto-created (quality >= 0.7 per RULE-035) */
   patternCreated: boolean;
   /** Route/domain that was updated */
   route?: string;
@@ -147,7 +147,7 @@ export class TrajectoryBridge {
    * This triggers:
    * 1. ReasoningBank.provideFeedback() for trajectory update
    * 2. SonaEngine weight updates via EWC++ regularization
-   * 3. Auto-pattern creation if quality > 0.8 (per PRD FR-11)
+   * 3. Auto-pattern creation if quality >= 0.7 (per RULE-035)
    *
    * @param trajectoryId - Trajectory to provide feedback for
    * @param quality - Quality score 0-1

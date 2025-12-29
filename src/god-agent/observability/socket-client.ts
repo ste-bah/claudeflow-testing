@@ -13,6 +13,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { IActivityEvent } from './types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+
+const logger = createComponentLogger('SocketClient', {
+  minLevel: LogLevel.INFO,
+  handlers: [new ConsoleLogHandler()]
+});
 
 // =============================================================================
 // Interfaces
@@ -99,7 +105,7 @@ export class SocketClient implements ISocketClient {
     // Check if socket exists
     if (!fs.existsSync(this.socketPath)) {
       if (this.verbose) {
-        console.warn(`[SocketClient] Socket does not exist: ${this.socketPath}`);
+        logger.warn('Socket does not exist', { socketPath: this.socketPath });
       }
       return false;
     }
@@ -111,7 +117,7 @@ export class SocketClient implements ISocketClient {
       const timeout = setTimeout(() => {
         socket.destroy();
         if (this.verbose) {
-          console.warn('[SocketClient] Connection timeout');
+          logger.warn('Connection timeout', { timeoutMs: this.CONNECTION_TIMEOUT_MS });
         }
         resolve(false);
       }, this.CONNECTION_TIMEOUT_MS);
@@ -122,7 +128,7 @@ export class SocketClient implements ISocketClient {
         this.connected = true;
 
         if (this.verbose) {
-          console.log('[SocketClient] Connected to daemon');
+          logger.info('Connected to daemon', { socketPath: this.socketPath });
         }
 
         // Flush queued events
@@ -134,7 +140,7 @@ export class SocketClient implements ISocketClient {
       socket.on('error', (error) => {
         clearTimeout(timeout);
         if (this.verbose) {
-          console.error('[SocketClient] Connection error:', error);
+          logger.error('Connection error', error);
         }
         resolve(false);
       });
@@ -143,7 +149,7 @@ export class SocketClient implements ISocketClient {
         this.connected = false;
         this.socket = null;
         if (this.verbose) {
-          console.log('[SocketClient] Disconnected from daemon');
+          logger.info('Disconnected from daemon');
         }
       });
     });
@@ -167,7 +173,7 @@ export class SocketClient implements ISocketClient {
       this.socket.write(line);
     } catch (error) {
       if (this.verbose) {
-        console.error('[SocketClient] Send error:', error);
+        logger.error('Send error', error instanceof Error ? error : new Error(String(error)));
       }
 
       // Queue event and mark as disconnected
@@ -186,7 +192,7 @@ export class SocketClient implements ISocketClient {
       this.connected = false;
 
       if (this.verbose) {
-        console.log('[SocketClient] Disconnected');
+        logger.info('Disconnected');
       }
     }
   }
@@ -219,7 +225,7 @@ export class SocketClient implements ISocketClient {
       // Queue full - drop oldest event (FIFO)
       this.queue.shift();
       if (this.verbose) {
-        console.warn('[SocketClient] Queue full, dropping oldest event');
+        logger.warn('Queue full, dropping oldest event', { maxQueueSize: this.MAX_QUEUE_SIZE });
       }
     }
 
@@ -235,7 +241,7 @@ export class SocketClient implements ISocketClient {
     }
 
     if (this.verbose) {
-      console.log(`[SocketClient] Flushing ${this.queue.length} queued events`);
+      logger.info('Flushing queued events', { queueSize: this.queue.length });
     }
 
     const eventsToSend = [...this.queue];

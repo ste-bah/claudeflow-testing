@@ -61,7 +61,7 @@ async function getSocketClient(): Promise<SocketClient | null> {
       socketClient = new SocketClient({ verbose: false });
       await socketClient.connect();
     } catch {
-      // Non-blocking - observability is optional
+      // INTENTIONAL: Non-blocking - observability socket connection is optional for CLI operation
       return null;
     }
   }
@@ -78,7 +78,7 @@ function emitPipelineEvent(event: Omit<IActivityEvent, 'id' | 'timestamp'>): voi
         ...event,
       };
       client.send(fullEvent);
-    } catch { /* ignore */ }
+    } catch { /* INTENTIONAL: Best-effort event emission - observability failures must not block CLI */ }
   });
 }
 
@@ -221,7 +221,7 @@ async function determineStyleProfile(profileId?: string): Promise<string> {
       return activeProfile.metadata.id;
     }
   } catch {
-    // StyleProfileManager may not have profiles yet
+    // INTENTIONAL: StyleProfileManager may not have profiles yet - fallback to default is valid
   }
 
   // Fall back to a default identifier
@@ -247,7 +247,7 @@ async function loadStyleProfile(profileId: string): Promise<StoredStyleProfile> 
       return activeProfile;
     }
   } catch {
-    // StyleProfileManager may fail if no profiles exist
+    // INTENTIONAL: StyleProfileManager may fail if no profiles exist - fallback to default profile
   }
 
   // Return minimal default profile
@@ -390,7 +390,7 @@ async function tryReadAgentOutput(
       const content = await fs.readFile(filePath, 'utf-8');
       return { content, outputPath: filePath };
     } catch {
-      // File doesn't exist at this path, try next
+      // INTENTIONAL: File doesn't exist at this path - try next location in search order
     }
   }
 
@@ -848,7 +848,7 @@ async function commandComplete(
     try {
       output = JSON.parse(options.result);
     } catch {
-      // JSON parse error - still complete agent, but warn
+      // INTENTIONAL: JSON parse error - still complete agent, but warn user (logged via console.error)
       console.error(JSON.stringify({
         warning: 'Invalid JSON in --result parameter; agent marked complete without output'
       }));
@@ -860,6 +860,7 @@ async function commandComplete(
       try {
         output = JSON.parse(content);
       } catch {
+        // INTENTIONAL: JSON parse error in file - warn user but still complete agent
         console.error(JSON.stringify({
           warning: 'Invalid JSON in file; agent marked complete without output'
         }));

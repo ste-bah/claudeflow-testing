@@ -115,7 +115,11 @@ export class PatternSourceAdapter {
       if (error instanceof Error && error.message.includes('not initialized')) {
         return [];
       }
-      throw error;
+      // RULE-070: Re-throw with operation context
+      throw new Error(
+        `Pattern search failed (minConfidence: ${minConfidence}): ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 

@@ -188,9 +188,10 @@ export const CACHE_CONFIG = {
 
 /**
  * Test edge cases
+ * TASK-VEC-001-008: Updated invalidDimensions to exclude 1536 (now valid)
  */
 export const EDGE_CASES = {
-  invalidDimensions: [0, 256, 768, 2048],
+  invalidDimensions: [0, 256, 768, 2048], // 768 is now invalid, 1536 is the correct dimension
   extremeValues: [1e10, -1e10, Number.MAX_VALUE, Number.MIN_VALUE],
   specialFloats: [NaN, Infinity, -Infinity],
   boundaryValues: [0, 1, -1, 0.5, -0.5]

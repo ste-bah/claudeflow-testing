@@ -71,6 +71,8 @@ export type {
   IReasoningStep,
   ReasoningStepAction,
   IStepCaptureConfig,
+  // RULE-031 interface for dependency injection
+  ISonaEngine,
 } from './sona-types.js';
 
 // ===== STEP CAPTURE SERVICE (SPEC-SON-001) =====

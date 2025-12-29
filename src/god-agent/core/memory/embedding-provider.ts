@@ -119,7 +119,11 @@ export class LocalEmbeddingProvider implements IEmbeddingProvider {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(`Embedding request timed out after ${this.timeout}ms`);
       }
-      throw error;
+      // RULE-070: Re-throw with embedding context
+      throw new Error(
+        `Embedding generation failed for text (${text.length} chars): ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 
@@ -211,7 +215,11 @@ export class LocalEmbeddingProvider implements IEmbeddingProvider {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(`Batch embedding request timed out after ${this.timeout}ms`);
       }
-      throw error;
+      // RULE-070: Re-throw with batch embedding context
+      throw new Error(
+        `Batch embedding failed for ${texts.length} texts: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 

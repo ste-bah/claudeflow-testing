@@ -3,6 +3,7 @@
  *
  * Implements: TASK-VDB-002
  * Referenced by: vector-db.bench.ts
+ * TASK-VEC-001-008: Updated to use VECTOR_DIM (1536D)
  *
  * Generates random L2-normalized vectors for benchmarking purposes.
  */
@@ -11,8 +12,9 @@ import { normL2, VECTOR_DIM } from '../../../src/god-agent/core/validation/index
 
 /**
  * Generate a single random L2-normalized vector
+ * TASK-VEC-001-008: Default dimension is now 1536 via VECTOR_DIM constant
  *
- * @param dimension - Vector dimension (default: 768)
+ * @param dimension - Vector dimension (default: VECTOR_DIM = 1536)
  * @returns L2-normalized Float32Array
  */
 export function generateRandomVector(dimension: number = VECTOR_DIM): Float32Array {
@@ -29,9 +31,10 @@ export function generateRandomVector(dimension: number = VECTOR_DIM): Float32Arr
 
 /**
  * Generate multiple random L2-normalized vectors
+ * TASK-VEC-001-008: Default dimension is now 1536 via VECTOR_DIM constant
  *
  * @param count - Number of vectors to generate
- * @param dimension - Vector dimension (default: 768)
+ * @param dimension - Vector dimension (default: VECTOR_DIM = 1536)
  * @returns Array of L2-normalized Float32Arrays
  */
 export function generateTestVectors(
@@ -50,9 +53,10 @@ export function generateTestVectors(
 /**
  * Generate test vectors with a fixed seed for reproducibility
  * Uses a simple LCG (Linear Congruential Generator) for deterministic randomness
+ * TASK-VEC-001-008: Default dimension is now 1536 via VECTOR_DIM constant
  *
  * @param count - Number of vectors to generate
- * @param dimension - Vector dimension (default: 768)
+ * @param dimension - Vector dimension (default: VECTOR_DIM = 1536)
  * @param seed - Random seed (default: 42)
  * @returns Array of L2-normalized Float32Arrays
  */

@@ -84,7 +84,7 @@ export interface ITaskAnalysis {
   /** Required capabilities inferred from task */
   readonly requiredCapabilities: readonly string[];
 
-  /** Task embedding vector (768-dim, L2-normalized) */
+  /** Task embedding vector (VECTOR_DIM (1536), L2-normalized) */
   readonly embedding: Float32Array;
 
   /** Whether task requires multiple steps/stages */
@@ -128,7 +128,7 @@ export interface IAgentCapability {
   /** Tools available to this agent */
   readonly tools: readonly string[];
 
-  /** Capability embedding vector (768-dim, L2-normalized) */
+  /** Capability embedding vector (VECTOR_DIM (1536), L2-normalized) */
   readonly embedding: Float32Array;
 
   /** Historical success rate (0-1) */

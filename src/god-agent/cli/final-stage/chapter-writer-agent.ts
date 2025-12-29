@@ -35,6 +35,12 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { getStyleProfileManager } from '../../universal/style-profile.js';
 import { StyleAnalyzer } from '../../universal/style-analyzer.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../core/observability/index.js';
+
+const logger = createComponentLogger('ChapterWriterAgent', {
+  minLevel: LogLevel.INFO,
+  handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 
 /**
  * Supported phdresearch agent types for chapter writing
@@ -287,15 +293,15 @@ export class ChapterWriterAgent {
     if (this.styleProfileId) {
       // Load full style profile from AgentDB by ID
       styleReqs = await this.loadStyleProfile();
-      console.log(`[ChapterWriter] Using style profile: ${this.styleProfileId}`);
+      logger.info('Using style profile', { styleProfileId: this.styleProfileId });
     } else if (style) {
       // Use passed style characteristics
       styleReqs = this.formatStyleRequirements(style);
-      console.log('[ChapterWriter] Using passed style characteristics');
+      logger.info('Using passed style characteristics');
     } else {
       // Use defaults
       styleReqs = this.getDefaultStyleRequirements();
-      console.warn('[ChapterWriter] No style profile - using UK English academic defaults');
+      logger.warn('No style profile - using UK English academic defaults');
     }
 
     // Generate the full prompt for the agent
@@ -307,7 +313,7 @@ export class ChapterWriterAgent {
 
     // Dynamically select the appropriate agent based on chapter title
     const selectedAgent = getAgentForChapter(chapter.title);
-    console.log(`[ChapterWriterAgent] Chapter "${chapter.title}" mapped to agent: ${selectedAgent}`);
+    logger.info('Chapter mapped to agent', { chapterTitle: chapter.title, agent: selectedAgent });
 
     return {
       chapterNumber: chapter.number,
@@ -372,7 +378,7 @@ export class ChapterWriterAgent {
    */
   private async loadStyleProfile(): Promise<string> {
     if (!this.styleProfileId) {
-      console.warn('[ChapterWriter] No style profile ID - using defaults');
+      logger.warn('No style profile ID - using defaults');
       return this.getDefaultStyleRequirements();
     }
 
@@ -381,14 +387,14 @@ export class ChapterWriterAgent {
       const profile = styleManager.getProfile(this.styleProfileId);
 
       if (profile?.characteristics) {
-        console.log(`[ChapterWriter] Loaded style profile: ${this.styleProfileId}`);
+        logger.info('Loaded style profile', { styleProfileId: this.styleProfileId });
         return this.formatStyleRequirements(profile.characteristics);
       }
     } catch (error) {
-      console.error(`[ChapterWriter] Failed to load style profile ${this.styleProfileId}:`, error);
+      logger.error('Failed to load style profile', error instanceof Error ? error : new Error(String(error)), { styleProfileId: this.styleProfileId });
     }
 
-    console.warn('[ChapterWriter] Falling back to default style requirements');
+    logger.warn('Falling back to default style requirements');
     return this.getDefaultStyleRequirements();
   }
 
@@ -478,7 +484,7 @@ export class ChapterWriterAgent {
     const warnings: string[] = [];
     let tokensUsed = 0;
 
-    console.log(`[ChapterWriter] Basic concatenation for Chapter ${chapter.number} (use generateSynthesisPrompt for LLM synthesis)`);
+    logger.info('Basic concatenation (use generateSynthesisPrompt for LLM synthesis)', { chapterNumber: chapter.number });
 
     // Calculate word targets per section
     const wordsPerSection = Math.floor(chapter.wordTarget / chapter.sections.length);

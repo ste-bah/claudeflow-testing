@@ -16,6 +16,7 @@
 import { writeFile, readFile, rename, mkdir, readdir, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
+import { getObservabilityBus } from '../observability/bus.js';
 import type {
   TrajectoryID,
   PatternID,
@@ -73,6 +74,7 @@ import {
   AUTO_PATTERN_QUALITY_THRESHOLD,
   WEIGHT_FILE_VERSION,
 } from './sona-utils.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 
 /**
  * Simple mutex for weight update concurrency control
@@ -301,6 +303,23 @@ export class SonaEngine {
     // 9. Reset rollback state if progressed (TECH-TRJ-001)
     this.resetRollbackStateIfProgressed();
 
+    // 10. Emit observability event (TASK-OBS-003)
+    const bus = getObservabilityBus();
+    const elapsedMs = performance.now() - startTime;
+    bus.emit({
+      component: 'sona',
+      operation: 'sona_trajectory_created',
+      status: 'success',
+      durationMs: elapsedMs,
+      metadata: {
+        trajectoryId,
+        route,
+        patternCount: patterns.length,
+        contextCount: context.length,
+        totalTrajectories: this.metrics.totalTrajectories,
+      },
+    });
+
     return trajectoryId;
   }
 
@@ -368,6 +387,22 @@ export class SonaEngine {
     this.metrics.totalTrajectories++;
     this.metrics.trajectoriesByRoute[route] = (this.metrics.trajectoriesByRoute[route] || 0) + 1;
     this.metrics.lastUpdated = Date.now();
+
+    // Emit observability event (TASK-OBS-003)
+    const bus = getObservabilityBus();
+    bus.emit({
+      component: 'sona',
+      operation: 'sona_trajectory_created',
+      status: 'success',
+      metadata: {
+        trajectoryId,
+        route,
+        patternCount: patterns.length,
+        contextCount: context.length,
+        totalTrajectories: this.metrics.totalTrajectories,
+        bridged: true, // Indicates this was bridged from TrajectoryTracker
+      },
+    });
   }
 
   /**
@@ -678,7 +713,7 @@ export class SonaEngine {
           if (patternId) {
             console.log(
               `[SonaEngine] Auto-created pattern ${patternId} from high-quality trajectory ` +
-                `${trajectoryId} (no prior patterns - bootstrap)`
+              `${trajectoryId} (no prior patterns - bootstrap)`
             );
             patternAutoCreated = true;
           }
@@ -687,12 +722,32 @@ export class SonaEngine {
         }
       }
 
+      const elapsedMs = performance.now() - startTime;
+
+      // Emit observability event for feedback on empty-pattern trajectory (TASK-OBS-003)
+      const bus = getObservabilityBus();
+      bus.emit({
+        component: 'sona',
+        operation: 'sona_feedback_received',
+        status: 'success',
+        durationMs: elapsedMs,
+        metadata: {
+          trajectoryId,
+          quality,
+          route: trajectory.route,
+          patternsUpdated: 0,
+          reward: 0,
+          patternAutoCreated,
+          emptyPatterns: true,
+        },
+      });
+
       return {
         trajectoryId,
         patternsUpdated: 0,
         reward: 0,
         patternAutoCreated,
-        elapsedMs: performance.now() - startTime,
+        elapsedMs,
       };
     }
 
@@ -809,6 +864,44 @@ export class SonaEngine {
         console.warn(`provideFeedback() took ${elapsedMs.toFixed(2)}ms, exceeds 15ms target`);
       }
 
+      // 14. Emit observability events (TASK-OBS-003)
+      const bus = getObservabilityBus();
+
+      // Emit feedback received event
+      bus.emit({
+        component: 'sona',
+        operation: 'sona_feedback_received',
+        status: 'success',
+        durationMs: elapsedMs,
+        metadata: {
+          trajectoryId,
+          quality,
+          route: trajectory.route,
+          patternsUpdated,
+          reward: trajectoryReward,
+          patternAutoCreated,
+          lScore: options.lScore ?? 1.0,
+        },
+      });
+
+      // Emit weight update event if patterns were updated
+      if (patternsUpdated > 0) {
+        bus.emit({
+          component: 'sona',
+          operation: 'sona_weight_update',
+          status: 'success',
+          durationMs: elapsedMs,
+          metadata: {
+            trajectoryId,
+            route: trajectory.route,
+            patternsUpdated,
+            averageWeight: this.calculateAverageRouteWeight(trajectory.route),
+            learningRate: this.config.learningRate,
+            regularization: this.config.regularization,
+          },
+        });
+      }
+
       return {
         trajectoryId,
         patternsUpdated,
@@ -819,6 +912,21 @@ export class SonaEngine {
     } finally {
       release(); // Release mutex
     }
+  }
+
+  /**
+   * Calculate average weight for a route (for observability)
+   */
+  private calculateAverageRouteWeight(route: Route): number {
+    const routeWeights = this.weights.get(route);
+    if (!routeWeights || routeWeights.size === 0) {
+      return 0;
+    }
+    let sum = 0;
+    for (const weight of routeWeights.values()) {
+      sum += weight;
+    }
+    return sum / routeWeights.size;
   }
 
   /**
@@ -878,16 +986,21 @@ export class SonaEngine {
     const targetPath = path ?? this.weightsFilePath;
 
     try {
-      // 1. Ensure directory exists
+      // 1. Flush trajectory stream manager to prevent data loss (TRAJ-001 fix)
+      if (this.streamManager) {
+        await this.streamManager.flush();
+      }
+
+      // 2. Ensure directory exists
       const dir = dirname(targetPath);
       if (!existsSync(dir)) {
         await mkdir(dir, { recursive: true });
       }
 
-      // 2. Serialize weights to binary format
+      // 3. Serialize weights to binary format
       const serialized = this.serializeWeightsBinary();
 
-      // 3. Write to temp file + rename (atomic write)
+      // 4. Write to temp file + rename (atomic write)
       const tempPath = `${targetPath}.tmp`;
       await writeFile(tempPath, serialized);
       await rename(tempPath, targetPath);
@@ -1235,12 +1348,29 @@ export class SonaEngine {
     const checkpointId = this.getMostRecentCheckpointId();
 
     // 9. Check performance target
-    if (this.config.trackPerformance) {
-      const elapsedMs = performance.now() - startTime;
-      if (elapsedMs > 5) {
-        console.warn(`checkDrift() took ${elapsedMs.toFixed(2)}ms, exceeds 5ms target`);
-      }
+    const elapsedMs = performance.now() - startTime;
+    if (this.config.trackPerformance && elapsedMs > 5) {
+      console.warn(`checkDrift() took ${elapsedMs.toFixed(2)}ms, exceeds 5ms target`);
     }
+
+    // 10. Emit observability event for drift detection (TASK-OBS-003)
+    const bus = getObservabilityBus();
+    bus.emit({
+      component: 'sona',
+      operation: 'sona_drift_detected',
+      status: status === 'REJECT' ? 'error' : status === 'ALERT' ? 'warning' : 'success',
+      durationMs: elapsedMs,
+      metadata: {
+        drift,
+        status,
+        alertThreshold: this.config.driftAlertThreshold,
+        rejectThreshold: this.config.driftRejectThreshold,
+        checkpointId,
+        autoRollback,
+        vectorDimension: currentWeightsVector.length,
+        similarity,
+      },
+    });
 
     return {
       currentWeights: currentWeightsVector,
@@ -1321,12 +1451,29 @@ export class SonaEngine {
     this.resetRollbackStateIfProgressed();
 
     // 13. Check performance target
-    if (this.config.trackPerformance) {
-      const elapsedMs = performance.now() - startTime;
-      if (elapsedMs > 50) {
-        console.warn(`createCheckpoint() took ${elapsedMs.toFixed(2)}ms, exceeds 50ms target`);
-      }
+    const elapsedMs = performance.now() - startTime;
+    if (this.config.trackPerformance && elapsedMs > 50) {
+      console.warn(`createCheckpoint() took ${elapsedMs.toFixed(2)}ms, exceeds 50ms target`);
     }
+
+    // 14. Emit observability event for checkpoint creation (TASK-OBS-003)
+    const bus = getObservabilityBus();
+    bus.emit({
+      component: 'sona',
+      operation: 'sona_checkpoint_created',
+      status: 'success',
+      durationMs: elapsedMs,
+      metadata: {
+        checkpointId,
+        reason,
+        isBaseline,
+        drift: driftMetrics.drift,
+        trajectoriesProcessed,
+        averageQuality,
+        totalCheckpoints: this.checkpoints.size,
+        totalCheckpointsCreated: this.metrics.checkpointsCreated,
+      },
+    });
 
     return checkpointId;
   }
@@ -1401,6 +1548,22 @@ export class SonaEngine {
       // Update metrics
       this.metrics.rollbacksTriggered++;
 
+      // Emit observability event for baseline rollback (TASK-OBS-003)
+      const elapsedMs = performance.now() - startTime;
+      const bus = getObservabilityBus();
+      bus.emit({
+        component: 'sona',
+        operation: 'sona_rollback_triggered',
+        status: 'warning',
+        durationMs: elapsedMs,
+        metadata: {
+          checkpointId: null,
+          rollbackType: 'baseline',
+          reason: 'no_checkpoint_available',
+          rollbackCount: this.metrics.rollbacksTriggered,
+        },
+      });
+
       return;
     }
 
@@ -1427,12 +1590,27 @@ export class SonaEngine {
     this.metrics.rollbacksTriggered++;
 
     // 9. Check performance target
-    if (this.config.trackPerformance) {
-      const elapsedMs = performance.now() - startTime;
-      if (elapsedMs > 100) {
-        console.warn(`rollbackToCheckpoint() took ${elapsedMs.toFixed(2)}ms, exceeds 100ms target`);
-      }
+    const elapsedMs = performance.now() - startTime;
+    if (this.config.trackPerformance && elapsedMs > 100) {
+      console.warn(`rollbackToCheckpoint() took ${elapsedMs.toFixed(2)}ms, exceeds 100ms target`);
     }
+
+    // 10. Emit observability event for rollback (TASK-OBS-003)
+    const bus = getObservabilityBus();
+    bus.emit({
+      component: 'sona',
+      operation: 'sona_rollback_triggered',
+      status: 'success',
+      durationMs: elapsedMs,
+      metadata: {
+        checkpointId: checkpoint.id,
+        checkpointTimestamp: checkpoint.timestamp,
+        checkpointDrift: checkpoint.drift,
+        checkpointReason: checkpoint.metadata.reason,
+        rollbackCount: this.metrics.rollbacksTriggered,
+        rollbackType: 'checkpoint',
+      },
+    });
 
     console.info(`Weights rolled back to checkpoint: ${checkpoint.id}`);
   }
@@ -1549,7 +1727,7 @@ export class SonaEngine {
           await unlink(filePath);
         }
       } catch {
-        // Ignore file deletion errors
+        // INTENTIONAL: Checkpoint file deletion errors are non-critical during cleanup
       }
     }
   }
@@ -1759,12 +1937,44 @@ export class SonaEngine {
 
       console.info(
         `[SonaEngine] Created pattern ${pattern.id} from trajectory ${trajectory.id} ` +
-          `(quality: ${trajectory.quality.toFixed(3)}, steps: ${compressedSteps.length})`
+        `(quality: ${trajectory.quality.toFixed(3)}, steps: ${compressedSteps.length})`
       );
+
+      // Emit observability event for pattern learned (TASK-OBS-003)
+      const bus = getObservabilityBus();
+      bus.emit({
+        component: 'sona',
+        operation: 'sona_pattern_learned',
+        status: 'success',
+        metadata: {
+          patternId: pattern.id,
+          sourceTrajectory: trajectory.id,
+          route: trajectory.route,
+          quality: trajectory.quality,
+          stepCount: compressedSteps.length,
+          domain,
+          tags,
+          totalPatternsCreated: this.metrics.patternsCreated,
+        },
+      });
 
       return pattern.id;
     } catch (error) {
       console.warn('[SonaEngine] Failed to create pattern from trajectory:', error);
+
+      // Emit error event (TASK-OBS-003)
+      const bus = getObservabilityBus();
+      bus.emit({
+        component: 'sona',
+        operation: 'sona_pattern_learned',
+        status: 'error',
+        metadata: {
+          trajectoryId: trajectory.id,
+          route: trajectory.route,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+
       return null;
     }
   }
@@ -1899,11 +2109,11 @@ export class SonaEngine {
 
     if (!routeWeights) {
       // No weights available, return default embedding
-      return new Float32Array(768).fill(0);
+      return new Float32Array(VECTOR_DIM).fill(0);
     }
 
     // Create weighted embedding from pattern weights
-    const result = new Float32Array(768);
+    const result = new Float32Array(VECTOR_DIM);
     let totalWeight = 0;
 
     for (const patternId of trajectory.patterns) {
@@ -1912,7 +2122,7 @@ export class SonaEngine {
       // Use real semantic embedding from provider (SPEC-EMB-002)
       const patternHash = await this.hashStringToFloat32Array(patternId);
 
-      for (let i = 0; i < 768; i++) {
+      for (let i = 0; i < VECTOR_DIM; i++) {
         result[i] += patternHash[i] * Math.abs(weight);
       }
       totalWeight += Math.abs(weight);
@@ -1920,7 +2130,7 @@ export class SonaEngine {
 
     // Normalize by total weight
     if (totalWeight > 0) {
-      for (let i = 0; i < 768; i++) {
+      for (let i = 0; i < VECTOR_DIM; i++) {
         result[i] /= totalWeight;
       }
     }
@@ -1928,7 +2138,7 @@ export class SonaEngine {
     // Normalize to unit length
     const norm = Math.sqrt(result.reduce((sum, v) => sum + v * v, 0));
     if (norm > 0) {
-      for (let i = 0; i < 768; i++) {
+      for (let i = 0; i < VECTOR_DIM; i++) {
         result[i] /= norm;
       }
     }
@@ -1940,7 +2150,7 @@ export class SonaEngine {
    * Generate semantic embedding for a string using the real embedding provider (SPEC-EMB-002)
    *
    * @param str - String to embed
-   * @returns Float32Array of length 768 with semantic embedding
+   * @returns Float32Array of length VECTOR_DIM (1536) with semantic embedding
    */
   private async hashStringToFloat32Array(str: string): Promise<Float32Array> {
     // Use real embedding provider (LocalEmbeddingProvider with all-mpnet-base-v2)

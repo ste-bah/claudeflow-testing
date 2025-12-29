@@ -63,7 +63,11 @@ export async function withTimeout<T>(
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
-    throw error;
+    // RULE-070: Re-throw with timeout context
+    throw new Error(
+      `Operation from "${source}" failed or timed out after ${timeoutMs}ms: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
+    );
   }
 }
 

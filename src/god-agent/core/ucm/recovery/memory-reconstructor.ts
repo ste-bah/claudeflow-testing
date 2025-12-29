@@ -306,6 +306,7 @@ export class MemoryReconstructor implements IMemoryReconstructor {
         .filter(key => key.startsWith('agent:'))
         .map(key => key.replace('agent:', ''));
     } catch {
+      // INTENTIONAL: Memory search failure - return empty list as safe default
       return [];
     }
   }

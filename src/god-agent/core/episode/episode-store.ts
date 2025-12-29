@@ -29,6 +29,7 @@ import {
   EpisodeStorageError,
 } from './episode-types.js';
 import * as queries from './episode-store-queries.js';
+import { withRetrySync, withRetry } from '../validation/index.js';
 
 /**
  * Configuration options for EpisodeStore
@@ -253,7 +254,11 @@ export class EpisodeStore {
         this.vectorBackend!.insert(episode.id, episode.embedding);
       });
 
-      transaction();
+      // Execute transaction with retry (RULE-072: database operations must retry)
+      withRetrySync(
+        () => transaction(),
+        { operationName: 'EpisodeStore.createEpisode' }
+      );
 
       if (this.verbose) {
         console.log(`[EpisodeStore] Created episode ${id} for task ${options.taskId}`);
@@ -338,7 +343,11 @@ export class EpisodeStore {
         }
       });
 
-      transaction();
+      // Execute transaction with retry (RULE-072: database operations must retry)
+      withRetrySync(
+        () => transaction(),
+        { operationName: 'EpisodeStore.update' }
+      );
 
       if (this.verbose) {
         console.log(`[EpisodeStore] Updated episode ${id}`);
@@ -368,7 +377,11 @@ export class EpisodeStore {
         this.vectorBackend!.delete(id);
       });
 
-      transaction();
+      // Execute transaction with retry (RULE-072: database operations must retry)
+      withRetrySync(
+        () => transaction(),
+        { operationName: 'EpisodeStore.delete' }
+      );
 
       if (this.verbose) {
         console.log(`[EpisodeStore] Deleted episode ${id}`);
@@ -401,12 +414,18 @@ export class EpisodeStore {
 
   /**
    * Save vector index to disk
+   *
+   * Implements: TASK-ERR-004, RULE-072 (file operations must retry)
    */
   async save(): Promise<void> {
     if (!this.vectorBackend) return;
 
     try {
-      await this.vectorBackend.save(this.vectorPath);
+      // Save with retry (RULE-072: file persistence must retry)
+      await withRetry(
+        () => this.vectorBackend!.save(this.vectorPath),
+        { operationName: 'EpisodeStore.save.vectorIndex' }
+      );
       if (this.verbose) {
         console.log(`[EpisodeStore] Saved ${this.vectorBackend.count()} vectors to ${this.vectorPath}`);
       }

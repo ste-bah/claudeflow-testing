@@ -144,6 +144,7 @@ export class SessionManager {
       await fs.access(this.getSessionPath(sessionId));
       return true;
     } catch {
+      // INTENTIONAL: File access failure means session doesn't exist - false is correct response
       return false;
     }
   }
@@ -272,6 +273,7 @@ export class SessionManager {
     try {
       await fs.access(this.sessionDir);
     } catch {
+      // INTENTIONAL: Directory doesn't exist - create it (this is expected on first run)
       await fs.mkdir(this.sessionDir, { recursive: true });
     }
   }

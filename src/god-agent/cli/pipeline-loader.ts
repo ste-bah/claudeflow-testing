@@ -5,6 +5,12 @@
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+
+const logger = createComponentLogger('PipelineLoader', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 
 const AGENTS_DIR = '.claude/agents/phdresearch';
 
@@ -139,6 +145,7 @@ export class PipelineConfigLoader {
     try {
       files = await fs.readdir(agentsDir);
     } catch {
+      // INTENTIONAL: Directory access failure - throw descriptive error for caller handling
       throw new Error(`Agents directory not found: ${agentsDir}`);
     }
 
@@ -152,7 +159,7 @@ export class PipelineConfigLoader {
         const agent = this.parseAgentDefinition(content, file);
         agents.push(agent);
       } catch (error) {
-        console.warn(`Failed to parse agent definition: ${file}`, error);
+        logger.warn('Failed to parse agent definition', { file, error: String(error) });
       }
     }
 
@@ -261,6 +268,7 @@ export class PipelineConfigLoader {
           try {
             result[key] = JSON.parse(value.replace(/'/g, '"'));
           } catch {
+            // INTENTIONAL: JSON parse failure for array value - use empty array as safe default
             result[key] = [];
           }
         } else if (value === 'true' || value === 'false') {

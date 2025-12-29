@@ -34,6 +34,12 @@ import type {
 } from '../advanced-reasoning-types.js';
 import { AdvancedReasoningMode } from '../advanced-reasoning-types.js';
 import type { NodeID, CausalChain } from '../causal-types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../observability/index.js';
+
+const logger = createComponentLogger('AbductiveEngine', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler()]
+});
 
 /**
  * Dependencies for AbductiveEngine
@@ -230,7 +236,7 @@ export class AbductiveEngine {
         .map(r => r.id as NodeID)
         .slice(0, maxEffects);
     } catch (error) {
-      console.warn('Failed to extract effects from query:', error);
+      logger.warn('Failed to extract effects from query', { error: String(error) });
       return [];
     }
   }

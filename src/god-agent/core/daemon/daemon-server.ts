@@ -2,7 +2,15 @@
  * Daemon Server - Unix socket IPC server
  *
  * PRD: PRD-GOD-AGENT-001
- * Task: TASK-DAEMON-001
+ * Task: TASK-DAEMON-001, TASK-DAEMON-003 (Integration)
+ *
+ * Provides IPC access to God Agent services via Unix socket.
+ * Services are wired to real storage backends (EpisodeStore, GraphDB)
+ * for persistent episodic memory and hyperedge storage.
+ *
+ * Constitution Compliance:
+ * - RULE-008: Stores persist to SQLite/disk
+ * - RULE-011: Episodes stored in SQLite
  *
  * @module src/god-agent/core/daemon/daemon-server
  */
@@ -27,12 +35,62 @@ import {
   createDaemonError,
   generateClientId,
 } from './daemon-types.js';
+import { EpisodeStore } from '../episode/episode-store.js';
+import { GraphDB } from '../graph-db/graph-db.js';
+import { FallbackGraph } from '../graph-db/fallback-graph.js';
+import { createEpisodeService, createHyperedgeService } from './services/index.js';
+import type { ServiceHandler as RegistryServiceHandler } from './service-registry.js';
+
+/**
+ * Adapt a service-registry ServiceHandler (object with methods Map)
+ * to daemon-types ServiceHandler (function signature)
+ *
+ * This bridges the new service factory pattern with the existing daemon infrastructure.
+ */
+function adaptServiceHandler(registryHandler: RegistryServiceHandler): ServiceHandler {
+  return async (method: string, params: unknown): Promise<unknown> => {
+    const methodFn = registryHandler.methods.get(method);
+    if (!methodFn) {
+      throw new Error(`Method not found: ${method}`);
+    }
+    return methodFn(params);
+  };
+}
+
+/**
+ * Extended daemon configuration with storage options
+ */
+export interface DaemonServerConfig extends Partial<Omit<DaemonConfig, 'socketPath'>> {
+  /** Directory for persistent storage (default: .god-agent) */
+  storageDir?: string;
+  /** Enable verbose logging for store operations */
+  verbose?: boolean;
+  /** Expected embedding dimension for GraphDB (default: 768) */
+  embeddingDimension?: number;
+  /** Data directory for GraphDB (default: .agentdb/graphs) */
+  graphDataDir?: string;
+}
+
+/**
+ * Default storage configuration
+ */
+const DEFAULT_STORAGE_CONFIG = {
+  storageDir: '.god-agent',
+  verbose: false,
+  embeddingDimension: 768,
+  graphDataDir: '.agentdb/graphs',
+};
 
 /**
  * Daemon Server manages Unix socket connections for IPC
+ *
+ * Integrates with real storage backends:
+ * - EpisodeStore: SQLite + HNSW for episodic memory
+ * - GraphDB: Hypergraph database with temporal features
  */
 export class DaemonServer extends EventEmitter {
   private readonly config: DaemonConfig;
+  private readonly storageConfig: typeof DEFAULT_STORAGE_CONFIG;
   private server: Server | null = null;
   private clients: Map<string, ClientConnection> = new Map();
   private services: Map<string, RegisteredService> = new Map();
@@ -41,26 +99,41 @@ export class DaemonServer extends EventEmitter {
   private totalRequests: number = 0;
   private keepAliveTimers: Map<string, NodeJS.Timeout> = new Map();
 
+  // Storage backends (initialized in start())
+  private episodeStore: EpisodeStore | null = null;
+  private graphDb: GraphDB | null = null;
+
   /**
    * Create a new daemon server
    *
    * @param socketPath - Path to Unix socket file (default: /tmp/godagent-db.sock)
-   * @param options - Optional configuration overrides
+   * @param options - Optional configuration overrides including storage options
    */
   constructor(
     socketPath: string = DEFAULT_DAEMON_CONFIG.socketPath,
-    options?: Partial<Omit<DaemonConfig, 'socketPath'>>
+    options?: DaemonServerConfig
   ) {
     super();
     this.config = {
       ...DEFAULT_DAEMON_CONFIG,
-      ...options,
+      maxClients: options?.maxClients ?? DEFAULT_DAEMON_CONFIG.maxClients,
+      keepAliveTimeout: options?.keepAliveTimeout ?? DEFAULT_DAEMON_CONFIG.keepAliveTimeout,
       socketPath,
+    };
+    this.storageConfig = {
+      ...DEFAULT_STORAGE_CONFIG,
+      storageDir: options?.storageDir ?? DEFAULT_STORAGE_CONFIG.storageDir,
+      verbose: options?.verbose ?? DEFAULT_STORAGE_CONFIG.verbose,
+      embeddingDimension: options?.embeddingDimension ?? DEFAULT_STORAGE_CONFIG.embeddingDimension,
+      graphDataDir: options?.graphDataDir ?? DEFAULT_STORAGE_CONFIG.graphDataDir,
     };
   }
 
   /**
    * Start the daemon server
+   *
+   * Initializes storage backends (EpisodeStore, GraphDB) and registers
+   * real services with dependency injection before starting the socket server.
    *
    * @throws DaemonError if server cannot start
    */
@@ -73,6 +146,19 @@ export class DaemonServer extends EventEmitter {
     }
 
     this.state = 'starting';
+
+    // Initialize storage backends BEFORE starting socket server
+    try {
+      await this.initializeStores();
+      this.registerCoreServices();
+    } catch (error) {
+      this.state = 'stopped';
+      throw createDaemonError(
+        DaemonErrorCode.UNKNOWN,
+        `Failed to initialize storage backends: ${error instanceof Error ? error.message : String(error)}`,
+        { originalError: error }
+      );
+    }
 
     // Clean up existing socket file if present
     if (existsSync(this.config.socketPath)) {
@@ -121,16 +207,94 @@ export class DaemonServer extends EventEmitter {
       this.server.listen(this.config.socketPath, () => {
         this.state = 'running';
         this.startedAt = Date.now();
-        this.emitEvent('start', { socketPath: this.config.socketPath });
+        this.emitEvent('start', {
+          socketPath: this.config.socketPath,
+          registeredServices: Array.from(this.services.keys()),
+        });
         resolve();
       });
     });
   }
 
   /**
+   * Initialize storage backends for real service delegation
+   *
+   * Creates and initializes:
+   * - EpisodeStore: SQLite + HNSW for episodic memory (RULE-011)
+   * - GraphDB: Hypergraph with FallbackGraph backend (RULE-008)
+   */
+  private async initializeStores(): Promise<void> {
+    // Initialize EpisodeStore with persistence configuration
+    this.episodeStore = new EpisodeStore({
+      storageDir: this.storageConfig.storageDir,
+      verbose: this.storageConfig.verbose,
+    });
+
+    // Initialize GraphDB with FallbackGraph backend
+    const fallbackGraph = new FallbackGraph(
+      this.storageConfig.graphDataDir,
+      5000, // lock timeout
+      true  // enable persistence
+    );
+
+    this.graphDb = new GraphDB(fallbackGraph, {
+      dataDir: this.storageConfig.graphDataDir,
+      enablePersistence: true,
+      validateDimensions: true,
+      expectedDimensions: this.storageConfig.embeddingDimension,
+    });
+
+    // Initialize GraphDB (loads persisted data)
+    await this.graphDb.initialize();
+
+    if (this.storageConfig.verbose) {
+      console.log('[DaemonServer] Storage backends initialized');
+      console.log(`  - EpisodeStore: ${this.storageConfig.storageDir}`);
+      console.log(`  - GraphDB: ${this.storageConfig.graphDataDir}`);
+    }
+  }
+
+  /**
+   * Register core services with injected storage backends
+   *
+   * Services are wired to real stores for actual data persistence:
+   * - episode: EpisodeService -> EpisodeStore (SQLite + HNSW)
+   * - hyperedge: HyperedgeService -> GraphDB (FallbackGraph)
+   *
+   * Uses adaptServiceHandler to convert service-registry format to daemon-types format.
+   */
+  private registerCoreServices(): void {
+    if (!this.episodeStore || !this.graphDb) {
+      throw new Error('Storage backends must be initialized before registering services');
+    }
+
+    // Register EpisodeService with real EpisodeStore delegation
+    // Adapt from service-registry ServiceHandler to daemon-types ServiceHandler
+    const episodeRegistryHandler = createEpisodeService(this.episodeStore);
+    const episodeHandler = adaptServiceHandler(episodeRegistryHandler);
+    this.registerService('episode', episodeHandler, [
+      'create', 'query', 'link', 'stats', 'get', 'delete', 'getLinks', 'update', 'save'
+    ]);
+
+    // Register HyperedgeService with real GraphDB delegation
+    const hyperedgeRegistryHandler = createHyperedgeService(this.graphDb);
+    const hyperedgeHandler = adaptServiceHandler(hyperedgeRegistryHandler);
+    this.registerService('hyperedge', hyperedgeHandler, [
+      'create', 'createTemporal', 'query', 'expand', 'stats', 'get'
+    ]);
+
+    if (this.storageConfig.verbose) {
+      console.log('[DaemonServer] Core services registered:');
+      console.log('  - episode (9 methods)');
+      console.log('  - hyperedge (6 methods)');
+    }
+  }
+
+  /**
    * Stop the daemon server gracefully
    *
-   * Notifies all clients, waits for in-flight requests, then closes
+   * Notifies all clients, waits for in-flight requests, closes storage backends,
+   * then closes the socket server.
    */
   async stop(): Promise<void> {
     if (this.state !== 'running') {
@@ -152,6 +316,9 @@ export class DaemonServer extends EventEmitter {
       this.removeConnection(clientId);
     }
 
+    // Close storage backends (save data before shutdown)
+    await this.closeStores();
+
     // Close server
     return new Promise<void>((resolve) => {
       if (this.server) {
@@ -161,7 +328,7 @@ export class DaemonServer extends EventEmitter {
             try {
               unlinkSync(this.config.socketPath);
             } catch {
-              // Ignore cleanup errors on shutdown
+              // INTENTIONAL: Socket file cleanup errors are safe to ignore during shutdown
             }
           }
 
@@ -178,6 +345,36 @@ export class DaemonServer extends EventEmitter {
         resolve();
       }
     });
+  }
+
+  /**
+   * Close storage backends and persist data
+   *
+   * Ensures all data is saved before server shutdown.
+   */
+  private async closeStores(): Promise<void> {
+    try {
+      // Save and close EpisodeStore
+      if (this.episodeStore) {
+        await this.episodeStore.close();
+        this.episodeStore = null;
+        if (this.storageConfig.verbose) {
+          console.log('[DaemonServer] EpisodeStore closed');
+        }
+      }
+
+      // GraphDB persists via FallbackGraph automatically
+      // Just clear the reference
+      if (this.graphDb) {
+        this.graphDb = null;
+        if (this.storageConfig.verbose) {
+          console.log('[DaemonServer] GraphDB closed');
+        }
+      }
+    } catch (error) {
+      // Log but don't throw - we're shutting down
+      console.error('[DaemonServer] Error closing stores:', error);
+    }
   }
 
   /**
@@ -372,7 +569,7 @@ export class DaemonServer extends EventEmitter {
       });
       client.socket.write(message);
     } catch {
-      // Ignore write errors during shutdown
+      // INTENTIONAL: Write errors during shutdown are expected for disconnected clients
     }
   }
 
@@ -453,5 +650,30 @@ export class DaemonServer extends EventEmitter {
    */
   getConfig(): DaemonConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Get storage configuration
+   */
+  getStorageConfig(): typeof DEFAULT_STORAGE_CONFIG {
+    return { ...this.storageConfig };
+  }
+
+  /**
+   * Get EpisodeStore instance (for advanced usage/testing)
+   *
+   * @returns EpisodeStore instance or null if not initialized
+   */
+  getEpisodeStore(): EpisodeStore | null {
+    return this.episodeStore;
+  }
+
+  /**
+   * Get GraphDB instance (for advanced usage/testing)
+   *
+   * @returns GraphDB instance or null if not initialized
+   */
+  getGraphDb(): GraphDB | null {
+    return this.graphDb;
   }
 }

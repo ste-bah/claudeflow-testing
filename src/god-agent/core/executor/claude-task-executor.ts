@@ -100,7 +100,11 @@ export class ClaudeTaskExecutor implements IAgentExecutor {
 
       } catch (error) {
         if (retryCount >= this.config.maxRetries) {
-          throw error;
+          // RULE-070: Re-throw with execution context
+          throw new Error(
+            `Agent "${agent.agentName}" execution failed after ${retryCount + 1} attempts: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error }
+          );
         }
         retryCount++;
       }
@@ -389,7 +393,7 @@ export class ClaudeTaskExecutor implements IAgentExecutor {
               resolve(stdout);
             }
           } catch {
-            // If JSON parsing fails, return raw stdout
+            // INTENTIONAL: JSON parsing failure for expected JSON output - return raw stdout as fallback
             resolve(stdout);
           }
         } else {

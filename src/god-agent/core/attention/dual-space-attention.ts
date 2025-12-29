@@ -11,7 +11,8 @@
  */
 
 import type { IAttentionMechanism } from './attention-types.js';
-import { HyperbolicAttention, GraphRoPeAttention } from './attention-mechanisms.js';
+import { RealHyperbolicAttention } from './mechanisms/hyperbolic-attention.js';
+import { RealGraphRoPeAttention } from './mechanisms/graph-rope-attention.js';
 
 // ==================== DualSpace Attention ====================
 
@@ -30,9 +31,9 @@ export class DualSpaceAttention implements IAttentionMechanism {
     graphConfig?: Record<string, unknown>;
     mixingWeight?: number;
   }) {
-    // Create component mechanisms
-    this.hyperbolicAttention = new HyperbolicAttention(config?.hyperbolicConfig);
-    this.graphAttention = new GraphRoPeAttention(config?.graphConfig);
+    // Create component mechanisms using Real* implementations
+    this.hyperbolicAttention = new RealHyperbolicAttention(config?.hyperbolicConfig);
+    this.graphAttention = new RealGraphRoPeAttention(config?.graphConfig);
 
     // Mixing weight: how much to weight hyperbolic vs graph
     // Default 0.5 = equal weight

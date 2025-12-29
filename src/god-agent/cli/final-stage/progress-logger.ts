@@ -15,6 +15,12 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import type { ProgressReport, FinalStageState } from './types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel as ObsLogLevel } from '../../core/observability/index.js';
+
+const internalLogger = createComponentLogger('ProgressLogger', {
+  minLevel: ObsLogLevel.WARN,
+  handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 
 // ============================================
 // Types
@@ -151,9 +157,9 @@ export class ProgressLogger {
         callback(report);
       } catch (error) {
         // Don't let callback errors break execution
-        // Log to console if verbose, but don't throw
+        // Log to internal logger if verbose, but don't throw
         if (this.verbose) {
-          console.error('[ProgressLogger] Callback error:', error);
+          internalLogger.error('Callback error', error instanceof Error ? error : new Error(String(error)));
         }
       }
     }
@@ -394,7 +400,7 @@ export class ProgressLogger {
     } catch (error) {
       // Non-fatal - continue without file logging
       if (this.verbose) {
-        console.error('[ProgressLogger] Could not initialize file logging:', error);
+        internalLogger.error('Could not initialize file logging', error instanceof Error ? error : new Error(String(error)));
       }
     }
   }
@@ -410,7 +416,7 @@ export class ProgressLogger {
         await this.logFileHandle.write(`\n${summary}\n`);
         await this.logFileHandle.close();
       } catch {
-        // Ignore close errors
+        // INTENTIONAL: Log file close errors are non-critical during shutdown
       }
       this.logFileHandle = null;
     }
@@ -504,7 +510,7 @@ export class ProgressLogger {
       const line = JSON.stringify(entry) + '\n';
       await this.logFileHandle.write(line);
     } catch {
-      // Ignore write errors
+      // INTENTIONAL: Log file write errors are non-critical - logging is best-effort
     }
   }
 

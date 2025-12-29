@@ -1,6 +1,7 @@
 /**
  * Trajectory Test Fixtures
  * ANTI-007: Centralized trajectory test data factories
+ * TASK-VEC-001-008: Updated to use VECTOR_DIM (1536D)
  *
  * Provides factory functions for creating test trajectory data.
  */
@@ -10,6 +11,7 @@ import type {
   TrajectoryID,
   PatternID,
 } from '../../src/god-agent/core/learning/sona-types.js';
+import { VECTOR_DIM } from '../../src/god-agent/core/validation/constants.js';
 
 // Define TrajectoryStep locally since it may not be exported
 interface TrajectoryStep {
@@ -189,9 +191,10 @@ export const TEST_TRAJECTORIES = {
 
 /**
  * Create a test embedding vector
+ * TASK-VEC-001-008: Updated default dimension to VECTOR_DIM (1536)
  */
 export function createTestEmbedding(
-  dimension: number = 768,
+  dimension: number = VECTOR_DIM,
   options?: {
     normalized?: boolean;
     seed?: number;
@@ -228,10 +231,11 @@ export function createTestEmbedding(
 
 /**
  * Create multiple test embeddings
+ * TASK-VEC-001-008: Updated default dimension to VECTOR_DIM (1536)
  */
 export function createTestEmbeddings(
   count: number,
-  dimension: number = 768
+  dimension: number = VECTOR_DIM
 ): Float32Array[] {
   return Array.from({ length: count }, (_, i) =>
     createTestEmbedding(dimension, { seed: 42 + i })

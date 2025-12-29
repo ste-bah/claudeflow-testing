@@ -28,3 +28,6 @@ export * from './pipeline-fixtures.js';
 
 // GNN fixtures
 export * from './gnn-fixtures.js';
+
+// Vector helpers (TASK-VEC-001-008)
+export * from './vector-helpers.js';

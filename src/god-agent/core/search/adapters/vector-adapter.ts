@@ -97,7 +97,11 @@ export class VectorSourceAdapter {
       if (error instanceof Error && error.message.includes('not available')) {
         return [];
       }
-      throw error;
+      // RULE-070: Re-throw with operation context
+      throw new Error(
+        `Vector search failed (topK: ${topK}): ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
 
     return searchResults.map((result, index) => ({

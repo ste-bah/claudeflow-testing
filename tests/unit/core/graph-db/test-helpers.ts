@@ -8,7 +8,8 @@ import { VECTOR_DIM } from '../../../../src/god-agent/core/validation';
 import type { CreateNodeOptions, Granularity } from '../../../../src/god-agent/core/graph-db/types';
 
 /**
- * Create a random 768D embedding (number array)
+ * Create a random 1536D embedding (number array)
+ * TASK-VEC-001-008: Updated dimension from 768D to 1536D
  */
 export function createRandomEmbedding(dim: number = VECTOR_DIM): number[] {
   const embedding: number[] = [];

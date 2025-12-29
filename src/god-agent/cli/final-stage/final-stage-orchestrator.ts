@@ -35,6 +35,12 @@ import { PaperCombiner } from './paper-combiner.js';
 import { StyleApplier } from './style-applier.js';
 import { ProgressLogger } from './progress-logger.js';
 import type { LogLevel } from './progress-logger.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel as ObsLogLevel } from '../../core/observability/index.js';
+
+const orchLogger = createComponentLogger('FinalStageOrchestrator', {
+  minLevel: ObsLogLevel.INFO,
+  handlers: [new ConsoleLogHandler()]
+});
 
 // ============================================
 // Type Definitions for Chapter Structure
@@ -323,7 +329,7 @@ export class FinalStageOrchestrator {
    */
   private getChapterWriter(): ChapterWriterAgent {
     if (!this.chapterWriter) {
-      console.log(`[Orchestrator] Creating ChapterWriterAgent with style profile: ${this._styleProfileId || 'none'}`);
+      orchLogger.info('Creating ChapterWriterAgent', { styleProfileId: this._styleProfileId || 'none' });
       this.chapterWriter = new ChapterWriterAgent(
         this._styleProfileId || undefined,
         this.researchDir || undefined
@@ -427,7 +433,7 @@ export class FinalStageOrchestrator {
         try {
           await this.logger.initFileLogging(this.outputDir);
         } catch {
-          // Non-fatal - continue without file logging
+          // INTENTIONAL: Non-fatal - file logging is optional, continue without it
         }
       }
 
@@ -867,7 +873,7 @@ export class FinalStageOrchestrator {
         // Don't let callback errors break execution
         // Log but continue
         if (this.verbose) {
-          console.error('[Orchestrator] Progress callback error:', e);
+          orchLogger.error('Progress callback error', e instanceof Error ? e : new Error(String(e)));
         }
       }
     }
@@ -1232,6 +1238,7 @@ export class FinalStageOrchestrator {
       const stat = await fs.stat(dir);
       return stat.isDirectory();
     } catch {
+      // INTENTIONAL: Directory stat failure means directory doesn't exist - false is correct
       return false;
     }
   }
@@ -1276,7 +1283,7 @@ export class FinalStageOrchestrator {
         await fs.rm(path.join(archiveDir, dirs[i]), { recursive: true, force: true });
       }
     } catch {
-      // Ignore errors during pruning (non-critical)
+      // INTENTIONAL: Archive pruning is non-critical - errors during cleanup are acceptable
     }
   }
 
@@ -1418,6 +1425,7 @@ export class FinalStageOrchestrator {
     try {
       content = await fs.readFile(structurePath, 'utf-8');
     } catch {
+      // INTENTIONAL: Chapter structure file must exist - throw descriptive error for user
       throw new FinalStageError(
         `Chapter structure not found: ${structurePath}. Run dissertation-architect first.`,
         'NO_SOURCES',
@@ -1596,7 +1604,7 @@ export class FinalStageOrchestrator {
       this.log('info', `Loaded style profile from ${profilePath}`);
       return profile;
     } catch {
-      // Continue to next location
+      // INTENTIONAL: Style profile not at this location - try next search location
     }
 
     // Location 2: Research directory profile
@@ -1609,7 +1617,7 @@ export class FinalStageOrchestrator {
       this.log('info', `Loaded style profile from ${altPath}`);
       return profile;
     } catch {
-      // Continue to next location
+      // INTENTIONAL: Style profile not at this location - try next search location
     }
 
     // Location 3: AgentDB universal style profiles (look for academic-papers or first en-GB profile)
@@ -1628,7 +1636,7 @@ export class FinalStageOrchestrator {
         }
       }
     } catch {
-      // No AgentDB profiles available
+      // INTENTIONAL: AgentDB profiles not available - style profile is optional, use defaults
     }
 
     // No style profile found
@@ -1867,7 +1875,7 @@ export class FinalStageOrchestrator {
       summaryByIndex.set(summary.index, summary);
     }
 
-    console.log(`[Orchestrator] Generating ${structure.totalChapters} synthesis prompts with style profile: ${this._styleProfileId || 'default'}`);
+    orchLogger.info('Generating synthesis prompts', { totalChapters: structure.totalChapters, styleProfileId: this._styleProfileId || 'default' });
 
     for (const chapterDef of structure.chapters) {
       // Find mapping for this chapter

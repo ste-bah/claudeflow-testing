@@ -13,9 +13,30 @@ import type {
   IReasoningResponse,
   ILearningFeedback
 } from '../../../../src/god-agent/core/reasoning/reasoning-types.js';
+import type { ISonaEngine } from '../../../../src/god-agent/core/learning/sona-types.js';
+
+/**
+ * Create a mock SonaEngine for testing
+ * Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference.
+ */
+function createMockSonaEngine(): ISonaEngine {
+  return {
+    createTrajectoryWithId: () => {},
+    provideFeedback: async () => ({
+      trajectoryId: '',
+      patternsUpdated: 0,
+      reward: 0,
+      patternAutoCreated: false,
+      elapsedMs: 0
+    }),
+    getWeight: async () => 0.0,
+    getTrajectory: () => null
+  };
+}
 
 describe('TrajectoryTracker', () => {
   let tracker: TrajectoryTracker;
+  let mockSonaEngine: ISonaEngine;
 
   // Helper to create test embedding
   const createEmbedding = (dim: number = 1536): Float32Array => {
@@ -47,7 +68,9 @@ describe('TrajectoryTracker', () => {
   });
 
   beforeEach(() => {
+    mockSonaEngine = createMockSonaEngine();
     tracker = new TrajectoryTracker({
+      sonaEngine: mockSonaEngine,
       maxTrajectories: 100,
       autoPrune: false // Disable for deterministic tests
     });
@@ -317,6 +340,7 @@ describe('TrajectoryTracker', () => {
   describe('LRU Eviction', () => {
     it('should evict when max trajectories reached', async () => {
       const smallTracker = new TrajectoryTracker({
+        sonaEngine: createMockSonaEngine(),
         maxTrajectories: 3,
         autoPrune: false
       });
@@ -338,6 +362,7 @@ describe('TrajectoryTracker', () => {
 
     it('should prefer evicting low-quality trajectories', async () => {
       const smallTracker = new TrajectoryTracker({
+        sonaEngine: createMockSonaEngine(),
         maxTrajectories: 2,
         autoPrune: false
       });
@@ -383,6 +408,7 @@ describe('TrajectoryTracker', () => {
   describe('Expiration Pruning', () => {
     it('should prune expired trajectories', async () => {
       const fastExpireTracker = new TrajectoryTracker({
+        sonaEngine: createMockSonaEngine(),
         maxTrajectories: 100,
         retentionMs: 50, // 50ms retention
         autoPrune: false

@@ -228,7 +228,11 @@ export class PipelineScaleTest {
 
           return result;
         } catch (error) {
-          throw error;
+          // RULE-070: Re-throw with scale test context
+          throw new Error(
+            `Scale test agent "${agent.name}" (id: ${agent.id}) failed: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error }
+          );
         } finally {
           handle.exit();
 

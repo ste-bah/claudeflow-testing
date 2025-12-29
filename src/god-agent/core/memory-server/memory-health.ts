@@ -148,7 +148,7 @@ export class MemoryHealthMonitor {
       try {
         listener(result);
       } catch {
-        // Ignore listener errors
+        // INTENTIONAL: Listener errors must not propagate to prevent cascade failures
       }
     }
   }
@@ -170,10 +170,11 @@ export class MemoryHealthMonitor {
         process.kill(pidFile.pid, 0);
         return pidFile.address;
       } catch {
-        // Process not running
+        // INTENTIONAL: Process not running - return null to indicate server down
         return null;
       }
     } catch {
+      // INTENTIONAL: PID file not found - server not started
       return null;
     }
   }
@@ -189,6 +190,7 @@ export class MemoryHealthMonitor {
       const result = await this.pingServer(serverAddress);
       return result !== null;
     } catch {
+      // INTENTIONAL: Server health check failure - return false to indicate unhealthy
       return false;
     }
   }
@@ -229,6 +231,7 @@ export class MemoryHealthMonitor {
               resolve(null);
             }
           } catch {
+            // INTENTIONAL: Message parse failure - return null to indicate ping failed
             resolve(null);
           }
           socket.destroy();
@@ -274,6 +277,7 @@ export class MemoryHealthMonitor {
               resolve(null);
             }
           } catch {
+            // INTENTIONAL: JSON parse failure - return null to indicate ping failed
             resolve(null);
           }
         });
@@ -320,9 +324,11 @@ export class MemoryHealthMonitor {
         process.kill(report.pidFileContent!.pid, 0);
         report.serverProcessRunning = true;
       } catch {
+        // INTENTIONAL: Process not found - mark as not running
         report.serverProcessRunning = false;
       }
     } catch {
+      // INTENTIONAL: PID file read failed - mark as not existing
       report.pidFileExists = false;
     }
 

@@ -36,3 +36,12 @@ export {
   cosineSimilarity,
   euclideanDistance
 } from './vector-validation.js';
+
+// Retry utilities (TASK-ERR-004, RULE-072)
+export {
+  IRetryOptions,
+  RetryExhaustedError,
+  sleep,
+  withRetry,
+  withRetrySync
+} from './retry.js';

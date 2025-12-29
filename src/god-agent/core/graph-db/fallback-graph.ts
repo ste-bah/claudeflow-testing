@@ -169,6 +169,7 @@ export class FallbackGraph implements IGraphBackend {
         try {
           await fs.access(this.dataFile);
         } catch {
+          // INTENTIONAL: File doesn't exist - create new empty graph file
           await fs.writeFile(this.dataFile, '{}', 'utf-8');
         }
 
@@ -198,7 +199,7 @@ export class FallbackGraph implements IGraphBackend {
       try {
         await fs.access(this.dataFile);
       } catch {
-        // File doesn't exist, nothing to load
+        // INTENTIONAL: File doesn't exist, nothing to load - start with empty graph
         return;
       }
 

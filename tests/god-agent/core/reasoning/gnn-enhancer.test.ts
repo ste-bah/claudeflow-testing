@@ -20,7 +20,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { GNNEnhancer } from '../../../../src/god-agent/core/reasoning/gnn-enhancer.js';
-import type { TrajectoryGraph } from '../../../../src/god-agent/core/reasoning/gnn-enhancer.js';
+import type { TrajectoryGraph, TrajectoryEdge } from '../../../../src/god-agent/core/reasoning/gnn-enhancer.js';
 import type { GNNConfig } from '../../../../src/god-agent/core/reasoning/reasoning-types.js';
 import {
   createNormalizedEmbedding,
@@ -58,8 +58,17 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(LAYER_DIMENSIONS.layer3Output);
       expect(result.original.length).toBe(LAYER_DIMENSIONS.input);
+
+      // CORRECTNESS: Output must differ from input (actual transformation occurred)
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: Output should be transformed, not just copied
+      const similarity = cosineSimilarity(result.enhanced, input);
+      expect(similarity).toBeLessThan(0.99); // Must not be nearly identical
+      expect(similarity).toBeGreaterThan(-1); // Must be valid similarity
     });
 
     it('should produce valid 1536D output for graph enhancement', async () => {
@@ -68,11 +77,24 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input, graph);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
       // All values should be finite
       for (let i = 0; i < 1536; i++) {
         expect(isFinite(result.enhanced[i])).toBe(true);
       }
+
+      // CORRECTNESS: Graph enhancement must transform the input
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 norm should be approximately 1.0 (normalized output)
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
+
+      // CORRECTNESS: Transformation must be substantial (not identity)
+      const similarity = cosineSimilarity(result.enhanced, input);
+      expect(similarity).toBeLessThan(0.99);
     });
 
     it('should handle invalid input dimensions with fallback (GNN-09)', async () => {
@@ -80,9 +102,19 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input256);
 
-      // Should fall back to zero-padding
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
       expect(result.cached).toBe(false);
+
+      // CORRECTNESS: Output must be L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
+
+      // CORRECTNESS: All values must be finite
+      for (let i = 0; i < 100; i++) { // Sample first 100
+        expect(isFinite(result.enhanced[i])).toBe(true);
+      }
     });
 
     it('should reject zero-dimension input gracefully', async () => {
@@ -90,9 +122,20 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
-      // Should be fallback result
       expect(result.enhancementTime).toBeGreaterThanOrEqual(0);
+
+      // CORRECTNESS: Fallback result should have valid structure
+      // All values should be finite (either zeros or valid floats)
+      let hasAllFinite = true;
+      for (let i = 0; i < result.enhanced.length; i++) {
+        if (!isFinite(result.enhanced[i])) {
+          hasAllFinite = false;
+          break;
+        }
+      }
+      expect(hasAllFinite).toBe(true);
     });
 
     it('should handle oversized input dimensions', async () => {
@@ -100,8 +143,18 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input2048);
 
-      // Should use fallback
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Must be L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
+
+      // CORRECTNESS: All values finite
+      for (let i = 0; i < 100; i++) {
+        expect(isFinite(result.enhanced[i])).toBe(true);
+      }
     });
   });
 
@@ -116,9 +169,17 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
       // Enhancement will internally build and normalize adjacency matrix
       const result = await enhancer.enhance(input, graph);
 
-      // Verify result is valid
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
       expect(result.enhancementTime).toBeGreaterThanOrEqual(0);
+
+      // CORRECTNESS: Output must be transformed from input
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: Output must be L2 normalized (attention normalization preserved)
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should handle self-loops in adjacency matrix', async () => {
@@ -127,8 +188,17 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input, graph);
 
+      // Shape assertions
       expect(result.enhanced).toBeInstanceOf(Float32Array);
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Output must be transformed
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 normalized output
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should produce L2-normalized output', async () => {
@@ -154,7 +224,16 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input, sparseGraph);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Output must differ from input (graph context integrated)
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
   });
 
@@ -355,8 +434,21 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input, graph);
 
+      // Shape assertions
       expect(result.enhanced.length).toBe(1536);
       expect(result.enhancementTime).toBeGreaterThanOrEqual(0);
+
+      // CORRECTNESS: Output must differ from input (graph context integrated)
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
+
+      // CORRECTNESS: Cosine similarity should show transformation
+      const similarity = cosineSimilarity(result.enhanced, input);
+      expect(similarity).toBeLessThan(0.99);
     });
 
     it('should handle graph with 50 nodes (maxNodes)', async () => {
@@ -365,7 +457,16 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input, graph);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Transformation occurred
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should prune graph exceeding maxNodes', async () => {
@@ -374,8 +475,14 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input, graph);
 
-      // Should still work with pruned graph
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Still produces valid output after pruning
+      expect(result.enhanced).not.toEqual(input);
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should work without graph (simple projection)', async () => {
@@ -383,7 +490,16 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Transformation still occurs (neural projection)
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should handle empty graph gracefully', async () => {
@@ -392,8 +508,16 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input, emptyGraph);
 
-      // Should fall back to simple projection
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Falls back to simple projection but still transforms
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should use residual connections when enabled (GNN-04)', async () => {
@@ -406,7 +530,20 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await residualEnhancer.enhance(input, graph);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: With residual, output still differs from input
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
+
+      // CORRECTNESS: Residual should make output more similar to input than without
+      const similarity = cosineSimilarity(result.enhanced, input);
+      expect(similarity).toBeGreaterThan(0); // Residual preserves some input signal
     });
   });
 
@@ -429,35 +566,66 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
   describe('TC-G1-007: Batch Size Scalability', () => {
     it('should handle small batches efficiently', async () => {
       const batch = createEmbeddingBatch(4, 1536);
+      const results: Float32Array[] = [];
 
       for (const emb of batch) {
         const result = await enhancer.enhance(emb);
         expect(result.enhanced.length).toBe(1536);
+        results.push(result.enhanced);
       }
+
+      // CORRECTNESS: Each result should be L2 normalized
+      for (const result of results) {
+        const norm = computeL2Norm(result);
+        expect(norm).toBeGreaterThan(0.9);
+        expect(norm).toBeLessThan(1.1);
+      }
+
+      // CORRECTNESS: Different inputs should produce different outputs
+      const similarity = cosineSimilarity(results[0], results[1]);
+      expect(similarity).toBeLessThan(0.99);
     });
 
     it('should handle medium batches (32 embeddings)', async () => {
       const batch = createEmbeddingBatch(32, 1536);
+      const results: Float32Array[] = [];
 
       for (const emb of batch) {
         const result = await enhancer.enhance(emb);
         expect(result.enhanced.length).toBe(1536);
+        results.push(result.enhanced);
       }
 
       const stats = enhancer.getCacheStats();
       expect(stats.totalEnhancements).toBe(32);
+
+      // CORRECTNESS: Sample L2 norm checks
+      for (let i = 0; i < 5; i++) {
+        const norm = computeL2Norm(results[i]);
+        expect(norm).toBeGreaterThan(0.9);
+        expect(norm).toBeLessThan(1.1);
+      }
     });
 
     it('should handle large batches (128 embeddings)', async () => {
       const batch = createEmbeddingBatch(128, 1536);
+      let allTransformed = true;
 
-      for (const emb of batch) {
-        const result = await enhancer.enhance(emb);
+      for (let i = 0; i < batch.length; i++) {
+        const result = await enhancer.enhance(batch[i]);
         expect(result.enhanced.length).toBe(1536);
+
+        // CORRECTNESS: Check that transformation occurred
+        if (cosineSimilarity(result.enhanced, batch[i]) > 0.999) {
+          allTransformed = false;
+        }
       }
 
       const stats = enhancer.getCacheStats();
       expect(stats.totalEnhancements).toBe(128);
+
+      // CORRECTNESS: All inputs should have been transformed
+      expect(allTransformed).toBe(true);
     });
 
     it('should maintain performance with mixed batch sizes', async () => {
@@ -537,11 +705,17 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
-      // Zero input should produce zero output (after normalization)
+
+      // CORRECTNESS: Zero input should produce zero output (after normalization)
       for (let i = 0; i < 1536; i++) {
         expect(result.enhanced[i]).toBe(0);
       }
+
+      // CORRECTNESS: Norm of zero vector is 0
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBe(0);
     });
 
     it('should handle uniform embeddings', async () => {
@@ -549,7 +723,18 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Output should be L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
+
+      // CORRECTNESS: All values should be finite
+      for (let i = 0; i < 100; i++) {
+        expect(isFinite(result.enhanced[i])).toBe(true);
+      }
     });
 
     it('should handle extreme positive values', async () => {
@@ -557,11 +742,18 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
-      // Should have finite values after normalization
+
+      // CORRECTNESS: Should have finite values after normalization
       for (let i = 0; i < 1536; i++) {
         expect(isFinite(result.enhanced[i])).toBe(true);
       }
+
+      // CORRECTNESS: Output should be L2 normalized (extreme values normalized)
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should handle extreme negative values', async () => {
@@ -569,10 +761,18 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: All values finite
       for (let i = 0; i < 1536; i++) {
         expect(isFinite(result.enhanced[i])).toBe(true);
       }
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should handle mixed positive and negative values', async () => {
@@ -583,7 +783,16 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: Output transformed from input
+      expect(result.enhanced).not.toEqual(input);
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
 
     it('should provide fallback on enhancement failure', async () => {
@@ -591,9 +800,16 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await enhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced).toBeDefined();
-      // original is a copy of input, not the same reference
+
+      // CORRECTNESS: original is a copy of input, not the same reference
       expect(result.original).toEqual(input);
+
+      // CORRECTNESS: Enhanced output should be valid
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
     });
   });
 
@@ -615,6 +831,7 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
     it('should work with custom activation functions', async () => {
       const activations: Array<'relu' | 'gelu' | 'tanh' | 'sigmoid'> = ['relu', 'gelu', 'tanh', 'sigmoid'];
+      const results: Float32Array[] = [];
 
       for (const activation of activations) {
         const config: Partial<GNNConfig> = { activation };
@@ -622,12 +839,28 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
         const input = createNormalizedEmbedding(1536);
 
         const result = await customEnhancer.enhance(input);
+
+        // Shape assertion
         expect(result.enhanced.length).toBe(1536);
+
+        // CORRECTNESS: L2 normalized
+        const norm = computeL2Norm(result.enhanced);
+        expect(norm).toBeGreaterThan(0.9);
+        expect(norm).toBeLessThan(1.1);
+
+        results.push(result.enhanced);
       }
+
+      // CORRECTNESS: Different activations should produce different outputs
+      const sim01 = cosineSimilarity(results[0], results[1]);
+      const sim12 = cosineSimilarity(results[1], results[2]);
+      // At least some pairs should differ significantly
+      expect(sim01 < 0.99 || sim12 < 0.99).toBe(true);
     });
 
     it('should work with different maxNodes settings', async () => {
       const maxNodeValues = [10, 25, 50, 100];
+      const results: Float32Array[] = [];
 
       for (const maxNodes of maxNodeValues) {
         const config: Partial<GNNConfig> = { maxNodes };
@@ -636,8 +869,21 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
         const graph = createTrajectoryGraph(maxNodes, true);
 
         const result = await customEnhancer.enhance(input, graph);
+
+        // Shape assertion
         expect(result.enhanced.length).toBe(1536);
+
+        // CORRECTNESS: L2 normalized
+        const norm = computeL2Norm(result.enhanced);
+        expect(norm).toBeGreaterThan(0.9);
+        expect(norm).toBeLessThan(1.1);
+
+        results.push(result.enhanced);
       }
+
+      // CORRECTNESS: Different graph sizes should produce different results
+      const sim01 = cosineSimilarity(results[0], results[1]);
+      expect(sim01).toBeLessThan(0.999); // Not identical
     });
 
     it('should work with residual connections disabled', async () => {
@@ -649,7 +895,16 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
       const result = await noResidualEnhancer.enhance(input);
 
+      // Shape assertion
       expect(result.enhanced.length).toBe(1536);
+
+      // CORRECTNESS: L2 normalized
+      const norm = computeL2Norm(result.enhanced);
+      expect(norm).toBeGreaterThan(0.9);
+      expect(norm).toBeLessThan(1.1);
+
+      // CORRECTNESS: Transformation occurred
+      expect(result.enhanced).not.toEqual(input);
     });
   });
 
@@ -676,35 +931,62 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
 
     it('should produce consistent output for same input (deterministic)', async () => {
       const input = createNormalizedEmbedding(1536, 300);
+      // TASK-GNN-001: Must use same weightSeed for deterministic weights
+      const weightSeed = 12345;
 
-      const enhancer1 = new GNNEnhancer();
-      const enhancer2 = new GNNEnhancer();
+      const enhancer1 = new GNNEnhancer(undefined, undefined, weightSeed);
+      const enhancer2 = new GNNEnhancer(undefined, undefined, weightSeed);
 
       const result1 = await enhancer1.enhance(input);
       const result2 = await enhancer2.enhance(input);
 
-      // Should be identical (deterministic)
+      // Should be identical (deterministic with same seed)
       for (let i = 0; i < 1536; i++) {
         expect(result2.enhanced[i]).toBeCloseTo(result1.enhanced[i], 6);
       }
     });
 
-    it('should preserve relative relationships in embeddings', async () => {
-      // Use more distant seeds to ensure clear difference
-      const base = createNormalizedEmbedding(1536, 0);
-      const similar = createNormalizedEmbedding(1536, 1);
-      const different = createNormalizedEmbedding(1536, 1000);
+    it('should produce different outputs with different weight seeds (TASK-GNN-001)', async () => {
+      // TASK-GNN-001 SUCCESS CRITERIA: Different weight seeds produce different outputs
+      const input = createNormalizedEmbedding(1536, 42);
 
-      const resultBase = await enhancer.enhance(base);
-      const resultSimilar = await enhancer.enhance(similar);
-      const resultDifferent = await enhancer.enhance(different);
+      const enhancer1 = new GNNEnhancer(undefined, undefined, 11111);
+      const enhancer2 = new GNNEnhancer(undefined, undefined, 99999);
 
-      // Calculate cosine similarities
-      const simBaseSimilar = cosineSimilarity(resultBase.enhanced, resultSimilar.enhanced);
-      const simBaseDifferent = cosineSimilarity(resultBase.enhanced, resultDifferent.enhanced);
+      const result1 = await enhancer1.enhance(input);
+      const result2 = await enhancer2.enhance(input);
 
-      // Similar inputs should have higher similarity than different inputs
-      expect(simBaseSimilar).toBeGreaterThan(simBaseDifferent);
+      // Outputs should differ significantly due to different weights
+      let differences = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (Math.abs(result1.enhanced[i] - result2.enhanced[i]) > 0.0001) {
+          differences++;
+        }
+      }
+
+      // Most values should be different with different weights
+      expect(differences).toBeGreaterThan(500);
+    });
+
+    it('should maintain deterministic transformation within same enhancer', async () => {
+      // TASK-GNN-001: With learned weights, we test determinism not semantic preservation
+      // (Semantic preservation requires training, not just random initialization)
+      const input = createNormalizedEmbedding(1536, 42);
+
+      // Same enhancer with same weights should produce identical output
+      const result1 = await enhancer.enhance(input);
+      const result2 = await enhancer.enhance(input);
+
+      // Should be identical (deterministic transformation)
+      for (let i = 0; i < 1536; i++) {
+        expect(result2.enhanced[i]).toBeCloseTo(result1.enhanced[i], 6);
+      }
+
+      // The transformation should produce non-zero output
+      const magnitude = Math.sqrt(
+        result1.enhanced.reduce((sum, v) => sum + v * v, 0)
+      );
+      expect(magnitude).toBeGreaterThan(0.5); // Normalized output
     });
   });
 
@@ -1141,11 +1423,585 @@ describe('GNNEnhancer - Comprehensive Test Suite', () => {
       expect(stats.totalEnhancements).toBe(50);
     });
   });
+
+  // =====================================================================
+  // TC-GNN-002: Graph Attention with Adjacency Matrix (TASK-GNN-002)
+  // Verifies that adjacency matrix is actually used in aggregation
+  // =====================================================================
+  describe('TC-GNN-002: Graph Attention with Adjacency Matrix', () => {
+    it('should produce different outputs for different adjacency matrices (TASK-GNN-002)', async () => {
+      // TASK-GNN-002 SUCCESS CRITERIA: Different adjacency matrices produce different outputs
+      // This test verifies the fake mean aggregation has been replaced with real graph attention
+
+      const input = createNormalizedEmbedding(1536, 999);
+      const weightSeed = 54321;
+      const testEnhancer = new GNNEnhancer(undefined, undefined, weightSeed);
+
+      // Create graph with specific node embeddings
+      const nodes = [
+        { id: 'n0', embedding: createNormalizedEmbedding(1536, 100) },
+        { id: 'n1', embedding: createNormalizedEmbedding(1536, 101) },
+        { id: 'n2', embedding: createNormalizedEmbedding(1536, 102) },
+        { id: 'n3', embedding: createNormalizedEmbedding(1536, 103) },
+        { id: 'n4', embedding: createNormalizedEmbedding(1536, 104) },
+      ];
+
+      // Graph 1: Dense connectivity (all nodes connected with high weight)
+      const denseGraph: TrajectoryGraph = {
+        nodes,
+        edges: [
+          { source: 'n0', target: 'n1', weight: 1.0 },
+          { source: 'n0', target: 'n2', weight: 1.0 },
+          { source: 'n0', target: 'n3', weight: 1.0 },
+          { source: 'n0', target: 'n4', weight: 1.0 },
+          { source: 'n1', target: 'n2', weight: 1.0 },
+          { source: 'n2', target: 'n3', weight: 1.0 },
+          { source: 'n3', target: 'n4', weight: 1.0 },
+        ],
+      };
+
+      // Graph 2: Sparse connectivity (only 2 edges)
+      const sparseGraph: TrajectoryGraph = {
+        nodes,
+        edges: [
+          { source: 'n0', target: 'n1', weight: 0.5 },
+          { source: 'n2', target: 'n3', weight: 0.5 },
+        ],
+      };
+
+      const result1 = await testEnhancer.enhance(input, denseGraph);
+      testEnhancer.clearCache(); // Clear cache to ensure fresh computation
+      const result2 = await testEnhancer.enhance(input, sparseGraph);
+
+      // Count differences between outputs
+      let differences = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (Math.abs(result1.enhanced[i] - result2.enhanced[i]) > 0.0001) {
+          differences++;
+        }
+      }
+
+      // With real graph attention using adjacency matrix:
+      // Different connectivity should produce significantly different embeddings
+      expect(differences).toBeGreaterThan(100);
+    });
+
+    it('should weight neighbors by edge weights from adjacency (TASK-GNN-002)', async () => {
+      const input = createNormalizedEmbedding(1536, 888);
+      const weightSeed = 12345;
+      const testEnhancer = new GNNEnhancer(undefined, undefined, weightSeed);
+
+      // Create 3 nodes with distinct embeddings
+      const nodes = [
+        { id: 'center', embedding: createNormalizedEmbedding(1536, 200) },
+        { id: 'neighbor1', embedding: createNormalizedEmbedding(1536, 201) },
+        { id: 'neighbor2', embedding: createNormalizedEmbedding(1536, 202) },
+      ];
+
+      // Graph with equal edge weights
+      const equalWeightGraph: TrajectoryGraph = {
+        nodes,
+        edges: [
+          { source: 'center', target: 'neighbor1', weight: 1.0 },
+          { source: 'center', target: 'neighbor2', weight: 1.0 },
+        ],
+      };
+
+      // Graph with unequal edge weights (neighbor1 much stronger)
+      const unequalWeightGraph: TrajectoryGraph = {
+        nodes,
+        edges: [
+          { source: 'center', target: 'neighbor1', weight: 10.0 },
+          { source: 'center', target: 'neighbor2', weight: 0.1 },
+        ],
+      };
+
+      const result1 = await testEnhancer.enhance(input, equalWeightGraph);
+      testEnhancer.clearCache();
+      const result2 = await testEnhancer.enhance(input, unequalWeightGraph);
+
+      // Different edge weights should produce different outputs
+      let differences = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (Math.abs(result1.enhanced[i] - result2.enhanced[i]) > 0.0001) {
+          differences++;
+        }
+      }
+
+      expect(differences).toBeGreaterThan(100);
+    });
+
+    it('should produce output that depends on neighbor connectivity (TASK-GNN-002)', async () => {
+      const input = createNormalizedEmbedding(1536, 777);
+      const weightSeed = 67890;
+      const testEnhancer = new GNNEnhancer(undefined, undefined, weightSeed);
+
+      // Single isolated node (no neighbors)
+      const isolatedGraph: TrajectoryGraph = {
+        nodes: [{ id: 'alone', embedding: createNormalizedEmbedding(1536, 300) }],
+        edges: [],
+      };
+
+      // Node with many neighbors
+      const connectedGraph: TrajectoryGraph = {
+        nodes: [
+          { id: 'center', embedding: createNormalizedEmbedding(1536, 300) },
+          { id: 'n1', embedding: createNormalizedEmbedding(1536, 301) },
+          { id: 'n2', embedding: createNormalizedEmbedding(1536, 302) },
+          { id: 'n3', embedding: createNormalizedEmbedding(1536, 303) },
+        ],
+        edges: [
+          { source: 'center', target: 'n1', weight: 1.0 },
+          { source: 'center', target: 'n2', weight: 1.0 },
+          { source: 'center', target: 'n3', weight: 1.0 },
+        ],
+      };
+
+      const result1 = await testEnhancer.enhance(input, isolatedGraph);
+      testEnhancer.clearCache();
+      const result2 = await testEnhancer.enhance(input, connectedGraph);
+
+      // Isolated vs connected should produce different outputs
+      let differences = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (Math.abs(result1.enhanced[i] - result2.enhanced[i]) > 0.0001) {
+          differences++;
+        }
+      }
+
+      expect(differences).toBeGreaterThan(100);
+    });
+  });
+
+  // =====================================================================
+  // TASK-TEST-002: Weight Sensitivity Tests
+  // Verifies that different weights produce different outputs
+  // =====================================================================
+  describe('TASK-TEST-002: Weight Sensitivity Tests', () => {
+    it('should produce different outputs with different weight seeds', async () => {
+      const input = createNormalizedEmbedding(1536, 42);
+
+      // Create enhancers with different weight seeds
+      const enhancer1 = new GNNEnhancer(undefined, undefined, 11111);
+      const enhancer2 = new GNNEnhancer(undefined, undefined, 22222);
+      const enhancer3 = new GNNEnhancer(undefined, undefined, 33333);
+
+      const result1 = await enhancer1.enhance(input);
+      const result2 = await enhancer2.enhance(input);
+      const result3 = await enhancer3.enhance(input);
+
+      // CORRECTNESS: All outputs should be L2 normalized
+      expect(computeL2Norm(result1.enhanced)).toBeCloseTo(1.0, 1);
+      expect(computeL2Norm(result2.enhanced)).toBeCloseTo(1.0, 1);
+      expect(computeL2Norm(result3.enhanced)).toBeCloseTo(1.0, 1);
+
+      // CORRECTNESS: Different seeds MUST produce different outputs
+      const sim12 = cosineSimilarity(result1.enhanced, result2.enhanced);
+      const sim13 = cosineSimilarity(result1.enhanced, result3.enhanced);
+      const sim23 = cosineSimilarity(result2.enhanced, result3.enhanced);
+
+      // At least some pairs should differ substantially
+      expect(sim12).toBeLessThan(0.99);
+      expect(sim13).toBeLessThan(0.99);
+      expect(sim23).toBeLessThan(0.99);
+    });
+
+    it('should produce identical outputs with same weight seed', async () => {
+      const input = createNormalizedEmbedding(1536, 100);
+      const seed = 54321;
+
+      // Create two enhancers with same seed
+      const enhancer1 = new GNNEnhancer(undefined, undefined, seed);
+      const enhancer2 = new GNNEnhancer(undefined, undefined, seed);
+
+      const result1 = await enhancer1.enhance(input);
+      const result2 = await enhancer2.enhance(input);
+
+      // CORRECTNESS: Same seed MUST produce identical outputs
+      for (let i = 0; i < 1536; i++) {
+        expect(result1.enhanced[i]).toBeCloseTo(result2.enhanced[i], 6);
+      }
+    });
+
+    it('should have weight sensitivity for each layer', async () => {
+      // Test that changing any layer's weights affects output
+      const input = createNormalizedEmbedding(1536, 200);
+
+      // Baseline with default seed
+      const baseline = new GNNEnhancer(undefined, undefined, 12345);
+      const baselineResult = await baseline.enhance(input);
+
+      // With very different seed
+      const varied = new GNNEnhancer(undefined, undefined, 99999);
+      const variedResult = await varied.enhance(input);
+
+      // Count how many output values differ significantly
+      let significantDifferences = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (Math.abs(baselineResult.enhanced[i] - variedResult.enhanced[i]) > 0.001) {
+          significantDifferences++;
+        }
+      }
+
+      // Most values should be different (>50%)
+      expect(significantDifferences).toBeGreaterThan(750);
+    });
+
+    it('should not produce identical outputs for any random seeds', async () => {
+      const input = createNormalizedEmbedding(1536, 42);
+      const outputs: Float32Array[] = [];
+
+      // Generate outputs with 5 different random seeds
+      for (let seed = 1; seed <= 5; seed++) {
+        const enhancer = new GNNEnhancer(undefined, undefined, seed * 11111);
+        const result = await enhancer.enhance(input);
+        outputs.push(result.enhanced);
+      }
+
+      // Check all pairs - no two should be identical
+      for (let i = 0; i < outputs.length; i++) {
+        for (let j = i + 1; j < outputs.length; j++) {
+          const similarity = cosineSimilarity(outputs[i], outputs[j]);
+          expect(similarity).toBeLessThan(0.999);
+        }
+      }
+    });
+  });
+
+  // =====================================================================
+  // TASK-TEST-002: Graph Sensitivity Tests
+  // Verifies that different graph structures produce different results
+  // =====================================================================
+  describe('TASK-TEST-002: Graph Sensitivity Tests', () => {
+    it('should produce different outputs for sparse vs dense graphs', async () => {
+      const input = createNormalizedEmbedding(1536, 100);
+      const weightSeed = 12345;
+      const testEnhancer = new GNNEnhancer(undefined, undefined, weightSeed);
+
+      // Create sparse graph (chain topology)
+      const nodes = Array.from({ length: 5 }, (_, i) => ({
+        id: `n${i}`,
+        embedding: createNormalizedEmbedding(1536, 1000 + i)
+      }));
+
+      const sparseGraph: TrajectoryGraph = {
+        nodes,
+        edges: [
+          { source: 'n0', target: 'n1', weight: 1.0 },
+          { source: 'n1', target: 'n2', weight: 1.0 },
+          { source: 'n2', target: 'n3', weight: 1.0 },
+          { source: 'n3', target: 'n4', weight: 1.0 },
+        ],
+      };
+
+      // Create dense graph (fully connected)
+      const denseEdges: TrajectoryEdge[] = [];
+      for (let i = 0; i < 5; i++) {
+        for (let j = i + 1; j < 5; j++) {
+          denseEdges.push({ source: `n${i}`, target: `n${j}`, weight: 1.0 });
+        }
+      }
+      const denseGraph: TrajectoryGraph = { nodes, edges: denseEdges };
+
+      const sparseResult = await testEnhancer.enhance(input, sparseGraph);
+      testEnhancer.clearCache();
+      const denseResult = await testEnhancer.enhance(input, denseGraph);
+
+      // CORRECTNESS: Both outputs should be L2 normalized
+      expect(computeL2Norm(sparseResult.enhanced)).toBeCloseTo(1.0, 1);
+      expect(computeL2Norm(denseResult.enhanced)).toBeCloseTo(1.0, 1);
+
+      // CORRECTNESS: Different graph structures MUST produce different outputs
+      // Note: Graph context affects output but transformation is dominated by weights
+      const similarity = cosineSimilarity(sparseResult.enhanced, denseResult.enhanced);
+      expect(similarity).toBeLessThan(0.9999); // Not identical
+
+      // Count actual value differences
+      let differences = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (Math.abs(sparseResult.enhanced[i] - denseResult.enhanced[i]) > 0.0001) {
+          differences++;
+        }
+      }
+      expect(differences).toBeGreaterThan(100); // Significant differences exist
+    });
+
+    it('should produce different outputs with different edge weights', async () => {
+      const input = createNormalizedEmbedding(1536, 200);
+      const weightSeed = 54321;
+      const testEnhancer = new GNNEnhancer(undefined, undefined, weightSeed);
+
+      const nodes = [
+        { id: 'center', embedding: createNormalizedEmbedding(1536, 500) },
+        { id: 'n1', embedding: createNormalizedEmbedding(1536, 501) },
+        { id: 'n2', embedding: createNormalizedEmbedding(1536, 502) },
+      ];
+
+      // Low weight graph
+      const lowWeightGraph: TrajectoryGraph = {
+        nodes,
+        edges: [
+          { source: 'center', target: 'n1', weight: 0.1 },
+          { source: 'center', target: 'n2', weight: 0.1 },
+        ],
+      };
+
+      // High weight graph
+      const highWeightGraph: TrajectoryGraph = {
+        nodes,
+        edges: [
+          { source: 'center', target: 'n1', weight: 10.0 },
+          { source: 'center', target: 'n2', weight: 10.0 },
+        ],
+      };
+
+      const lowResult = await testEnhancer.enhance(input, lowWeightGraph);
+      testEnhancer.clearCache();
+      const highResult = await testEnhancer.enhance(input, highWeightGraph);
+
+      // CORRECTNESS: Different edge weights MUST produce different outputs
+      // Note: Edge weights affect aggregation but transformation is dominated by weights
+      const similarity = cosineSimilarity(lowResult.enhanced, highResult.enhanced);
+      expect(similarity).toBeLessThan(0.9999); // Not identical
+
+      // Count actual value differences
+      let differences = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (Math.abs(lowResult.enhanced[i] - highResult.enhanced[i]) > 0.0001) {
+          differences++;
+        }
+      }
+      expect(differences).toBeGreaterThan(100); // Significant differences exist
+    });
+
+    it('should produce different outputs for isolated vs connected nodes', async () => {
+      const input = createNormalizedEmbedding(1536, 300);
+      const weightSeed = 67890;
+      const testEnhancer = new GNNEnhancer(undefined, undefined, weightSeed);
+
+      // Isolated single node
+      const isolatedGraph: TrajectoryGraph = {
+        nodes: [{ id: 'alone', embedding: createNormalizedEmbedding(1536, 600) }],
+        edges: [],
+      };
+
+      // Connected nodes
+      const connectedGraph: TrajectoryGraph = {
+        nodes: [
+          { id: 'center', embedding: createNormalizedEmbedding(1536, 600) },
+          { id: 'n1', embedding: createNormalizedEmbedding(1536, 601) },
+          { id: 'n2', embedding: createNormalizedEmbedding(1536, 602) },
+          { id: 'n3', embedding: createNormalizedEmbedding(1536, 603) },
+          { id: 'n4', embedding: createNormalizedEmbedding(1536, 604) },
+        ],
+        edges: [
+          { source: 'center', target: 'n1', weight: 1.0 },
+          { source: 'center', target: 'n2', weight: 1.0 },
+          { source: 'center', target: 'n3', weight: 1.0 },
+          { source: 'center', target: 'n4', weight: 1.0 },
+        ],
+      };
+
+      const isolatedResult = await testEnhancer.enhance(input, isolatedGraph);
+      testEnhancer.clearCache();
+      const connectedResult = await testEnhancer.enhance(input, connectedGraph);
+
+      // CORRECTNESS: Isolated vs connected MUST produce different outputs
+      const similarity = cosineSimilarity(isolatedResult.enhanced, connectedResult.enhanced);
+      expect(similarity).toBeLessThan(0.99);
+    });
+
+    it('should have graph structure affect output more than random variation', async () => {
+      const input = createNormalizedEmbedding(1536, 400);
+      const weightSeed = 11111;
+      const testEnhancer = new GNNEnhancer(undefined, undefined, weightSeed);
+
+      // Create two very different graph structures
+      const starGraph: TrajectoryGraph = {
+        nodes: Array.from({ length: 10 }, (_, i) => ({
+          id: `n${i}`,
+          embedding: createNormalizedEmbedding(1536, 700 + i)
+        })),
+        edges: Array.from({ length: 9 }, (_, i) => ({
+          source: 'n0', target: `n${i + 1}`, weight: 1.0
+        })),
+      };
+
+      const chainGraph: TrajectoryGraph = {
+        nodes: Array.from({ length: 10 }, (_, i) => ({
+          id: `n${i}`,
+          embedding: createNormalizedEmbedding(1536, 700 + i)
+        })),
+        edges: Array.from({ length: 9 }, (_, i) => ({
+          source: `n${i}`, target: `n${i + 1}`, weight: 1.0
+        })),
+      };
+
+      const starResult = await testEnhancer.enhance(input, starGraph);
+      testEnhancer.clearCache();
+      const chainResult = await testEnhancer.enhance(input, chainGraph);
+
+      // CORRECTNESS: Different topologies MUST produce different results
+      const similarity = cosineSimilarity(starResult.enhanced, chainResult.enhanced);
+      expect(similarity).toBeLessThan(0.99);
+
+      // Count actual differences
+      let differences = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (Math.abs(starResult.enhanced[i] - chainResult.enhanced[i]) > 0.001) {
+          differences++;
+        }
+      }
+      expect(differences).toBeGreaterThan(100);
+    });
+  });
+
+  // =====================================================================
+  // TASK-TEST-002: Mathematical Correctness Tests
+  // Verifies L2 normalization, cosine similarity, and transformation quality
+  // =====================================================================
+  describe('TASK-TEST-002: Mathematical Correctness Tests', () => {
+    it('should always produce L2-normalized output', async () => {
+      const testCases = [
+        createNormalizedEmbedding(1536, 1),
+        createNormalizedEmbedding(1536, 2),
+        createUniformEmbedding(1536, 0.5),
+        createUniformEmbedding(1536, 2.0),
+      ];
+
+      for (const input of testCases) {
+        const result = await enhancer.enhance(input);
+
+        // CORRECTNESS: L2 norm must be ~1.0
+        const norm = computeL2Norm(result.enhanced);
+        expect(norm).toBeGreaterThan(0.9);
+        expect(norm).toBeLessThan(1.1);
+      }
+    });
+
+    it('should preserve input properties through transformation', async () => {
+      const input = createNormalizedEmbedding(1536, 999);
+      const inputNorm = computeL2Norm(input);
+
+      const result = await enhancer.enhance(input);
+      const outputNorm = computeL2Norm(result.enhanced);
+
+      // Input should be normalized (sanity check)
+      expect(inputNorm).toBeCloseTo(1.0, 1);
+
+      // Output should also be normalized
+      expect(outputNorm).toBeCloseTo(1.0, 1);
+
+      // CORRECTNESS: Transformation should be substantial but bounded
+      const similarity = cosineSimilarity(result.enhanced, input);
+      expect(similarity).toBeGreaterThan(-1); // Valid similarity
+      expect(similarity).toBeLessThan(0.999); // Not identity
+    });
+
+    it('should have consistent cosine similarity properties', async () => {
+      const input1 = createNormalizedEmbedding(1536, 100);
+      const input2 = createNormalizedEmbedding(1536, 200);
+
+      const result1 = await enhancer.enhance(input1);
+      enhancer.clearCache();
+      const result2 = await enhancer.enhance(input2);
+
+      // Self-similarity should be ~1.0
+      expect(cosineSimilarity(result1.enhanced, result1.enhanced)).toBeCloseTo(1.0, 5);
+      expect(cosineSimilarity(result2.enhanced, result2.enhanced)).toBeCloseTo(1.0, 5);
+
+      // Cross similarity should be symmetric
+      const sim12 = cosineSimilarity(result1.enhanced, result2.enhanced);
+      const sim21 = cosineSimilarity(result2.enhanced, result1.enhanced);
+      expect(sim12).toBeCloseTo(sim21, 10);
+    });
+
+    it('should produce finite values for all inputs', async () => {
+      const testInputs = [
+        createNormalizedEmbedding(1536, 1),
+        createUniformEmbedding(1536, 1e-10), // Very small
+        createUniformEmbedding(1536, 1e6),   // Very large
+      ];
+
+      for (const input of testInputs) {
+        const result = await enhancer.enhance(input);
+
+        for (let i = 0; i < result.enhanced.length; i++) {
+          expect(isFinite(result.enhanced[i])).toBe(true);
+          expect(isNaN(result.enhanced[i])).toBe(false);
+        }
+      }
+    });
+
+    it('should have transformation that differs from simple copy', async () => {
+      const input = createNormalizedEmbedding(1536, 42);
+      const result = await enhancer.enhance(input);
+
+      // Count values that are exactly the same
+      let exactMatches = 0;
+      for (let i = 0; i < 1536; i++) {
+        if (result.enhanced[i] === input[i]) {
+          exactMatches++;
+        }
+      }
+
+      // CORRECTNESS: Very few (ideally zero) exact matches
+      // This catches Potemkin implementations that just copy
+      expect(exactMatches).toBeLessThan(100);
+    });
+
+    it('should not produce zero vectors for non-zero inputs', async () => {
+      const nonZeroInputs = [
+        createNormalizedEmbedding(1536, 1),
+        createUniformEmbedding(1536, 0.5),
+        createUniformEmbedding(1536, -0.5),
+      ];
+
+      for (const input of nonZeroInputs) {
+        const result = await enhancer.enhance(input);
+        const norm = computeL2Norm(result.enhanced);
+
+        // CORRECTNESS: Non-zero input should produce non-zero output
+        expect(norm).toBeGreaterThan(0.5);
+      }
+    });
+
+    it('should maintain vector space properties', async () => {
+      const input1 = createNormalizedEmbedding(1536, 100);
+      const input2 = createNormalizedEmbedding(1536, 200);
+
+      const result1 = await enhancer.enhance(input1);
+      enhancer.clearCache();
+      const result2 = await enhancer.enhance(input2);
+
+      // Outputs should span different directions
+      const similarity = cosineSimilarity(result1.enhanced, result2.enhanced);
+
+      // Similarity should be bounded [-1, 1]
+      expect(similarity).toBeGreaterThanOrEqual(-1);
+      expect(similarity).toBeLessThanOrEqual(1);
+
+      // Different inputs should produce different outputs
+      expect(similarity).toBeLessThan(0.999);
+    });
+  });
 });
 
 // =====================================================================
 // Helper Functions
 // =====================================================================
+
+/**
+ * Compute L2 norm (magnitude) of a vector
+ * TASK-TEST-002: Used for correctness verification
+ */
+function computeL2Norm(v: Float32Array): number {
+  let sum = 0;
+  for (let i = 0; i < v.length; i++) {
+    sum += v[i] * v[i];
+  }
+  return Math.sqrt(sum);
+}
 
 /**
  * Calculate cosine similarity between two vectors
@@ -1167,4 +2023,37 @@ function cosineSimilarity(a: Float32Array, b: Float32Array): number {
 
   const denominator = Math.sqrt(normA) * Math.sqrt(normB);
   return denominator === 0 ? 0 : dotProduct / denominator;
+}
+
+/**
+ * Create a sparse adjacency matrix with limited connections
+ * TASK-TEST-002: Used for graph sensitivity tests
+ */
+function createSparseAdjacencyMatrix(n: number): Float32Array[] {
+  const matrix: Float32Array[] = [];
+  for (let i = 0; i < n; i++) {
+    matrix.push(new Float32Array(n));
+    // Only connect to immediate neighbor (chain topology)
+    if (i < n - 1) {
+      matrix[i][i + 1] = 1.0;
+    }
+  }
+  return matrix;
+}
+
+/**
+ * Create a dense adjacency matrix with full connections
+ * TASK-TEST-002: Used for graph sensitivity tests
+ */
+function createDenseAdjacencyMatrix(n: number): Float32Array[] {
+  const matrix: Float32Array[] = [];
+  for (let i = 0; i < n; i++) {
+    matrix.push(new Float32Array(n));
+    for (let j = 0; j < n; j++) {
+      if (i !== j) {
+        matrix[i][j] = 1.0;
+      }
+    }
+  }
+  return matrix;
 }

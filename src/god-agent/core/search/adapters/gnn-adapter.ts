@@ -291,10 +291,19 @@ export class GNNSearchAdapter {
       } catch (error) {
         if (error instanceof Error && error.message.includes('timeout')) {
           this.timeouts++;
+          // RULE-070: Re-throw timeout with context
+          throw new Error(
+            `GNN enhancement timed out after ${this.options.timeout}ms`,
+            { cause: error }
+          );
         } else {
           this.failures++;
+          // RULE-070: Re-throw with operation context
+          throw new Error(
+            `GNN enhancement failed: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error }
+          );
         }
-        throw error;
       }
     };
 
@@ -314,7 +323,11 @@ export class GNNSearchAdapter {
       if (this.options.fallbackOnError) {
         return embedding; // Graceful fallback
       }
-      throw error;
+      // RULE-070: Re-throw with operation context
+      throw new Error(
+        `GNN search enhancement failed without circuit breaker: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 

@@ -1,55 +1,57 @@
 /**
- * Placeholder Attention Mechanisms
+ * Attention Mechanisms Registry
  * TASK-ATT-001 - Attention Factory Auto-Selection
  *
- * Provides placeholder implementations of attention mechanisms.
- * These are PRODUCTION code that return simplified outputs.
+ * Maps attention mechanism names to their Real implementations.
+ * All placeholder classes have been removed per ANTI-009.
  *
- * FUTURE WORK: Replace each placeholder with real neural network implementations.
+ * Real implementations available in mechanisms/ directory:
+ * - Phase 1: Standard, Linear, Flash, MultiQuery, GroupedQuery
+ * - Phase 2: Longformer, BigBird, SparseTransformer
+ * - Phase 3: Hyperbolic, GraphRoPe, Mamba, RWKV
+ * - Phase 4: Performer, Linformer, Reformer, Retentive, Hyena
+ * - Phase 5: Differential, Cross, Causal, Local, Bidirectional
+ * - Phase 6: SlidingWindow, Global, Dilated, Strided, Axial, BlockSparse
+ * - Phase 7: MemoryCompressed, RoutingTransformer, Clustered, SetTransformer,
+ *            MultiHeadLatent, Synthesizer, Luna, Nystromformer, FNet, AFT, Mega
+ *
  * See: docs/god-agent-specs/anti-pattern-fixes/SPEC-ANTI-009-PLACEHOLDER-NEURAL-NETWORKS.md
- *
- * Currently implemented (real):
- * - RealStandardAttention (mechanisms/standard-attention.ts) - Standard O(N²) attention
- * - RealLinearAttention (mechanisms/linear-attention.ts) - O(N) complexity
- * - RealFlashAttention (mechanisms/flash-attention.ts) - IO-aware tiling
- * - RealMultiQueryAttention (mechanisms/multi-query-attention.ts) - Single shared K,V head
- * - RealGroupedQueryAttention (mechanisms/grouped-query-attention.ts) - Grouped K,V heads
- *
- * Placeholder implementations (this file):
- * - 33 remaining mechanisms use simplified weighted averaging
- *
- * ANTI-009: As real implementations are created, they should replace placeholders
- * in MECHANISM_CONSTRUCTORS below. No backwards compatibility - clean breaks only.
  */
 
 import type { IAttentionMechanism } from './attention-types.js';
-import { VECTOR_DIM, DEFAULT_NUM_HEADS } from '../validation/constants.js';
+
+// Phase 1 implementations
 import { RealStandardAttention } from './mechanisms/standard-attention.js';
 import { RealLinearAttention } from './mechanisms/linear-attention.js';
 import { RealFlashAttention } from './mechanisms/flash-attention.js';
 import { RealMultiQueryAttention } from './mechanisms/multi-query-attention.js';
 import { RealGroupedQueryAttention } from './mechanisms/grouped-query-attention.js';
+
 // Phase 2 implementations
 import { RealLongformerAttention } from './mechanisms/longformer-attention.js';
 import { RealBigBirdAttention } from './mechanisms/bigbird-attention.js';
 import { RealSparseTransformerAttention } from './mechanisms/sparse-transformer-attention.js';
+
 // Phase 3 implementations
 import { RealHyperbolicAttention } from './mechanisms/hyperbolic-attention.js';
 import { RealGraphRoPeAttention } from './mechanisms/graph-rope-attention.js';
 import { RealMambaAttention } from './mechanisms/mamba-attention.js';
 import { RealRWKVAttention } from './mechanisms/rwkv-attention.js';
+
 // Phase 4 implementations
 import { RealPerformerAttention } from './mechanisms/performer-attention.js';
 import { RealLinformerAttention } from './mechanisms/linformer-attention.js';
 import { RealReformerAttention } from './mechanisms/reformer-attention.js';
 import { RealRetentiveAttention } from './mechanisms/retentive-attention.js';
 import { RealHyenaAttention } from './mechanisms/hyena-attention.js';
+
 // Phase 5 implementations
 import { RealDifferentialAttention } from './mechanisms/differential-attention.js';
 import { RealCrossAttention } from './mechanisms/cross-attention.js';
 import { RealCausalAttention } from './mechanisms/causal-attention.js';
 import { RealLocalAttention } from './mechanisms/local-attention.js';
 import { RealBidirectionalAttention } from './mechanisms/bidirectional-attention.js';
+
 // Phase 6 implementations
 import { RealSlidingWindowAttention } from './mechanisms/sliding-window-attention.js';
 import { RealGlobalAttention } from './mechanisms/global-attention.js';
@@ -57,6 +59,7 @@ import { RealDilatedAttention } from './mechanisms/dilated-attention.js';
 import { RealStridedAttention } from './mechanisms/strided-attention.js';
 import { RealAxialAttention } from './mechanisms/axial-attention.js';
 import { RealBlockSparseAttention } from './mechanisms/block-sparse-attention.js';
+
 // Phase 7 implementations
 import { RealMemoryCompressedAttention } from './mechanisms/memory-compressed-attention.js';
 import { RealRoutingTransformerAttention } from './mechanisms/routing-transformer-attention.js';
@@ -70,403 +73,119 @@ import { RealFNetAttention } from './mechanisms/fnet-attention.js';
 import { RealAFTAttention } from './mechanisms/aft-attention.js';
 import { RealMegaAttention } from './mechanisms/mega-attention.js';
 
-// ==================== Base Placeholder Mechanism ====================
+// ==================== Re-exports for convenience ====================
 
-/**
- * Base class for placeholder attention mechanisms.
- *
- * PRODUCTION CODE: These placeholders are used when real implementations
- * are not yet available. They provide simplified weighted averaging.
- *
- * To implement a real mechanism:
- * 1. Create new file in mechanisms/ directory
- * 2. Implement IAttentionMechanism with actual neural network logic
- * 3. Register in MECHANISM_CONSTRUCTORS (replacing placeholder)
- * 4. See RealStandardAttention for reference implementation
- */
-export abstract class BasePlaceholderAttention implements IAttentionMechanism {
-  abstract readonly name: string;
-  protected readonly dimension: number;
-  protected readonly numHeads: number;
+// Phase 1
+export { RealStandardAttention } from './mechanisms/standard-attention.js';
+export { RealLinearAttention } from './mechanisms/linear-attention.js';
+export { RealFlashAttention } from './mechanisms/flash-attention.js';
+export { RealMultiQueryAttention } from './mechanisms/multi-query-attention.js';
+export { RealGroupedQueryAttention } from './mechanisms/grouped-query-attention.js';
 
-  constructor(config?: { dimension?: number; numHeads?: number }) {
-    this.dimension = config?.dimension ?? VECTOR_DIM;
-    this.numHeads = config?.numHeads ?? DEFAULT_NUM_HEADS;
-  }
+// Phase 2
+export { RealLongformerAttention } from './mechanisms/longformer-attention.js';
+export { RealBigBirdAttention } from './mechanisms/bigbird-attention.js';
+export { RealSparseTransformerAttention } from './mechanisms/sparse-transformer-attention.js';
 
-  /**
-   * Placeholder forward pass - returns simplified weighted combination.
-   * Real implementations should compute actual attention scores.
-   */
-  forward(
-    query: Float32Array,
-    _key: Float32Array,
-    value: Float32Array,
-    _mask?: boolean[]
-  ): Float32Array {
-    // Simple mock: return weighted combination of query and value
-    const output = new Float32Array(query.length);
-    for (let i = 0; i < query.length; i++) {
-      output[i] = 0.5 * query[i] + 0.5 * value[i];
-    }
-    return output;
-  }
+// Phase 3
+export { RealHyperbolicAttention } from './mechanisms/hyperbolic-attention.js';
+export { RealGraphRoPeAttention } from './mechanisms/graph-rope-attention.js';
+export { RealMambaAttention } from './mechanisms/mamba-attention.js';
+export { RealRWKVAttention } from './mechanisms/rwkv-attention.js';
 
-  /**
-   * Get parameter count
-   */
-  getParameterCount(): number {
-    // W_q, W_k, W_v, W_o each of size (dim × dim)
-    return 4 * this.dimension * this.dimension;
-  }
-}
+// Phase 4
+export { RealPerformerAttention } from './mechanisms/performer-attention.js';
+export { RealLinformerAttention } from './mechanisms/linformer-attention.js';
+export { RealReformerAttention } from './mechanisms/reformer-attention.js';
+export { RealRetentiveAttention } from './mechanisms/retentive-attention.js';
+export { RealHyenaAttention } from './mechanisms/hyena-attention.js';
 
-// ==================== Efficiency Mechanisms (Placeholders) ====================
+// Phase 5
+export { RealDifferentialAttention } from './mechanisms/differential-attention.js';
+export { RealCrossAttention } from './mechanisms/cross-attention.js';
+export { RealCausalAttention } from './mechanisms/causal-attention.js';
+export { RealLocalAttention } from './mechanisms/local-attention.js';
+export { RealBidirectionalAttention } from './mechanisms/bidirectional-attention.js';
 
-/**
- * Flash Attention - IO-aware exact attention
- * PLACEHOLDER: Real implementation requires CUDA/GPU memory tiling
- */
-export class FlashAttention extends BasePlaceholderAttention {
-  readonly name = 'flash';
-}
+// Phase 6
+export { RealSlidingWindowAttention } from './mechanisms/sliding-window-attention.js';
+export { RealGlobalAttention } from './mechanisms/global-attention.js';
+export { RealDilatedAttention } from './mechanisms/dilated-attention.js';
+export { RealStridedAttention } from './mechanisms/strided-attention.js';
+export { RealAxialAttention } from './mechanisms/axial-attention.js';
+export { RealBlockSparseAttention } from './mechanisms/block-sparse-attention.js';
 
-/**
- * Linear Attention - O(N) complexity via kernel approximation
- * PLACEHOLDER: Real implementation requires kernel feature maps
- */
-export class LinearAttention extends BasePlaceholderAttention {
-  readonly name = 'linear';
-}
-
-/**
- * Performer - FAVOR+ kernel method
- */
-export class PerformerAttention extends BasePlaceholderAttention {
-  readonly name = 'performer';
-}
-
-/**
- * Linformer - Low-rank self-attention
- */
-export class LinformerAttention extends BasePlaceholderAttention {
-  readonly name = 'linformer';
-}
-
-/**
- * Reformer - Locality-sensitive hashing
- */
-export class ReformerAttention extends BasePlaceholderAttention {
-  readonly name = 'reformer';
-}
-
-// ==================== Structure-Aware Mechanisms ====================
-
-/**
- * Hyperbolic Attention - For hierarchical data
- */
-export class HyperbolicAttention extends BasePlaceholderAttention {
-  readonly name = 'hyperbolic';
-}
-
-/**
- * GraphRoPe - Rotary position embeddings for graphs
- */
-export class GraphRoPeAttention extends BasePlaceholderAttention {
-  readonly name = 'graph-rope';
-}
-
-// ==================== Sparse/Structured Mechanisms ====================
-
-/**
- * BigBird - Sparse attention with random, window, and global tokens
- */
-export class BigBirdAttention extends BasePlaceholderAttention {
-  readonly name = 'bigbird';
-}
-
-/**
- * Longformer - Sliding window + global attention
- */
-export class LongformerAttention extends BasePlaceholderAttention {
-  readonly name = 'longformer';
-}
-
-/**
- * Sparse Transformer - Fixed sparse patterns
- */
-export class SparseTransformerAttention extends BasePlaceholderAttention {
-  readonly name = 'sparse-transformer';
-}
-
-// ==================== Memory-Based Mechanisms ====================
-
-/**
- * Memory Compressed Attention
- */
-export class MemoryCompressedAttention extends BasePlaceholderAttention {
-  readonly name = 'memory-compressed';
-}
-
-/**
- * Routing Transformer - Content-based routing
- */
-export class RoutingTransformerAttention extends BasePlaceholderAttention {
-  readonly name = 'routing-transformer';
-}
-
-/**
- * Clustered Attention - Cluster-based approximation
- */
-export class ClusteredAttention extends BasePlaceholderAttention {
-  readonly name = 'clustered';
-}
-
-/**
- * Set Transformer - Attention for sets
- */
-export class SetTransformerAttention extends BasePlaceholderAttention {
-  readonly name = 'set-transformer';
-}
-
-// ==================== Domain-Specific Mechanisms ====================
-
-/**
- * Retentive Network - Retention-based attention
- */
-export class RetentiveAttention extends BasePlaceholderAttention {
-  readonly name = 'retentive';
-}
-
-/**
- * Differential Transformer - Differential attention
- */
-export class DifferentialAttention extends BasePlaceholderAttention {
-  readonly name = 'differential';
-}
-
-/**
- * Hyena - Subquadratic via implicit convolutions
- */
-export class HyenaAttention extends BasePlaceholderAttention {
-  readonly name = 'hyena';
-}
-
-/**
- * Mamba - State space models
- */
-export class MambaAttention extends BasePlaceholderAttention {
-  readonly name = 'mamba';
-}
-
-/**
- * RWKV - Receptance Weighted Key Value
- */
-export class RWKVAttention extends BasePlaceholderAttention {
-  readonly name = 'rwkv';
-}
-
-// ==================== Standard Attention ====================
-
-/**
- * Standard Multi-Head Attention
- */
-export class StandardAttention extends BasePlaceholderAttention {
-  readonly name = 'standard';
-}
-
-// ==================== Specialized Mechanisms ====================
-
-/**
- * Cross Attention - For encoder-decoder
- */
-export class CrossAttention extends BasePlaceholderAttention {
-  readonly name = 'cross';
-}
-
-/**
- * Local Attention - Window-based
- */
-export class LocalAttention extends BasePlaceholderAttention {
-  readonly name = 'local';
-}
-
-/**
- * Global Attention - Selected global tokens
- */
-export class GlobalAttention extends BasePlaceholderAttention {
-  readonly name = 'global';
-}
-
-/**
- * Axial Attention - Factored attention
- */
-export class AxialAttention extends BasePlaceholderAttention {
-  readonly name = 'axial';
-}
-
-/**
- * Block Sparse Attention
- */
-export class BlockSparseAttention extends BasePlaceholderAttention {
-  readonly name = 'block-sparse';
-}
-
-/**
- * Strided Attention
- */
-export class StridedAttention extends BasePlaceholderAttention {
-  readonly name = 'strided';
-}
-
-/**
- * Dilated Attention
- */
-export class DilatedAttention extends BasePlaceholderAttention {
-  readonly name = 'dilated';
-}
-
-/**
- * Sliding Window Attention
- */
-export class SlidingWindowAttention extends BasePlaceholderAttention {
-  readonly name = 'sliding-window';
-}
-
-/**
- * Causal Attention - Left-to-right only
- */
-export class CausalAttention extends BasePlaceholderAttention {
-  readonly name = 'causal';
-}
-
-/**
- * Bidirectional Attention
- */
-export class BidirectionalAttention extends BasePlaceholderAttention {
-  readonly name = 'bidirectional';
-}
-
-/**
- * Multi-Query Attention - Shared KV heads
- */
-export class MultiQueryAttention extends BasePlaceholderAttention {
-  readonly name = 'multi-query';
-}
-
-/**
- * Grouped Query Attention - Grouped KV heads
- */
-export class GroupedQueryAttention extends BasePlaceholderAttention {
-  readonly name = 'grouped-query';
-}
-
-/**
- * Multi-Head Latent Attention
- */
-export class MultiHeadLatentAttention extends BasePlaceholderAttention {
-  readonly name = 'multi-head-latent';
-}
-
-/**
- * Synthesizer - Random feature attention
- */
-export class SynthesizerAttention extends BasePlaceholderAttention {
-  readonly name = 'synthesizer';
-}
-
-/**
- * Luna - Linear Unified Nested Attention
- */
-export class LunaAttention extends BasePlaceholderAttention {
-  readonly name = 'luna';
-}
-
-/**
- * Nyströmformer - Nyström approximation
- */
-export class NystromformerAttention extends BasePlaceholderAttention {
-  readonly name = 'nystromformer';
-}
-
-/**
- * FNet - Fourier attention
- */
-export class FNetAttention extends BasePlaceholderAttention {
-  readonly name = 'fnet';
-}
-
-/**
- * AFT - Attention Free Transformer
- */
-export class AFTAttention extends BasePlaceholderAttention {
-  readonly name = 'aft';
-}
-
-/**
- * Mega - Moving Average Equipped Gated Attention
- */
-export class MegaAttention extends BasePlaceholderAttention {
-  readonly name = 'mega';
-}
+// Phase 7
+export { RealMemoryCompressedAttention } from './mechanisms/memory-compressed-attention.js';
+export { RealRoutingTransformerAttention } from './mechanisms/routing-transformer-attention.js';
+export { RealClusteredAttention } from './mechanisms/clustered-attention.js';
+export { RealSetTransformerAttention } from './mechanisms/set-transformer-attention.js';
+export { RealMultiHeadLatentAttention } from './mechanisms/multi-head-latent-attention.js';
+export { RealSynthesizerAttention } from './mechanisms/synthesizer-attention.js';
+export { RealLunaAttention } from './mechanisms/luna-attention.js';
+export { RealNystromformerAttention } from './mechanisms/nystromformer-attention.js';
+export { RealFNetAttention } from './mechanisms/fnet-attention.js';
+export { RealAFTAttention } from './mechanisms/aft-attention.js';
+export { RealMegaAttention } from './mechanisms/mega-attention.js';
 
 // ==================== Factory Map ====================
 
 /**
- * Map of mechanism names to their constructors
+ * Map of mechanism names to their constructors.
+ * All entries point to Real* implementations.
  */
 export const MECHANISM_CONSTRUCTORS: Record<string, new (config?: Record<string, unknown>) => IAttentionMechanism> = {
-  // === Phase 1: Real implementations ===
-  'flash': RealFlashAttention,  // ANTI-009 fix: Real IO-aware tiling implementation
-  'linear': RealLinearAttention,  // ANTI-009 fix: Real O(N) linear attention
-  'standard': RealStandardAttention,  // ANTI-009 fix: Use real implementation, not placeholder
-  'real-standard': RealStandardAttention,  // Explicit alias for real implementation
-  'multi-query': RealMultiQueryAttention,  // ANTI-009 fix: Real MQA with shared K,V
-  'grouped-query': RealGroupedQueryAttention,  // ANTI-009 fix: Real GQA with grouped K,V
+  // === Phase 1: Core attention implementations ===
+  'flash': RealFlashAttention,
+  'linear': RealLinearAttention,
+  'standard': RealStandardAttention,
+  'real-standard': RealStandardAttention,  // Explicit alias
+  'multi-query': RealMultiQueryAttention,
+  'grouped-query': RealGroupedQueryAttention,
 
   // === Phase 2: Sparse/Long-Context implementations ===
-  'longformer': RealLongformerAttention,  // ANTI-009 fix: Real sliding window + global attention
-  'bigbird': RealBigBirdAttention,  // ANTI-009 fix: Real random + window + global patterns
-  'sparse-transformer': RealSparseTransformerAttention,  // ANTI-009 fix: Real strided + fixed patterns
+  'longformer': RealLongformerAttention,
+  'bigbird': RealBigBirdAttention,
+  'sparse-transformer': RealSparseTransformerAttention,
 
   // === Phase 3: Structure-Aware and SSM implementations ===
-  'hyperbolic': RealHyperbolicAttention,  // ANTI-009 fix: Real Poincaré ball attention
-  'graph-rope': RealGraphRoPeAttention,  // ANTI-009 fix: Real Rotary Position Embeddings
-  'mamba': RealMambaAttention,  // ANTI-009 fix: Real Selective State Space Model
-  'rwkv': RealRWKVAttention,  // ANTI-009 fix: Real Receptance Weighted Key Value
+  'hyperbolic': RealHyperbolicAttention,
+  'graph-rope': RealGraphRoPeAttention,
+  'mamba': RealMambaAttention,
+  'rwkv': RealRWKVAttention,
 
   // === Phase 4: Linear attention variants ===
-  'performer': RealPerformerAttention,  // ANTI-009 fix: Real FAVOR+ random features
-  'linformer': RealLinformerAttention,  // ANTI-009 fix: Real low-rank projection
-  'reformer': RealReformerAttention,  // ANTI-009 fix: Real LSH-based attention
-  'retentive': RealRetentiveAttention,  // ANTI-009 fix: Real RetNet attention
-  'hyena': RealHyenaAttention,  // ANTI-009 fix: Real implicit convolution attention
+  'performer': RealPerformerAttention,
+  'linformer': RealLinformerAttention,
+  'reformer': RealReformerAttention,
+  'retentive': RealRetentiveAttention,
+  'hyena': RealHyenaAttention,
 
-  // === Phase 5: Real implementations ===
-  'differential': RealDifferentialAttention,  // ANTI-009 fix: Real noise-cancellation attention
-  'cross': RealCrossAttention,  // ANTI-009 fix: Real encoder-decoder attention
-  'local': RealLocalAttention,  // ANTI-009 fix: Real windowed local attention
-  'causal': RealCausalAttention,  // ANTI-009 fix: Real autoregressive attention
-  'bidirectional': RealBidirectionalAttention,  // ANTI-009 fix: Real full bidirectional attention
+  // === Phase 5: Directional attention implementations ===
+  'differential': RealDifferentialAttention,
+  'cross': RealCrossAttention,
+  'local': RealLocalAttention,
+  'causal': RealCausalAttention,
+  'bidirectional': RealBidirectionalAttention,
 
   // === Phase 6: Sparse/structured pattern implementations ===
-  'sliding-window': RealSlidingWindowAttention,  // ANTI-009 fix: Real sliding window pattern
-  'global': RealGlobalAttention,  // ANTI-009 fix: Real global token attention
-  'dilated': RealDilatedAttention,  // ANTI-009 fix: Real dilated/spaced attention
-  'strided': RealStridedAttention,  // ANTI-009 fix: Real local + strided global
-  'axial': RealAxialAttention,  // ANTI-009 fix: Real row-then-column factorized
-  'block-sparse': RealBlockSparseAttention,  // ANTI-009 fix: Real structured block sparsity
+  'sliding-window': RealSlidingWindowAttention,
+  'global': RealGlobalAttention,
+  'dilated': RealDilatedAttention,
+  'strided': RealStridedAttention,
+  'axial': RealAxialAttention,
+  'block-sparse': RealBlockSparseAttention,
 
   // === Phase 7: Memory and specialized implementations ===
-  'memory-compressed': RealMemoryCompressedAttention,  // ANTI-009 fix: Real memory compression
-  'routing-transformer': RealRoutingTransformerAttention,  // ANTI-009 fix: Real content-based routing
-  'clustered': RealClusteredAttention,  // ANTI-009 fix: Real k-means clustering attention
-  'set-transformer': RealSetTransformerAttention,  // ANTI-009 fix: Real permutation-invariant attention
-  'multi-head-latent': RealMultiHeadLatentAttention,  // ANTI-009 fix: Real learned latent queries
-  'synthesizer': RealSynthesizerAttention,  // ANTI-009 fix: Real random/dense synthesized attention
-  'luna': RealLunaAttention,  // ANTI-009 fix: Real linear unified nested attention
-  'nystromformer': RealNystromformerAttention,  // ANTI-009 fix: Real Nyström approximation
-  'fnet': RealFNetAttention,  // ANTI-009 fix: Real Fourier transform mixing
-  'aft': RealAFTAttention,  // ANTI-009 fix: Real attention-free transformer
-  'mega': RealMegaAttention,  // ANTI-009 fix: Real EMA + gated attention
+  'memory-compressed': RealMemoryCompressedAttention,
+  'routing-transformer': RealRoutingTransformerAttention,
+  'clustered': RealClusteredAttention,
+  'set-transformer': RealSetTransformerAttention,
+  'multi-head-latent': RealMultiHeadLatentAttention,
+  'synthesizer': RealSynthesizerAttention,
+  'luna': RealLunaAttention,
+  'nystromformer': RealNystromformerAttention,
+  'fnet': RealFNetAttention,
+  'aft': RealAFTAttention,
+  'mega': RealMegaAttention,
 };

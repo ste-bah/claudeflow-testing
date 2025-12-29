@@ -13,6 +13,12 @@ import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+
+const logger = createComponentLogger('UCMDaemonClient', {
+  minLevel: LogLevel.INFO,
+  handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 
 const DEFAULT_SOCKET_PATH = '/tmp/godagent-ucm.sock';
 const DEFAULT_TIMEOUT = 30000; // 30 seconds for DESC operations (embedding can be slow)
@@ -88,6 +94,7 @@ export class UCMDaemonClient {
     try {
       return fs.existsSync(this.socketPath);
     } catch {
+      // INTENTIONAL: Socket existence check failure means socket is not accessible - return false
       return false;
     }
   }
@@ -110,7 +117,7 @@ export class UCMDaemonClient {
       // daemon-server.ts is in src/god-agent/core/ucm/daemon/
       const daemonPath = join(currentDir, '..', 'core', 'ucm', 'daemon', 'daemon-server.ts');
 
-      console.error('[UCM] Auto-starting daemon...');
+      logger.info('Auto-starting daemon');
 
       // Spawn daemon in background, detached
       const child = spawn('npx', ['tsx', daemonPath], {
@@ -127,15 +134,15 @@ export class UCMDaemonClient {
       while (Date.now() - startTime < DAEMON_START_TIMEOUT) {
         await new Promise((r) => setTimeout(r, 200));
         if (this.socketExists()) {
-          console.error('[UCM] Daemon started successfully');
+          logger.info('Daemon started successfully');
           return true;
         }
       }
 
-      console.error('[UCM] Daemon did not start within timeout');
+      logger.warn('Daemon did not start within timeout');
       return false;
     } catch (error) {
-      console.error(`[UCM] Failed to start daemon: ${error}`);
+      logger.error('Failed to start daemon', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -192,7 +199,7 @@ export class UCMDaemonClient {
             resolve(response.result as T);
           }
         } catch {
-          // Incomplete JSON, wait for more data
+          // INTENTIONAL: Incomplete JSON, wait for more data - streaming RPC response pattern
         }
       });
 
@@ -217,6 +224,7 @@ export class UCMDaemonClient {
       const result = await this.call<HealthCheckResult>('health.check', {});
       return result?.status === 'healthy' || result?.status === 'degraded';
     } catch {
+      // INTENTIONAL: Health check failure means daemon is unavailable - false is correct response
       return false;
     }
   }
@@ -228,6 +236,7 @@ export class UCMDaemonClient {
     try {
       return await this.call<HealthCheckResult>('health.check', {});
     } catch {
+      // INTENTIONAL: Health check call failure means daemon unavailable - null is correct response
       return null;
     }
   }
@@ -261,7 +270,7 @@ export class UCMDaemonClient {
       };
     } catch (error) {
       // On error, return original prompt unchanged
-      console.error(`[UCM] DESC injection failed: ${error}`);
+      logger.error('DESC injection failed', error instanceof Error ? error : new Error(String(error)));
       return {
         augmentedPrompt: prompt,
         episodesUsed: 0,
@@ -290,7 +299,7 @@ export class UCMDaemonClient {
         success: true,
       };
     } catch (error) {
-      console.error(`[UCM] DESC store failed: ${error}`);
+      logger.error('DESC store failed', error instanceof Error ? error : new Error(String(error)));
       return {
         episodeId: '',
         success: false,
@@ -315,7 +324,7 @@ export class UCMDaemonClient {
         maxResults: options?.maxResults ?? 5,
       });
     } catch (error) {
-      console.error(`[UCM] DESC retrieve failed: ${error}`);
+      logger.error('DESC retrieve failed', error instanceof Error ? error : new Error(String(error)));
       return [];
     }
   }

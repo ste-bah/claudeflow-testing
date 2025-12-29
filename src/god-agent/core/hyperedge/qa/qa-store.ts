@@ -179,7 +179,11 @@ export class QAStore {
         executionTime,
       });
 
-      throw error;
+      // RULE-070: Re-throw with Q&A creation context
+      throw new Error(
+        `Failed to create Q&A hyperedge for question "${question.substring(0, 50)}..." with ${answers.length} answers: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 
@@ -241,7 +245,11 @@ export class QAStore {
         executionTime,
       });
 
-      throw error;
+      // RULE-070: Re-throw with Q&A search context
+      throw new Error(
+        `Q&A similarity search failed (topK: ${k}): ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 

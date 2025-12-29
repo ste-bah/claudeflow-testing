@@ -29,6 +29,8 @@ export {
   type WriteResult,
   type AskOptions,
   type AskResult,
+  // TASK-LEARN-007: Task execution result type
+  type TaskExecutionResult,
   // DAI-003: Task Routing
   type ITaskOptions,
   type ITaskResult,

@@ -159,7 +159,7 @@ export class MemoryPressureTest {
         if (this.allocations.length > 1000) break;
       }
     } catch {
-      // Memory allocation failed - this is expected at high thresholds
+      // INTENTIONAL: Memory allocation failure is expected at high thresholds during pressure testing
     }
 
     const actualUtilization = (this.memoryMonitor.getHeapUsed() / heapLimit) * 100;

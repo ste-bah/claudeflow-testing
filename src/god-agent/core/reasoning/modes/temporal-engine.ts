@@ -28,6 +28,12 @@ import {
   type ITemporalHyperedge,
 } from '../../graph-db/types.js';
 import type { NodeID } from '../causal-types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../observability/index.js';
+
+const logger = createComponentLogger('TemporalEngine', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler()]
+});
 
 /**
  * Temporal event with timestamp and granularity
@@ -409,7 +415,7 @@ export class TemporalEngine {
           }
         } catch (error) {
           // Continue if causal inference fails
-          console.warn('Temporal causal inference failed:', error);
+          logger.warn('Temporal causal inference failed', { error: String(error) });
         }
       }
 
@@ -1091,7 +1097,7 @@ export class TemporalEngine {
    * Generate semantic embedding for a concept using real embedding provider (SPEC-EMB-002)
    *
    * @param concept Concept identifier
-   * @returns Semantic embedding vector (768 dimensions)
+   * @returns Semantic embedding vector (1536 dimensions)
    */
   private async generatePlaceholderEmbedding(concept: string): Promise<Float32Array> {
     try {
@@ -1111,7 +1117,7 @@ export class TemporalEngine {
       return await this.embeddingProvider.embed(concept);
     } catch (error) {
       // Ultimate fallback: hash-based deterministic embedding
-      console.warn('[TemporalEngine] Embedding provider failed, using hash-based fallback:', error);
+      logger.warn('Embedding provider failed, using hash-based fallback', { error: String(error) });
       return this.generateHashBasedEmbedding(concept);
     }
   }

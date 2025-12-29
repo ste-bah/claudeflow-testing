@@ -42,6 +42,12 @@ import {
   sortByRefutationStrength,
   filterByThreshold,
 } from './shadow-utils.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+
+const shadowLogger = createComponentLogger('ShadowVectorSearch', {
+  minLevel: LogLevel.INFO,
+  handlers: [new ConsoleLogHandler()]
+});
 
 // ==================== Vector Store Interface ====================
 
@@ -143,7 +149,7 @@ export class ShadowVectorSearch {
    */
   private log(message: string): void {
     if (this.config.verbose) {
-      console.log(`[ShadowVector] ${message}`);
+      shadowLogger.info(message);
     }
   }
 

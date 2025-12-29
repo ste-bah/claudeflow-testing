@@ -279,7 +279,7 @@ export class CounterfactualEngine {
       try {
         return await this.deps.causalMemory.getEffects(nodeId);
       } catch {
-        // Fall through
+        // INTENTIONAL: Causal memory query failure - try graph DB
       }
     }
 
@@ -288,7 +288,7 @@ export class CounterfactualEngine {
       try {
         return await this.deps.graphDB.getConnectedNodes(nodeId, 'out');
       } catch {
-        // Fall through
+        // INTENTIONAL: Graph DB query failure - use synthetic effects
       }
     }
 

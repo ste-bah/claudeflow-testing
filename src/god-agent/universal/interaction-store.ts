@@ -14,6 +14,12 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import type { Interaction, KnowledgeEntry } from './universal-agent.js';
 import { ObservabilityBus } from '../core/observability/bus.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+
+const logger = createComponentLogger('InteractionStore', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 
 // ==================== Configuration ====================
 
@@ -221,7 +227,7 @@ export class InteractionStore {
     } catch (error) {
       // File doesn't exist yet, that's okay
       if ((error as any).code !== 'ENOENT') {
-        console.warn('Failed to load interactions:', error);
+        logger.warn('Failed to load interactions', { error: String(error) });
       }
     }
 
@@ -241,7 +247,7 @@ export class InteractionStore {
       }
     } catch (error) {
       if ((error as any).code !== 'ENOENT') {
-        console.warn('Failed to load high-quality interactions:', error);
+        logger.warn('Failed to load high-quality interactions', { error: String(error) });
       }
     }
 
@@ -256,7 +262,7 @@ export class InteractionStore {
       }
     } catch (error) {
       if ((error as any).code !== 'ENOENT') {
-        console.warn('Failed to load knowledge:', error);
+        logger.warn('Failed to load knowledge', { error: String(error) });
       }
     }
 
@@ -304,7 +310,7 @@ export class InteractionStore {
     try {
       await fs.mkdir(this.config.storageDir, { recursive: true });
     } catch (error) {
-      console.warn('Failed to create storage directory:', error);
+      logger.warn('Failed to create storage directory', { storageDir: this.config.storageDir, error: String(error) });
     }
   }
 

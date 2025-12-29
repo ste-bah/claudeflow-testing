@@ -19,7 +19,28 @@ import { SymmetricChunker } from '../desc/symmetric-chunker.js';
 import { DualEmbeddingStore } from '../desc/dual-embedding-store.js';
 import { EpisodeRetriever } from '../desc/episode-retriever.js';
 import { EmbeddingProxy } from '../desc/embedding-proxy.js';
-import { ServiceError } from '../errors.js';
+import { ServiceError, MissingConfigError } from '../errors.js';
+
+// ============================================================================
+// DescService Configuration Types
+// ============================================================================
+
+/**
+ * Configuration for DescService
+ * RULE-030: DescService MUST use persistent storage
+ */
+export interface IDescServiceConfig {
+  /** Database path for persistent storage (required if embeddingStore not provided) */
+  dbPath?: string;
+  /** Pre-configured embedding store (overrides dbPath) */
+  embeddingStore?: DualEmbeddingStore;
+  /** Pre-configured chunker (optional) */
+  chunker?: SymmetricChunker;
+  /** Pre-configured retriever (optional) */
+  retriever?: EpisodeRetriever;
+  /** Pre-configured embedding proxy (optional) */
+  embeddingProxy?: EmbeddingProxy;
+}
 
 // ============================================================================
 // JSON-RPC 2.0 Types
@@ -94,18 +115,42 @@ export class DescService {
   private embeddingStore: DualEmbeddingStore;
   private retriever: EpisodeRetriever;
   private embeddingProxy: EmbeddingProxy;
+  private readonly logger = {
+    info: (msg: string) => console.log(`[DescService] ${msg}`),
+    error: (msg: string, err?: unknown) => console.error(`[DescService] ${msg}`, err)
+  };
 
-  constructor(
-    chunker?: SymmetricChunker,
-    embeddingStore?: DualEmbeddingStore,
-    retriever?: EpisodeRetriever,
-    embeddingProxy?: EmbeddingProxy
-  ) {
-    this.chunker = chunker ?? new SymmetricChunker();
-    this.embeddingStore = embeddingStore ?? new DualEmbeddingStore();
-    this.embeddingProxy = embeddingProxy ?? new EmbeddingProxy();
+  /**
+   * Create a new DescService instance
+   *
+   * RULE-030: DescService MUST use persistent storage.
+   * Either `embeddingStore` or `dbPath` must be provided.
+   *
+   * @param config - Configuration with persistent storage settings
+   * @throws MissingConfigError if no storage configuration is provided
+   */
+  constructor(config: IDescServiceConfig) {
+    // RULE-030: DescService MUST use persistent storage
+    if (!config.embeddingStore && !config.dbPath) {
+      throw new MissingConfigError(
+        'embeddingStore or dbPath',
+        'DescService requires embeddingStore or dbPath for persistence (RULE-030). ' +
+        'In-memory storage is not permitted to avoid data loss on daemon restart.'
+      );
+    }
+
+    // Initialize embedding store with persistence
+    this.embeddingStore = config.embeddingStore ??
+      new DualEmbeddingStore({ dbPath: config.dbPath! });
+
+    // Initialize other components
+    this.chunker = config.chunker ?? new SymmetricChunker();
+    this.embeddingProxy = config.embeddingProxy ?? new EmbeddingProxy();
+
     // EpisodeRetriever takes (store, options?, filter?) - DescService handles chunking/embedding
-    this.retriever = retriever ?? new EpisodeRetriever(this.embeddingStore);
+    this.retriever = config.retriever ?? new EpisodeRetriever(this.embeddingStore);
+
+    this.logger.info(`Initialized with persistent storage${config.dbPath ? ` at ${config.dbPath}` : ''}`);
   }
 
   /**

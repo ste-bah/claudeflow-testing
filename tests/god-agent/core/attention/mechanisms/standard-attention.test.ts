@@ -1,6 +1,7 @@
 /**
  * RealStandardAttention Tests
  * PHASE-0-001-010 - Standard Attention Mechanism Tests
+ * TASK-VEC-001-008 - Updated to use VECTOR_DIM (1536D)
  *
  * Comprehensive test suite covering:
  * - Constructor and initialization
@@ -18,6 +19,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { RealStandardAttention } from '../../../../../src/god-agent/core/attention/mechanisms/standard-attention.js';
 import { createCausalMask } from '../../../../../src/god-agent/core/attention/utils/mask-utils.js';
 import type { IAttentionMechanism } from '../../../../../src/god-agent/core/attention/attention-types.js';
+import { VECTOR_DIM, DEFAULT_NUM_HEADS } from '../../../../../src/god-agent/core/validation/constants.js';
 
 // ==================== Helper Functions ====================
 
@@ -84,6 +86,8 @@ function arraysEqual(a: Float32Array, b: Float32Array, tolerance: number = 1e-6)
 describe('RealStandardAttention - Constructor', () => {
   describe('Default Configuration', () => {
     it('should create with default dimension (768) and heads (12)', () => {
+      // Note: Production default is 768, not VECTOR_DIM. Tests that need VECTOR_DIM
+      // explicitly pass dimension: VECTOR_DIM in config.
       const attention = new RealStandardAttention();
       expect(attention.name).toBe('standard');
       expect(attention.getParameterCount()).toBe(4 * 768 * 768);
@@ -102,9 +106,10 @@ describe('RealStandardAttention - Constructor', () => {
     });
 
     it('should create with custom number of heads', () => {
-      const attention = new RealStandardAttention({ dimension: 768, numHeads: 8 });
+      // TASK-VEC-001-008: Use VECTOR_DIM
+      const attention = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: 8 });
       // Parameter count should still be based on dimension
-      expect(attention.getParameterCount()).toBe(4 * 768 * 768);
+      expect(attention.getParameterCount()).toBe(4 * VECTOR_DIM * VECTOR_DIM);
     });
 
     it('should create with both custom dimension and heads', () => {
@@ -115,11 +120,11 @@ describe('RealStandardAttention - Constructor', () => {
 
   describe('Validation', () => {
     it('should validate dimension divisible by numHeads', () => {
-      // Valid: 768 / 12 = 64
-      expect(() => new RealStandardAttention({ dimension: 768, numHeads: 12 })).not.toThrow();
+      // Valid: 1536 / 12 = 128
+      expect(() => new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS })).not.toThrow();
 
-      // Invalid: 768 / 11 is not an integer
-      expect(() => new RealStandardAttention({ dimension: 768, numHeads: 11 }))
+      // Invalid: 1536 / 11 is not an integer
+      expect(() => new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: 11 }))
         .toThrow('must be divisible by numHeads');
     });
 
@@ -135,7 +140,7 @@ describe('RealStandardAttention - Constructor', () => {
       const attention2 = new RealStandardAttention({ seed: 42 });
 
       // Same seed should produce identical weights (verify by computing same output)
-      const query = createVector(768, 0.5);
+      const query = createVector(VECTOR_DIM, 0.5);
       const output1 = attention1.forward(query, query, query);
       const output2 = attention2.forward(query, query, query);
 
@@ -146,7 +151,7 @@ describe('RealStandardAttention - Constructor', () => {
       const attention1 = new RealStandardAttention({ seed: 42 });
       const attention2 = new RealStandardAttention({ seed: 123 });
 
-      const query = createVector(768, 0.5);
+      const query = createVector(VECTOR_DIM, 0.5);
       const output1 = attention1.forward(query, query, query);
       const output2 = attention2.forward(query, query, query);
 
@@ -162,55 +167,57 @@ describe('RealStandardAttention - Forward Pass', () => {
   let attention: RealStandardAttention;
 
   beforeEach(() => {
-    attention = new RealStandardAttention({ seed: 42 });
+    // TASK-VEC-001-008: Use VECTOR_DIM and DEFAULT_NUM_HEADS for consistency
+    attention = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
   });
 
   describe('Output Dimensions', () => {
     it('should return correct dimensions for single vector', () => {
-      const query = createVector(768, 0.5);
+      // TASK-VEC-001-008: Use VECTOR_DIM
+      const query = createVector(VECTOR_DIM, 0.5);
       const output = attention.forward(query, query, query);
 
-      expect(output.length).toBe(768);
+      expect(output.length).toBe(VECTOR_DIM);
     });
 
     it('should return correct dimensions for sequence (seqLen=4)', () => {
       const seqLen = 4;
-      const query = createVector(768 * seqLen, 0.5);
+      const query = createVector(VECTOR_DIM * seqLen, 0.5);
       const output = attention.forward(query, query, query, undefined, seqLen);
 
-      expect(output.length).toBe(768 * seqLen);
+      expect(output.length).toBe(VECTOR_DIM * seqLen);
     });
 
     it('should handle seqLen=1 explicitly', () => {
-      const query = createVector(768, 0.5);
+      const query = createVector(VECTOR_DIM, 0.5);
       const output = attention.forward(query, query, query, undefined, 1);
 
-      expect(output.length).toBe(768);
+      expect(output.length).toBe(VECTOR_DIM);
     });
 
     it('should handle long sequences (seqLen=16)', () => {
       const seqLen = 16;
-      const query = createVector(768 * seqLen, 0.1);
+      const query = createVector(VECTOR_DIM * seqLen, 0.1);
       const output = attention.forward(query, query, query, undefined, seqLen);
 
-      expect(output.length).toBe(768 * seqLen);
+      expect(output.length).toBe(VECTOR_DIM * seqLen);
     });
   });
 
   describe('Sequence Length Inference', () => {
     it('should infer seqLen from query length when not provided', () => {
       const seqLen = 4;
-      const query = createVector(768 * seqLen, 0.5);
+      const query = createVector(VECTOR_DIM * seqLen, 0.5);
       const output = attention.forward(query, query, query);
 
-      expect(output.length).toBe(768 * seqLen);
+      expect(output.length).toBe(VECTOR_DIM * seqLen);
     });
 
     it('should infer seqLen=1 for single vector', () => {
-      const query = createVector(768, 0.5);
+      const query = createVector(VECTOR_DIM, 0.5);
       const output = attention.forward(query, query, query);
 
-      expect(output.length).toBe(768);
+      expect(output.length).toBe(VECTOR_DIM);
     });
   });
 
@@ -222,18 +229,18 @@ describe('RealStandardAttention - Forward Pass', () => {
     });
 
     it('should validate Q, K, V length match', () => {
-      const query = createVector(768, 0.5);
-      const key = createVector(768 * 2, 0.5); // Different length
-      const value = createVector(768, 0.5);
+      const query = createVector(VECTOR_DIM, 0.5);
+      const key = createVector(VECTOR_DIM * 2, 0.5); // Different length
+      const value = createVector(VECTOR_DIM, 0.5);
 
       expect(() => attention.forward(query, key, value))
         .toThrow('Dimension mismatch');
     });
 
     it('should reject mismatched sequence lengths', () => {
-      const query = createVector(768 * 4, 0.5);
-      const key = createVector(768 * 5, 0.5);
-      const value = createVector(768 * 4, 0.5);
+      const query = createVector(VECTOR_DIM * 4, 0.5);
+      const key = createVector(VECTOR_DIM * 5, 0.5);
+      const value = createVector(VECTOR_DIM * 4, 0.5);
 
       expect(() => attention.forward(query, key, value))
         .toThrow('Dimension mismatch');
@@ -242,7 +249,7 @@ describe('RealStandardAttention - Forward Pass', () => {
 
   describe('Output Quality', () => {
     it('should not produce NaN or Inf values', () => {
-      const query = createTestVector(768, 42);
+      const query = createTestVector(VECTOR_DIM, 42);
       const output = attention.forward(query, query, query);
 
       expect(hasNaNOrInf(output)).toBe(false);
@@ -250,14 +257,14 @@ describe('RealStandardAttention - Forward Pass', () => {
 
     it('should produce finite output for multi-sequence', () => {
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 42);
+      const query = createTestVector(VECTOR_DIM * seqLen, 42);
       const output = attention.forward(query, query, query, undefined, seqLen);
 
       expect(hasNaNOrInf(output)).toBe(false);
     });
 
     it('should produce reasonably bounded output', () => {
-      const query = createTestVector(768, 42);
+      const query = createTestVector(VECTOR_DIM, 42);
       const output = attention.forward(query, query, query);
 
       expect(isReasonablyBounded(output)).toBe(true);
@@ -271,13 +278,14 @@ describe('RealStandardAttention - Masking', () => {
   let attention: RealStandardAttention;
 
   beforeEach(() => {
-    attention = new RealStandardAttention({ seed: 42 });
+    // TASK-VEC-001-008: Use VECTOR_DIM for consistency with test vectors
+    attention = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
   });
 
   describe('No Mask (Full Attention)', () => {
     it('should work without mask', () => {
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 42);
+      const query = createTestVector(VECTOR_DIM * seqLen, 42);
 
       expect(() => attention.forward(query, query, query, undefined, seqLen))
         .not.toThrow();
@@ -285,7 +293,7 @@ describe('RealStandardAttention - Masking', () => {
 
     it('should produce different output than causal mask', () => {
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 42);
+      const query = createTestVector(VECTOR_DIM * seqLen, 42);
 
       const outputNoMask = attention.forward(query, query, query, undefined, seqLen);
       const mask = createCausalMask(seqLen);
@@ -298,19 +306,19 @@ describe('RealStandardAttention - Masking', () => {
   describe('Causal Mask', () => {
     it('should prevent future attention with causal mask', () => {
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 42);
+      const query = createTestVector(VECTOR_DIM * seqLen, 42);
       const mask = createCausalMask(seqLen);
 
       const output = attention.forward(query, query, query, mask, seqLen);
 
       // Should not throw and produce valid output
-      expect(output.length).toBe(768 * seqLen);
+      expect(output.length).toBe(VECTOR_DIM * seqLen);
       expect(hasNaNOrInf(output)).toBe(false);
     });
 
     it('should produce different outputs for different mask patterns', () => {
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 42);
+      const query = createTestVector(VECTOR_DIM * seqLen, 42);
 
       const causalMask = createCausalMask(seqLen);
       const fullMask = new Array(seqLen * seqLen).fill(true);
@@ -325,7 +333,7 @@ describe('RealStandardAttention - Masking', () => {
   describe('Masked Positions', () => {
     it('should handle all-masked row gracefully', () => {
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 42);
+      const query = createTestVector(VECTOR_DIM * seqLen, 42);
 
       // Create mask where first row is all false
       const mask = new Array(seqLen * seqLen).fill(true);
@@ -341,7 +349,7 @@ describe('RealStandardAttention - Masking', () => {
 
     it('should validate mask dimensions', () => {
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 42);
+      const query = createTestVector(VECTOR_DIM * seqLen, 42);
       const wrongMask = new Array(seqLen * seqLen + 1).fill(true); // Wrong size
 
       expect(() => attention.forward(query, query, query, wrongMask, seqLen))
@@ -356,12 +364,13 @@ describe('RealStandardAttention - Numerical Stability', () => {
   let attention: RealStandardAttention;
 
   beforeEach(() => {
-    attention = new RealStandardAttention({ seed: 42 });
+    // TASK-VEC-001-008: Use VECTOR_DIM for consistency with test vectors
+    attention = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
   });
 
   describe('Large Input Values', () => {
     it('should handle large input values without overflow', () => {
-      const query = createVector(768, 100); // Large values
+      const query = createVector(VECTOR_DIM, 100); // Large values
 
       expect(() => attention.forward(query, query, query)).not.toThrow();
       const output = attention.forward(query, query, query);
@@ -370,7 +379,7 @@ describe('RealStandardAttention - Numerical Stability', () => {
 
     it('should handle very large sequence with large values', () => {
       const seqLen = 8;
-      const query = createVector(768 * seqLen, 50);
+      const query = createVector(VECTOR_DIM * seqLen, 50);
 
       const output = attention.forward(query, query, query, undefined, seqLen);
       expect(hasNaNOrInf(output)).toBe(false);
@@ -379,14 +388,14 @@ describe('RealStandardAttention - Numerical Stability', () => {
 
   describe('Small Input Values', () => {
     it('should handle small input values without underflow', () => {
-      const query = createVector(768, 1e-6); // Very small values
+      const query = createVector(VECTOR_DIM, 1e-6); // Very small values
 
       const output = attention.forward(query, query, query);
       expect(hasNaNOrInf(output)).toBe(false);
     });
 
     it('should handle near-zero values', () => {
-      const query = createVector(768, 1e-10);
+      const query = createVector(VECTOR_DIM, 1e-10);
 
       const output = attention.forward(query, query, query);
       expect(hasNaNOrInf(output)).toBe(false);
@@ -395,7 +404,7 @@ describe('RealStandardAttention - Numerical Stability', () => {
 
   describe('Zero Vectors', () => {
     it('should handle zero query vector', () => {
-      const query = createVector(768, 0);
+      const query = createVector(VECTOR_DIM, 0);
 
       const output = attention.forward(query, query, query);
       expect(hasNaNOrInf(output)).toBe(false);
@@ -403,7 +412,7 @@ describe('RealStandardAttention - Numerical Stability', () => {
 
     it('should handle all-zero sequence', () => {
       const seqLen = 4;
-      const query = createVector(768 * seqLen, 0);
+      const query = createVector(VECTOR_DIM * seqLen, 0);
 
       const output = attention.forward(query, query, query, undefined, seqLen);
       expect(hasNaNOrInf(output)).toBe(false);
@@ -412,7 +421,7 @@ describe('RealStandardAttention - Numerical Stability', () => {
 
   describe('Output Bounds', () => {
     it('should produce bounded output for normal inputs', () => {
-      const query = createTestVector(768, 42);
+      const query = createTestVector(VECTOR_DIM, 42);
       const output = attention.forward(query, query, query);
 
       // Output should be reasonably bounded
@@ -421,7 +430,7 @@ describe('RealStandardAttention - Numerical Stability', () => {
 
     it('should not produce extreme values', () => {
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 42);
+      const query = createTestVector(VECTOR_DIM * seqLen, 42);
       const output = attention.forward(query, query, query, undefined, seqLen);
 
       // Check no values exceed reasonable bounds
@@ -435,8 +444,9 @@ describe('RealStandardAttention - Numerical Stability', () => {
 // ==================== Parameter Count Tests ====================
 
 describe('RealStandardAttention - Parameter Count', () => {
-  describe('Formula: 4 × dim²', () => {
-    it('should return 4 × dim² for default dimension (768)', () => {
+  describe('Formula: 4 x dim^2', () => {
+    it('should return 4 x dim^2 for default dimension (768)', () => {
+      // Note: Production default is 768, not VECTOR_DIM
       const attention = new RealStandardAttention();
       expect(attention.getParameterCount()).toBe(4 * 768 * 768);
     });
@@ -461,16 +471,18 @@ describe('RealStandardAttention - Parameter Count', () => {
       expect(attention.getParameterCount()).toBe(4 * 512 * 512);
     });
 
-    it('should return correct count for dimension 768', () => {
-      const attention = new RealStandardAttention({ dimension: 768, numHeads: 12 });
-      expect(attention.getParameterCount()).toBe(4 * 768 * 768);
+    it('should return correct count for dimension 1536', () => {
+      // TASK-VEC-001-008: Updated from 768 to 1536
+      const attention = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS });
+      expect(attention.getParameterCount()).toBe(4 * VECTOR_DIM * VECTOR_DIM);
     });
   });
 
   describe('Independence from numHeads', () => {
     it('should not depend on number of heads', () => {
-      const attention8 = new RealStandardAttention({ dimension: 768, numHeads: 8 });
-      const attention12 = new RealStandardAttention({ dimension: 768, numHeads: 12 });
+      // TASK-VEC-001-008: Use VECTOR_DIM
+      const attention8 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: 8 });
+      const attention12 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: 12 });
 
       expect(attention8.getParameterCount()).toBe(attention12.getParameterCount());
     });
@@ -482,10 +494,11 @@ describe('RealStandardAttention - Parameter Count', () => {
 describe('RealStandardAttention - Determinism', () => {
   describe('Same Seed, Same Output', () => {
     it('should produce identical output with same seed and input', () => {
-      const attention1 = new RealStandardAttention({ seed: 42 });
-      const attention2 = new RealStandardAttention({ seed: 42 });
+      // TASK-VEC-001-008: Use VECTOR_DIM for consistency
+      const attention1 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
+      const attention2 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
 
-      const query = createTestVector(768, 123);
+      const query = createTestVector(VECTOR_DIM, 123);
       const output1 = attention1.forward(query, query, query);
       const output2 = attention2.forward(query, query, query);
 
@@ -493,11 +506,12 @@ describe('RealStandardAttention - Determinism', () => {
     });
 
     it('should be deterministic for multi-sequence', () => {
-      const attention1 = new RealStandardAttention({ seed: 42 });
-      const attention2 = new RealStandardAttention({ seed: 42 });
+      // TASK-VEC-001-008: Use VECTOR_DIM for consistency
+      const attention1 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
+      const attention2 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
 
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 123);
+      const query = createTestVector(VECTOR_DIM * seqLen, 123);
       const output1 = attention1.forward(query, query, query, undefined, seqLen);
       const output2 = attention2.forward(query, query, query, undefined, seqLen);
 
@@ -505,11 +519,12 @@ describe('RealStandardAttention - Determinism', () => {
     });
 
     it('should be deterministic with masking', () => {
-      const attention1 = new RealStandardAttention({ seed: 42 });
-      const attention2 = new RealStandardAttention({ seed: 42 });
+      // TASK-VEC-001-008: Use VECTOR_DIM for consistency
+      const attention1 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
+      const attention2 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
 
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 123);
+      const query = createTestVector(VECTOR_DIM * seqLen, 123);
       const mask = createCausalMask(seqLen);
 
       const output1 = attention1.forward(query, query, query, mask, seqLen);
@@ -521,10 +536,11 @@ describe('RealStandardAttention - Determinism', () => {
 
   describe('Different Seeds, Different Output', () => {
     it('should produce different output with different seeds', () => {
-      const attention1 = new RealStandardAttention({ seed: 42 });
-      const attention2 = new RealStandardAttention({ seed: 123 });
+      // TASK-VEC-001-008: Use VECTOR_DIM for consistency
+      const attention1 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
+      const attention2 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 123 });
 
-      const query = createTestVector(768, 456);
+      const query = createTestVector(VECTOR_DIM, 456);
       const output1 = attention1.forward(query, query, query);
       const output2 = attention2.forward(query, query, query);
 
@@ -532,11 +548,12 @@ describe('RealStandardAttention - Determinism', () => {
     });
 
     it('should vary with seed for sequences', () => {
-      const attention1 = new RealStandardAttention({ seed: 42 });
-      const attention2 = new RealStandardAttention({ seed: 999 });
+      // TASK-VEC-001-008: Use VECTOR_DIM for consistency
+      const attention1 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
+      const attention2 = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 999 });
 
       const seqLen = 4;
-      const query = createTestVector(768 * seqLen, 456);
+      const query = createTestVector(VECTOR_DIM * seqLen, 456);
       const output1 = attention1.forward(query, query, query, undefined, seqLen);
       const output2 = attention2.forward(query, query, query, undefined, seqLen);
 
@@ -551,7 +568,8 @@ describe('RealStandardAttention - Interface Compliance', () => {
   let attention: IAttentionMechanism;
 
   beforeEach(() => {
-    attention = new RealStandardAttention({ seed: 42 });
+    // TASK-VEC-001-008: Use VECTOR_DIM for consistency
+    attention = new RealStandardAttention({ dimension: VECTOR_DIM, numHeads: DEFAULT_NUM_HEADS, seed: 42 });
   });
 
   describe('IAttentionMechanism Interface', () => {
@@ -575,7 +593,8 @@ describe('RealStandardAttention - Interface Compliance', () => {
     it('should have correct forward() signature', () => {
       expect(typeof attention.forward).toBe('function');
 
-      const query = createVector(768, 0.5);
+      // TASK-VEC-001-008: Use VECTOR_DIM
+      const query = createVector(VECTOR_DIM, 0.5);
       const result = attention.forward(query, query, query);
 
       expect(result).toBeInstanceOf(Float32Array);
@@ -583,7 +602,7 @@ describe('RealStandardAttention - Interface Compliance', () => {
 
     it('should accept optional mask parameter', () => {
       const seqLen = 4;
-      const query = createVector(768 * seqLen, 0.5);
+      const query = createVector(VECTOR_DIM * seqLen, 0.5);
       const mask = createCausalMask(seqLen);
 
       expect(() => attention.forward(query, query, query, mask, seqLen))
@@ -591,7 +610,7 @@ describe('RealStandardAttention - Interface Compliance', () => {
     });
 
     it('should accept optional seqLen parameter', () => {
-      const query = createVector(768 * 4, 0.5);
+      const query = createVector(VECTOR_DIM * 4, 0.5);
 
       expect(() => attention.forward(query, query, query, undefined, 4))
         .not.toThrow();

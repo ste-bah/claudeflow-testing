@@ -1,13 +1,17 @@
 /**
  * God Agent Fallback HNSW Implementation
  *
- * Implements: TASK-VDB-001
+ * Implements: TASK-VDB-001, TASK-PERF-001
  * Referenced by: VectorDB
  *
- * Pure TypeScript fallback implementation using brute-force search.
- * Optimized HNSW will be added later with native bindings.
+ * Pure TypeScript HNSW implementation with automatic backend selection:
+ * - Uses HNSW graph for datasets >= HNSW_THRESHOLD (1000 vectors)
+ * - Falls back to brute-force for small datasets (faster for small n)
  *
- * Storage format (.agentdb/vectors.bin):
+ * Storage format v2 (.agentdb/vectors.bin):
+ * - HNSW index serialized as JSON with graph structure
+ *
+ * Storage format v1 (legacy, read-only):
  * - 4 bytes: version (uint32)
  * - 4 bytes: dimension (uint32)
  * - 4 bytes: count (uint32)
@@ -22,12 +26,39 @@ import * as path from 'path';
 import { IHNSWBackend } from './hnsw-backend.js';
 import { VectorID, SearchResult, DistanceMetric } from './types.js';
 import { getMetricFunction, isSimilarityMetric } from './distance-metrics.js';
+import { HNSWIndex, distanceToSimilarity } from '../database/hnsw/index.js';
 
-const STORAGE_VERSION = 1;
+/** Threshold for switching from brute-force to HNSW (number of vectors) */
+const HNSW_THRESHOLD = 1000;
+
+/** Storage version for new HNSW format */
+const STORAGE_VERSION = 2;
+
+/** Legacy storage version (brute-force) */
+const LEGACY_STORAGE_VERSION = 1;
 
 /**
- * Pure TypeScript HNSW fallback implementation
- * Uses brute-force k-NN search (will be optimized with native HNSW later)
+ * Convert DistanceMetric enum to HNSW metric type
+ */
+function toHNSWMetric(metric: DistanceMetric): 'cosine' | 'euclidean' | 'dot' {
+  switch (metric) {
+    case DistanceMetric.COSINE:
+      return 'cosine';
+    case DistanceMetric.EUCLIDEAN:
+      return 'euclidean';
+    case DistanceMetric.DOT:
+      return 'dot';
+    default:
+      return 'cosine';
+  }
+}
+
+/**
+ * Pure TypeScript HNSW implementation
+ *
+ * Automatically selects between:
+ * - Brute-force search for small datasets (< 1000 vectors)
+ * - HNSW graph for larger datasets (O(log n) search)
  */
 export class FallbackHNSW implements IHNSWBackend {
   private readonly vectors: Map<VectorID, Float32Array>;
@@ -35,6 +66,12 @@ export class FallbackHNSW implements IHNSWBackend {
   readonly metric: DistanceMetric;
   private readonly metricFn: (a: Float32Array, b: Float32Array) => number;
   private readonly isSimilarity: boolean;
+
+  /** HNSW index for large datasets */
+  private hnswIndex: HNSWIndex | null = null;
+
+  /** Whether HNSW index needs rebuilding after modifications */
+  private hnswDirty: boolean = false;
 
   constructor(dimension: number, metric: DistanceMetric = DistanceMetric.COSINE) {
     this.vectors = new Map();
@@ -44,10 +81,57 @@ export class FallbackHNSW implements IHNSWBackend {
     this.isSimilarity = isSimilarityMetric(metric);
   }
 
+  /**
+   * Check if we should use HNSW index
+   */
+  private shouldUseHNSW(): boolean {
+    return this.vectors.size >= HNSW_THRESHOLD;
+  }
+
+  /**
+   * Ensure HNSW index is built and up-to-date
+   */
+  private ensureHNSWIndex(): void {
+    if (!this.shouldUseHNSW()) {
+      // Too few vectors, don't use HNSW
+      this.hnswIndex = null;
+      return;
+    }
+
+    if (this.hnswIndex && !this.hnswDirty) {
+      // Index exists and is up-to-date
+      return;
+    }
+
+    // Build or rebuild HNSW index
+    this.hnswIndex = new HNSWIndex(this.dimension, {
+      M: 16,
+      efConstruction: 200,
+      efSearch: 50,
+      metric: toHNSWMetric(this.metric),
+    });
+
+    // Add all vectors
+    for (const [id, vector] of this.vectors) {
+      this.hnswIndex.add(id, vector);
+    }
+
+    this.hnswDirty = false;
+  }
+
   insert(id: VectorID, vector: Float32Array): void {
     // Create a copy to avoid external modifications
     const vectorCopy = new Float32Array(vector);
     this.vectors.set(id, vectorCopy);
+
+    // Mark HNSW as dirty if it exists
+    if (this.hnswIndex) {
+      // For efficiency, add directly to index if not too many pending changes
+      this.hnswIndex.add(id, vectorCopy);
+    } else if (this.shouldUseHNSW()) {
+      // Crossed threshold, will need to build index
+      this.hnswDirty = true;
+    }
   }
 
   search(query: Float32Array, k: number, includeVectors: boolean = false): SearchResult[] {
@@ -55,6 +139,35 @@ export class FallbackHNSW implements IHNSWBackend {
       return [];
     }
 
+    // Ensure HNSW index is ready if we should use it
+    this.ensureHNSWIndex();
+
+    if (this.hnswIndex && !this.hnswDirty) {
+      // Use HNSW for O(log n) search
+      return this.searchHNSW(query, k, includeVectors);
+    } else {
+      // Use brute-force for small datasets or when index is dirty
+      return this.searchBruteForce(query, k, includeVectors);
+    }
+  }
+
+  /**
+   * HNSW-based search (O(log n))
+   */
+  private searchHNSW(query: Float32Array, k: number, includeVectors: boolean): SearchResult[] {
+    const results = this.hnswIndex!.search(query, k);
+
+    return results.map(r => ({
+      id: r.id,
+      similarity: distanceToSimilarity(r.distance, toHNSWMetric(this.metric)),
+      vector: includeVectors ? this.getVector(r.id) : undefined,
+    }));
+  }
+
+  /**
+   * Brute-force search (O(n))
+   */
+  private searchBruteForce(query: Float32Array, k: number, includeVectors: boolean): SearchResult[] {
     // Calculate similarity/distance to all vectors
     const scores: Array<{ id: VectorID; score: number; vector: Float32Array }> = [];
 
@@ -85,7 +198,14 @@ export class FallbackHNSW implements IHNSWBackend {
   }
 
   delete(id: VectorID): boolean {
-    return this.vectors.delete(id);
+    const deleted = this.vectors.delete(id);
+
+    if (deleted && this.hnswIndex) {
+      // Remove from HNSW index
+      this.hnswIndex.remove(id);
+    }
+
+    return deleted;
   }
 
   count(): number {
@@ -97,7 +217,22 @@ export class FallbackHNSW implements IHNSWBackend {
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
 
-    // Calculate buffer size
+    // Use new HNSW format for large datasets
+    if (this.hnswIndex && !this.hnswDirty) {
+      // Save HNSW index with graph structure
+      const buffer = this.hnswIndex.serialize();
+      await fs.writeFile(filePath, buffer);
+      return;
+    }
+
+    // Fall back to legacy format for small datasets
+    await this.saveLegacy(filePath);
+  }
+
+  /**
+   * Save in legacy format (for small datasets)
+   */
+  private async saveLegacy(filePath: string): Promise<void> {
     const count = this.vectors.size;
     let totalSize = 12; // version + dimension + count
 
@@ -111,7 +246,7 @@ export class FallbackHNSW implements IHNSWBackend {
     const buffer = Buffer.allocUnsafe(totalSize);
     let offset = 0;
 
-    buffer.writeUInt32LE(STORAGE_VERSION, offset);
+    buffer.writeUInt32LE(LEGACY_STORAGE_VERSION, offset);
     offset += 4;
     buffer.writeUInt32LE(this.dimension, offset);
     offset += 4;
@@ -143,20 +278,60 @@ export class FallbackHNSW implements IHNSWBackend {
       // Check if file exists
       await fs.access(filePath);
     } catch {
-      // File doesn't exist
+      // INTENTIONAL: File doesn't exist - return false to indicate no index loaded
       return false;
     }
 
     // Read file
     const buffer = await fs.readFile(filePath);
+
+    // Detect format: HNSW JSON starts with '{', legacy binary starts with version number
+    if (buffer[0] === 0x7b) { // '{' character
+      // New HNSW format
+      return this.loadHNSW(buffer);
+    } else {
+      // Legacy format
+      return this.loadLegacy(buffer);
+    }
+  }
+
+  /**
+   * Load HNSW format
+   */
+  private loadHNSW(buffer: Buffer): boolean {
+    try {
+      const index = HNSWIndex.deserialize(buffer);
+
+      // Clear existing data
+      this.vectors.clear();
+      this.hnswIndex = index;
+      this.hnswDirty = false;
+
+      // Populate vectors map from index
+      // We need to extract vectors from the serialized data
+      const data = JSON.parse(buffer.toString());
+      for (const { id, data: vectorData } of data.vectors) {
+        this.vectors.set(id, new Float32Array(vectorData));
+      }
+
+      return true;
+    } catch (error) {
+      throw new Error(`Failed to load HNSW index: ${error}`);
+    }
+  }
+
+  /**
+   * Load legacy format
+   */
+  private loadLegacy(buffer: Buffer): boolean {
     let offset = 0;
 
     // Read header
     const version = buffer.readUInt32LE(offset);
     offset += 4;
 
-    if (version !== STORAGE_VERSION) {
-      throw new Error(`Unsupported storage version: ${version} (expected ${STORAGE_VERSION})`);
+    if (version !== LEGACY_STORAGE_VERSION) {
+      throw new Error(`Unsupported storage version: ${version} (expected ${LEGACY_STORAGE_VERSION})`);
     }
 
     const dimension = buffer.readUInt32LE(offset);
@@ -169,8 +344,10 @@ export class FallbackHNSW implements IHNSWBackend {
     const count = buffer.readUInt32LE(offset);
     offset += 4;
 
-    // Clear existing vectors
+    // Clear existing data
     this.vectors.clear();
+    this.hnswIndex = null;
+    this.hnswDirty = false;
 
     // Read vectors
     for (let i = 0; i < count; i++) {
@@ -190,10 +367,34 @@ export class FallbackHNSW implements IHNSWBackend {
       this.vectors.set(id, vector);
     }
 
+    // Mark as needing rebuild if we crossed threshold
+    if (this.shouldUseHNSW()) {
+      this.hnswDirty = true;
+    }
+
     return true;
   }
 
   clear(): void {
     this.vectors.clear();
+    this.hnswIndex = null;
+    this.hnswDirty = false;
+  }
+
+  /**
+   * Get statistics about the backend
+   */
+  getStats(): {
+    size: number;
+    usingHNSW: boolean;
+    hnswStats?: ReturnType<HNSWIndex['getStats']>;
+  } {
+    this.ensureHNSWIndex();
+
+    return {
+      size: this.vectors.size,
+      usingHNSW: this.hnswIndex !== null && !this.hnswDirty,
+      hnswStats: this.hnswIndex?.getStats(),
+    };
   }
 }

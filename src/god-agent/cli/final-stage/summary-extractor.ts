@@ -74,6 +74,7 @@ export class SummaryExtractor {
     try {
       files = await fs.readdir(this.researchDir);
     } catch {
+      // INTENTIONAL: Research directory may not exist yet - return empty list
       return [];
     }
 
@@ -106,6 +107,7 @@ export class SummaryExtractor {
     try {
       content = await fs.readFile(absolutePath, 'utf-8');
     } catch {
+      // INTENTIONAL: File read failure - return structured failed summary for tracking
       return this.createFailedSummary(index, fileName, absolutePath);
     }
 
@@ -202,6 +204,7 @@ export class SummaryExtractor {
     try {
       files = await fs.readdir(this.researchDir);
     } catch {
+      // INTENTIONAL: Directory access failure - return structured scan result with failed status
       return {
         totalFiles: SummaryExtractor.EXPECTED_FILE_COUNT,
         foundFiles: 0,
@@ -273,6 +276,7 @@ export class SummaryExtractor {
     try {
       content = await fs.readFile(filePath, 'utf-8');
     } catch {
+      // INTENTIONAL: File read failure - return structured failed summary for caller handling
       return this.createFailedSummary(index, fileName, filePath);
     }
 

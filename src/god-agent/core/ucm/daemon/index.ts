@@ -18,7 +18,7 @@
 
 // Services
 export { ContextService } from './context-service.js';
-export { DescService } from './desc-service.js';
+export { DescService, type IDescServiceConfig } from './desc-service.js';
 export { RecoveryService } from './recovery-service.js';
 export { HealthService } from './health-service.js';
 

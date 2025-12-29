@@ -298,6 +298,7 @@ export class MemoryMonitor {
       // Default to a reasonable limit (512MB)
       return 512 * 1024 * 1024;
     } catch {
+      // INTENTIONAL: V8 heap statistics not available in all environments - use reasonable default
       return 512 * 1024 * 1024;
     }
   }

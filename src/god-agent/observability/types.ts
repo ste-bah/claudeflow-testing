@@ -31,7 +31,10 @@ export type ActivityEventComponent =
   | 'hyperedge'
   | 'embedding'
   | 'daemon'
-  | 'token_budget';
+  | 'token_budget'
+  | 'vectordb'
+  | 'sona'
+  | 'reasoning';
 
 /**
  * Activity event status types

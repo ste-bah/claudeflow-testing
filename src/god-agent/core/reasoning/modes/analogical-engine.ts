@@ -29,6 +29,12 @@ import type {
 } from '../advanced-reasoning-types.js';
 import { AdvancedReasoningMode } from '../advanced-reasoning-types.js';
 import type { IEmbeddingProvider } from '../../memory/types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../observability/index.js';
+
+const logger = createComponentLogger('AnalogicalEngine', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler()]
+});
 
 // ============================================================================
 // INTERFACES
@@ -427,7 +433,7 @@ export class AnalogicalEngine {
           return patterns;
         }
       } catch {
-        // Fall through to synthetic patterns
+        // INTENTIONAL: Pattern matcher query failure - use synthetic patterns
       }
     }
 
@@ -495,7 +501,7 @@ export class AnalogicalEngine {
             this.syntheticPatternCache.set(cacheKey, newEmbeddings[i]);
           }
         } catch (error) {
-          console.warn('[AnalogicalEngine] Embedding failed, using real embeddings:', error);
+          logger.warn('Embedding failed, using real embeddings', { error: String(error) });
           // Fallback to real semantic embeddings (SPEC-EMB-002)
           for (let i = 0; i < uncachedIndices.length; i++) {
             const idx = uncachedIndices[i];
@@ -541,7 +547,7 @@ export class AnalogicalEngine {
       return await this.embeddingProvider.embed(text);
     } catch (error) {
       // Ultimate fallback: hash-based deterministic embedding
-      console.warn('[AnalogicalEngine] Embedding provider failed, using hash-based fallback:', error);
+      logger.warn('Embedding provider failed, using hash-based fallback', { error: String(error) });
       return this.generateHashBasedEmbedding(text);
     }
   }

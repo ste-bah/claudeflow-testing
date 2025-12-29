@@ -694,6 +694,44 @@ export type {
   IHealthMonitorConfig,
 } from './memory-server/index.js';
 
+// ==================== Shutdown (TASK-ERR-005) ====================
+
+export {
+  // Main class
+  GracefulShutdown,
+  // Priority enum
+  ShutdownPriority,
+  // Errors
+  ShutdownTimeoutError,
+  ShutdownInProgressError,
+  // Constants
+  DEFAULT_HANDLER_TIMEOUT_MS,
+  MAX_SHUTDOWN_TIME_MS,
+  SHUTDOWN_DEBOUNCE_MS,
+  // Singleton functions
+  getGracefulShutdown,
+  registerShutdownHandler,
+  initiateShutdown,
+  resetGracefulShutdown,
+  // Component registration helpers
+  registerComponentShutdown,
+  registerDatabaseShutdown,
+  registerSonaEngineShutdown,
+  registerGraphDBShutdown,
+  registerEmbeddingStoreShutdown,
+  registerServerShutdown,
+} from './shutdown/index.js';
+
+export type {
+  ShutdownHandlerFn,
+  IShutdownHandler,
+  IShutdownHandlerResult,
+  ShutdownReason,
+  IShutdownEvent,
+  IGracefulShutdownConfig,
+  IShutdownable,
+} from './shutdown/index.js';
+
 // ==================== Version ====================
 
 /**
@@ -726,6 +764,7 @@ export const BUILD_INFO = {
     'scale-tests',
     'portability',
     'search',
+    'shutdown',
   ],
   nfr: {
     'NFR-1': 'Performance Benchmark Suite',

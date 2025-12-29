@@ -268,7 +268,7 @@ async function findDaemonScript(): Promise<string | null> {
       await fs.access(candidate);
       return candidate;
     } catch {
-      // Not found, try next
+      // INTENTIONAL: Not found at this location - try next candidate path
     }
   }
 
@@ -281,6 +281,7 @@ async function readPidFile(agentDbPath: string): Promise<IPidFileContent | null>
     const content = await fs.readFile(pidPath, 'utf-8');
     return JSON.parse(content);
   } catch {
+    // INTENTIONAL: PID file not found or parse failure - return null
     return null;
   }
 }
@@ -290,7 +291,7 @@ async function cleanupPidFile(agentDbPath: string): Promise<void> {
   try {
     await fs.unlink(pidPath);
   } catch {
-    // Ignore
+    // INTENTIONAL: PID file already removed or doesn't exist - safe to ignore
   }
 }
 
@@ -299,6 +300,7 @@ function isProcessRunning(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch {
+    // INTENTIONAL: Process.kill(0) failure means process not running
     return false;
   }
 }

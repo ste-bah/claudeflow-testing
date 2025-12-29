@@ -175,6 +175,7 @@ export class HealthService {
       try {
         embeddingAvailable = await this.embeddingProvider.isAvailable();
       } catch {
+        // INTENTIONAL: Embedding availability check failure - treat as unavailable
         embeddingAvailable = false;
       }
     }
@@ -236,6 +237,7 @@ export class HealthService {
       try {
         embeddingAvailable = await this.embeddingProvider.isAvailable();
       } catch {
+        // INTENTIONAL: Embedding availability check failure - treat as unavailable
         embeddingAvailable = false;
       }
     }

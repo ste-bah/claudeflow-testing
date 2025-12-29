@@ -435,6 +435,7 @@ export async function withTrace<T>(
     return result;
   } catch (error) {
     span.setError(error as Error);
+    // INTENTIONAL: transparent rethrow - tracing wrapper should not modify errors
     throw error;
   } finally {
     span.finish();
@@ -459,6 +460,7 @@ export function withTraceSync<T>(
     return result;
   } catch (error) {
     span.setError(error as Error);
+    // INTENTIONAL: transparent rethrow - tracing wrapper should not modify errors
     throw error;
   } finally {
     span.finish();

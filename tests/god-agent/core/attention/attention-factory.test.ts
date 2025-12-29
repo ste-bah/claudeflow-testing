@@ -460,9 +460,10 @@ describe('DualSpaceAttention', () => {
       // With alpha=0.5, output should be average of both mechanisms
       const output = dualSpace.forward(query, key, value);
 
-      // Output should have reasonable values (mock mechanisms return weighted Q+V)
+      // Output should have finite values (Real* implementations compute actual attention)
       for (let i = 0; i < output.length; i++) {
-        expect(output[i]).toBeGreaterThan(0);
+        expect(Number.isFinite(output[i])).toBe(true);
+        expect(output[i]).not.toBeNaN();
       }
     });
   });

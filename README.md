@@ -2,6 +2,8 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
+**Version**: 2.0.0 | **Status**: Production-Ready | **Last Updated**: December 2024
+
 ## Table of Contents
 
 - [Features](#features)
@@ -29,6 +31,56 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - **SoNA Engine**: Self-organizing Neural Architecture for adaptive learning
 - **Style Profiles**: Learn and apply writing styles from documents
 - **Claude Flow Integration**: Multi-agent swarm coordination
+- **GNN Training**: Graph Neural Network training with EWC regularization
+- **40+ Attention Mechanisms**: Flash, Sparse, Linear, Performer, Longformer, and more
+- **SQLite Persistence**: All learning data persisted (no more memory loss on restart)
+
+## What's New in v2.0.0
+
+### Learning System Remediation (FUCKUP-001)
+
+The learning system has been completely overhauled to fix critical issues where learning data was lost on restart and components were disconnected:
+
+| Issue | Before | After |
+|-------|--------|-------|
+| **Episode Storage** | In-memory Map (lost on restart) | SQLite persistence |
+| **Trajectory Capture** | Not connected to Task() | Full output capture |
+| **Quality Assessment** | Evaluated prompts, not results | Evaluates actual output |
+| **Feedback Loop** | Disconnected | End-to-end connected |
+| **GNN Training** | Incomplete implementation | Full EWC regularization |
+
+### New Components
+
+- **GNN Trainer** (`src/god-agent/core/reasoning/gnn-trainer.ts`): Contrastive learning with Elastic Weight Consolidation (EWC) to prevent catastrophic forgetting
+- **Vector Validation** (`src/god-agent/core/validation/vector-validation.ts`): Validates embedding dimensions, normalization, and similarity thresholds
+- **40+ Attention Mechanisms** (`src/god-agent/core/attention/mechanisms/`): Including Flash Attention, Sparse Transformer, Linformer, Performer, Longformer, Hyena, and more
+- **UCM Daemon Services**: Context, Health, Recovery, and DESC services with JSON-RPC 2.0 interface
+- **Hook Runner** (`src/god-agent/core/executor/hook-runner.ts`): Safe hook execution with timeout and sandboxing
+
+### Architecture Improvements
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    USER INTERACTION                          │
+│              CLI / Slash Commands / Claude Code              │
+├─────────────────────────────────────────────────────────────┤
+│                    TASK EXECUTION                            │
+│     god-agent ask/code/research → Task() → Output            │
+│                           ↓ (NEW: captures output)           │
+├─────────────────────────────────────────────────────────────┤
+│                  QUALITY ASSESSMENT                          │
+│     QualityEstimator evaluates ACTUAL OUTPUT (not prompt)    │
+│                           ↓                                  │
+├─────────────────────────────────────────────────────────────┤
+│                   LEARNING PIPELINE                          │
+│     TrajectoryTracker → ReasoningBank → SoNA → GNN           │
+│                           ↓                                  │
+├─────────────────────────────────────────────────────────────┤
+│                 PERSISTENT STORAGE                           │
+│     SQLite: episodes, trajectories, patterns, outcomes       │
+│     File: .agentdb/sona/, .god-agent/weights/                │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Quick Setup (Automated) ⚡ RECOMMENDED
 

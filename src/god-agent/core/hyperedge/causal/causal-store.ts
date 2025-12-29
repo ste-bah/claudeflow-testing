@@ -153,7 +153,11 @@ export class CausalStore {
         executionTime,
       });
 
-      throw error;
+      // RULE-070: Re-throw with chain creation context
+      throw new Error(
+        `Failed to create causal chain with ${nodes.length} nodes: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 
@@ -240,7 +244,11 @@ export class CausalStore {
         executionTime,
       });
 
-      throw error;
+      // RULE-070: Re-throw with root cause analysis context
+      throw new Error(
+        `Root cause analysis failed for effect "${effectId}" (maxDepth: ${maxDepth ?? this.maxDepth}): ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 
@@ -289,7 +297,11 @@ export class CausalStore {
         executionTime,
       });
 
-      throw error;
+      // RULE-070: Re-throw with loop detection context
+      throw new Error(
+        `Loop detection failed for chain "${chainId}": ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 

@@ -312,7 +312,11 @@ export class RelayRaceOrchestrator {
         await this.sonaEngine.provideFeedback(trajectoryId, completedRatio * 0.5, { skipAutoSave: true });
       }
 
-      throw error;
+      // RULE-070: Re-throw with pipeline context
+      throw new Error(
+        `Pipeline "${pipeline.name}" (id: ${pipelineId}) failed at agent ${execution.currentAgentIndex}/${pipeline.agents.length}: ${execution.error}`,
+        { cause: error }
+      );
     }
   }
 
@@ -509,7 +513,11 @@ export class RelayRaceOrchestrator {
       return result;
     } catch (error) {
       clearTimeout(timeoutId!);
-      throw error;
+      // RULE-070: Re-throw with timeout context
+      throw new Error(
+        `Operation timed out after ${timeoutMs}ms: ${timeoutMessage}`,
+        { cause: error }
+      );
     }
   }
 

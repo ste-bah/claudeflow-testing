@@ -10,7 +10,6 @@ import { describe, it, expect } from 'vitest';
 import {
   AttentionFactory,
   RealStandardAttention,
-  StandardAttention,
   MECHANISM_CONSTRUCTORS,
 } from '../../../../../src/god-agent/core/attention/index.js';
 
@@ -24,9 +23,11 @@ describe('AttentionFactory Integration', () => {
       expect(MECHANISM_CONSTRUCTORS['real-standard']).toBe(RealStandardAttention);
     });
 
-    it('should still export mock StandardAttention for backward compatibility', () => {
-      expect(StandardAttention).toBeDefined();
-      expect(new StandardAttention()).toHaveProperty('name', 'standard');
+    it('should use RealStandardAttention directly (placeholders removed per ANTI-009)', () => {
+      // ANTI-009: All placeholder classes removed - only Real* implementations exist
+      const mechanism = new RealStandardAttention();
+      expect(mechanism).toBeDefined();
+      expect(mechanism.name).toBe('standard');
     });
   });
 

@@ -274,7 +274,7 @@ export class FirstPrinciplesEngine {
           return axioms;
         }
       } catch {
-        // Fall through
+        // INTENTIONAL: Causal memory query failure - try alternative sources
       }
     }
 
@@ -286,7 +286,7 @@ export class FirstPrinciplesEngine {
           return axioms;
         }
       } catch {
-        // Fall through
+        // INTENTIONAL: Pattern matcher query failure - try predefined axioms
       }
     }
 

@@ -52,6 +52,7 @@ export class ClaudeCodeExecutor implements IClaudeCodeExecutor {
       const version = await this.getVersion();
       return version.length > 0;
     } catch {
+      // INTENTIONAL: CLI version check failure - return false to indicate CLI unavailable
       return false;
     }
   }
@@ -214,7 +215,7 @@ export class ClaudeCodeExecutor implements IClaudeCodeExecutor {
           const parsed = JSON.parse(stdout) as { result?: string; output?: string };
           rawOutput = parsed.result ?? parsed.output ?? stdout;
         } catch {
-          // If not JSON, use raw stdout
+          // INTENTIONAL: If not JSON, use raw stdout - CLI may return plain text
           rawOutput = stdout;
         }
 

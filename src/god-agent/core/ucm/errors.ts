@@ -275,10 +275,13 @@ export class MissingConfigError extends ConfigurationError {
   readonly code = 'UCM_MISSING_CONFIG';
   readonly recoverable = false;
 
-  constructor(field: string) {
-    super(`Missing required configuration: ${field}`, {
-      field
-    });
+  constructor(field: string, details?: string) {
+    super(
+      details
+        ? `Missing required configuration: ${field}. ${details}`
+        : `Missing required configuration: ${field}`,
+      { field }
+    );
   }
 }
 

@@ -43,7 +43,7 @@ async function log(level: string, message: string, context?: Record<string, unkn
     const logPath = path.join(DEFAULT_AGENTDB_PATH, DAEMON_LOG_FILE);
     await fs.appendFile(logPath, logLine + '\n');
   } catch {
-    // Ignore log file errors
+    // INTENTIONAL: Log file write errors are non-critical - daemon continues operation
   }
 }
 
@@ -139,6 +139,7 @@ async function stopDaemon(agentDbPath: string = DEFAULT_AGENTDB_PATH): Promise<v
         try {
           process.kill(pidFile.pid, 0);
         } catch {
+          // INTENTIONAL: Process exited - successful stop
           console.log('Memory server daemon stopped.');
           return;
         }
@@ -150,10 +151,12 @@ async function stopDaemon(agentDbPath: string = DEFAULT_AGENTDB_PATH): Promise<v
       console.log('Memory server daemon killed.');
 
     } catch {
+      // INTENTIONAL: Process not running - clean up stale PID file
       console.log('Daemon not running. Cleaning up stale PID file...');
       await fs.unlink(pidPath).catch(() => {});
     }
   } catch {
+    // INTENTIONAL: No PID file found - daemon is not running
     console.log('No PID file found. Daemon is not running.');
   }
 }

@@ -419,6 +419,7 @@ export class MultiInstanceTest {
         await instance.execute(`during_partition_${i}`, { value: i });
       }
     } catch {
+      // INTENTIONAL: Network partition test - failure is recorded via survivedPartition flag
       survivedPartition = false;
     }
 

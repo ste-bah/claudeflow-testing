@@ -13,6 +13,8 @@
 
 import * as net from 'net';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { ContextService } from './context-service.js';
 import { DescService } from './desc-service.js';
 import { RecoveryService } from './recovery-service.js';
@@ -20,6 +22,33 @@ import { HealthService } from './health-service.js';
 import { EmbeddingProxy } from '../desc/embedding-proxy.js';
 import type { IUniversalContextConfig } from '../types.js';
 import { DEFAULT_UCM_CONFIG } from '../config.js';
+
+/**
+ * Default path for DESC persistent storage
+ * Uses project directory if available, falls back to user home
+ */
+function getDefaultDescDbPath(): string {
+  // Try to use project-local .god-agent directory
+  const projectPath = process.env.GOD_AGENT_PROJECT_PATH ?? process.cwd();
+  const projectDbPath = path.join(projectPath, '.god-agent', 'desc.db');
+
+  // Check if .god-agent directory exists or can be created
+  const godAgentDir = path.dirname(projectDbPath);
+  try {
+    if (!fs.existsSync(godAgentDir)) {
+      fs.mkdirSync(godAgentDir, { recursive: true });
+    }
+    return projectDbPath;
+  } catch {
+    // INTENTIONAL: Project directory not writable - fall back to user home directory
+    const homeDbPath = path.join(os.homedir(), '.god-agent', 'desc.db');
+    const homeGodAgentDir = path.dirname(homeDbPath);
+    if (!fs.existsSync(homeGodAgentDir)) {
+      fs.mkdirSync(homeGodAgentDir, { recursive: true });
+    }
+    return homeDbPath;
+  }
+}
 
 // ============================================================================
 // JSON-RPC 2.0 Types
@@ -89,13 +118,15 @@ export class DaemonServer {
     });
 
     // Initialize services
+    // RULE-030: DescService MUST use persistent storage
+    const descDbPath = getDefaultDescDbPath();
+    console.log(`[DaemonServer] Initializing DescService with persistent storage at: ${descDbPath}`);
+
     this.contextService = new ContextService();
-    this.descService = new DescService(
-      undefined,
-      undefined,
-      undefined,
-      this.embeddingProxy
-    );
+    this.descService = new DescService({
+      dbPath: descDbPath,
+      embeddingProxy: this.embeddingProxy
+    });
     this.recoveryService = new RecoveryService();
     this.healthService = new HealthService(this.embeddingProxy);
 

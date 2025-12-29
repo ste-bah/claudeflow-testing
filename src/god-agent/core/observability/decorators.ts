@@ -7,6 +7,11 @@
  * - @Timed: Measure execution time
  * - @Logged: Automatic logging
  * - @Traced: Automatic span creation
+ *
+ * NOTE: All rethrows in decorators are INTENTIONAL transparent rethrows.
+ * Decorators wrap methods to provide observability but should NOT modify
+ * error behavior - errors must bubble up unchanged to preserve stack traces
+ * and allow proper error handling by the wrapped method's caller.
  */
 
 import { metricsCollector, type MetricLabels, Histogram, Counter } from './metrics.js';

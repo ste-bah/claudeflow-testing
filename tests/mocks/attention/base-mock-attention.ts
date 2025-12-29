@@ -16,11 +16,12 @@ import type { IAttentionMechanism } from '../../../src/god-agent/core/attention/
 
 /**
  * Configuration for mock attention mechanisms
+ * TASK-VEC-001-008: Updated default dimension to 1536
  */
 export interface IMockAttentionConfig {
-  /** Embedding dimension (default: 768) */
+  /** Embedding dimension (default: 1536 per VECTOR_DIM) */
   dimension?: number;
-  /** Number of attention heads (default: 8) */
+  /** Number of attention heads (default: 12 per DEFAULT_NUM_HEADS) */
   numHeads?: number;
 }
 
@@ -52,8 +53,9 @@ export abstract class BaseMockAttention implements IAttentionMechanism {
   protected readonly numHeads: number;
 
   constructor(config?: IMockAttentionConfig) {
-    this.dimension = config?.dimension ?? 768;
-    this.numHeads = config?.numHeads ?? 8;
+    // TASK-VEC-001-008: Updated default dimension to 1536, heads to 12
+    this.dimension = config?.dimension ?? 1536;
+    this.numHeads = config?.numHeads ?? 12;
   }
 
   /**

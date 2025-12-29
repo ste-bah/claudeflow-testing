@@ -16,6 +16,12 @@ import * as os from 'os';
 import {
   IActivityEvent,
 } from './types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+
+const logger = createComponentLogger('SocketServer', {
+  minLevel: LogLevel.INFO,
+  handlers: [new ConsoleLogHandler()]
+});
 import type { IActivityStream } from './activity-stream.js';
 import type { IAgentExecutionTracker } from './agent-tracker.js';
 import type { IPipelineTracker } from './pipeline-tracker.js';
@@ -132,7 +138,7 @@ export class SocketServer implements ISocketServer {
 
       this.server.on('error', (error) => {
         if (this.verbose) {
-          console.error('[SocketServer] Server error:', error);
+          logger.error('Server error', error);
         }
         reject(error);
       });
@@ -142,11 +148,11 @@ export class SocketServer implements ISocketServer {
         try {
           fs.chmodSync(this.socketPath, 0o600);
         } catch (error) {
-          console.warn('[SocketServer] Failed to set socket permissions:', error);
+          logger.warn('Failed to set socket permissions', { error: String(error), socketPath: this.socketPath });
         }
 
         if (this.verbose) {
-          console.log(`[SocketServer] Listening on ${this.socketPath}`);
+          logger.info('Listening on socket', { socketPath: this.socketPath });
         }
 
         resolve();
@@ -176,11 +182,11 @@ export class SocketServer implements ISocketServer {
               fs.unlinkSync(this.socketPath);
             }
           } catch {
-            // Ignore errors during cleanup
+            // INTENTIONAL: Best-effort cleanup during shutdown - file may already be removed
           }
 
           if (this.verbose) {
-            console.log('[SocketServer] Stopped');
+            logger.info('Stopped');
           }
 
           resolve();
@@ -229,13 +235,13 @@ export class SocketServer implements ISocketServer {
           // Socket exists but not in use - remove it
           fs.unlinkSync(this.socketPath);
           if (this.verbose) {
-            console.log('[SocketServer] Removed stale socket');
+            logger.info('Removed stale socket', { socketPath: this.socketPath });
           }
           resolve();
         });
       });
     } catch {
-      // Error indicates socket file exists but is stale
+      // INTENTIONAL: Error indicates socket file exists but is stale - safe to remove and retry
       if (fs.existsSync(this.socketPath)) {
         fs.unlinkSync(this.socketPath);
       }
@@ -265,7 +271,7 @@ export class SocketServer implements ISocketServer {
     this.clients.add(socket);
 
     if (this.verbose) {
-      console.log('[SocketServer] Client connected');
+      logger.info('Client connected', { clientCount: this.clients.size });
     }
 
     // Buffer for incomplete lines
@@ -292,13 +298,13 @@ export class SocketServer implements ISocketServer {
     socket.on('end', () => {
       this.clients.delete(socket);
       if (this.verbose) {
-        console.log('[SocketServer] Client disconnected');
+        logger.info('Client disconnected', { clientCount: this.clients.size });
       }
     });
 
     socket.on('error', (error) => {
       if (this.verbose) {
-        console.error('[SocketServer] Client error:', error);
+        logger.error('Client error', error);
       }
       this.clients.delete(socket);
     });
@@ -316,7 +322,7 @@ export class SocketServer implements ISocketServer {
       // Validate event structure
       if (!this.isValidEvent(event)) {
         if (this.verbose) {
-          console.warn('[SocketServer] Invalid event structure:', line);
+          logger.warn('Invalid event structure', { line: line.substring(0, 100) });
         }
         return;
       }
@@ -359,7 +365,7 @@ export class SocketServer implements ISocketServer {
     } catch (error) {
       // Implements [RULE-OBS-003]: Log and skip malformed JSON
       if (this.verbose) {
-        console.warn('[SocketServer] Malformed JSON:', line, error);
+        logger.warn('Malformed JSON', { line: line.substring(0, 100), error: String(error) });
       }
     }
   }
@@ -413,7 +419,7 @@ export class SocketServer implements ISocketServer {
     const executionId = metadata?.executionId as string | undefined;
     if (!executionId) {
       if (this.verbose) {
-        console.warn('[SocketServer] agent event missing executionId, cannot route:', operation);
+        logger.warn('Agent event missing executionId, cannot route', { operation });
       }
       return;
     }
@@ -432,7 +438,7 @@ export class SocketServer implements ISocketServer {
         });
 
         if (this.verbose) {
-          console.log(`[SocketServer] Tracked agent start: ${executionId}`);
+          logger.debug('Tracked agent start', { executionId });
         }
         break;
       }
@@ -446,7 +452,7 @@ export class SocketServer implements ISocketServer {
         });
 
         if (this.verbose) {
-          console.log(`[SocketServer] Tracked agent complete: ${executionId}`);
+          logger.debug('Tracked agent complete', { executionId });
         }
         break;
       }
@@ -460,7 +466,7 @@ export class SocketServer implements ISocketServer {
         );
 
         if (this.verbose) {
-          console.log(`[SocketServer] Tracked agent failure: ${executionId}`);
+          logger.debug('Tracked agent failure', { executionId });
         }
         break;
       }
@@ -468,7 +474,7 @@ export class SocketServer implements ISocketServer {
       default:
         // Unknown agent operation, just log
         if (this.verbose) {
-          console.log(`[SocketServer] Unknown agent operation: ${operation}`);
+          logger.debug('Unknown agent operation', { operation });
         }
         break;
     }

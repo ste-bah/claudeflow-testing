@@ -10,8 +10,14 @@
 import { randomUUID } from 'crypto';
 import { VectorDB } from '../vector-db/index.js';
 import { MemoryEngine } from '../memory/index.js';
-import { assertDimensions, cosineSimilarity } from '../validation/index.js';
+import { assertDimensions, cosineSimilarity, withRetry } from '../validation/index.js';
 import { Pattern, TaskType, CreatePatternParams, PatternStats } from './pattern-types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+
+const logger = createComponentLogger('PatternStore', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler()]
+});
 
 /**
  * Storage key for patterns in MemoryEngine
@@ -107,7 +113,7 @@ export class PatternStore {
       }
     } catch (error) {
       // If loading fails, start with empty store
-      console.warn('Failed to load patterns from storage:', error);
+      logger.warn('Failed to load patterns from storage', { error: String(error) });
     }
 
     this.initialized = true;
@@ -153,8 +159,11 @@ export class PatternStore {
     this.patterns.set(pattern.id, pattern);
     this.indexByTaskType.get(pattern.taskType)?.add(pattern.id);
 
-    // Add to VectorDB with specific ID
-    await this.vectorDB.insertWithId(pattern.id, pattern.embedding);
+    // Add to VectorDB with specific ID, with retry (RULE-072: HNSW operations must retry)
+    await withRetry(
+      () => this.vectorDB.insertWithId(pattern.id, pattern.embedding),
+      { operationName: 'PatternStore.addPattern.vectorInsert' }
+    );
 
     // Persist changes
     await this.persist();
@@ -357,6 +366,8 @@ export class PatternStore {
 
   /**
    * Persist patterns to MemoryEngine
+   *
+   * Implements: TASK-ERR-004, RULE-072 (database retry on failure)
    */
   private async persist(): Promise<void> {
     const patterns = Array.from(this.patterns.values());
@@ -375,11 +386,14 @@ export class PatternStore {
       metadata: pattern.metadata
     }));
 
-    // Store in MemoryEngine (value must be string)
-    await this.memoryEngine.store(
-      PATTERNS_STORAGE_KEY,
-      JSON.stringify(patternsData),
-      { namespace: PATTERNS_NAMESPACE }
+    // Store in MemoryEngine with retry (RULE-072)
+    await withRetry(
+      () => this.memoryEngine.store(
+        PATTERNS_STORAGE_KEY,
+        JSON.stringify(patternsData),
+        { namespace: PATTERNS_NAMESPACE }
+      ),
+      { operationName: 'PatternStore.persist' }
     );
   }
 

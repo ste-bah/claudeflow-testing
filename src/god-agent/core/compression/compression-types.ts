@@ -2,15 +2,17 @@
  * Compression Type Definitions
  * TASK-CMP-001 - 5-Tier Compression Lifecycle
  *
- * Provides types for adaptive vector compression:
- * - Hot: Float32 (1x, 3072 bytes)
- * - Warm: Float16 (2x, 1536 bytes)
- * - Cool: PQ8 (8x, 384 bytes)
- * - Cold: PQ4 (16x, 192 bytes)
- * - Frozen: Binary (32x, 96 bytes)
+ * Provides types for adaptive vector compression (1536D vectors):
+ * - Hot: Float32 (1x, 6144 bytes)
+ * - Warm: Float16 (2x, 3072 bytes)
+ * - Cool: PQ8 (8x, 768 bytes)
+ * - Cold: PQ4 (16x, 384 bytes)
+ * - Frozen: Binary (32x, 192 bytes)
  *
- * Target: 90%+ memory reduction for 1M vectors (3GB → 297MB)
+ * Target: 90%+ memory reduction for 1M vectors (6GB → 594MB)
  */
+
+import { VECTOR_DIM } from '../validation/constants.js';
 
 // ==================== Core Types ====================
 
@@ -56,7 +58,7 @@ export interface ITierConfig {
   format: 'float32' | 'float16' | 'pq8' | 'pq4' | 'binary';
   /** Compression ratio (1 = no compression) */
   compressionRatio: number;
-  /** Bytes per 768-dim vector */
+  /** Bytes per VECTOR_DIM vector */
   bytesPerVector: number;
   /** Maximum acceptable error rate */
   maxErrorRate: number;
@@ -72,7 +74,7 @@ export const TIER_CONFIGS: Record<CompressionTier, ITierConfig> = {
     maxHeatScore: 1.0,
     format: 'float32',
     compressionRatio: 1,
-    bytesPerVector: 3072, // 768 * 4 bytes
+    bytesPerVector: VECTOR_DIM * 4, // 6144 bytes for 1536D
     maxErrorRate: 0.0001,
   },
   [CompressionTier.WARM]: {
@@ -81,7 +83,7 @@ export const TIER_CONFIGS: Record<CompressionTier, ITierConfig> = {
     maxHeatScore: 0.8,
     format: 'float16',
     compressionRatio: 2,
-    bytesPerVector: 1536, // 768 * 2 bytes
+    bytesPerVector: VECTOR_DIM * 2, // 3072 bytes for 1536D
     maxErrorRate: 0.0001,
   },
   [CompressionTier.COOL]: {
@@ -90,7 +92,7 @@ export const TIER_CONFIGS: Record<CompressionTier, ITierConfig> = {
     maxHeatScore: 0.4,
     format: 'pq8',
     compressionRatio: 8,
-    bytesPerVector: 384, // 768 / 8 * 4 bytes (96 subvectors)
+    bytesPerVector: (VECTOR_DIM / 8) * 4, // 768 bytes for 1536D (192 subvectors)
     maxErrorRate: 0.02,
   },
   [CompressionTier.COLD]: {
@@ -99,7 +101,7 @@ export const TIER_CONFIGS: Record<CompressionTier, ITierConfig> = {
     maxHeatScore: 0.1,
     format: 'pq4',
     compressionRatio: 16,
-    bytesPerVector: 192, // 768 / 8 * 2 bytes (96 subvectors, 4-bit)
+    bytesPerVector: (VECTOR_DIM / 8) * 2, // 384 bytes for 1536D (192 subvectors, 4-bit)
     maxErrorRate: 0.05,
   },
   [CompressionTier.FROZEN]: {
@@ -108,7 +110,7 @@ export const TIER_CONFIGS: Record<CompressionTier, ITierConfig> = {
     maxHeatScore: 0.01,
     format: 'binary',
     compressionRatio: 32,
-    bytesPerVector: 96, // 768 bits / 8 = 96 bytes
+    bytesPerVector: VECTOR_DIM / 8, // 192 bytes for 1536D
     maxErrorRate: 0.10,
   },
 };
@@ -181,7 +183,7 @@ export interface IMemoryUsageStats {
  * Compression manager configuration
  */
 export interface ICompressionConfig {
-  /** Default dimension (default: 768) */
+  /** Default dimension (default: VECTOR_DIM = 1536) */
   dimension?: number;
   /** Heat decay rate per hour (default: 0.1) */
   heatDecayRate?: number;
@@ -199,7 +201,7 @@ export interface ICompressionConfig {
  * Default configuration
  */
 export const DEFAULT_COMPRESSION_CONFIG: Required<ICompressionConfig> = {
-  dimension: 768,
+  dimension: VECTOR_DIM,
   heatDecayRate: 0.1,
   accessWindow: 86400000, // 24 hours
   autoTransition: true,

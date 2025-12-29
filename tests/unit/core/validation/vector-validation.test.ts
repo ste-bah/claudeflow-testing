@@ -67,8 +67,9 @@ function createSimpleNormalizedVector(): Float32Array {
 }
 
 describe('Vector Validation - Constants', () => {
-  it('should have VECTOR_DIM set to 768', () => {
-    expect(VECTOR_DIM).toBe(768);
+  it('should have VECTOR_DIM set to 1536', () => {
+    // TASK-VEC-001-008: Updated from 768D to 1536D per REQ-VEC-01
+    expect(VECTOR_DIM).toBe(1536);
   });
 
   it('should have L2_NORM_TOLERANCE set to 1e-6', () => {
@@ -248,20 +249,22 @@ describe('Vector Validation - assertDimensions', () => {
     expect(() => assertDimensions(vector, VECTOR_DIM, 'VectorDB.insert')).not.toThrow();
   });
 
-  it('should throw GraphDimensionMismatchError for 767D vector', () => {
-    const vector = new Float32Array(767);
+  it('should throw GraphDimensionMismatchError for 1535D vector', () => {
+    // TASK-VEC-001-008: Updated test for 1536D standard
+    const vector = new Float32Array(1535);
     vector[0] = 1.0;  // Make it "normalized" for its dimension
 
     expect(() => assertDimensions(vector)).toThrow(GraphDimensionMismatchError);
-    expect(() => assertDimensions(vector)).toThrow('Expected 768D, got 767D');
+    expect(() => assertDimensions(vector)).toThrow('Expected 1536D, got 1535D');
   });
 
-  it('should throw GraphDimensionMismatchError for 1536D vector', () => {
-    const vector = new Float32Array(1536);
+  it('should throw GraphDimensionMismatchError for 768D vector', () => {
+    // TASK-VEC-001-008: 768D is now invalid (was previously valid)
+    const vector = new Float32Array(768);
     vector[0] = 1.0;
 
     expect(() => assertDimensions(vector)).toThrow(GraphDimensionMismatchError);
-    expect(() => assertDimensions(vector)).toThrow('Expected 768D, got 1536D');
+    expect(() => assertDimensions(vector)).toThrow('Expected 1536D, got 768D');
   });
 
   it('should throw NotNormalizedError for non-normalized vector', () => {

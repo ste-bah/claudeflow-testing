@@ -14,6 +14,12 @@ import {
   IFilterCriteria,
   BUFFER_LIMITS,
 } from './types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+
+const logger = createComponentLogger('ActivityStream', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 
 // =============================================================================
 // Quality Monitoring Interfaces
@@ -403,8 +409,8 @@ export class ActivityStream implements IActivityStream {
    * @param alert Alert details
    */
   private async emitAlert(alert: IQualityAlert): Promise<void> {
-    // Log to console for immediate visibility
-    console.error(`[ALERT] ${alert.severity}: ${alert.message}`);
+    // Log to structured logger for immediate visibility
+    logger.error(`Quality alert: ${alert.message}`, undefined, { severity: alert.severity, alertType: alert.type, category: alert.category });
 
     // Emit to activity stream
     await this.emit({
@@ -440,7 +446,7 @@ export class ActivityStream implements IActivityStream {
         try {
           listener(event);
         } catch {
-          // Implements [RULE-OBS-003]: No exceptions from listeners
+          // INTENTIONAL: Implements [RULE-OBS-003] - listener exceptions must not propagate to prevent cascade failures
         }
       }
     });

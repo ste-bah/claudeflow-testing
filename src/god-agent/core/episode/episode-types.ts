@@ -48,7 +48,7 @@ export interface Episode {
   startTime: number;
   /** Episode end timestamp (null for ongoing episodes) */
   endTime: number | null;
-  /** 768-dimensional semantic embedding for similarity search */
+  /** 1536-dimensional semantic embedding for similarity search (VECTOR_DIM) */
   embedding: Float32Array;
   /** Episode metadata and context */
   metadata: EpisodeMetadata;
@@ -87,7 +87,7 @@ export interface CreateEpisodeOptions {
   startTime?: number;
   /** End timestamp (null for ongoing) */
   endTime?: number | null;
-  /** 768-dim embedding vector */
+  /** 1536-dim embedding vector (VECTOR_DIM) */
   embedding: Float32Array;
   /** Episode metadata */
   metadata: EpisodeMetadata;
@@ -127,7 +127,7 @@ export interface TimeRangeQuery {
  * Similarity search query parameters
  */
 export interface SimilarityQuery {
-  /** Query embedding vector (768-dim) */
+  /** Query embedding vector (1536-dim, VECTOR_DIM) */
   embedding: Float32Array;
   /** Number of top results to return */
   k: number;

@@ -177,6 +177,7 @@ export class TokenBudgetManager {
       const status = this.getRemaining(phase, currentUsage);
       return status.remaining >= requestedTokens;
     } catch {
+      // INTENTIONAL: Budget check failure - return false as safe default
       return false;
     }
   }

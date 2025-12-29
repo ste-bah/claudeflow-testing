@@ -13,13 +13,21 @@
  */
 
 import { randomUUID } from 'crypto';
-import type {
-  TrajectoryRecord,
-  TrajectoryID,
-  IReasoningRequest,
-  IReasoningResponse,
-  ILearningFeedback
+import {
+  ReasoningMode,
+  type TrajectoryRecord,
+  type TrajectoryID,
+  type IReasoningRequest,
+  type IReasoningResponse,
+  type ILearningFeedback
 } from './reasoning-types.js';
+import type { ISonaEngine } from '../learning/sona-types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+
+const logger = createComponentLogger('TrajectoryTracker', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler()]
+});
 
 /**
  * VectorDB interface for optional persistence
@@ -35,8 +43,13 @@ interface VectorDB {
 
 /**
  * Configuration for TrajectoryTracker
+ *
+ * Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference.
+ * Implements: RULE-031
  */
 export interface TrajectoryTrackerConfig {
+  /** SonaEngine instance for trajectory learning integration (REQUIRED per RULE-031) */
+  sonaEngine: ISonaEngine;
   maxTrajectories?: number;     // Default: 10000
   retentionMs?: number;         // Default: 7 days
   vectorDB?: VectorDB;          // Optional for persistence
@@ -72,6 +85,9 @@ interface TrajectoryNode {
  * 1. Sona feedback loop integration
  * 2. Pattern creation from successful paths
  * 3. Performance analysis and optimization
+ *
+ * Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference.
+ * Implements: RULE-031
  */
 export class TrajectoryTracker {
   private trajectories: Map<string, TrajectoryNode>;
@@ -82,18 +98,47 @@ export class TrajectoryTracker {
   private pruneIntervalMs: number;
   private pruneTimer?: NodeJS.Timeout;
 
-  constructor(config?: TrajectoryTrackerConfig) {
-    this.maxTrajectories = config?.maxTrajectories ?? 10000;
-    this.retentionMs = config?.retentionMs ?? 7 * 24 * 60 * 60 * 1000; // 7 days
-    this.vectorDB = config?.vectorDB;
-    this.autoPrune = config?.autoPrune ?? true;
-    this.pruneIntervalMs = config?.pruneIntervalMs ?? 60 * 60 * 1000; // 1 hour
+  /**
+   * SonaEngine instance for trajectory learning integration
+   * Per CONSTITUTION RULE-031: Systems MUST be connected, not independent.
+   * Implements: RULE-031
+   */
+  private readonly sonaEngine: ISonaEngine;
+
+  /**
+   * Construct TrajectoryTracker with required dependencies
+   *
+   * @param config - Configuration including required SonaEngine
+   * @throws Error if sonaEngine is not provided (RULE-031 violation)
+   */
+  constructor(config: TrajectoryTrackerConfig) {
+    // Implements RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference
+    if (!config.sonaEngine) {
+      throw new Error('SonaEngine injection required per Constitution RULE-031');
+    }
+    this.sonaEngine = config.sonaEngine;
+
+    this.maxTrajectories = config.maxTrajectories ?? 10000;
+    this.retentionMs = config.retentionMs ?? 7 * 24 * 60 * 60 * 1000; // 7 days
+    this.vectorDB = config.vectorDB;
+    this.autoPrune = config.autoPrune ?? true;
+    this.pruneIntervalMs = config.pruneIntervalMs ?? 60 * 60 * 1000; // 1 hour
 
     this.trajectories = new Map();
 
     if (this.autoPrune) {
       this.startAutoPruning();
     }
+  }
+
+  /**
+   * Get the injected SonaEngine instance
+   *
+   * Implements: RULE-031 - provides access to connected learning system
+   * @returns The SonaEngine instance
+   */
+  getSonaEngine(): ISonaEngine {
+    return this.sonaEngine;
   }
 
   /**
@@ -150,6 +195,25 @@ export class TrajectoryTracker {
     // Optionally persist to VectorDB
     if (this.vectorDB) {
       await this.persistToVectorDB(trajectory);
+    }
+
+    // CRITICAL: Forward trajectory to SonaEngine (RULE-025)
+    // Per CONSTITUTION RULE-025: TrajectoryTracker MUST call SonaEngine.createTrajectoryWithId
+    // This ensures learning system receives all trajectories for weight adaptation
+    try {
+      const route = this.inferRouteFromRequest(request);
+      const patternIds = result.patterns.map(p => p.patternId);
+      const contextIds = result.causalInferences?.map(c => c.nodeId) ?? [];
+
+      this.sonaEngine.createTrajectoryWithId(
+        trajectoryId,
+        route,
+        patternIds,
+        contextIds
+      );
+    } catch (error) {
+      // Log but don't fail trajectory creation if SonaEngine forwarding fails
+      logger.warn('SonaEngine forwarding failed', { trajectoryId, error: String(error) });
     }
 
     return trajectory;
@@ -393,7 +457,7 @@ export class TrajectoryTracker {
       });
     } catch (error) {
       // Log error but don't fail the operation
-      console.warn(`Failed to persist trajectory ${trajectory.id} to VectorDB:`, error);
+      logger.warn('Failed to persist trajectory to VectorDB', { trajectoryId: trajectory.id, error: String(error) });
     }
   }
 
@@ -436,7 +500,7 @@ export class TrajectoryTracker {
   private startAutoPruning(): void {
     this.pruneTimer = setInterval(() => {
       this.pruneExpired().catch(error => {
-        console.warn('Auto-prune failed:', error);
+        logger.warn('Auto-prune failed', { error: String(error) });
       });
     }, this.pruneIntervalMs);
   }
@@ -470,5 +534,30 @@ export class TrajectoryTracker {
     }
 
     return dotProduct / denominator;
+  }
+
+  /**
+   * Infer route from reasoning request type
+   *
+   * Maps reasoning modes to route identifiers for SonaEngine.
+   * Routes are used for per-task-type weight management.
+   *
+   * @param request - The reasoning request
+   * @returns Route string (e.g., "reasoning.pattern", "reasoning.causal")
+   */
+  private inferRouteFromRequest(request: IReasoningRequest): string {
+    // Map reasoning mode type to route string
+    switch (request.type) {
+      case ReasoningMode.PATTERN_MATCH:
+        return 'reasoning.pattern';
+      case ReasoningMode.CAUSAL_INFERENCE:
+        return 'reasoning.causal';
+      case ReasoningMode.CONTEXTUAL:
+        return 'reasoning.contextual';
+      case ReasoningMode.HYBRID:
+        return 'reasoning.hybrid';
+      default:
+        return 'reasoning.general';
+    }
   }
 }

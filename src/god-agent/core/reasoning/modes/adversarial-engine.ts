@@ -27,6 +27,12 @@ import type {
 import { ShadowVectorSearch } from '../shadow-vector-search.js';
 import type { NodeID } from '../causal-types.js';
 import { TaskType } from '../pattern-types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../observability/index.js';
+
+const logger = createComponentLogger('AdversarialEngine', {
+  minLevel: LogLevel.WARN,
+  handlers: [new ConsoleLogHandler()]
+});
 
 // ==================== Adversarial-Specific Types ====================
 
@@ -366,7 +372,7 @@ export class AdversarialEngine {
         }
       } catch (error) {
         // Pattern type might not exist, continue
-        console.warn(`Failed to find patterns for ${taskType}:`, error);
+        logger.warn('Failed to find patterns', { taskType, error: String(error) });
       }
     }
 
@@ -384,7 +390,7 @@ export class AdversarialEngine {
     try {
       return await this.shadowSearch.findContradictions(embedding, options);
     } catch (error) {
-      console.warn('Shadow vector search failed:', error);
+      logger.warn('Shadow vector search failed', { error: String(error) });
       return [];
     }
   }
@@ -424,7 +430,7 @@ export class AdversarialEngine {
         }
       } catch (error) {
         // Causal inference might fail for unknown attack vectors
-        console.warn(`Failed to generate scenario for ${vector}:`, error);
+        logger.warn('Failed to generate scenario', { vector, error: String(error) });
 
         // Create a basic scenario without causal inference
         scenarios.push({
@@ -552,7 +558,7 @@ export class AdversarialEngine {
         }
       } catch (error) {
         // Defensive patterns might not exist
-        console.warn(`Failed to find countermeasure for ${threat.id}:`, error);
+        logger.warn('Failed to find countermeasure', { threatId: threat.id, error: String(error) });
       }
     }
 
