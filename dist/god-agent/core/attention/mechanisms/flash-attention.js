@@ -19,6 +19,7 @@
  * Complexity: O(N² × d) time, O(N × d) memory (vs O(N²) for standard)
  * Parameter Count: 4 × dim²
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real FlashAttention Implementation
@@ -68,7 +69,7 @@ export class RealFlashAttention {
      * Initialize FlashAttention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 12)
      * @param config.blockSize Tile size for SRAM (default: 64, must divide dimension)
      * @param config.seed Random seed for deterministic initialization (optional)
@@ -76,7 +77,7 @@ export class RealFlashAttention {
      * @throws Error if dimension not divisible by numHeads or blockSize
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 12;
         this.blockSize = config?.blockSize ?? 64;
         // Validate configuration

@@ -12,6 +12,11 @@
 import { AdvancedReasoningMode } from '../advanced-reasoning-types.js';
 import { ShadowVectorSearch } from '../shadow-vector-search.js';
 import { TaskType } from '../pattern-types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../observability/index.js';
+const logger = createComponentLogger('AdversarialEngine', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler()]
+});
 // ==================== Adversarial Reasoning Engine ====================
 /**
  * Adversarial Reasoning Engine
@@ -195,7 +200,7 @@ export class AdversarialEngine {
             }
             catch (error) {
                 // Pattern type might not exist, continue
-                console.warn(`Failed to find patterns for ${taskType}:`, error);
+                logger.warn('Failed to find patterns', { taskType, error: String(error) });
             }
         }
         return patterns;
@@ -209,7 +214,7 @@ export class AdversarialEngine {
             return await this.shadowSearch.findContradictions(embedding, options);
         }
         catch (error) {
-            console.warn('Shadow vector search failed:', error);
+            logger.warn('Shadow vector search failed', { error: String(error) });
             return [];
         }
     }
@@ -241,7 +246,7 @@ export class AdversarialEngine {
             }
             catch (error) {
                 // Causal inference might fail for unknown attack vectors
-                console.warn(`Failed to generate scenario for ${vector}:`, error);
+                logger.warn('Failed to generate scenario', { vector, error: String(error) });
                 // Create a basic scenario without causal inference
                 scenarios.push({
                     attackVector: vector,
@@ -346,7 +351,7 @@ export class AdversarialEngine {
             }
             catch (error) {
                 // Defensive patterns might not exist
-                console.warn(`Failed to find countermeasure for ${threat.id}:`, error);
+                logger.warn('Failed to find countermeasure', { threatId: threat.id, error: String(error) });
             }
         }
         return countermeasures;

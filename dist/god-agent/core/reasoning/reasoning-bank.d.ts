@@ -17,6 +17,7 @@
  */
 import { PatternMatcher } from './pattern-matcher.js';
 import { CausalMemory } from './causal-memory.js';
+import type { TrainingTriggerController } from './training-trigger.js';
 import type { VectorDB } from '../vector-db/vector-db.js';
 import type { SonaEngine } from '../learning/sona-engine.js';
 import type { ProvenanceStore } from './provenance-store.js';
@@ -50,6 +51,7 @@ export declare class ReasoningBank {
     private initialized;
     private sonaEngine?;
     private provenanceStore?;
+    private trainingTrigger?;
     constructor(deps: ReasoningBankDependencies);
     /**
      * Initialize all components
@@ -61,6 +63,22 @@ export declare class ReasoningBank {
      * Called after SonaEngine is initialized to break circular dependency
      */
     setSonaEngine(engine: SonaEngine): void;
+    /**
+     * Set TrainingTriggerController for GNN training triggers
+     *
+     * Implements: TASK-GNN-009
+     * The training trigger monitors feedback and automatically triggers
+     * GNN training when threshold is reached (default: 50 samples)
+     *
+     * @param trigger - TrainingTriggerController instance
+     */
+    setTrainingTrigger(trigger: TrainingTriggerController): void;
+    /**
+     * Get the TrainingTriggerController instance
+     *
+     * @returns TrainingTriggerController or undefined if not set
+     */
+    getTrainingTrigger(): TrainingTriggerController | undefined;
     /**
      * Get L-Score for a pattern or inference
      * Uses ProvenanceStore lookup with fallback to default
@@ -166,5 +184,14 @@ export declare class ReasoningBank {
      * Routes are used by SonaEngine for per-task-type weight management.
      */
     private inferRouteFromReasoningMode;
+    /**
+     * Create a proxy for SonaEngine that supports late binding
+     *
+     * Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference.
+     * This proxy defers to this.sonaEngine, supporting late binding via setSonaEngine().
+     *
+     * Implements: RULE-031, RULE-025
+     */
+    private createSonaEngineProxy;
 }
 //# sourceMappingURL=reasoning-bank.d.ts.map

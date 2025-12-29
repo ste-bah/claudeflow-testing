@@ -16,10 +16,10 @@
  * - Mode relevance: Mode-specific quality indicators
  *
  * @param interaction - The interaction to assess
- * @param threshold - Auto-store threshold (default 0.6)
+ * @param threshold - Auto-store threshold (default 0.5 per RULE-035)
  * @returns Quality score between 0 and 1
  */
-export function estimateQuality(interaction, threshold = 0.6) {
+export function estimateQuality(interaction, threshold = 0.5) {
     const assessment = assessQuality(interaction, threshold);
     return assessment.score;
 }
@@ -27,10 +27,10 @@ export function estimateQuality(interaction, threshold = 0.6) {
  * Perform detailed quality assessment with factor breakdown.
  *
  * @param interaction - The interaction to assess
- * @param threshold - Auto-store threshold (default 0.6)
+ * @param threshold - Auto-store/feedback threshold (default 0.5 per RULE-035)
  * @returns Detailed quality assessment
  */
-export function assessQuality(interaction, threshold = 0.6) {
+export function assessQuality(interaction, threshold = 0.5) {
     const output = interaction.output;
     const mode = interaction.mode;
     // Factor 1: Length scoring (0-0.25)
@@ -119,8 +119,36 @@ export function assessQuality(interaction, threshold = 0.6) {
             break;
     }
     modeScore = Math.min(modeScore, 0.25);
-    // Calculate total score
-    const totalScore = Math.min(lengthScore + codeScore + structureScore + modeScore, 1.0);
+    // Factor 5: Task Result Pattern Bonus (0-0.35)
+    // TASK-FIX-008: Detect well-structured Task() output patterns
+    // Per RULE-033: Quality MUST be assessed on Task() RESULT, not prompt
+    let taskResultBonus = 0;
+    // Check for TASK COMPLETION SUMMARY format (primary indicator)
+    if (/TASK COMPLETION SUMMARY/i.test(output) || /##\s*TASK COMPLETION/i.test(output)) {
+        taskResultBonus += 0.15;
+    }
+    // Check for "What I Did" section (common in Task results)
+    if (/\*\*What I Did\*\*|\bWhat I Did:/i.test(output)) {
+        taskResultBonus += 0.05;
+    }
+    // Check for "Files Created/Modified" section
+    if (/Files Created|Files Modified|Files Changed/i.test(output)) {
+        taskResultBonus += 0.05;
+    }
+    // Check for "Next Agent Guidance" (handoff pattern)
+    if (/Next Agent|Ready for.*stage|Handoff/i.test(output)) {
+        taskResultBonus += 0.05;
+    }
+    // Check for quality indicators section
+    if (/Quality Indicator|Quality Score|Code Quality/i.test(output)) {
+        taskResultBonus += 0.05;
+    }
+    taskResultBonus = Math.min(taskResultBonus, 0.35);
+    // Calculate total score with recalibrated weights
+    // TASK-FIX-008: High-quality Task() output should score 0.6-0.8
+    const totalScore = Math.min(lengthScore + codeScore + structureScore + modeScore + taskResultBonus, 1.0);
+    // RULE-035: Pattern threshold is 0.7 (not 0.8)
+    const PATTERN_THRESHOLD = 0.7;
     return {
         score: totalScore,
         factors: {
@@ -128,9 +156,10 @@ export function assessQuality(interaction, threshold = 0.6) {
             structure: structureScore,
             codeContent: codeScore,
             modeRelevance: modeScore,
+            taskResultBonus,
         },
         meetsThreshold: totalScore >= threshold,
-        qualifiesForPattern: totalScore >= 0.8,
+        qualifiesForPattern: totalScore >= PATTERN_THRESHOLD,
     };
 }
 /**

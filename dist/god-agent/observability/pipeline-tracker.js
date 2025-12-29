@@ -8,6 +8,11 @@
  * @see TASK-OBS-004-PIPELINE-TRACKER.md
  * @see TECH-OBS-001-IMPLEMENTATION.md Section 3.5
  */
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+const logger = createComponentLogger('PipelineTracker', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler()]
+});
 // =============================================================================
 // Implementation
 // =============================================================================
@@ -91,13 +96,13 @@ export class PipelineTracker {
     startStep(pipelineId, step) {
         const pipeline = this.active.get(pipelineId);
         if (!pipeline) {
-            console.warn(`[PipelineTracker] Attempted to start step in unknown pipeline: ${pipelineId}`);
+            logger.warn('Attempted to start step in unknown pipeline', { pipelineId });
             return '';
         }
         // Find the step by name
         const stepIndex = pipeline.steps.findIndex((s) => s.name === step.name && s.status === 'pending');
         if (stepIndex === -1) {
-            console.warn(`[PipelineTracker] Step '${step.name}' not found or already started in pipeline: ${pipelineId}`);
+            logger.warn('Step not found or already started in pipeline', { stepName: step.name, pipelineId });
             return '';
         }
         // Generate step ID
@@ -139,13 +144,13 @@ export class PipelineTracker {
     completeStep(pipelineId, stepId, result) {
         const pipeline = this.active.get(pipelineId);
         if (!pipeline) {
-            console.warn(`[PipelineTracker] Attempted to complete step in unknown pipeline: ${pipelineId}`);
+            logger.warn('Attempted to complete step in unknown pipeline', { pipelineId });
             return;
         }
         // Find the step by ID
         const step = pipeline.steps.find((s) => s.id === stepId);
         if (!step) {
-            console.warn(`[PipelineTracker] Step '${stepId}' not found in pipeline: ${pipelineId}`);
+            logger.warn('Step not found in pipeline (complete)', { stepId, pipelineId });
             return;
         }
         // Calculate duration
@@ -196,13 +201,13 @@ export class PipelineTracker {
     failStep(pipelineId, stepId, error) {
         const pipeline = this.active.get(pipelineId);
         if (!pipeline) {
-            console.warn(`[PipelineTracker] Attempted to fail step in unknown pipeline: ${pipelineId}`);
+            logger.warn('Attempted to fail step in unknown pipeline', { pipelineId });
             return;
         }
         // Find the step by ID
         const step = pipeline.steps.find((s) => s.id === stepId);
         if (!step) {
-            console.warn(`[PipelineTracker] Step '${stepId}' not found in pipeline: ${pipelineId}`);
+            logger.warn('Step not found in pipeline (fail)', { stepId, pipelineId });
             return;
         }
         // Calculate duration
@@ -238,7 +243,7 @@ export class PipelineTracker {
     completePipeline(pipelineId, result) {
         const pipeline = this.active.get(pipelineId);
         if (!pipeline) {
-            console.warn(`[PipelineTracker] Attempted to complete unknown pipeline: ${pipelineId}`);
+            logger.warn('Attempted to complete unknown pipeline', { pipelineId });
             return;
         }
         // Update pipeline status
@@ -275,7 +280,7 @@ export class PipelineTracker {
     failPipeline(pipelineId, error) {
         const pipeline = this.active.get(pipelineId);
         if (!pipeline) {
-            console.warn(`[PipelineTracker] Attempted to fail unknown pipeline: ${pipelineId}`);
+            logger.warn('Attempted to fail unknown pipeline', { pipelineId });
             return;
         }
         // Calculate duration

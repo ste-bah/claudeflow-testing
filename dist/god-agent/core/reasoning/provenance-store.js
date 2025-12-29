@@ -13,6 +13,11 @@
  */
 import { ProvenanceValidationError, LScoreRejectionError } from './provenance-types.js';
 import { generateSourceID, generateProvenanceID, validateSourceInput, validateProvenanceInput, validateEmbedding, calculateLScore, } from './provenance-utils.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+const logger = createComponentLogger('ProvenanceStore', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler()]
+});
 /**
  * ProvenanceStore - Source tracking and citation graph management
  */
@@ -73,7 +78,7 @@ export class ProvenanceStore {
         if (this.config.trackPerformance) {
             const elapsed = performance.now() - startTime;
             if (elapsed > 5) {
-                console.warn(`ProvenanceStore.storeSource() took ${elapsed.toFixed(2)}ms, exceeds 5ms target`);
+                logger.warn('ProvenanceStore.storeSource() exceeds performance target', { elapsedMs: elapsed, targetMs: 5 });
             }
         }
         return sourceId;
@@ -140,7 +145,7 @@ export class ProvenanceStore {
         // 8. Validate parent provenance exists if provided
         if (input.parentProvenanceId) {
             if (!this.provenances.has(input.parentProvenanceId)) {
-                console.warn(`Parent provenance ${input.parentProvenanceId} not found, treating as root`);
+                logger.warn('Parent provenance not found, treating as root', { parentProvenanceId: input.parentProvenanceId });
                 provenance.parentProvenanceId = undefined;
             }
         }
@@ -150,7 +155,7 @@ export class ProvenanceStore {
         if (this.config.trackPerformance) {
             const elapsed = performance.now() - startTime;
             if (elapsed > 15) {
-                console.warn(`ProvenanceStore.createProvenance() took ${elapsed.toFixed(2)}ms, exceeds 15ms target`);
+                logger.warn('ProvenanceStore.createProvenance() exceeds performance target', { elapsedMs: elapsed, targetMs: 15 });
             }
         }
         return provenanceId;
@@ -204,13 +209,13 @@ export class ProvenanceStore {
             while (currentProvenanceId && currentDepth < maxDepth) {
                 // Cycle detection
                 if (visitedProvenances.has(currentProvenanceId)) {
-                    console.warn(`Cycle detected in provenance chain at ${currentProvenanceId}`);
+                    logger.warn('Cycle detected in provenance chain', { provenanceId: currentProvenanceId });
                     break;
                 }
                 visitedProvenances.add(currentProvenanceId);
                 const parentProvenance = this.provenances.get(currentProvenanceId);
                 if (!parentProvenance) {
-                    console.warn(`Parent provenance ${currentProvenanceId} not found, stopping traversal`);
+                    logger.warn('Parent provenance not found, stopping traversal', { provenanceId: currentProvenanceId });
                     break;
                 }
                 // Add to ancestors
@@ -241,7 +246,7 @@ export class ProvenanceStore {
         const elapsedMs = performance.now() - startTime;
         const targetMs = citationPath.depth <= 5 ? 10 : 20;
         if (this.config.trackPerformance && elapsedMs > targetMs) {
-            console.warn(`Citation traversal took ${elapsedMs.toFixed(2)}ms, exceeds ${targetMs}ms target`);
+            logger.warn('Citation traversal exceeds performance target', { elapsedMs, targetMs });
         }
         return citationPath;
     }
@@ -301,7 +306,7 @@ export class ProvenanceStore {
     /**
      * Find sources similar to an embedding
      *
-     * @param embedding - Query embedding (768D)
+     * @param embedding - Query embedding (VECTOR_DIM (1536D))
      * @param k - Number of results
      * @returns Similar sources with scores
      */

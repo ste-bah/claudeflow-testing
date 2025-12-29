@@ -62,7 +62,7 @@ export declare class RealGroupedQueryAttention implements IAttentionMechanism {
      * Initialize Grouped-Query Attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of query heads (default: 8)
      * @param config.numKVHeads Number of key-value heads (default: 2)
      * @param config.seed Random seed for deterministic initialization (optional)

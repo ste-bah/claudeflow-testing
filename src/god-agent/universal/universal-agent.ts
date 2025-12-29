@@ -83,6 +83,15 @@ import {
   type IStoreKnowledgeParams,
 } from '../core/memory-server/index.js';
 
+// TASK-HOOK-006: Hook Executor for pre/post Tool Use hooks
+// CONSTITUTION COMPLIANCE: RULE-033 (DESC context injection), RULE-035 (quality threshold 0.5), RULE-036 (quality scores)
+import {
+  getHookExecutor,
+  type IHookContext,
+  type IPostToolUseContext,
+  type IHookChainResult,
+} from '../core/hooks/index.js';
+
 // ==================== Types ====================
 
 export type AgentMode = 'code' | 'research' | 'write' | 'general';
@@ -796,16 +805,24 @@ export class UniversalAgent {
    * TASK-LEARN-007: Implements the default execution path when executeTask=true
    * but no custom taskExecutionFn is provided.
    *
+   * TASK-HOOK-006: Wires HookExecutor for pre/post Tool Use hooks
+   * CONSTITUTION COMPLIANCE:
+   * - RULE-033: DESC context MUST be injected into every Task-style tool call (via preToolUseHooks)
+   * - RULE-035: All agent results MUST be assessed for quality with 0.5 threshold
+   * - RULE-036: Task hook outputs MUST include quality assessment scores
+   *
    * Uses TaskExecutor.execute() which wraps the Task() abstraction with:
    * - Prompt building from agent definition
    * - Error handling with AgentExecutionError
    * - Observability events (agent_started, agent_completed, agent_failed)
    * - Duration tracking
+   * - Pre/post hook execution (TASK-HOOK-006)
    *
    * Per RULE-024: Quality on RESULT (supports Task execution to get result)
    *
    * @param agentSelection - The result from selectAgentForTask()
    * @param taskExecutionFn - Optional custom execution function
+   * @param options - Optional execution options including trajectoryId
    * @returns TaskExecutionResult with result, success status, and duration
    */
   private async executeTaskDefault(
@@ -814,21 +831,99 @@ export class UniversalAgent {
       prompt: string;
       context?: string;
     },
-    taskExecutionFn?: (agentType: string, prompt: string, options?: { timeout?: number }) => Promise<string>
+    taskExecutionFn?: (agentType: string, prompt: string, options?: { timeout?: number }) => Promise<string>,
+    options?: {
+      /** Trajectory ID for quality tracking (RULE-036) */
+      trajectoryId?: string;
+    }
   ): Promise<TaskExecutionResult> {
     const startTime = Date.now();
     const agent = agentSelection.selection.selected;
     const taskType = agentSelection.selection.analysis.taskType || 'unknown';
+    const agentType = agent.frontmatter?.type ?? agent.category;
+    const toolName = 'Task'; // All Task-style operations use this tool name
+
+    // TASK-HOOK-006: Generate session ID for hook tracking
+    const sessionId = this.generateId();
+    const trajectoryId = options?.trajectoryId;
+
+    // TASK-HOOK-006: Get the hook executor singleton
+    const hookExecutor = getHookExecutor();
+
+    // TASK-HOOK-006: Build pre-tool-use hook context
+    // RULE-033: DESC context injection happens here via auto-injection hook
+    const preHookContext: IHookContext = {
+      toolName,
+      toolInput: {
+        agentType,
+        prompt: agentSelection.prompt,
+        context: agentSelection.context,
+        taskType,
+        agentKey: agent.key,
+      },
+      sessionId,
+      trajectoryId,
+      timestamp: Date.now(),
+      metadata: {
+        source: 'UniversalAgent.executeTaskDefault',
+        agentCategory: agent.category,
+      },
+    };
+
+    // TASK-HOOK-006: Execute preToolUse hooks BEFORE task execution
+    // This triggers DESC context injection (RULE-033) and other pre-execution hooks
+    let preHookResult: IHookChainResult | undefined;
+    let modifiedInput = agentSelection.prompt;
+    try {
+      preHookResult = await hookExecutor.executePreToolUseHooks(preHookContext);
+
+      // Log hook execution for observability
+      this.log(`TASK-HOOK-006: preToolUseHooks executed`, {
+        hooksExecuted: preHookResult.results.length,
+        allSucceeded: preHookResult.allSucceeded,
+        chainStopped: preHookResult.chainStopped,
+        durationMs: preHookResult.totalDurationMs,
+        trajectoryId,
+      });
+
+      // Check if a hook stopped execution (e.g., validation failure)
+      if (preHookResult.chainStopped) {
+        const stoppedBy = preHookResult.stoppedByHook ?? 'unknown';
+        const stopReason = preHookResult.results.find(r => r.hookId === stoppedBy)?.result?.stopReason ?? 'Hook stopped execution';
+        this.log(`TASK-HOOK-006: Execution stopped by hook '${stoppedBy}': ${stopReason}`);
+
+        return {
+          result: `Task execution blocked by hook: ${stopReason}`,
+          success: false,
+          taskType,
+          agentId: agent.key,
+          durationMs: Date.now() - startTime,
+          error: `Hook '${stoppedBy}' blocked execution: ${stopReason}`,
+        };
+      }
+
+      // Apply any modified input from hooks (e.g., DESC context injection)
+      if (preHookResult.finalInput !== undefined && typeof preHookResult.finalInput === 'object') {
+        const finalInput = preHookResult.finalInput as { prompt?: string };
+        if (finalInput.prompt) {
+          modifiedInput = finalInput.prompt;
+          this.log(`TASK-HOOK-006: Hook modified prompt (DESC injection applied)`);
+        }
+      }
+    } catch (hookError) {
+      // Hooks should not crash main execution - log and continue
+      this.log(`TASK-HOOK-006: preToolUseHooks error (continuing): ${hookError}`);
+    }
 
     try {
       let result: string;
+      let executionSuccess = true;
 
       if (taskExecutionFn) {
         // Use custom execution function if provided
-        const agentType = agent.frontmatter?.type ?? agent.category;
         result = await taskExecutionFn(
           agentType,
-          agentSelection.prompt,
+          modifiedInput,
           { timeout: 120000 }
         );
       } else {
@@ -837,7 +932,7 @@ export class UniversalAgent {
         // For now, we provide a working fallback that enables testing
         const executionResult = await this.taskExecutor.execute(
           agent,
-          agentSelection.prompt,
+          modifiedInput,
           async (_agentType: string, prompt: string, _options?: { timeout?: number }) => {
             // STUB: In production, this would call Claude Code's Task() API
             // For now, return the prompt as the "result" to enable end-to-end testing
@@ -850,23 +945,125 @@ export class UniversalAgent {
         result = executionResult.output;
       }
 
+      const durationMs = Date.now() - startTime;
+
+      // TASK-HOOK-006: Calculate quality score for the result
+      // RULE-035: Quality threshold is 0.5
+      // RULE-036: Quality scores MUST be logged with trajectoryId
+      const qualityInteraction: QualityInteraction = {
+        id: sessionId,
+        mode: taskType as AgentMode,
+        input: agentSelection.prompt,
+        output: result,
+        timestamp: Date.now(),
+      };
+      const qualityAssessment = assessQuality(qualityInteraction, this.config.autoStoreThreshold);
+      const qualityScore = qualityAssessment.score;
+
+      // RULE-036: Log quality score with trajectoryId
+      this.log(`TASK-HOOK-006: Quality assessment`, {
+        qualityScore: qualityScore.toFixed(3),
+        meetsThreshold: qualityAssessment.meetsThreshold,
+        threshold: this.config.autoStoreThreshold,
+        trajectoryId,
+        sessionId,
+      });
+
+      // TASK-HOOK-006: Build post-tool-use hook context
+      const postHookContext: IPostToolUseContext = {
+        toolName,
+        toolInput: preHookContext.toolInput,
+        toolOutput: {
+          result,
+          success: executionSuccess,
+          qualityScore,
+          meetsThreshold: qualityAssessment.meetsThreshold,
+        },
+        sessionId,
+        trajectoryId,
+        timestamp: Date.now(),
+        executionDurationMs: durationMs,
+        executionSuccess,
+        metadata: {
+          source: 'UniversalAgent.executeTaskDefault',
+          agentCategory: agent.category,
+          qualityScore,
+          qualityMeetsThreshold: qualityAssessment.meetsThreshold,
+        },
+      };
+
+      // TASK-HOOK-006: Execute postToolUse hooks AFTER task execution
+      // This triggers quality assessment and result capture hooks
+      try {
+        const postHookResult = await hookExecutor.executePostToolUseHooks(postHookContext);
+
+        // Log hook execution for observability (RULE-036 compliance)
+        this.log(`TASK-HOOK-006: postToolUseHooks executed`, {
+          hooksExecuted: postHookResult.results.length,
+          allSucceeded: postHookResult.allSucceeded,
+          durationMs: postHookResult.totalDurationMs,
+          trajectoryId,
+          qualityScore: qualityScore.toFixed(3),
+        });
+      } catch (hookError) {
+        // Hooks should not crash main execution - log and continue
+        this.log(`TASK-HOOK-006: postToolUseHooks error (continuing): ${hookError}`);
+      }
+
       return {
         result,
         success: true,
         taskType,
         agentId: agent.key,
-        durationMs: Date.now() - startTime,
+        durationMs,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const durationMs = Date.now() - startTime;
       this.log(`TASK-LEARN-007: Task execution failed: ${errorMessage}`);
+
+      // TASK-HOOK-006: Execute postToolUse hooks even on failure
+      // This ensures quality assessment hooks can record failures
+      try {
+        const postHookContext: IPostToolUseContext = {
+          toolName,
+          toolInput: preHookContext.toolInput,
+          toolOutput: {
+            result: errorMessage,
+            success: false,
+            error: errorMessage,
+            qualityScore: 0, // Failed tasks get 0 quality
+          },
+          sessionId,
+          trajectoryId,
+          timestamp: Date.now(),
+          executionDurationMs: durationMs,
+          executionSuccess: false,
+          metadata: {
+            source: 'UniversalAgent.executeTaskDefault',
+            agentCategory: agent.category,
+            error: errorMessage,
+            qualityScore: 0,
+          },
+        };
+
+        const postHookResult = await hookExecutor.executePostToolUseHooks(postHookContext);
+
+        this.log(`TASK-HOOK-006: postToolUseHooks executed (failure path)`, {
+          hooksExecuted: postHookResult.results.length,
+          trajectoryId,
+          qualityScore: 0,
+        });
+      } catch (hookError) {
+        this.log(`TASK-HOOK-006: postToolUseHooks error on failure path: ${hookError}`);
+      }
 
       return {
         result: errorMessage,
         success: false,
         taskType,
         agentId: agent.key,
-        durationMs: Date.now() - startTime,
+        durationMs,
         error: errorMessage,
       };
     }
@@ -1275,7 +1472,8 @@ export class UniversalAgent {
       // Use the default task executor implementation with ObservabilityBus events
       try {
         this.log(`TASK-LEARN-007: Using default task executor...`);
-        const executionResult = await this.executeTaskDefault(agentSelection);
+        // TASK-HOOK-006: Pass trajectoryId for hook quality tracking (RULE-036)
+        const executionResult = await this.executeTaskDefault(agentSelection, undefined, { trajectoryId });
 
         if (executionResult.success) {
           output = executionResult.result;
@@ -1444,7 +1642,8 @@ export class UniversalAgent {
 
     // TASK-FIX-003: Execute via TaskExecutor with ObservabilityBus events
     // Per RULE-033: Quality MUST be assessed on Task() RESULT, not prompt
-    const executionResult = await this.executeTaskDefault(agentSelection);
+    // TASK-HOOK-006: Pass trajectoryId for hook quality tracking (RULE-036)
+    const executionResult = await this.executeTaskDefault(agentSelection, undefined, { trajectoryId });
     const code = executionResult.success ? executionResult.result : agentSelection.prompt;
     if (!executionResult.success) {
       this.log(`TASK-FIX-003 code(): Execution failed, using prompt as fallback`);
@@ -1610,7 +1809,8 @@ export class UniversalAgent {
 
     // TASK-FIX-004: Execute via TaskExecutor with ObservabilityBus events
     // Per RULE-033: Quality MUST be assessed on Task() RESULT, not prompt
-    const executionResult = await this.executeTaskDefault(agentSelection);
+    // TASK-HOOK-006: Pass trajectoryId for hook quality tracking (RULE-036)
+    const executionResult = await this.executeTaskDefault(agentSelection, undefined, { trajectoryId });
     const synthesis = executionResult.success ? executionResult.result : agentSelection.prompt;
     if (!executionResult.success) {
       this.log(`TASK-FIX-004 research(): Execution failed, using prompt as fallback`);
@@ -1778,7 +1978,8 @@ export class UniversalAgent {
 
     // TASK-FIX-005: Execute via TaskExecutor with ObservabilityBus events
     // Per RULE-033: Quality MUST be assessed on Task() RESULT, not prompt
-    const executionResult = await this.executeTaskDefault(agentSelection);
+    // TASK-HOOK-006: Pass trajectoryId for hook quality tracking (RULE-036)
+    const executionResult = await this.executeTaskDefault(agentSelection, undefined, { trajectoryId });
     const content = executionResult.success ? executionResult.result : agentSelection.prompt;
     if (!executionResult.success) {
       this.log(`TASK-FIX-005 write(): Execution failed, using prompt as fallback`);

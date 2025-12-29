@@ -106,6 +106,20 @@ MemoryError, InvalidRequestError, UnknownMethodError, ValidationError, StorageEr
 createRequest, createSuccessResponse, createErrorResponse, serializeMessage, parseMessage, isRequest, isResponse, isValidMethod, validateParams, MessageBuffer, 
 // Constants
 DEFAULT_SOCKET_PATH, DEFAULT_HTTP_PORT, DEFAULT_MAX_CONNECTIONS, DEFAULT_REQUEST_TIMEOUT_MS, DEFAULT_CONNECT_TIMEOUT_MS, DEFAULT_RECONNECT_DELAY_MS, DEFAULT_MAX_RECONNECT_ATTEMPTS, DEFAULT_HEALTH_CHECK_INTERVAL_MS, DEFAULT_HEALTH_CHECK_TIMEOUT_MS, DEFAULT_FAILURE_THRESHOLD, MEMORY_SERVER_VERSION, } from './memory-server/index.js';
+// ==================== Shutdown (TASK-ERR-005) ====================
+export { 
+// Main class
+GracefulShutdown, 
+// Priority enum
+ShutdownPriority, 
+// Errors
+ShutdownTimeoutError, ShutdownInProgressError, 
+// Constants
+DEFAULT_HANDLER_TIMEOUT_MS, MAX_SHUTDOWN_TIME_MS, SHUTDOWN_DEBOUNCE_MS, 
+// Singleton functions
+getGracefulShutdown, registerShutdownHandler, initiateShutdown, resetGracefulShutdown, 
+// Component registration helpers
+registerComponentShutdown, registerDatabaseShutdown, registerSonaEngineShutdown, registerGraphDBShutdown, registerEmbeddingStoreShutdown, registerServerShutdown, } from './shutdown/index.js';
 // ==================== Version ====================
 /**
  * God Agent version
@@ -136,6 +150,7 @@ export const BUILD_INFO = {
         'scale-tests',
         'portability',
         'search',
+        'shutdown',
     ],
     nfr: {
         'NFR-1': 'Performance Benchmark Suite',

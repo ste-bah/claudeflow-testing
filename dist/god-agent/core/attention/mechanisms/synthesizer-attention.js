@@ -15,6 +15,7 @@
  *
  * ANTI-009: All validation errors prefixed with ANTI-009
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Dense Synthesizer Attention
@@ -49,7 +50,7 @@ export class RealSynthesizerAttention {
     wo; // Output projection
     rng;
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.maxSeqLen = config.maxSeqLen ?? 512;
         this.bottleneck = config.bottleneck ?? Math.floor(this.dimension / 2);

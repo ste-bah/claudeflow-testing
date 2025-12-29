@@ -35,6 +35,7 @@ export class PDFExtractor {
             this.hasPoppler = true;
         }
         catch {
+            // INTENTIONAL: pdftotext not installed is a valid state - fallback extraction will be used
             this.hasPoppler = false;
         }
         return this.hasPoppler;
@@ -132,7 +133,7 @@ export class PDFExtractor {
             }
         }
         catch {
-            // Fall through
+            // INTENTIONAL: Node PDF extraction failure is expected - falls through to return failure result
         }
         // Return failure - suggest manual extraction
         return {
@@ -273,7 +274,7 @@ export class PDFExtractor {
                 }
             }
             catch {
-                // Skip directories we can't read
+                // INTENTIONAL: Skip directories we can't read - permission errors are expected in system directories
             }
         };
         scan(dirPath);
@@ -302,6 +303,7 @@ export class PDFExtractor {
             };
         }
         catch {
+            // INTENTIONAL: Cache directory may not exist yet - return empty stats as valid state
             return { cachedFiles: 0, cacheSize: 0 };
         }
     }

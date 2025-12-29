@@ -146,7 +146,7 @@ export class PipelineMemoryCoordinator {
                     output = stepData.output;
                 }
                 catch {
-                    // Content isn't valid JSON - return raw content
+                    // INTENTIONAL: Content isn't valid JSON - return raw content as fallback
                     output = filtered[0].content;
                 }
             }
@@ -190,6 +190,7 @@ export class PipelineMemoryCoordinator {
                     output = stepData.output;
                 }
                 catch {
+                    // INTENTIONAL: JSON parse failure - return raw content as fallback
                     output = filtered[0].content;
                 }
             }

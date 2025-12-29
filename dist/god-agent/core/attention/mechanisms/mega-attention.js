@@ -11,6 +11,7 @@
  * Complexity: O(N × d) for EMA + O(N²) for attention
  * Use case: Long sequences requiring both local smoothing and global context
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 export class RealMegaAttention {
     name = 'mega';
@@ -28,7 +29,7 @@ export class RealMegaAttention {
     // EMA state (persistent across forward passes in same sequence)
     emaState = null;
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 1;
         this.emaAlpha = config?.emaAlpha ?? 0.9;
         // Validation

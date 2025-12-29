@@ -4,7 +4,7 @@
  * Implements: TASK-VDB-001
  * Referenced by: God Agent core system
  *
- * High-performance vector database with k-NN search for 768D embeddings.
+ * High-performance vector database with k-NN search for VECTOR_DIM (1536D) embeddings.
  * Enforces strict validation contract per constitution.md VEC-01 through VEC-05.
  * Supports automatic backend selection (native Rust or JavaScript fallback).
  */

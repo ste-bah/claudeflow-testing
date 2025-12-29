@@ -20,7 +20,11 @@ export declare class StyleInjector {
      * This ensures format consistency (REQ-PIPE-016) without requiring access to
      * PhDPipelineBridge private methods.
      */
-    buildAgentPrompt(agent: AgentConfig, styleProfileId?: string, query?: string): Promise<string>;
+    buildAgentPrompt(agent: AgentConfig, styleProfileId?: string, query?: string, outputContext?: {
+        researchDir: string;
+        agentIndex: number;
+        agentKey: string;
+    }): Promise<string>;
     /**
      * Build prompt with style injection using StyleProfileManager
      * [REQ-PIPE-030, REQ-PIPE-016]

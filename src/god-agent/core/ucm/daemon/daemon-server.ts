@@ -22,6 +22,17 @@ import { HealthService } from './health-service.js';
 import { EmbeddingProxy } from '../desc/embedding-proxy.js';
 import type { IUniversalContextConfig } from '../types.js';
 import { DEFAULT_UCM_CONFIG } from '../config.js';
+import {
+  registerRequiredHooks,
+  getHookRegistry,
+  setDescServiceGetter,
+  setSonaEngineGetter,
+  setQualityAssessmentCallback,
+  type QualityAssessmentCallback,
+  type IQualityAssessment,
+  QUALITY_THRESHOLDS
+} from '../../hooks/index.js';
+import { assessQuality, type QualityInteraction } from '../../../universal/quality-estimator.js';
 
 /**
  * Default path for DESC persistent storage
@@ -142,6 +153,70 @@ export class DaemonServer {
     this.registerService('desc', this.descService);
     this.registerService('recovery', this.recoveryService);
     this.registerService('health', this.healthService);
+
+    // RULE-032: Register all required hooks at daemon startup
+    // Implements: GAP-HOOK-001, REQ-HOOK-001
+    registerRequiredHooks();
+    getHookRegistry().initialize();
+    console.log('[DaemonServer] Hooks registered and initialized');
+
+    // TASK-HOOK-007: Wire service getters for DESC auto-injection
+    // RULE-033: DESC context MUST be injected into every Task-style tool call
+    // The getters enable late binding - hooks are registered before services are ready
+    setDescServiceGetter(() => this.descService);
+    console.log('[DaemonServer] DESC service getter wired for auto-injection');
+
+    // SonaEngine getter - set to null getter since SonaEngine is not initialized in UCM daemon
+    // When SonaEngine is integrated, update this to return the actual instance
+    setSonaEngineGetter(() => null);
+    console.log('[DaemonServer] SonaEngine getter wired (no instance in UCM daemon)');
+
+    // TASK-HOOK-009: Wire quality assessment callback
+    // RULE-035: All agent results MUST be assessed for quality with 0.5 threshold
+    // RULE-036: Task hook outputs MUST include quality assessment scores
+    // This callback implements the quality feedback loop for learning
+    const qualityCallback: QualityAssessmentCallback = async (
+      trajectoryId: string,
+      output: unknown,
+      metadata?: Record<string, unknown>
+    ): Promise<IQualityAssessment> => {
+      // Convert output to string for quality assessment
+      const outputStr = typeof output === 'string'
+        ? output
+        : JSON.stringify(output, null, 2);
+
+      // Build QualityInteraction for assessQuality
+      const interaction: QualityInteraction = {
+        id: trajectoryId,
+        mode: (metadata?.taskType as any) ?? 'general',
+        input: (metadata?.toolInput as string) ?? '',
+        output: outputStr,
+        timestamp: Date.now(),
+        metadata: metadata,
+      };
+
+      // Use the quality estimator to assess output quality
+      const assessment = assessQuality(interaction, QUALITY_THRESHOLDS.FEEDBACK);
+
+      console.log(`[DaemonServer] Quality assessment for ${trajectoryId}:`, {
+        score: assessment.score.toFixed(3),
+        meetsThreshold: assessment.meetsThreshold,
+        qualifiesForPattern: assessment.qualifiesForPattern,
+        threshold: QUALITY_THRESHOLDS.FEEDBACK,
+      });
+
+      // Return IQualityAssessment format for the hook
+      return {
+        score: assessment.score,
+        feedback: assessment.meetsThreshold
+          ? undefined
+          : `Quality ${assessment.score.toFixed(2)} below threshold ${QUALITY_THRESHOLDS.FEEDBACK}`,
+        breakdown: assessment.factors,
+      };
+    };
+
+    setQualityAssessmentCallback(qualityCallback);
+    console.log('[DaemonServer] Quality assessment callback wired (TASK-HOOK-009)');
   }
 
   /**

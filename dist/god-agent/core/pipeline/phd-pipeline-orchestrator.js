@@ -39,7 +39,7 @@ export class PhDPipelineOrchestrator {
             await this.socketClient.connect();
         }
         catch {
-            // Non-blocking - observability is optional
+            // INTENTIONAL: Non-blocking - observability is optional, pipeline works without it
             if (this.verbose) {
                 console.debug('[PhD Pipeline] Socket client initialization failed (observability disabled)');
             }
@@ -60,7 +60,7 @@ export class PhDPipelineOrchestrator {
             this.socketClient.send(fullEvent);
         }
         catch {
-            // Non-blocking
+            // INTENTIONAL: Non-blocking - event emission failures must not affect pipeline execution
         }
     }
     // ==================== Configuration Validation ====================
@@ -214,7 +214,8 @@ export class PhDPipelineOrchestrator {
             if (this.verbose) {
                 console.error('[PhD Pipeline] Execution failed:', error);
             }
-            throw error;
+            // RULE-070: Re-throw with pipeline context
+            throw new Error(`PhD Pipeline "${this.config.pipeline.name}" (id: ${this.state.pipelineId}) failed at phase ${this.state.currentPhase}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
         }
         return this.state;
     }

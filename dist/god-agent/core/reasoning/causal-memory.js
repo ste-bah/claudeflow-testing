@@ -4,6 +4,11 @@
  */
 import { CausalHypergraph } from './causal-hypergraph.js';
 import { CausalTraversal } from './causal-traversal.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+const logger = createComponentLogger('CausalMemory', {
+    minLevel: LogLevel.INFO,
+    handlers: [new ConsoleLogHandler()]
+});
 /**
  * Main causal reasoning engine with persistence
  * Provides high-level API for causal inference and analysis
@@ -38,14 +43,14 @@ export class CausalMemory {
             if (stored) {
                 const serialized = JSON.parse(stored);
                 this.graph = CausalHypergraph.fromJSON(serialized);
-                console.log(`Loaded causal graph with ${this.graph.getNodes().length} nodes and ${this.graph.getLinks().length} links`);
+                logger.info('Loaded causal graph', { nodes: this.graph.getNodes().length, links: this.graph.getLinks().length });
             }
             else {
-                console.log('No existing causal graph found, starting fresh');
+                logger.info('No existing causal graph found, starting fresh');
             }
         }
         catch (error) {
-            console.warn('Failed to load causal graph, starting fresh:', error);
+            logger.warn('Failed to load causal graph, starting fresh', { error: String(error) });
             this.graph.clear();
         }
         this.initialized = true;
@@ -84,7 +89,7 @@ export class CausalMemory {
         const link = this.graph.addCausalLink(params);
         if (this.config.trackPerformance) {
             const elapsed = performance.now() - startTime;
-            console.log(`Added causal link in ${elapsed.toFixed(2)}ms`);
+            logger.debug('Added causal link', { elapsedMs: elapsed });
         }
         if (this.config.autoSave) {
             await this.persist();
@@ -113,8 +118,11 @@ export class CausalMemory {
             chain.explanation = this.traversal.buildChainExplanation(this.graph.getGraphStructure(), chain);
         }
         if (this.config.trackPerformance && result.traversalTime) {
-            console.log(`Forward traversal completed in ${result.traversalTime.toFixed(2)}ms, ` +
-                `explored ${result.nodesExplored} nodes, found ${result.chains.length} chains`);
+            logger.debug('Forward traversal completed', {
+                traversalTimeMs: result.traversalTime,
+                nodesExplored: result.nodesExplored,
+                chainsFound: result.chains.length
+            });
         }
         return result;
     }
@@ -140,8 +148,11 @@ export class CausalMemory {
             chain.explanation = this.traversal.buildChainExplanation(this.graph.getGraphStructure(), chain);
         }
         if (this.config.trackPerformance && result.traversalTime) {
-            console.log(`Backward traversal completed in ${result.traversalTime.toFixed(2)}ms, ` +
-                `explored ${result.nodesExplored} nodes, found ${result.chains.length} chains`);
+            logger.debug('Backward traversal completed', {
+                traversalTimeMs: result.traversalTime,
+                nodesExplored: result.nodesExplored,
+                chainsFound: result.chains.length
+            });
         }
         return result;
     }

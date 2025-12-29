@@ -22,6 +22,5 @@ RpcErrorCode,
 createRpcError, createSuccessResponse, createErrorResponse, isNotification, isValidRequest, isBatchRequest, isValidMethodName, extractServiceName, extractMethodName, } from './protocol-types.js';
 // Server (TASK-DAEMON-001)
 export { DaemonServer } from './daemon-server.js';
-// Message Handler (TASK-DAEMON-002)
 export { MessageHandler } from './message-handler.js';
 //# sourceMappingURL=index.js.map

@@ -20,6 +20,47 @@
 import type { ChapterDefinition, AgentOutputSummary, ChapterWriterInput, ChapterWriterOutput, CrossReference, CitationRef, QualityMetrics } from './types.js';
 import type { StyleCharacteristics } from '../../universal/style-analyzer.js';
 /**
+ * Supported phdresearch agent types for chapter writing
+ * Maps to agents in .claude/agents/phdresearch/
+ */
+export type ChapterAgentType = 'introduction-writer' | 'literature-review-writer' | 'theoretical-framework-analyst' | 'methodology-writer' | 'results-writer' | 'discussion-writer' | 'conclusion-writer' | 'apa-citation-specialist' | 'chapter-synthesizer';
+/**
+ * Dynamically select the appropriate phdresearch agent based on chapter title
+ * Maps chapter content type to specialized writing agents
+ *
+ * @param chapterTitle - The title of the chapter being written
+ * @returns The appropriate agent type for this chapter
+ */
+export declare function getAgentForChapter(chapterTitle: string): ChapterAgentType;
+/**
+ * Chapter synthesis prompt for Claude Code Task tool
+ * Contains all data needed to spawn a specialized chapter writing agent
+ */
+export interface ChapterSynthesisPrompt {
+    /** Chapter number */
+    chapterNumber: number;
+    /** Chapter title */
+    chapterTitle: string;
+    /** Section details */
+    sections: Array<{
+        id: string;
+        title: string;
+        wordTarget: number;
+    }>;
+    /** Research content organized by section */
+    researchContent: Record<string, string>;
+    /** Style profile ID to apply */
+    styleProfileId: string | null;
+    /** Output file path */
+    outputPath: string;
+    /** Total word target */
+    wordTarget: number;
+    /** Agent type to spawn - dynamically selected based on chapter title */
+    agentType: ChapterAgentType;
+    /** Full prompt for the agent */
+    prompt: string;
+}
+/**
  * ChapterWriterAgent - Synthesizes chapter content from mapped sources
  *
  * @example
@@ -41,28 +82,20 @@ import type { StyleCharacteristics } from '../../universal/style-analyzer.js';
  */
 export declare class ChapterWriterAgent {
     /**
-     * Anthropic LLM client for actual prose generation
-     */
-    private client;
-    /**
      * Style profile ID for consistent academic writing style
      */
     private styleProfileId?;
     /**
-     * Cached chapter-synthesizer agent prompt
+     * Research directory for output paths
      */
-    private cachedAgentPrompt?;
+    private researchDir?;
     /**
-     * Model to use for generation
-     */
-    private model;
-    /**
-     * Create ChapterWriterAgent with LLM support
+     * Create ChapterWriterAgent
      *
      * @param styleProfileId - Optional style profile ID for consistent style application
-     * @param apiKey - Optional Anthropic API key (defaults to ANTHROPIC_API_KEY env var)
+     * @param researchDir - Optional research directory for output paths
      */
-    constructor(styleProfileId?: string, apiKey?: string);
+    constructor(styleProfileId?: string, researchDir?: string);
     /**
      * Stopwords to filter during tokenization
      */
@@ -76,11 +109,43 @@ export declare class ChapterWriterAgent {
      */
     private static readonly WORD_COUNT_TOLERANCE;
     /**
-     * Write a chapter from mapped source summaries
+     * Generate synthesis prompts for Claude Code to spawn chapter-synthesizer agents
      *
-     * CRITICAL: This method now uses LLM-based synthesis when available.
-     * It calls synthesizeSectionAsync with the chapter-synthesizer agent prompt
-     * and style profile to generate clean academic prose.
+     * This is the PREFERRED method - outputs prompts that Claude Code can use
+     * to spawn the chapter-synthesizer agent for each chapter.
+     *
+     * @param input - Chapter writer input with chapter definition, sources, style
+     * @returns Synthesis prompt for Claude Code Task tool
+     */
+    generateSynthesisPrompt(input: ChapterWriterInput): Promise<ChapterSynthesisPrompt>;
+    /**
+     * Format style requirements for the agent prompt
+     *
+     * CRITICAL: This method uses StyleAnalyzer to generate comprehensive
+     * style requirements. The style profile is NON-NEGOTIABLE.
+     */
+    private formatStyleRequirements;
+    /**
+     * Load and format complete style profile from AgentDB
+     *
+     * This loads the full style profile by ID and formats it
+     * for inclusion in the synthesis prompt.
+     */
+    private loadStyleProfile;
+    /**
+     * Get default UK English academic style requirements
+     */
+    private getDefaultStyleRequirements;
+    /**
+     * Build the full prompt for the chapter-synthesizer agent
+     */
+    private buildAgentPrompt;
+    /**
+     * Write a chapter from mapped source summaries (basic concatenation)
+     *
+     * NOTE: This is a FALLBACK method that does basic concatenation.
+     * For proper academic prose, use generateSynthesisPrompt() and have
+     * Claude Code spawn the chapter-synthesizer agent.
      *
      * @param input - Chapter writer input with chapter definition, sources, style
      * @returns Complete chapter output with content, citations, metrics
@@ -132,33 +197,13 @@ export declare class ChapterWriterAgent {
      */
     private deduplicateContent;
     /**
-     * Synthesize section content from paragraphs using LLM
+     * Synthesize section content from paragraphs (basic concatenation fallback)
      *
-     * CRITICAL: This method calls the LLM with the chapter-synthesizer agent prompt
-     * to transform raw research findings into clean academic prose. It does NOT
-     * simply concatenate paragraphs.
+     * NOTE: This is a FALLBACK method. For proper LLM-based synthesis,
+     * use generateSynthesisPrompt() and have Claude Code spawn the
+     * chapter-synthesizer agent.
      */
     private synthesizeSection;
-    /**
-     * Synthesize section content using LLM (async version)
-     *
-     * CRITICAL: This is the core method that transforms research into prose.
-     * It MUST use the style profile - this is non-negotiable.
-     */
-    private synthesizeSectionAsync;
-    /**
-     * Load the chapter-synthesizer agent prompt
-     *
-     * Loads from .claude/agents/phdresearch/chapter-synthesizer.md
-     */
-    private loadChapterSynthesizerPrompt;
-    /**
-     * Build style system prompt from style profile
-     *
-     * CRITICAL: This method MUST return style instructions.
-     * The style profile is NON-NEGOTIABLE for the final paper.
-     */
-    private buildStyleSystemPrompt;
     /**
      * Enforce word count limits per DI-005
      */

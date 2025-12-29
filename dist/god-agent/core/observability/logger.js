@@ -271,6 +271,7 @@ export class StructuredLogger {
                 duration_ms: duration,
                 status: 'error',
             });
+            // INTENTIONAL: transparent rethrow - timing wrapper should not modify errors
             throw error;
         }
     }
@@ -298,6 +299,7 @@ export class StructuredLogger {
                 duration_ms: duration,
                 status: 'error',
             });
+            // INTENTIONAL: transparent rethrow - timing wrapper should not modify errors
             throw error;
         }
     }

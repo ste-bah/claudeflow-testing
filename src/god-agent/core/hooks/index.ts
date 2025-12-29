@@ -123,6 +123,12 @@ export {
   type QualityAssessmentCallback,
   type IQualityAssessment,
 
+  // Learning feedback callback (TASK-HOOK-009)
+  setLearningFeedbackCallback,
+  hasLearningFeedbackCallback,
+  _clearLearningFeedbackCallbackForTesting,
+  type LearningFeedbackCallback,
+
   // Auto-injection hook (TASK-HOOK-004)
   registerAutoInjectionHook,
   setDescServiceGetter,

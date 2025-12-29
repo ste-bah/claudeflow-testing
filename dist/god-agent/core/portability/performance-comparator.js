@@ -9,6 +9,7 @@
  */
 import { PlatformDetector } from './platform-detector.js';
 import { RUNTIME_PERFORMANCE } from './runtime-selector.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 // ==================== Default Configuration ====================
 /**
  * Default comparator configuration
@@ -16,7 +17,7 @@ import { RUNTIME_PERFORMANCE } from './runtime-selector.js';
 export const DEFAULT_COMPARATOR_CONFIG = {
     iterations: 1000,
     warmupIterations: 100,
-    dimensions: 768,
+    dimensions: VECTOR_DIM,
     verbose: false,
 };
 // ==================== Performance Comparator ====================

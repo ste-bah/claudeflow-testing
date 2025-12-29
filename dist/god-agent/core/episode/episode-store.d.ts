@@ -89,6 +89,8 @@ export declare class EpisodeStore {
     getLinks(episodeId: string): Promise<EpisodeLink[]>;
     /**
      * Save vector index to disk
+     *
+     * Implements: TASK-ERR-004, RULE-072 (file operations must retry)
      */
     save(): Promise<void>;
     /**

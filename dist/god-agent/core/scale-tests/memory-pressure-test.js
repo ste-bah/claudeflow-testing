@@ -9,6 +9,7 @@
  * - GC behavior analysis
  */
 import { MemoryMonitor } from './utils/memory-monitor.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 /**
  * Default memory pressure configuration
  */
@@ -71,7 +72,7 @@ export class MemoryPressureTest {
             }
         }
         catch {
-            // Memory allocation failed - this is expected at high thresholds
+            // INTENTIONAL: Memory allocation failure is expected at high thresholds during pressure testing
         }
         const actualUtilization = (this.memoryMonitor.getHeapUsed() / heapLimit) * 100;
         // Run operations under pressure
@@ -164,7 +165,7 @@ export class MemoryPressureTest {
      */
     async simulateOperation() {
         // Allocate small buffer
-        const buffer = new Float32Array(768);
+        const buffer = new Float32Array(VECTOR_DIM);
         for (let i = 0; i < buffer.length; i++) {
             buffer[i] = Math.random();
         }

@@ -8,14 +8,11 @@
  * - Community Detection (graph clustering)
  * - Anomaly Detection (outlier identification)
  */
-// Q&A Store
 export { QAStore } from './qa/qa-store.js';
-// Causal Store
 export { CausalStore } from './causal/causal-store.js';
 // Loop Detection
 export { LoopDetector, validateNoCycles } from './causal/loop-detector.js';
 // Community Detection
 export { CommunityDetector, LouvainDetector, LabelPropagationDetector } from './community/index.js';
-// Anomaly Detection
-export { LOFDetector, GraphAnomalyDetector, AnomalyDetector, createAnomalyDetector } from './anomaly/index.js';
+export { LOFDetector, GraphAnomalyDetector, AnomalyDetector, createAnomalyDetector, } from './anomaly/index.js';
 //# sourceMappingURL=index.js.map

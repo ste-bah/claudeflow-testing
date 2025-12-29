@@ -24,7 +24,7 @@ export type AgentMode = 'code' | 'research' | 'write' | 'general';
 export interface UniversalConfig {
     /** Enable automatic learning from all interactions */
     autoLearn?: boolean;
-    /** Minimum quality threshold for auto-storing patterns */
+    /** Minimum quality threshold for auto-storing patterns (default: 0.5 per RULE-035) */
     autoStoreThreshold?: number;
     /** Enable verbose logging */
     verbose?: boolean;
@@ -38,6 +38,14 @@ export interface UniversalConfig {
     enablePersistence?: boolean;
     /** Storage directory (default: .agentdb/universal) */
     storageDir?: string;
+    /** Enable DESC episode injection for prior solutions (default: true) */
+    enableDESC?: boolean;
+    /** DESC similarity threshold for episode matching (default: 0.80) */
+    descThreshold?: number;
+    /** DESC maximum episodes to inject (default: 3 per RULE-010) */
+    descMaxEpisodes?: number;
+    /** Enable Core Daemon for EpisodeStore/GraphDB IPC (default: true) */
+    enableCoreDaemon?: boolean;
 }
 export interface Interaction {
     id: string;
@@ -111,6 +119,21 @@ export interface AskOptions {
     learnFrom?: boolean;
     /** Return full result object instead of just output string */
     returnResult?: boolean;
+    /**
+     * TASK-LEARN-006: Execute Task() and capture result for quality assessment
+     * When true, runs Task() execution and assesses quality on the RESULT (RULE-033)
+     * When false, returns the prompt for manual execution (legacy behavior)
+     * Default: false (backward compatible - TASK-LEARN-007 will enable by default)
+     */
+    executeTask?: boolean;
+    /**
+     * TASK-LEARN-006: Custom Task execution function
+     * If provided, used to execute the Task() call
+     * If not provided, a stub implementation returns the prompt (for TASK-LEARN-007)
+     */
+    taskExecutionFn?: (agentType: string, prompt: string, options?: {
+        timeout?: number;
+    }) => Promise<string>;
 }
 /**
  * Extended result from ask() when returnResult is true
@@ -136,6 +159,40 @@ export interface AskResult {
     agentPrompt?: string;
     /** Interaction ID for reference */
     interactionId: string;
+    /** DESC: Number of prior solution episodes injected (RULE-010) */
+    descEpisodesInjected?: number;
+    /**
+     * TASK-LEARN-006: Whether Task() was executed and result captured (RULE-033)
+     * true = quality assessed on Task() result
+     * false = quality assessed on prompt (legacy, unreliable)
+     */
+    taskExecuted?: boolean;
+    /**
+     * TASK-LEARN-006: Content type that was assessed (RULE-036 compliance)
+     * 'result' = Task() execution result (reliable)
+     * 'prompt' = Agent prompt (unreliable, legacy)
+     */
+    assessedContentType?: 'result' | 'prompt';
+}
+/**
+ * TASK-LEARN-007: Task execution result from default executor
+ * Captures execution metadata for quality assessment and learning
+ *
+ * Per RULE-024: Quality on RESULT (supports Task execution to get result)
+ */
+export interface TaskExecutionResult {
+    /** The task execution output */
+    result: string;
+    /** Whether execution succeeded */
+    success: boolean;
+    /** Task type detected from agent selection */
+    taskType: string;
+    /** Agent key that executed the task */
+    agentId: string;
+    /** Execution duration in milliseconds */
+    durationMs: number;
+    /** Error message if execution failed */
+    error?: string;
 }
 /**
  * Unified learning statistics combining all subsystems
@@ -217,6 +274,8 @@ export declare class UniversalAgent {
     private confirmationHandler;
     private failureClassifier;
     private memoryClient;
+    private ucmClient;
+    private coreDaemonClient;
     constructor(config?: UniversalConfig);
     initialize(): Promise<void>;
     /**
@@ -272,6 +331,33 @@ export declare class UniversalAgent {
      * Get MemoryClient for multi-process memory access (MEM-001)
      */
     getMemoryClient(): MemoryClient;
+    /**
+     * Default Task execution function for ask() method
+     *
+     * TASK-LEARN-007: Implements the default execution path when executeTask=true
+     * but no custom taskExecutionFn is provided.
+     *
+     * TASK-HOOK-006: Wires HookExecutor for pre/post Tool Use hooks
+     * CONSTITUTION COMPLIANCE:
+     * - RULE-033: DESC context MUST be injected into every Task-style tool call (via preToolUseHooks)
+     * - RULE-035: All agent results MUST be assessed for quality with 0.5 threshold
+     * - RULE-036: Task hook outputs MUST include quality assessment scores
+     *
+     * Uses TaskExecutor.execute() which wraps the Task() abstraction with:
+     * - Prompt building from agent definition
+     * - Error handling with AgentExecutionError
+     * - Observability events (agent_started, agent_completed, agent_failed)
+     * - Duration tracking
+     * - Pre/post hook execution (TASK-HOOK-006)
+     *
+     * Per RULE-024: Quality on RESULT (supports Task execution to get result)
+     *
+     * @param agentSelection - The result from selectAgentForTask()
+     * @param taskExecutionFn - Optional custom execution function
+     * @param options - Optional execution options including trajectoryId
+     * @returns TaskExecutionResult with result, success status, and duration
+     */
+    private executeTaskDefault;
     /**
      * Execute a multi-agent sequential pipeline (DAI-002)
      *
@@ -474,6 +560,23 @@ export declare class UniversalAgent {
      */
     private maybeStorePattern;
     private updateUsageStats;
+    /**
+     * Inject prior solutions from DESC episodic memory (RULE-010)
+     * Uses default window size of 3 episodes for general agent work
+     *
+     * @param prompt - The original prompt to augment
+     * @param context - Additional context for logging/metadata
+     * @returns Augmented prompt with prior solutions or original on error
+     */
+    private injectDESCEpisodes;
+    /**
+     * Store a completed episode for future DESC retrieval
+     *
+     * @param queryText - The original query/prompt
+     * @param answerText - The generated response/result
+     * @param context - Additional context for metadata
+     */
+    private storeDESCEpisode;
     private _detectMode;
     private _generateCode;
     /**

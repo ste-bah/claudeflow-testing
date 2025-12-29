@@ -97,7 +97,8 @@ export class StepCaptureService {
         catch (err) {
             error = err instanceof Error ? err.message : String(err);
             confidence = 0;
-            throw err;
+            // RULE-070: Re-throw with step capture context
+            throw new Error(`Step capture failed for action "${action}": ${error}`, { cause: err });
         }
         finally {
             const duration = Date.now() - startTime;
@@ -203,6 +204,7 @@ export class StepCaptureService {
             return JSON.stringify(result);
         }
         catch {
+            // INTENTIONAL: JSON serialization failure - convert to string as fallback
             return String(result);
         }
     }

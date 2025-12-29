@@ -121,7 +121,7 @@ export declare class InvalidConfigError extends ConfigurationError {
 export declare class MissingConfigError extends ConfigurationError {
     readonly code = "UCM_MISSING_CONFIG";
     readonly recoverable = false;
-    constructor(field: string);
+    constructor(field: string, details?: string);
 }
 export declare class WorkflowAdapterError extends UCMError {
     readonly code: string;

@@ -7,6 +7,7 @@
  * - Output consistency within tolerance
  * - Automatic fallback triggering
  */
+import { VECTOR_DIM } from '../validation/constants.js';
 // ==================== Default Configuration ====================
 /**
  * Default validator configuration
@@ -138,7 +139,7 @@ export class FallbackValidator {
      * Test L2 normalization equivalence
      */
     async testL2Normalize() {
-        const testVector = this.generateTestVector(768);
+        const testVector = this.generateTestVector(VECTOR_DIM);
         try {
             const nativeStart = performance.now();
             const nativeResult = this.nativeImpl?.l2Normalize(testVector.slice());
@@ -179,8 +180,8 @@ export class FallbackValidator {
      * Test cosine similarity equivalence
      */
     async testCosineSimilarity() {
-        const a = this.generateNormalizedVector(768);
-        const b = this.generateNormalizedVector(768);
+        const a = this.generateNormalizedVector(VECTOR_DIM);
+        const b = this.generateNormalizedVector(VECTOR_DIM);
         try {
             const nativeStart = performance.now();
             const nativeResult = this.nativeImpl?.cosineSimilarity(a, b);
@@ -221,8 +222,8 @@ export class FallbackValidator {
      * Test dot product equivalence
      */
     async testDotProduct() {
-        const a = this.generateTestVector(768);
-        const b = this.generateTestVector(768);
+        const a = this.generateTestVector(VECTOR_DIM);
+        const b = this.generateTestVector(VECTOR_DIM);
         try {
             const nativeStart = performance.now();
             const nativeResult = this.nativeImpl?.dotProduct(a, b);
@@ -263,8 +264,8 @@ export class FallbackValidator {
      * Test Euclidean distance equivalence
      */
     async testEuclideanDistance() {
-        const a = this.generateTestVector(768);
-        const b = this.generateTestVector(768);
+        const a = this.generateTestVector(VECTOR_DIM);
+        const b = this.generateTestVector(VECTOR_DIM);
         try {
             const nativeStart = performance.now();
             const nativeResult = this.nativeImpl?.euclideanDistance(a, b);
@@ -308,9 +309,9 @@ export class FallbackValidator {
         // Create test vectors and query
         const vectors = Array.from({ length: 100 }, (_, i) => ({
             id: `v${i}`,
-            vector: this.generateNormalizedVector(768),
+            vector: this.generateNormalizedVector(VECTOR_DIM),
         }));
-        const query = this.generateNormalizedVector(768);
+        const query = this.generateNormalizedVector(VECTOR_DIM);
         const k = 10;
         try {
             // Compute distances for all vectors
@@ -359,7 +360,7 @@ export class FallbackValidator {
         this.nativeImpl = undefined;
         try {
             // Try operation - should fall back to JS
-            const result = await this.executeWithFallback('l2Normalize', [this.generateTestVector(768)]);
+            const result = await this.executeWithFallback('l2Normalize', [this.generateTestVector(VECTOR_DIM)]);
             return {
                 triggered: result.usedFallback,
                 fallbackType: result.implementation,

@@ -1,18 +1,19 @@
 /**
  * God Agent VectorDB - High-Level Vector Database
  *
- * Implements: TASK-VDB-001
+ * Implements: TASK-VDB-001, TASK-OBS-002
  * Referenced by: God Agent core system
  *
  * Provides validated vector storage with k-NN search.
  * All vectors are validated at insertion boundaries per VEC-04.
+ * Emits observability events for all operations per TASK-OBS-002.
  */
 import { IHNSWBackend } from './hnsw-backend.js';
 import { BackendSelection } from './backend-selector.js';
 import { VectorID, SearchResult, VectorDBOptions } from './types.js';
 /**
  * High-level vector database with automatic validation
- * Enforces 768D, L2-normalized vectors at all insertion boundaries
+ * Enforces VECTOR_DIM (1536D), L2-normalized vectors at all insertion boundaries
  * Automatically selects optimal HNSW backend (native Rust or JavaScript fallback)
  */
 export declare class VectorDB {
@@ -62,7 +63,7 @@ export declare class VectorDB {
      * Insert a vector into the database
      * Automatically generates a UUID for the vector
      *
-     * @param vector - Vector to insert (must be 768D, L2-normalized, finite)
+     * @param vector - Vector to insert (must be VECTOR_DIM (1536D), L2-normalized, finite)
      * @returns The generated vector ID
      * @throws GraphDimensionMismatchError if dimension mismatch
      * @throws NotNormalizedError if not L2-normalized
@@ -73,7 +74,7 @@ export declare class VectorDB {
      * Insert a vector with a specific ID
      *
      * @param id - Vector identifier
-     * @param vector - Vector to insert (must be 768D, L2-normalized, finite)
+     * @param vector - Vector to insert (must be VECTOR_DIM (1536D), L2-normalized, finite)
      * @throws GraphDimensionMismatchError if dimension mismatch
      * @throws NotNormalizedError if not L2-normalized
      * @throws InvalidVectorValueError if contains NaN/Infinity
@@ -93,7 +94,7 @@ export declare class VectorDB {
     /**
      * Search for k nearest neighbors
      *
-     * @param query - Query vector (must be 768D, L2-normalized, finite)
+     * @param query - Query vector (must be VECTOR_DIM (1536D), L2-normalized, finite)
      * @param k - Number of neighbors to return (default: 10)
      * @param includeVectors - Whether to include vector data in results (default: false)
      * @returns Array of search results, sorted by similarity (best first)

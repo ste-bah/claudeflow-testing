@@ -93,6 +93,10 @@ interface FinalizeCliOptions {
     verbose?: boolean;
     sequential?: boolean;
     skipValidation?: boolean;
+    /** Generate synthesis prompts for Claude Code instead of writing chapters */
+    generatePrompts?: boolean;
+    /** Style profile ID to use (overrides session lookup) */
+    styleProfile?: string;
 }
 /**
  * Execute finalize command

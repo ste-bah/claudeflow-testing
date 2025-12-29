@@ -12,6 +12,7 @@
  * - Attention computed only within selected clusters
  * - Complexity: O(N × k) where k is number of clusters
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 export class RealRoutingTransformerAttention {
     name = 'routing-transformer';
@@ -29,7 +30,7 @@ export class RealRoutingTransformerAttention {
     wv; // [dimension, dimension]
     wo; // [dimension, dimension]
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.numClusters = config.numClusters ?? 16;
         this.numRoutes = config.numRoutes ?? 4;

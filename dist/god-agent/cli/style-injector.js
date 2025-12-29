@@ -29,13 +29,27 @@ export class StyleInjector {
      * This ensures format consistency (REQ-PIPE-016) without requiring access to
      * PhDPipelineBridge private methods.
      */
-    async buildAgentPrompt(agent, styleProfileId, query) {
+    async buildAgentPrompt(agent, styleProfileId, query, outputContext) {
         // Check if Phase 6 agent
         const isPhase6 = agent.phase === 6;
         // Inject query into prompt if provided
         let basePrompt = agent.description;
         if (query) {
-            basePrompt = `## RESEARCH QUERY\n"${query}"\n\n${basePrompt}`;
+            basePrompt = `## RESEARCH QUERY\n\"${query}\"\n\n${basePrompt}`;
+        }
+        // [REQ-PIPE-027] Inject output directory and expected file path
+        if (outputContext) {
+            const paddedIndex = String(outputContext.agentIndex).padStart(2, '0');
+            const expectedFileName = `${paddedIndex}-${outputContext.agentKey}.md`;
+            const expectedPath = `${outputContext.researchDir}/${expectedFileName}`;
+            basePrompt = `## OUTPUT REQUIREMENTS
+**Research Directory**: ${outputContext.researchDir}
+**Expected Output File**: ${expectedFileName}
+**Full Path**: ${expectedPath}
+
+CRITICAL: Write your output to the exact path specified above. Do NOT create subdirectories or use different file names.
+
+${basePrompt}`;
         }
         if (!isPhase6) {
             // No style injection for non-writing agents

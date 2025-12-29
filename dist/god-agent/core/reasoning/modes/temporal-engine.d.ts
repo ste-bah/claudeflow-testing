@@ -267,7 +267,7 @@ export declare class TemporalEngine {
      * Generate semantic embedding for a concept using real embedding provider (SPEC-EMB-002)
      *
      * @param concept Concept identifier
-     * @returns Semantic embedding vector (768 dimensions)
+     * @returns Semantic embedding vector (1536 dimensions)
      */
     private generatePlaceholderEmbedding;
     /**

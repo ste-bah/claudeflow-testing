@@ -38,6 +38,7 @@ export class ClaudeCodeExecutor {
             return version.length > 0;
         }
         catch {
+            // INTENTIONAL: CLI version check failure - return false to indicate CLI unavailable
             return false;
         }
     }
@@ -177,7 +178,7 @@ export class ClaudeCodeExecutor {
                     rawOutput = parsed.result ?? parsed.output ?? stdout;
                 }
                 catch {
-                    // If not JSON, use raw stdout
+                    // INTENTIONAL: If not JSON, use raw stdout - CLI may return plain text
                     rawOutput = stdout;
                 }
                 // Extract code from markdown blocks

@@ -52,6 +52,7 @@ export class JsonBaselineStorage {
             return JSON.parse(this.data);
         }
         catch {
+            // INTENTIONAL: JSON parse failure - return null to indicate invalid baseline data
             return null;
         }
     }
@@ -73,6 +74,7 @@ export class JsonBaselineStorage {
             return true;
         }
         catch {
+            // INTENTIONAL: JSON validation failure - return false to reject invalid import
             return false;
         }
     }

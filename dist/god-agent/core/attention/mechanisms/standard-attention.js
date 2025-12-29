@@ -13,6 +13,7 @@
  * Complexity: O(N² × d) time, O(N²) space
  * Parameter Count: 4 × dim²
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, softmax2D, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Standard Attention Implementation
@@ -57,14 +58,14 @@ export class RealStandardAttention {
      * Initialize standard attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 12)
      * @param config.seed Random seed for deterministic initialization (optional)
      *
      * @throws Error if dimension not divisible by numHeads
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 12;
         // Validate configuration
         if (this.dimension % this.numHeads !== 0) {

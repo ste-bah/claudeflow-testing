@@ -41,6 +41,17 @@ import { GraphDB } from '../graph-db/graph-db.js';
 import { FallbackGraph } from '../graph-db/fallback-graph.js';
 import { createEpisodeService, createHyperedgeService } from './services/index.js';
 import type { ServiceHandler as RegistryServiceHandler } from './service-registry.js';
+import {
+  registerRequiredHooks,
+  getHookRegistry,
+  setDescServiceGetter,
+  setSonaEngineGetter,
+  setQualityAssessmentCallback,
+  type QualityAssessmentCallback,
+  type IQualityAssessment,
+  QUALITY_THRESHOLDS
+} from '../hooks/index.js';
+import { assessQuality, type QualityInteraction } from '../../universal/quality-estimator.js';
 
 /**
  * Adapt a service-registry ServiceHandler (object with methods Map)
@@ -157,6 +168,77 @@ export class DaemonServer extends EventEmitter {
       throw createDaemonError(
         DaemonErrorCode.UNKNOWN,
         `Failed to initialize storage backends: ${error instanceof Error ? error.message : String(error)}`,
+        { originalError: error }
+      );
+    }
+
+    // RULE-032: Register all required hooks at daemon startup
+    // Implements: GAP-HOOK-001, REQ-HOOK-001
+    try {
+      registerRequiredHooks();
+      getHookRegistry().initialize();
+
+      // TASK-HOOK-007: Wire service getters for DESC auto-injection
+      // Core daemon doesn't have DescService or SonaEngine - those are in UCM daemon
+      // Set null getters so hooks know services aren't available
+      setDescServiceGetter(() => null);
+      setSonaEngineGetter(() => null);
+
+      // TASK-HOOK-009: Wire quality assessment callback
+      // RULE-035: All agent results MUST be assessed for quality with 0.5 threshold
+      // RULE-036: Task hook outputs MUST include quality assessment scores
+      const qualityCallback: QualityAssessmentCallback = async (
+        trajectoryId: string,
+        output: unknown,
+        metadata?: Record<string, unknown>
+      ): Promise<IQualityAssessment> => {
+        // Convert output to string for quality assessment
+        const outputStr = typeof output === 'string'
+          ? output
+          : JSON.stringify(output, null, 2);
+
+        // Build QualityInteraction for assessQuality
+        const interaction: QualityInteraction = {
+          id: trajectoryId,
+          mode: (metadata?.taskType as any) ?? 'general',
+          input: (metadata?.toolInput as string) ?? '',
+          output: outputStr,
+          timestamp: Date.now(),
+          metadata: metadata,
+        };
+
+        // Use the quality estimator to assess output quality
+        const assessment = assessQuality(interaction, QUALITY_THRESHOLDS.FEEDBACK);
+
+        if (this.storageConfig.verbose) {
+          console.log(`[CoreDaemon] Quality assessment for ${trajectoryId}:`, {
+            score: assessment.score.toFixed(3),
+            meetsThreshold: assessment.meetsThreshold,
+            qualifiesForPattern: assessment.qualifiesForPattern,
+          });
+        }
+
+        return {
+          score: assessment.score,
+          feedback: assessment.meetsThreshold
+            ? undefined
+            : `Quality ${assessment.score.toFixed(2)} below threshold ${QUALITY_THRESHOLDS.FEEDBACK}`,
+          breakdown: assessment.factors,
+        };
+      };
+
+      setQualityAssessmentCallback(qualityCallback);
+
+      if (this.storageConfig.verbose) {
+        console.log('[DaemonServer] Hooks registered and initialized');
+        console.log('[DaemonServer] DESC/SonaEngine not available in core daemon');
+        console.log('[DaemonServer] Quality assessment callback wired (TASK-HOOK-009)');
+      }
+    } catch (error) {
+      this.state = 'stopped';
+      throw createDaemonError(
+        DaemonErrorCode.UNKNOWN,
+        `Failed to initialize hooks: ${error instanceof Error ? error.message : String(error)}`,
         { originalError: error }
       );
     }

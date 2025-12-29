@@ -170,7 +170,8 @@ export class DegradationTest {
                     // Expected - capacity reached
                     break;
                 }
-                throw error;
+                // RULE-070: Re-throw with capacity test context
+                throw new Error(`Capacity test failed at operation ${operationsCompleted}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
             }
         }
         return {

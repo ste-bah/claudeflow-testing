@@ -4,6 +4,11 @@
  */
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+const logger = createComponentLogger('PipelineLoader', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 const AGENTS_DIR = '.claude/agents/phdresearch';
 /**
  * Phase definitions
@@ -98,6 +103,7 @@ export class PipelineConfigLoader {
             files = await fs.readdir(agentsDir);
         }
         catch {
+            // INTENTIONAL: Directory access failure - throw descriptive error for caller handling
             throw new Error(`Agents directory not found: ${agentsDir}`);
         }
         const agentFiles = files.filter(f => f.endsWith('.md'));
@@ -110,7 +116,7 @@ export class PipelineConfigLoader {
                 agents.push(agent);
             }
             catch (error) {
-                console.warn(`Failed to parse agent definition: ${file}`, error);
+                logger.warn('Failed to parse agent definition', { file, error: String(error) });
             }
         }
         // Sort agents by phase and order within phase
@@ -210,6 +216,7 @@ export class PipelineConfigLoader {
                         result[key] = JSON.parse(value.replace(/'/g, '"'));
                     }
                     catch {
+                        // INTENTIONAL: JSON parse failure for array value - use empty array as safe default
                         result[key] = [];
                     }
                 }

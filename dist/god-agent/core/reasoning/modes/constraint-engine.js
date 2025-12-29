@@ -170,7 +170,7 @@ export class ConstraintEngine {
                     }
                 }
                 catch {
-                    // Fall through
+                    // INTENTIONAL: Graph DB query failure - use default domain as fallback
                 }
             }
             // Default domain based on variable name
@@ -263,7 +263,7 @@ export class ConstraintEngine {
                     }
                 }
                 catch {
-                    // Predicate error means constraint violated
+                    // INTENTIONAL: Predicate error means constraint violated - fail safe
                     return false;
                 }
             }
@@ -486,6 +486,7 @@ export class ConstraintEngine {
             return constraint.predicate(assignments);
         }
         catch {
+            // INTENTIONAL: Predicate execution error - treat as constraint violation
             return false;
         }
     }

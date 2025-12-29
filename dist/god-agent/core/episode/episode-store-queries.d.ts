@@ -7,7 +7,7 @@
  * Provides query methods for episode retrieval.
  * Split from episode-store.ts to comply with 500-line limit.
  */
-import Database = require('better-sqlite3');
+import type Database from 'better-sqlite3';
 import { IHNSWBackend } from '../vector-db/hnsw-backend.js';
 import { Episode, TimeRangeQuery, SimilarityQuery } from './episode-types.js';
 /**

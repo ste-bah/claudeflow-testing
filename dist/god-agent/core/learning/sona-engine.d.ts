@@ -227,6 +227,10 @@ export declare class SonaEngine {
         skipAutoSave?: boolean;
     }): Promise<IWeightUpdateResult>;
     /**
+     * Calculate average weight for a route (for observability)
+     */
+    private calculateAverageRouteWeight;
+    /**
      * Ensure Fisher Information map exists for a route
      */
     private ensureFisherMap;
@@ -407,7 +411,7 @@ export declare class SonaEngine {
      * Generate semantic embedding for a string using the real embedding provider (SPEC-EMB-002)
      *
      * @param str - String to embed
-     * @returns Float32Array of length 1536 with semantic embedding
+     * @returns Float32Array of length VECTOR_DIM (1536) with semantic embedding
      */
     private hashStringToFloat32Array;
     /**

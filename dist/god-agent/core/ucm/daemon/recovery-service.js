@@ -80,7 +80,9 @@ export class RecoveryService {
         return {
             compactionDetected,
             compactionTimestamp: compactionTimestamp
-                ? new Date(typeof compactionTimestamp === 'object' && compactionTimestamp !== null ? compactionTimestamp.getTime() : compactionTimestamp).toISOString()
+                ? new Date(typeof compactionTimestamp === 'object' && compactionTimestamp !== null
+                    ? compactionTimestamp.getTime()
+                    : compactionTimestamp).toISOString()
                 : null,
             inRecoveryMode,
             requiresReconstruction: compactionDetected && !inRecoveryMode

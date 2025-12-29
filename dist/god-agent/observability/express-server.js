@@ -248,8 +248,7 @@ export class ExpressServer {
                 limit: 100,
             });
             for (const event of agentEvents) {
-                const rawAgentId = event.metadata?.executionId || event.metadata?.agentId || event.metadata?.agent;
-                const agentId = rawAgentId ? String(rawAgentId) : null;
+                const agentId = String(event.metadata?.executionId || event.metadata?.agentId || event.metadata?.agent || '');
                 if (agentId && !agentMap.has(agentId)) {
                     agentMap.set(agentId, {
                         id: agentId,
@@ -268,18 +267,15 @@ export class ExpressServer {
                 limit: 100,
             });
             for (const event of routingEvents) {
-                const rawRoutingAgentId = event.metadata?.selectedAgent || event.metadata?.agentId;
-                const routingAgentId = rawRoutingAgentId ? String(rawRoutingAgentId) : null;
-                if (routingAgentId) {
-                    if (agentMap.has(routingAgentId)) {
-                        const agent = agentMap.get(routingAgentId);
-                        if (agent)
-                            agent.taskCount++;
+                const agentId = String(event.metadata?.selectedAgent || event.metadata?.agentId || '');
+                if (agentId) {
+                    if (agentMap.has(agentId)) {
+                        agentMap.get(agentId).taskCount++;
                     }
                     else {
-                        agentMap.set(routingAgentId, {
-                            id: routingAgentId,
-                            name: routingAgentId,
+                        agentMap.set(agentId, {
+                            id: agentId,
+                            name: agentId,
                             category: event.metadata?.category || 'general',
                             status: 'idle',
                             lastSeen: event.timestamp,
@@ -320,21 +316,21 @@ export class ExpressServer {
             const pipelineMap = new Map();
             for (const event of pipelineEvents) {
                 const pipelineId = String(event.metadata?.pipelineId || event.id);
-                const operation = String(event.operation || event.action || '');
+                const operation = event.operation || event.action;
                 if (!pipelineMap.has(pipelineId)) {
                     // Initialize pipeline from first event
                     pipelineMap.set(pipelineId, {
                         id: pipelineId,
-                        name: String(event.metadata?.name || event.metadata?.pipelineName || 'Unknown Pipeline'),
+                        name: event.metadata?.name || event.metadata?.pipelineName || 'Unknown Pipeline',
                         status: 'running',
-                        totalSteps: Number(event.metadata?.totalSteps || 0),
+                        totalSteps: event.metadata?.totalSteps || 0,
                         completedSteps: 0,
                         currentStep: null,
                         steps: event.metadata?.steps || [],
                         stages: [],
                         startTime: event.timestamp,
                         duration: 0,
-                        taskType: String(event.metadata?.taskType || 'unknown'),
+                        taskType: event.metadata?.taskType || 'unknown',
                     });
                 }
                 const pipeline = pipelineMap.get(pipelineId);
@@ -591,8 +587,7 @@ export class ExpressServer {
                 limit: 100,
             });
             const memoryEvents = events.filter(e => e.operation === 'memory_stored');
-            const tagsArray = (tags) => Array.isArray(tags) ? tags : [];
-            const linkedCount = memoryEvents.filter(e => tagsArray(e.metadata?.tags).length > 0 || e.metadata?.trajectoryId).length;
+            const linkedCount = memoryEvents.filter(e => (Array.isArray(e.metadata?.tags) && e.metadata.tags.length > 0) || e.metadata?.trajectoryId).length;
             const recentEpisodes = memoryEvents.slice(0, 20).map(e => ({
                 id: e.metadata?.entryId || e.id,
                 type: e.metadata?.type || 'memory',

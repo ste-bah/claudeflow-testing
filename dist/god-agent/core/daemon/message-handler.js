@@ -91,6 +91,7 @@ export class MessageHandler {
             parsed = JSON.parse(message);
         }
         catch {
+            // INTENTIONAL: Invalid JSON is a client error - return parse error response
             return {
                 type: 'error',
                 error: createRpcError(RpcErrorCode.PARSE_ERROR, 'Invalid JSON'),

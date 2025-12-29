@@ -8,9 +8,29 @@
  * IDLE -> INITIALIZING -> SCANNING -> SUMMARIZING -> MAPPING ->
  * WRITING -> COMBINING -> VALIDATING -> COMPLETED | FAILED
  */
-import type { FinalStageState, FinalStageOptions, FinalStageResult, ProgressCallback, TokenBudget, StyleCharacteristics, FinalStageErrorCode } from './types.js';
+import type { FinalStageState, FinalStageOptions, FinalStageResult, ProgressCallback, TokenBudget, SemanticMapperOutput, AgentOutputSummary, ChapterDefinition, StyleCharacteristics, FinalStageErrorCode } from './types.js';
 import { FinalStageError } from './types.js';
 import { ProgressLogger } from './progress-logger.js';
+/**
+ * Chapter structure from 05-chapter-structure.md
+ * Per SPEC-FUNC-001 Section 2.2
+ */
+interface ChapterStructure {
+    /** MUST be true per DI-001 */
+    locked: boolean;
+    /** ISO date when locked */
+    generatedAt: string;
+    /** Dynamic: 5-12 chapters based on research scope */
+    totalChapters: number;
+    /** Estimated total words */
+    estimatedTotalWords: number;
+    /** Chapter definitions */
+    chapters: ChapterDefinition[];
+    /** Writer agent mapping */
+    writerMapping: Record<string, string>;
+    /** Research title (optional) */
+    researchTitle?: string;
+}
 /**
  * FinalStageOrchestrator - Coordinates Phase 8 final assembly
  *
@@ -51,6 +71,9 @@ export declare class FinalStageOrchestrator {
     private _styleProfileId;
     private _styleProfile;
     private _researchQuery;
+    private _chapterStructure;
+    private _summaries;
+    private _mapping;
     /**
      * Create a new FinalStageOrchestrator
      *
@@ -74,6 +97,21 @@ export declare class FinalStageOrchestrator {
      * Get the research query/title
      */
     getResearchQuery(): string;
+    /**
+     * Get the cached chapter structure (available after INITIALIZING phase)
+     * Used by CLI for --generate-prompts
+     */
+    getChapterStructure(): ChapterStructure | null;
+    /**
+     * Get the cached summaries (available after SUMMARIZING phase)
+     * Used by CLI for --generate-prompts
+     */
+    getSummaries(): AgentOutputSummary[] | null;
+    /**
+     * Get the cached semantic mapping (available after MAPPING phase)
+     * Used by CLI for --generate-prompts
+     */
+    getMapping(): SemanticMapperOutput | null;
     /**
      * Execute the complete Phase 8 pipeline
      *
@@ -351,6 +389,20 @@ export declare class FinalStageOrchestrator {
      */
     private writeChapters;
     /**
+     * Generate synthesis prompts for Claude Code to spawn chapter-synthesizer agents
+     *
+     * This is the PREFERRED method for high-quality output. Instead of writing
+     * chapters directly (which uses basic concatenation), this generates prompts
+     * that Claude Code can use to spawn the chapter-synthesizer agent for each
+     * chapter.
+     *
+     * @param structure - Chapter structure from dissertation-architect
+     * @param summaries - Output summaries from scanner
+     * @param mapping - Chapter-to-source mapping
+     * @returns Array of synthesis prompts for Claude Code Task tool
+     */
+    generateSynthesisPrompts(structure: ChapterStructure, summaries: AgentOutputSummary[], mapping: SemanticMapperOutput): Promise<import('./chapter-writer-agent.js').ChapterSynthesisPrompt[]>;
+    /**
      * Combine chapters into final paper
      * WIRED: Uses PaperCombiner component (TASK-009)
      *
@@ -405,4 +457,5 @@ export declare class FinalStageOrchestrator {
      */
     private createFailureResult;
 }
+export {};
 //# sourceMappingURL=final-stage-orchestrator.d.ts.map

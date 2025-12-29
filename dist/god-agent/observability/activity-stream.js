@@ -9,6 +9,11 @@
  * @see SPEC-OBS-001-CORE.md
  */
 import { BUFFER_LIMITS, } from './types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+const logger = createComponentLogger('ActivityStream', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 // =============================================================================
 // Implementation
 // =============================================================================
@@ -21,17 +26,23 @@ import { BUFFER_LIMITS, } from './types.js';
  * - [RULE-OBS-004]: Memory bounds enforcement
  */
 export class ActivityStream {
-    // Singleton instance
-    static instance = null;
-    // Static methods for singleton pattern
-    static async getInstance() {
-        if (!ActivityStream.instance) {
-            ActivityStream.instance = new ActivityStream();
+    // Static singleton instance
+    static singletonInstance = null;
+    /**
+     * Get the singleton ActivityStream instance
+     * Creates one if it doesn't exist
+     */
+    static getInstance() {
+        if (!ActivityStream.singletonInstance) {
+            ActivityStream.singletonInstance = new ActivityStream();
         }
-        return ActivityStream.instance;
+        return Promise.resolve(ActivityStream.singletonInstance);
     }
+    /**
+     * Reset the singleton (for testing)
+     */
     static resetInstance() {
-        ActivityStream.instance = null;
+        ActivityStream.singletonInstance = null;
     }
     // Circular buffer storage
     buffer;
@@ -259,8 +270,8 @@ export class ActivityStream {
      * @param alert Alert details
      */
     async emitAlert(alert) {
-        // Log to console for immediate visibility
-        console.error(`[ALERT] ${alert.severity}: ${alert.message}`);
+        // Log to structured logger for immediate visibility
+        logger.error(`Quality alert: ${alert.message}`, undefined, { severity: alert.severity, alertType: alert.type, category: alert.category });
         // Emit to activity stream
         await this.emit({
             type: 'alert',
@@ -293,17 +304,15 @@ export class ActivityStream {
                     listener(event);
                 }
                 catch {
-                    // Implements [RULE-OBS-003]: No exceptions from listeners
+                    // INTENTIONAL: Implements [RULE-OBS-003] - listener exceptions must not propagate to prevent cascade failures
                 }
             }
         });
     }
 }
 // =============================================================================
-// Singleton Instance
+// Singleton Instance (static methods now in class)
 // =============================================================================
-/** Singleton instance for global access */
-// Singleton pattern methods are now defined as static methods in the class
 // =============================================================================
 // Default Export
 // =============================================================================

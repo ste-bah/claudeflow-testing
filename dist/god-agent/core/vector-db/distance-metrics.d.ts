@@ -4,7 +4,7 @@
  * Implements: TASK-VDB-001
  * Referenced by: VectorDB search operations
  *
- * All metrics assume vectors are already validated (768D, L2-normalized, finite)
+ * All metrics assume vectors are already validated (VECTOR_DIM (1536D), L2-normalized, finite)
  */
 import { DistanceMetric } from './types.js';
 /**

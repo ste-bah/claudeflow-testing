@@ -21,6 +21,11 @@ import { EventStore } from './event-store.js';
 import { SSEBroadcaster } from './sse-broadcaster.js';
 import { SocketServer } from './socket-server.js';
 import { ExpressServer } from './express-server.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+const daemonLogger = createComponentLogger('DaemonServer', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 // =============================================================================
 // Constants
 // =============================================================================
@@ -158,7 +163,7 @@ export class DaemonServer {
             this.log(`[Daemon] Socket: ${this.socketServer.getSocketPath()}`);
             // Verify startup time budget (< 2 seconds per RULE-OBS-007)
             if (duration > 2000) {
-                console.warn(`[Daemon] WARNING: Startup time ${duration}ms exceeds budget (2000ms)`);
+                daemonLogger.warn('Startup time exceeds budget', { durationMs: duration, budgetMs: 2000 });
             }
         }
         catch (error) {
@@ -291,7 +296,7 @@ async function main() {
         await new Promise(() => { }); // Never resolves
     }
     catch (error) {
-        console.error('Failed to start daemon:', error);
+        daemonLogger.error('Failed to start daemon', error instanceof Error ? error : new Error(String(error)));
         process.exit(1);
     }
 }
@@ -299,7 +304,7 @@ async function main() {
 const isMainModule = import.meta.url === `file://${process.argv[1]}`;
 if (isMainModule) {
     main().catch((error) => {
-        console.error('Fatal error:', error);
+        daemonLogger.fatal('Fatal error', error instanceof Error ? error : new Error(String(error)));
         process.exit(1);
     });
 }

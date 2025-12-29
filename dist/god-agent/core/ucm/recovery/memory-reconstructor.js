@@ -59,7 +59,7 @@ export class MemoryReconstructor {
                 activeWindow,
                 archivedSummaries,
                 dependencyGraph,
-                pipelinePhase: '',
+                pipelinePhase: 'recovery',
                 lastCompletedAgent: '',
                 timestamp: Date.now(),
                 metrics: { ...this.metrics }
@@ -231,6 +231,7 @@ export class MemoryReconstructor {
                 .map(key => key.replace('agent:', ''));
         }
         catch {
+            // INTENTIONAL: Memory search failure - return empty list as safe default
             return [];
         }
     }
@@ -240,11 +241,11 @@ export class MemoryReconstructor {
     calculateCompleteness(context) {
         let score = 0;
         let maxScore = 4;
-        if (context.pinnedAgents && (Array.isArray(context.pinnedAgents) ? context.pinnedAgents.length > 0 : context.pinnedAgents.size > 0))
+        if (context.pinnedAgents && Array.isArray(context.pinnedAgents) && context.pinnedAgents.length > 0)
             score++;
-        if (context.activeWindow && (Array.isArray(context.activeWindow) ? context.activeWindow.length > 0 : context.activeWindow.agentStates?.length > 0))
+        if (context.activeWindow && typeof context.activeWindow === 'object' && 'agentStates' in context.activeWindow && context.activeWindow.agentStates.length > 0)
             score++;
-        if (context.archivedSummaries && (Array.isArray(context.archivedSummaries) ? context.archivedSummaries.length > 0 : context.archivedSummaries.size > 0))
+        if (context.archivedSummaries && Array.isArray(context.archivedSummaries) && context.archivedSummaries.length > 0)
             score++;
         if (context.dependencyGraph && context.dependencyGraph.size > 0)
             score++;

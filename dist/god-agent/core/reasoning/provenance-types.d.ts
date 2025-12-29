@@ -44,7 +44,7 @@ export interface ISourceInput {
     location?: ISourceLocation;
     /** Relevance score [0, 1] (required) */
     relevanceScore: number;
-    /** 768-dim L2-normalized embedding (optional) */
+    /** VECTOR_DIM (1536) L2-normalized embedding (optional) */
     embedding?: Float32Array;
     /** Additional metadata */
     metadata?: Record<string, unknown>;

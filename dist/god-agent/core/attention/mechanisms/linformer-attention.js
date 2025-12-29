@@ -20,6 +20,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Linformer Attention Implementation
@@ -64,7 +65,7 @@ export class RealLinformerAttention {
      * Initialize Linformer attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.projectedDim Projected sequence dimension k (default: 256)
      * @param config.maxSeqLen Maximum sequence length (default: 512)
@@ -74,7 +75,7 @@ export class RealLinformerAttention {
      * @throws Error if projectedDim > maxSeqLen
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 8;
         this.maxSeqLen = config?.maxSeqLen ?? 512;
         this.projectedDim = config?.projectedDim ?? Math.min(256, this.maxSeqLen);

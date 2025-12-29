@@ -6,6 +6,11 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { ChapterStructureLoader } from './chapter-structure-loader.js';
 import { StyleAnalyzer } from '../universal/style-analyzer.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+const logger = createComponentLogger('DynamicAgentGenerator', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 // Default style prompt when no profile is available
 const DEFAULT_STYLE_PROMPT = `Regional Language Settings:
 - Use American English spelling conventions
@@ -47,7 +52,7 @@ export class DynamicAgentGenerator {
             // [REQ-PIPE-044] Check if writer agent exists
             const exists = await this.loader.writerAgentExists(chapter.writerAgent);
             if (!exists) {
-                console.warn(`Unknown writer agent: ${chapter.writerAgent}; using generic writer template`);
+                logger.warn('Unknown writer agent; using generic writer template', { writerAgent: chapter.writerAgent });
             }
             const prompt = await this.buildWriterPrompt(chapter, styleCharacteristics, slug, exists);
             agents.push({
@@ -133,6 +138,7 @@ You MUST follow the chapter structure exactly as specified above.`;
             basePrompt = match ? match[1].trim() : content;
         }
         catch {
+            // INTENTIONAL: Agent file may not exist - use default prompt as fallback
             basePrompt = 'You are an abstract writer for academic publications. Write a concise, comprehensive abstract that summarizes the research.';
         }
         let prompt = `${basePrompt}\n\n## OUTPUT\n- Output File: docs/research/${slug}/chapters/ch00-abstract.md`;

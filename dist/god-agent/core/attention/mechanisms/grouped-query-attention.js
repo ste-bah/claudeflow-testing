@@ -17,6 +17,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Grouped-Query Attention Implementation
@@ -66,7 +67,7 @@ export class RealGroupedQueryAttention {
      * Initialize Grouped-Query Attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of query heads (default: 8)
      * @param config.numKVHeads Number of key-value heads (default: 2)
      * @param config.seed Random seed for deterministic initialization (optional)
@@ -75,7 +76,7 @@ export class RealGroupedQueryAttention {
      * @throws Error if numHeads not divisible by numKVHeads
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 8;
         this.numKVHeads = config?.numKVHeads ?? 2;
         // Validate configuration

@@ -214,10 +214,10 @@ export class InvalidConfigError extends ConfigurationError {
 export class MissingConfigError extends ConfigurationError {
     code = 'UCM_MISSING_CONFIG';
     recoverable = false;
-    constructor(field) {
-        super(`Missing required configuration: ${field}`, {
-            field
-        });
+    constructor(field, details) {
+        super(details
+            ? `Missing required configuration: ${field}. ${details}`
+            : `Missing required configuration: ${field}`, { field });
     }
 }
 // ============================================================================

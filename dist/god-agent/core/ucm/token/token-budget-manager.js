@@ -118,6 +118,7 @@ export class TokenBudgetManager {
             return status.remaining >= requestedTokens;
         }
         catch {
+            // INTENTIONAL: Budget check failure - return false as safe default
             return false;
         }
     }

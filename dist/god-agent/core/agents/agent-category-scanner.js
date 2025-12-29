@@ -60,6 +60,7 @@ export class AgentCategoryScanner {
             return files.filter(f => f.endsWith('.md')).length;
         }
         catch {
+            // INTENTIONAL: Directory read failure - return 0 agents for this category
             return 0;
         }
     }

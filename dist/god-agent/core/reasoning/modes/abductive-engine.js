@@ -18,6 +18,11 @@
  * - Evaluates 5-20 hypotheses per query
  */
 import { AdvancedReasoningMode } from '../advanced-reasoning-types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../observability/index.js';
+const logger = createComponentLogger('AbductiveEngine', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler()]
+});
 /**
  * AbductiveEngine - Infer best explanation from observed effects
  *
@@ -136,7 +141,7 @@ export class AbductiveEngine {
                 .slice(0, maxEffects);
         }
         catch (error) {
-            console.warn('Failed to extract effects from query:', error);
+            logger.warn('Failed to extract effects from query', { error: String(error) });
             return [];
         }
     }

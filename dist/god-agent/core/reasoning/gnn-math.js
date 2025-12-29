@@ -8,6 +8,11 @@
  *
  * @module src/god-agent/core/reasoning/gnn-math
  */
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+const logger = createComponentLogger('GNNMath', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler()]
+});
 /**
  * Add two vectors element-wise
  */
@@ -98,8 +103,13 @@ export function applyActivation(embedding, activation) {
 }
 /**
  * Simple projection for dimension reduction/expansion
+ *
+ * @deprecated Use project() with weight matrix instead.
+ * VIOLATES: ULTIMATE_RULE (fake neural computation - index cycling, not learned weights)
+ * See: TASK-GNN-001 for migration guide
  */
 export function simpleProjection(embedding, targetDim) {
+    logger.warn('DEPRECATION: simpleProjection() performs index cycling, not neural computation. Use project() with WeightManager for learned projections. See TASK-GNN-001.');
     if (embedding.length === targetDim) {
         return new Float32Array(embedding);
     }
@@ -161,5 +171,144 @@ export function matVecMul(matrix, vector) {
  */
 export function pruneByThreshold(items, threshold) {
     return items.filter((item) => item.score >= threshold);
+}
+// =============================================================================
+// TASK-GNN-002: Graph Attention Functions
+// Implements real graph attention to replace fake mean aggregation
+// =============================================================================
+/**
+ * Softmax activation for attention weights
+ * Implements: TASK-GNN-002 (graph attention)
+ *
+ * Computes numerically stable softmax:
+ *   softmax(x_i) = exp(x_i - max(x)) / sum(exp(x_j - max(x)))
+ *
+ * @param scores - Raw attention scores
+ * @returns Normalized attention weights that sum to 1
+ */
+export function softmax(scores) {
+    if (scores.length === 0) {
+        return new Float32Array(0);
+    }
+    // Find max for numerical stability (prevents overflow)
+    let maxScore = scores[0];
+    for (let i = 1; i < scores.length; i++) {
+        if (scores[i] > maxScore) {
+            maxScore = scores[i];
+        }
+    }
+    // Compute exp(x - max) for numerical stability
+    const expScores = new Float32Array(scores.length);
+    let sumExp = 0;
+    for (let i = 0; i < scores.length; i++) {
+        expScores[i] = Math.exp(scores[i] - maxScore);
+        sumExp += expScores[i];
+    }
+    // Normalize by sum
+    const result = new Float32Array(scores.length);
+    if (sumExp === 0) {
+        // Uniform distribution if all exp values are 0
+        const uniform = 1.0 / scores.length;
+        for (let i = 0; i < scores.length; i++) {
+            result[i] = uniform;
+        }
+    }
+    else {
+        for (let i = 0; i < scores.length; i++) {
+            result[i] = expScores[i] / sumExp;
+        }
+    }
+    return result;
+}
+/**
+ * Compute attention score between two vectors using scaled dot product
+ * Implements: TASK-GNN-002 (graph attention)
+ *
+ * Formula: score = (query . key) / sqrt(d_k)
+ * Where d_k is the dimension of the key vector
+ *
+ * @param query - Query vector (center node embedding)
+ * @param key - Key vector (neighbor node embedding)
+ * @param scale - Optional custom scaling factor (default: 1/sqrt(dim))
+ * @returns Scalar attention score
+ */
+export function attentionScore(query, key, scale) {
+    const minLen = Math.min(query.length, key.length);
+    if (minLen === 0) {
+        return 0;
+    }
+    // Compute dot product
+    let dotProduct = 0;
+    for (let i = 0; i < minLen; i++) {
+        dotProduct += query[i] * key[i];
+    }
+    // Scale by 1/sqrt(d_k) for stable gradients (Attention Is All You Need)
+    const scaleFactor = scale ?? 1.0 / Math.sqrt(minLen);
+    return dotProduct * scaleFactor;
+}
+/**
+ * Apply attention weights to aggregate features
+ * Implements: TASK-GNN-002 (graph attention)
+ *
+ * Computes: output = sum(attention_i * feature_i)
+ *
+ * @param features - Array of neighbor feature vectors
+ * @param attentionWeights - Softmax-normalized attention weights (must sum to 1)
+ * @returns Weighted sum of features
+ */
+export function weightedAggregate(features, attentionWeights) {
+    if (features.length === 0 || attentionWeights.length === 0) {
+        return new Float32Array(0);
+    }
+    // Determine output dimension from first feature
+    const dim = features[0].length;
+    const result = new Float32Array(dim);
+    // Weighted sum of features
+    const numFeatures = Math.min(features.length, attentionWeights.length);
+    for (let f = 0; f < numFeatures; f++) {
+        const weight = attentionWeights[f];
+        const feature = features[f];
+        const featureLen = Math.min(feature.length, dim);
+        for (let i = 0; i < featureLen; i++) {
+            result[i] += weight * feature[i];
+        }
+    }
+    return result;
+}
+/**
+ * Compute attention scores for all neighbors from adjacency matrix row
+ * Implements: TASK-GNN-002 (graph attention)
+ *
+ * This function:
+ * 1. Identifies neighbors from non-zero adjacency values
+ * 2. Computes raw attention scores using scaled dot product
+ * 3. Multiplies by edge weight from adjacency matrix
+ * 4. Returns indices of neighbors and their raw scores
+ *
+ * @param centerIdx - Index of center node
+ * @param center - Center node embedding
+ * @param features - All node embeddings
+ * @param adjacency - Adjacency matrix (row for center node)
+ * @returns Object with neighbor indices and raw attention scores
+ */
+export function computeNeighborAttention(centerIdx, center, features, adjacencyRow) {
+    const neighborIndices = [];
+    const rawScoresList = [];
+    // Find neighbors from adjacency row (non-zero entries)
+    for (let j = 0; j < adjacencyRow.length && j < features.length; j++) {
+        const edgeWeight = adjacencyRow[j];
+        if (edgeWeight > 0 && j !== centerIdx) {
+            // This is a neighbor
+            neighborIndices.push(j);
+            // Compute attention score and multiply by edge weight
+            const rawScore = attentionScore(center, features[j]);
+            const weightedScore = rawScore * edgeWeight;
+            rawScoresList.push(weightedScore);
+        }
+    }
+    return {
+        neighborIndices,
+        rawScores: new Float32Array(rawScoresList),
+    };
 }
 //# sourceMappingURL=gnn-math.js.map

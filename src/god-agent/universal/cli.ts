@@ -18,6 +18,14 @@ import { UniversalAgent } from './universal-agent.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
+// Import hook registry for standalone mode initialization (TASK-HOOK-008)
+import {
+  getHookRegistry,
+  registerRequiredHooks,
+  setDescServiceGetter,
+  setSonaEngineGetter
+} from '../core/hooks/index.js';
+
 // ==================== JSON Output Types (DAI-002) ====================
 
 /**
@@ -164,10 +172,55 @@ function getSelectedAgent(command: string): string {
   return agentMap[command.toLowerCase()] || 'unknown';
 }
 
+/**
+ * Initialize hooks for CLI standalone mode
+ *
+ * TASK-HOOK-008: Idempotent hook registration for CLI standalone execution.
+ * When the daemon is not available, the CLI must register hooks itself.
+ * This function is idempotent - safe to call multiple times.
+ *
+ * CONSTITUTION COMPLIANCE:
+ * - RULE-032: All hooks MUST be registered at daemon startup
+ * - GAP-ADV-HOOK-003: CLI standalone execution must also register hooks
+ *
+ * @param verbose - Whether to log hook registration messages
+ */
+function initializeCliHooks(verbose: boolean): void {
+  const hookRegistry = getHookRegistry();
+
+  // Idempotent check - don't double-register if daemon already did it
+  if (hookRegistry.isInitialized()) {
+    if (verbose) {
+      console.log('[CLI] Hooks already initialized (daemon mode)');
+    }
+    return;
+  }
+
+  // Register all required hooks for standalone mode
+  registerRequiredHooks();
+
+  // Wire service getters to null - no daemon = no DESC service available
+  // The hooks will gracefully handle null services
+  setDescServiceGetter(() => null);
+  setSonaEngineGetter(() => null);
+
+  // Initialize the registry
+  hookRegistry.initialize();
+
+  if (verbose) {
+    const counts = hookRegistry.getHookCount();
+    console.log(`[CLI] Hooks registered (standalone mode): ${counts.total} hooks`);
+  }
+}
+
 async function main() {
   const { command, positional, flags } = parseArgs(process.argv);
   const input = positional.join(' ');
   const jsonMode = getFlag(flags, 'json', 'j') === true;
+
+  // TASK-HOOK-008: Initialize hooks for CLI standalone mode (idempotent)
+  // This ensures hooks work even when CLI runs standalone without daemon
+  initializeCliHooks(!jsonMode);
 
   if (!command) {
     if (jsonMode) {

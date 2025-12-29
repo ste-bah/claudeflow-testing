@@ -17,6 +17,7 @@
  *
  * ANTI-009: REAL implementation (no mocks, no fake attention)
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, softmax2D, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Global Attention Implementation
@@ -62,7 +63,7 @@ export class RealGlobalAttention {
      * Initialize global attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 12)
      * @param config.numGlobalTokens Number of global positions (default: 1)
      * @param config.seed Random seed for deterministic initialization (optional)
@@ -71,7 +72,7 @@ export class RealGlobalAttention {
      * @throws Error if numGlobalTokens < 1
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 12;
         this.numGlobalTokens = config?.numGlobalTokens ?? 1;
         // Validate configuration

@@ -374,6 +374,53 @@ export declare class CheckpointError extends Error {
     constructor(operation: 'create' | 'rollback' | 'load' | 'save', message: string);
 }
 /**
+ * ISonaEngine - Interface for SonaEngine dependency injection
+ *
+ * Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference.
+ * Systems MUST be connected, not independent.
+ *
+ * This interface defines the minimum contract for SonaEngine integration.
+ * Implements: RULE-031
+ */
+export interface ISonaEngine {
+    /**
+     * Create a trajectory with a specific ID (for bridging with TrajectoryTracker)
+     *
+     * @param trajectoryId - Existing trajectory ID to use
+     * @param route - Task type (e.g., "reasoning.causal")
+     * @param patterns - Pattern IDs used in this trajectory
+     * @param context - Context IDs that influenced the outcome
+     */
+    createTrajectoryWithId(trajectoryId: TrajectoryID, route: Route, patterns: PatternID[], context?: string[]): void;
+    /**
+     * Provide feedback for a trajectory and update pattern weights
+     *
+     * @param trajectoryId - Trajectory ID to provide feedback for
+     * @param quality - Quality score (0-1)
+     * @param options - Optional parameters for weight updates
+     */
+    provideFeedback(trajectoryId: TrajectoryID, quality: number, options?: {
+        lScore?: number;
+        similarities?: Map<PatternID, number>;
+        skipAutoSave?: boolean;
+    }): Promise<IWeightUpdateResult>;
+    /**
+     * Get weight for a single pattern in a route
+     *
+     * @param patternId - Pattern ID to get weight for
+     * @param route - Task type/route
+     * @returns Weight value (0.0 if not found)
+     */
+    getWeight(patternId: PatternID, route: Route): Promise<Weight>;
+    /**
+     * Get a trajectory by ID
+     *
+     * @param trajectoryId - Trajectory ID
+     * @returns ITrajectory or null if not found
+     */
+    getTrajectory(trajectoryId: TrajectoryID): ITrajectory | null;
+}
+/**
  * A single step in a reasoning trajectory
  * Captures what action was taken and what resulted
  * SPEC-SON-001

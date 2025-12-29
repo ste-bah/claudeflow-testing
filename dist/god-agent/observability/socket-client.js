@@ -11,6 +11,11 @@ import * as net from 'net';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+const logger = createComponentLogger('SocketClient', {
+    minLevel: LogLevel.INFO,
+    handlers: [new ConsoleLogHandler()]
+});
 // =============================================================================
 // Implementation
 // =============================================================================
@@ -54,7 +59,7 @@ export class SocketClient {
         // Check if socket exists
         if (!fs.existsSync(this.socketPath)) {
             if (this.verbose) {
-                console.warn(`[SocketClient] Socket does not exist: ${this.socketPath}`);
+                logger.warn('Socket does not exist', { socketPath: this.socketPath });
             }
             return false;
         }
@@ -64,7 +69,7 @@ export class SocketClient {
             const timeout = setTimeout(() => {
                 socket.destroy();
                 if (this.verbose) {
-                    console.warn('[SocketClient] Connection timeout');
+                    logger.warn('Connection timeout', { timeoutMs: this.CONNECTION_TIMEOUT_MS });
                 }
                 resolve(false);
             }, this.CONNECTION_TIMEOUT_MS);
@@ -73,7 +78,7 @@ export class SocketClient {
                 this.socket = socket;
                 this.connected = true;
                 if (this.verbose) {
-                    console.log('[SocketClient] Connected to daemon');
+                    logger.info('Connected to daemon', { socketPath: this.socketPath });
                 }
                 // Flush queued events
                 this.flushQueue();
@@ -82,7 +87,7 @@ export class SocketClient {
             socket.on('error', (error) => {
                 clearTimeout(timeout);
                 if (this.verbose) {
-                    console.error('[SocketClient] Connection error:', error);
+                    logger.error('Connection error', error);
                 }
                 resolve(false);
             });
@@ -90,7 +95,7 @@ export class SocketClient {
                 this.connected = false;
                 this.socket = null;
                 if (this.verbose) {
-                    console.log('[SocketClient] Disconnected from daemon');
+                    logger.info('Disconnected from daemon');
                 }
             });
         });
@@ -113,7 +118,7 @@ export class SocketClient {
         }
         catch (error) {
             if (this.verbose) {
-                console.error('[SocketClient] Send error:', error);
+                logger.error('Send error', error instanceof Error ? error : new Error(String(error)));
             }
             // Queue event and mark as disconnected
             this.connected = false;
@@ -129,7 +134,7 @@ export class SocketClient {
             this.socket = null;
             this.connected = false;
             if (this.verbose) {
-                console.log('[SocketClient] Disconnected');
+                logger.info('Disconnected');
             }
         }
     }
@@ -158,7 +163,7 @@ export class SocketClient {
             // Queue full - drop oldest event (FIFO)
             this.queue.shift();
             if (this.verbose) {
-                console.warn('[SocketClient] Queue full, dropping oldest event');
+                logger.warn('Queue full, dropping oldest event', { maxQueueSize: this.MAX_QUEUE_SIZE });
             }
         }
         this.queue.push(event);
@@ -171,7 +176,7 @@ export class SocketClient {
             return;
         }
         if (this.verbose) {
-            console.log(`[SocketClient] Flushing ${this.queue.length} queued events`);
+            logger.info('Flushing queued events', { queueSize: this.queue.length });
         }
         const eventsToSend = [...this.queue];
         this.queue = [];

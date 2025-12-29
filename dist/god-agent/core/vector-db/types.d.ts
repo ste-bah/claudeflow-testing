@@ -41,7 +41,7 @@ export type BackendType = 'auto' | 'native' | 'javascript';
  * Configuration options for VectorDB
  */
 export interface VectorDBOptions {
-    /** Vector dimension (default: 768) */
+    /** Vector dimension (default: VECTOR_DIM = 1536) */
     dimension?: number;
     /** Distance metric to use (default: cosine) */
     metric?: DistanceMetric;

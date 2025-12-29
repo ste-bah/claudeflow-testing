@@ -11,5 +11,6 @@ export { DEFAULT_SOCKET_PATH, MAX_CLIENTS, DEFAULT_KEEPALIVE_TIMEOUT_MS, GRACEFU
 export type { JsonRpcRequest, JsonRpcResponse, JsonRpcError, JsonRpcNotification, JsonRpcBatchRequest, JsonRpcBatchResponse, ParsedMessage, } from './protocol-types.js';
 export { JSONRPC_VERSION, MAX_MESSAGE_SIZE, MESSAGE_DELIMITER, RPC_ERROR_MESSAGES, RpcErrorCode, createRpcError, createSuccessResponse, createErrorResponse, isNotification, isValidRequest, isBatchRequest, isValidMethodName, extractServiceName, extractMethodName, } from './protocol-types.js';
 export { DaemonServer } from './daemon-server.js';
-export { MessageHandler, type IServiceRegistry } from './message-handler.js';
+export type { IServiceRegistry } from './message-handler.js';
+export { MessageHandler } from './message-handler.js';
 //# sourceMappingURL=index.d.ts.map

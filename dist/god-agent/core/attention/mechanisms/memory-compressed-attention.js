@@ -15,6 +15,7 @@
  *
  * @module memory-compressed-attention
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Memory Compressed Attention Mechanism
@@ -34,7 +35,7 @@ export class RealMemoryCompressedAttention {
     Wv;
     Wo;
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.compressionFactor = config.compressionFactor ?? 4;
         // Validation

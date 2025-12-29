@@ -12,6 +12,7 @@
  * 3. Approximate attention: A ≈ softmax(Q × K̃^T) × softmax(K̃ × K̃^T)^{-1} × softmax(K̃ × K^T)
  * 4. Use Moore-Penrose pseudoinverse for the middle term
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 export class RealNystromformerAttention {
     name = 'nystromformer';
@@ -26,7 +27,7 @@ export class RealNystromformerAttention {
     wv;
     wo;
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.numLandmarks = config.numLandmarks ?? 64;
         // Validation

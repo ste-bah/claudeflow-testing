@@ -42,7 +42,7 @@ export declare class UnifiedSearch {
      * Execute quad-fusion search
      *
      * @param query - Text query string
-     * @param embedding - Optional pre-computed query embedding (768 dimensions)
+     * @param embedding - Optional pre-computed query embedding (VECTOR_DIM dimensions, default 1536)
      * @param options - Optional per-query options
      * @returns Quad-fusion search result
      */

@@ -24,7 +24,7 @@ export class PatternSourceAdapter {
     /**
      * Execute pattern search
      *
-     * @param query - Query embedding (768 dimensions) or text query for fallback
+     * @param query - Query embedding (VECTOR_DIM dimensions, default 1536) or text query for fallback
      * @param minConfidence - Minimum pattern confidence threshold
      * @param timeoutMs - Timeout in milliseconds
      * @returns Source execution result
@@ -91,7 +91,8 @@ export class PatternSourceAdapter {
             if (error instanceof Error && error.message.includes('not initialized')) {
                 return [];
             }
-            throw error;
+            // RULE-070: Re-throw with operation context
+            throw new Error(`Pattern search failed (minConfidence: ${minConfidence}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
         }
     }
     /**

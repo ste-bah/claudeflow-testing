@@ -20,6 +20,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Graph-RoPE Attention Implementation
@@ -65,7 +66,7 @@ export class RealGraphRoPeAttention {
      * Initialize Graph-RoPE attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.rotaryDim Dimensions to apply rotation (default: headDim)
      * @param config.seed Random seed for initialization (optional)
@@ -74,7 +75,7 @@ export class RealGraphRoPeAttention {
      * @throws Error if rotaryDim > headDim
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 8;
         // Validate configuration
         if (this.dimension % this.numHeads !== 0) {

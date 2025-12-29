@@ -66,7 +66,7 @@ export declare class RealDifferentialAttention implements IAttentionMechanism {
      * Initialize Differential attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.lambda Initial subtraction coefficient (default: 0.8)
      * @param config.seed Random seed for initialization (optional)

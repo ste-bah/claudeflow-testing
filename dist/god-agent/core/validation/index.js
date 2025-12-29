@@ -11,4 +11,5 @@ export { VECTOR_DIM, L2_NORM_TOLERANCE, HNSW_PARAMS, LORA_PARAMS, L_SCORE_THRESH
 export { GraphDimensionMismatchError, ZeroVectorError, InvalidVectorValueError, NotNormalizedError, InvalidNamespaceError } from './errors.js';
 // Validation functions
 export { calculateNorm, isL2Normalized, validateFiniteValues, normL2, assertDimensions, assertDimensionsOnly, createValidatedVector, cosineSimilarity, euclideanDistance } from './vector-validation.js';
+export { RetryExhaustedError, sleep, withRetry, withRetrySync } from './retry.js';
 //# sourceMappingURL=index.js.map

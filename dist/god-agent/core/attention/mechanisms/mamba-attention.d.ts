@@ -59,7 +59,7 @@ export declare class RealMambaAttention implements IAttentionMechanism {
      * Initialize Mamba attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.stateSize SSM state dimension (default: 16)
      * @param config.expandFactor Inner dimension expansion (default: 2)
      * @param config.seed Random seed for initialization (optional)

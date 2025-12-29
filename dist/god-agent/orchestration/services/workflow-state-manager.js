@@ -62,7 +62,7 @@ export class WorkflowStateManager {
                     await fs.unlink(activePath);
                 }
                 catch {
-                    // Ignore if file doesn't exist
+                    // INTENTIONAL: File may not exist in active directory - safe to ignore
                 }
             }
         }
@@ -87,13 +87,13 @@ export class WorkflowStateManager {
                 content = await fs.readFile(activePath, 'utf-8');
             }
             catch {
-                // Try archive directory
+                // INTENTIONAL: Not in active directory - try archive directory next
                 const archivePath = path.join(this.storageDir, 'archive', `${workflowId}.json`);
                 try {
                     content = await fs.readFile(archivePath, 'utf-8');
                 }
                 catch {
-                    // File not found in either location
+                    // INTENTIONAL: File not found in either location - return null as expected
                     return null;
                 }
             }
@@ -179,7 +179,7 @@ export class WorkflowStateManager {
                 }
             }
             catch {
-                // Source file may not exist - ignore
+                // INTENTIONAL: Source file may not exist - safe to ignore during archive operation
             }
         }
         catch (error) {
@@ -200,6 +200,7 @@ export class WorkflowStateManager {
                 .map(f => f.replace('.json', ''));
         }
         catch {
+            // INTENTIONAL: Storage directory may not exist yet - return empty list
             return [];
         }
     }
@@ -218,6 +219,7 @@ export class WorkflowStateManager {
                 .map(f => f.replace('.json', ''));
         }
         catch {
+            // INTENTIONAL: Archive directory may not exist yet - return empty list
             return [];
         }
     }
@@ -234,13 +236,13 @@ export class WorkflowStateManager {
                 await fs.unlink(activePath);
             }
             catch {
-                // Ignore if not exists
+                // INTENTIONAL: File may not exist in active directory - safe to ignore
             }
             try {
                 await fs.unlink(archivePath);
             }
             catch {
-                // Ignore if not exists
+                // INTENTIONAL: File may not exist in archive directory - safe to ignore
             }
             if (this.verbose) {
                 console.log(`[WorkflowStateManager] Deleted workflow state ${workflowId}`);

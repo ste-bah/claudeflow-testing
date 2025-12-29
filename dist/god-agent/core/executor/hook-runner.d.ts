@@ -40,7 +40,13 @@ export declare class HookRunner {
      */
     runPostHook(script: string | undefined, agentName: string, env?: Record<string, string>): Promise<IHookResult>;
     /**
-     * Validate hook script (basic syntax check)
+     * Validate hook script using shell-quote parser (RULE-107)
+     *
+     * Uses proper tokenization to detect dangerous commands and patterns,
+     * preventing bypass attempts using extra spaces, quotes, or escape sequences.
+     *
+     * @param script - The hook script to validate
+     * @returns Validation result with warnings
      */
     validateHookScript(script: string): {
         valid: boolean;

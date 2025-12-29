@@ -47,6 +47,7 @@ export class ChapterStructureLoader {
             await fs.access(structurePath);
         }
         catch {
+            // INTENTIONAL: File access failure is expected - throw specific error for caller handling
             throw new ChapterStructureNotFoundError(structurePath);
         }
         // Read and parse
@@ -112,6 +113,7 @@ export class ChapterStructureLoader {
             return true;
         }
         catch {
+            // INTENTIONAL: File access failure means agent doesn't exist - false is correct response
             return false;
         }
     }

@@ -28,7 +28,7 @@ export interface Pattern {
     taskType: TaskType;
     /** Template text describing the reasoning approach */
     template: string;
-    /** 768D embedding vector (L2-normalized) */
+    /** 1536D embedding vector (VECTOR_DIM, L2-normalized) */
     embedding: Float32Array;
     /** Success rate in range [0, 1] - minimum 0.8 for creation */
     successRate: number;
@@ -51,7 +51,7 @@ export interface PatternQuery {
     taskType?: TaskType;
     /** Optional query text (will be embedded if no embedding provided) */
     query?: string;
-    /** Optional pre-computed embedding (768D) */
+    /** Optional pre-computed embedding (1536D, VECTOR_DIM) */
     embedding?: Float32Array;
     /** Number of top patterns to retrieve (default: 10) */
     topK?: number;
@@ -108,7 +108,7 @@ export interface CreatePatternParams {
     taskType: TaskType;
     /** Template text */
     template: string;
-    /** 768D embedding (L2-normalized) */
+    /** 1536D embedding (VECTOR_DIM, L2-normalized) */
     embedding: Float32Array;
     /** Initial success rate (must be >= 0.8) */
     successRate: number;

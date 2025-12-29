@@ -37,7 +37,7 @@ export declare class CompactionDetector implements ICompactionDetector {
      *
      * @returns Timestamp in milliseconds, or 0 if never detected
      */
-    getCompactionTimestamp(): number | null;
+    getCompactionTimestamp(): number;
     /**
      * Check if currently in recovery mode
      *

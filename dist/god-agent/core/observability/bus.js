@@ -139,7 +139,7 @@ export class ObservabilityBus {
                 this.socket.end();
             }
             catch {
-                // Ignore errors during shutdown
+                // INTENTIONAL: Socket end errors are expected during shutdown
             }
             this.socket = null;
         }
@@ -210,6 +210,7 @@ export class ObservabilityBus {
                 this.socket.write(data, () => resolve());
             }
             catch {
+                // INTENTIONAL: Write failure - resolve anyway to prevent blocking
                 resolve();
             }
         });

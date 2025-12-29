@@ -220,6 +220,7 @@ export class MemoryMonitor {
             return 512 * 1024 * 1024;
         }
         catch {
+            // INTENTIONAL: V8 heap statistics not available in all environments - use reasonable default
             return 512 * 1024 * 1024;
         }
     }

@@ -11,7 +11,8 @@
  * - Sona feedback integration
  * - High-quality trajectory extraction
  */
-import type { TrajectoryRecord, TrajectoryID, IReasoningRequest, IReasoningResponse, ILearningFeedback } from './reasoning-types.js';
+import { type TrajectoryRecord, type TrajectoryID, type IReasoningRequest, type IReasoningResponse, type ILearningFeedback } from './reasoning-types.js';
+import type { ISonaEngine } from '../learning/sona-types.js';
 /**
  * VectorDB interface for optional persistence
  * Will be replaced with actual VectorDB import when available
@@ -25,8 +26,13 @@ interface VectorDB {
 }
 /**
  * Configuration for TrajectoryTracker
+ *
+ * Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference.
+ * Implements: RULE-031
  */
 export interface TrajectoryTrackerConfig {
+    /** SonaEngine instance for trajectory learning integration (REQUIRED per RULE-031) */
+    sonaEngine: ISonaEngine;
     maxTrajectories?: number;
     retentionMs?: number;
     vectorDB?: VectorDB;
@@ -52,6 +58,9 @@ export interface TrajectoryStats {
  * 1. Sona feedback loop integration
  * 2. Pattern creation from successful paths
  * 3. Performance analysis and optimization
+ *
+ * Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference.
+ * Implements: RULE-031
  */
 export declare class TrajectoryTracker {
     private trajectories;
@@ -61,7 +70,26 @@ export declare class TrajectoryTracker {
     private autoPrune;
     private pruneIntervalMs;
     private pruneTimer?;
-    constructor(config?: TrajectoryTrackerConfig);
+    /**
+     * SonaEngine instance for trajectory learning integration
+     * Per CONSTITUTION RULE-031: Systems MUST be connected, not independent.
+     * Implements: RULE-031
+     */
+    private readonly sonaEngine;
+    /**
+     * Construct TrajectoryTracker with required dependencies
+     *
+     * @param config - Configuration including required SonaEngine
+     * @throws Error if sonaEngine is not provided (RULE-031 violation)
+     */
+    constructor(config: TrajectoryTrackerConfig);
+    /**
+     * Get the injected SonaEngine instance
+     *
+     * Implements: RULE-031 - provides access to connected learning system
+     * @returns The SonaEngine instance
+     */
+    getSonaEngine(): ISonaEngine;
     /**
      * Generate unique trajectory ID
      * Format: "traj_{timestamp}_{uuid}"
@@ -151,6 +179,16 @@ export declare class TrajectoryTracker {
      * @returns Cosine similarity (0-1)
      */
     private cosineSimilarity;
+    /**
+     * Infer route from reasoning request type
+     *
+     * Maps reasoning modes to route identifiers for SonaEngine.
+     * Routes are used for per-task-type weight management.
+     *
+     * @param request - The reasoning request
+     * @returns Route string (e.g., "reasoning.pattern", "reasoning.causal")
+     */
+    private inferRouteFromRequest;
 }
 export {};
 //# sourceMappingURL=trajectory-tracker.d.ts.map

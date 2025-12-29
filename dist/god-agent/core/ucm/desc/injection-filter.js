@@ -404,7 +404,7 @@ export class EnhancedInjectionFilter extends InjectionFilter {
             return result;
         }
         catch {
-            // Graceful degradation - return default values
+            // INTENTIONAL: Graceful degradation - return default values on failure
             return { successRate: null, outcomeCount: 0 };
         }
     }
@@ -417,6 +417,7 @@ export class EnhancedInjectionFilter extends InjectionFilter {
             return stats.outcomeCount;
         }
         catch {
+            // INTENTIONAL: Outcome count query failure - return 0 as safe default
             return 0;
         }
     }

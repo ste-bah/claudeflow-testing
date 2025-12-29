@@ -126,7 +126,7 @@ export declare class CapabilityIndex implements ICapabilityIndex {
      * Search for matching agents by embedding
      * Returns top N matches ranked by cosine similarity
      *
-     * @param embedding - Task embedding vector (768-dim, L2-normalized)
+     * @param embedding - Task embedding vector (VECTOR_DIM (1536), L2-normalized)
      * @param limit - Maximum number of results to return
      * @returns Array of capability matches sorted by combined score
      */

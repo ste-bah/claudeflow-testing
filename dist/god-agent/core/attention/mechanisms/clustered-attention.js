@@ -16,6 +16,7 @@
  * 4. Compute attention between query centroids and key centroids
  * 5. Distribute cluster-level attention back to individual positions
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 export class RealClusteredAttention {
     name = 'clustered';
@@ -31,7 +32,7 @@ export class RealClusteredAttention {
     Wv;
     Wo;
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.numClusters = config.numClusters ?? 32;
         this.seed = config.seed ?? 42;

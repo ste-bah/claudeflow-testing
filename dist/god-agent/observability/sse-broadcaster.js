@@ -91,7 +91,7 @@ export class SSEBroadcaster {
                 res.write(message);
             }
             catch {
-                // Implements [RULE-OBS-003]: Client disconnected, remove silently
+                // INTENTIONAL: Client disconnected - [RULE-OBS-003] requires silent removal to prevent cascade failures
                 this.clients.delete(clientId);
                 if (this.verbose) {
                     console.log('[SSEBroadcaster] Client removed on write error: ' + clientId);
@@ -127,7 +127,7 @@ export class SSEBroadcaster {
                 res.end();
             }
             catch {
-                // Ignore errors during shutdown
+                // INTENTIONAL: Best-effort cleanup during shutdown - errors are expected from already-disconnected clients
             }
         }
         this.clients.clear();
@@ -177,7 +177,7 @@ export class SSEBroadcaster {
             res.write(message);
         }
         catch {
-            // Client disconnected
+            // INTENTIONAL: Client disconnected - silent removal prevents cascade failures in SSE broadcast
             this.clients.delete(clientId);
             if (this.verbose) {
                 console.log('[SSEBroadcaster] Client removed on send error: ' + clientId);
@@ -199,7 +199,7 @@ export class SSEBroadcaster {
                     res.write(':heartbeat\n\n');
                 }
                 catch {
-                    // Client disconnected
+                    // INTENTIONAL: Client disconnected during heartbeat - silent removal prevents stale client accumulation
                     this.clients.delete(clientId);
                     if (this.verbose) {
                         console.log('[SSEBroadcaster] Stale client removed: ' + clientId);

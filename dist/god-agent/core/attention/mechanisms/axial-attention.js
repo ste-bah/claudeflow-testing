@@ -18,6 +18,7 @@
  *
  * ANTI-009: REAL implementation
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul } from '../utils/index.js';
 export class RealAxialAttention {
     name = 'axial';
@@ -32,7 +33,7 @@ export class RealAxialAttention {
     wValue;
     wOutput;
     constructor(config) {
-        this.dimension = config?.dimension ?? 64;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 4;
         // Validate heads divide dimension evenly
         if (this.dimension % this.numHeads !== 0) {

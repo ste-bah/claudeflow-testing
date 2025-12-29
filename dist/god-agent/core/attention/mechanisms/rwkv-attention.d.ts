@@ -62,7 +62,7 @@ export declare class RealRWKVAttention implements IAttentionMechanism {
      * Initialize RWKV attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.seed Random seed for initialization (optional)
      *
      * @throws Error if dimension < 1

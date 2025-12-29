@@ -185,7 +185,7 @@ export interface StoreResult {
  * // Store knowledge
  * const result = await agent.store({
  *   content: 'Important pattern',
- *   embedding: new Float32Array(768)
+ *   embedding: new Float32Array(VECTOR_DIM) // 1536 dimensions
  * });
  *
  * // Query knowledge

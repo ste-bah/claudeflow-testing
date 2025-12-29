@@ -93,7 +93,7 @@ export declare class ProvenanceStore {
     /**
      * Find sources similar to an embedding
      *
-     * @param embedding - Query embedding (768D)
+     * @param embedding - Query embedding (VECTOR_DIM (1536D))
      * @param k - Number of results
      * @returns Similar sources with scores
      */

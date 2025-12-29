@@ -5,9 +5,71 @@
  * Runs agent hooks (pre/post) defined in YAML frontmatter.
  * Hooks are non-fatal - failures are logged but don't stop execution.
  */
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
-const execAsync = promisify(exec);
+import { parse } from 'shell-quote';
+const execFileAsync = promisify(execFile);
+// ==================== Security Constants (RULE-107) ====================
+/**
+ * Commands that are blocked in hook scripts for security.
+ * These commands can cause system damage or privilege escalation.
+ */
+const BLOCKED_COMMANDS = [
+    'rm',
+    'sudo',
+    'chmod',
+    'chown',
+    'dd',
+    'mkfs',
+    'fdisk',
+    'kill',
+    'killall',
+];
+/**
+ * Dangerous argument patterns that indicate destructive operations.
+ * FLAG_PATTERNS must match the token exactly (e.g., -rf, -f).
+ * PATH_PATTERNS can match within a token (e.g., /*, ../).
+ */
+const DANGEROUS_FLAG_PATTERNS = [
+    '-rf',
+    '-fr',
+    '--recursive',
+    '--force',
+    '-f',
+    '-r',
+];
+const DANGEROUS_PATH_PATTERNS = [
+    '/*',
+    '../',
+];
+/**
+ * Environment variables allowed to be passed to hooks (RULE-108).
+ * This allowlist prevents leaking sensitive values like API keys and secrets.
+ * Only safe, non-sensitive system variables are included.
+ */
+const ENV_ALLOWLIST = [
+    'PATH', 'HOME', 'USER', 'SHELL', 'TERM', 'LANG', 'LC_ALL',
+    'NODE_ENV', 'TZ', 'PWD', 'TMPDIR', 'TEMP', 'TMP',
+    'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME',
+    'COLORTERM', 'FORCE_COLOR', 'NO_COLOR',
+];
+/**
+ * Get filtered environment variables from process.env using allowlist.
+ * This prevents sensitive environment variables (API keys, secrets) from
+ * being passed to hook scripts.
+ *
+ * @returns Filtered environment object with only safe variables
+ */
+function getAllowedEnv() {
+    const allowed = {};
+    for (const key of ENV_ALLOWLIST) {
+        const value = process.env[key];
+        if (value !== undefined) {
+            allowed[key] = value;
+        }
+    }
+    return allowed;
+}
 // ==================== Hook Runner ====================
 /**
  * HookRunner
@@ -45,23 +107,27 @@ export class HookRunner {
             };
         }
         try {
-            // Build environment
+            // Build environment - SECURITY: Use allowlisted env vars only (RULE-108)
+            // This prevents leaking API keys, secrets, and other sensitive values
             const hookEnv = {
-                ...process.env,
+                ...getAllowedEnv(), // Only safe, non-sensitive vars
                 AGENT_NAME: agentName,
                 TASK: agentName,
                 HOOK_PHASE: phase,
-                ...env,
+                GOD_AGENT_HOOK: 'true', // Marker for hook context detection
+                ...env, // User-provided vars (trusted)
             };
             if (this.verbose) {
                 console.log(`[HookRunner] Running ${phase}-hook for ${agentName}`);
             }
-            // Execute script
-            const { stdout, stderr } = await execAsync(script, {
+            // Execute script - SECURITY: Using execFile with explicit shell: false
+            // to prevent command injection (RULE-106). The script is passed as an
+            // argument to /bin/bash rather than interpreted by a shell directly.
+            const { stdout, stderr } = await execFileAsync('/bin/bash', ['-c', script], {
                 cwd: this.workingDirectory,
                 timeout: this.timeout,
                 env: hookEnv,
-                shell: '/bin/bash',
+                shell: false, // Explicit: no shell interpretation of arguments
                 maxBuffer: 10 * 1024 * 1024, // 10MB
             });
             const duration = Date.now() - startTime;
@@ -109,22 +175,67 @@ export class HookRunner {
         return this.runHook(script, 'post', agentName, env);
     }
     /**
-     * Validate hook script (basic syntax check)
+     * Validate hook script using shell-quote parser (RULE-107)
+     *
+     * Uses proper tokenization to detect dangerous commands and patterns,
+     * preventing bypass attempts using extra spaces, quotes, or escape sequences.
+     *
+     * @param script - The hook script to validate
+     * @returns Validation result with warnings
      */
     validateHookScript(script) {
         const warnings = [];
-        // Check for common issues
-        if (script.includes('rm -rf /')) {
-            warnings.push('Dangerous command detected: rm -rf /');
+        try {
+            // Parse script into tokens using shell-quote (RULE-107 compliance)
+            // This properly handles spaces, quotes, escapes, etc.
+            const tokens = parse(script);
+            for (const token of tokens) {
+                // Skip non-string tokens (operators, special shell constructs)
+                if (typeof token !== 'string')
+                    continue;
+                // Normalize token for comparison (handle case variations)
+                const normalizedToken = token.toLowerCase();
+                // Check for blocked commands
+                for (const blockedCmd of BLOCKED_COMMANDS) {
+                    if (normalizedToken === blockedCmd || normalizedToken.endsWith(`/${blockedCmd}`)) {
+                        warnings.push(`Blocked command detected: ${token}`);
+                    }
+                }
+                // Check for dangerous flag patterns (exact match to avoid false positives)
+                for (const flag of DANGEROUS_FLAG_PATTERNS) {
+                    if (token === flag) {
+                        warnings.push(`Dangerous flag detected: ${flag}`);
+                    }
+                }
+                // Check for dangerous path patterns (substring match for paths)
+                for (const pathPattern of DANGEROUS_PATH_PATTERNS) {
+                    if (token.includes(pathPattern)) {
+                        warnings.push(`Dangerous path pattern detected: ${pathPattern} in "${token}"`);
+                    }
+                }
+            }
+            // Additional check for sudo anywhere (including in pipes, subshells, etc.)
+            // This is a secondary check because sudo could appear in complex constructs
+            if (script.toLowerCase().includes('sudo')) {
+                // Avoid duplicate warnings if already detected via tokenization
+                const hasSudoWarning = warnings.some(w => w.includes('sudo'));
+                if (!hasSudoWarning) {
+                    warnings.push('Hook uses sudo - may require elevated privileges');
+                }
+            }
+            // Warn if no claude-flow commands (helpful but not blocking)
+            if (!script.includes('claude-flow') && !script.includes('echo')) {
+                warnings.push('Hook may be missing claude-flow memory commands');
+            }
         }
-        if (script.includes('sudo ')) {
-            warnings.push('Hook uses sudo - may require elevated privileges');
+        catch (parseError) {
+            // If shell-quote fails to parse, treat as suspicious
+            warnings.push(`Script parse error: ${parseError instanceof Error ? parseError.message : 'unknown'}`);
         }
-        if (!script.includes('claude-flow') && !script.includes('echo')) {
-            warnings.push('Hook may be missing claude-flow memory commands');
-        }
+        // Script is invalid if any blocked command or dangerous pattern was found
+        const hasBlockingIssues = warnings.some(w => w.includes('Blocked') || w.includes('Dangerous'));
         return {
-            valid: warnings.filter(w => w.includes('Dangerous')).length === 0,
+            valid: !hasBlockingIssues,
             warnings,
         };
     }

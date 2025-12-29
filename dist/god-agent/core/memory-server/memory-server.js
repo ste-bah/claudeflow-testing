@@ -131,13 +131,13 @@ export class MemoryServer {
                 return pidFile.address;
             }
             catch {
-                // Process not running, clean up stale PID file
+                // INTENTIONAL: Process not running, clean up stale PID file
                 await fs.unlink(pidPath);
                 return null;
             }
         }
         catch {
-            // No PID file
+            // INTENTIONAL: No PID file - server not started yet
             return null;
         }
     }
@@ -150,7 +150,7 @@ export class MemoryServer {
                     await fs.unlink(this.config.socketPath);
                 }
                 catch {
-                    // Socket doesn't exist, that's fine
+                    // INTENTIONAL: Socket doesn't exist, that's fine - nothing to clean up
                 }
                 const server = createServer((socket) => this.handleConnection(socket));
                 await new Promise((resolve, reject) => {
@@ -559,7 +559,7 @@ export class MemoryServer {
             this.log('debug', 'PID file removed');
         }
         catch {
-            // Ignore if already gone
+            // INTENTIONAL: PID file may already be gone - safe to ignore during cleanup
         }
     }
     // ==================== Logging ====================

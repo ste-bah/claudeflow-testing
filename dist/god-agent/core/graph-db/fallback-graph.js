@@ -134,6 +134,7 @@ export class FallbackGraph {
                     await fs.access(this.dataFile);
                 }
                 catch {
+                    // INTENTIONAL: File doesn't exist - create new empty graph file
                     await fs.writeFile(this.dataFile, '{}', 'utf-8');
                 }
                 release = await lockfile.lock(this.dataFile, {
@@ -164,7 +165,7 @@ export class FallbackGraph {
                 await fs.access(this.dataFile);
             }
             catch {
-                // File doesn't exist, nothing to load
+                // INTENTIONAL: File doesn't exist, nothing to load - start with empty graph
                 return;
             }
             // Acquire lock and read

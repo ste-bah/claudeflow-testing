@@ -5,6 +5,11 @@
  */
 import { randomUUID } from 'crypto';
 import { CycleDetector } from './cycle-detector.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+const logger = createComponentLogger('CausalHypergraph', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler()]
+});
 /**
  * Hypergraph data structure for causal relationships
  * Supports multi-cause, multi-effect relationships with efficient indexing
@@ -128,7 +133,7 @@ export class CausalHypergraph {
         // Verify performance requirement (<2ms)
         const elapsed = performance.now() - startTime;
         if (elapsed > 2) {
-            console.warn(`Link addition took ${elapsed.toFixed(2)}ms, exceeds 2ms requirement`);
+            logger.warn('Link addition exceeds performance requirement', { elapsedMs: elapsed, requirementMs: 2 });
         }
         return link;
     }

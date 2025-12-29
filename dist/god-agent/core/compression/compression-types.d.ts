@@ -2,14 +2,14 @@
  * Compression Type Definitions
  * TASK-CMP-001 - 5-Tier Compression Lifecycle
  *
- * Provides types for adaptive vector compression:
- * - Hot: Float32 (1x, 3072 bytes)
- * - Warm: Float16 (2x, 1536 bytes)
- * - Cool: PQ8 (8x, 384 bytes)
- * - Cold: PQ4 (16x, 192 bytes)
- * - Frozen: Binary (32x, 96 bytes)
+ * Provides types for adaptive vector compression (1536D vectors):
+ * - Hot: Float32 (1x, 6144 bytes)
+ * - Warm: Float16 (2x, 3072 bytes)
+ * - Cool: PQ8 (8x, 768 bytes)
+ * - Cold: PQ4 (16x, 384 bytes)
+ * - Frozen: Binary (32x, 192 bytes)
  *
- * Target: 90%+ memory reduction for 1M vectors (3GB → 297MB)
+ * Target: 90%+ memory reduction for 1M vectors (6GB → 594MB)
  */
 /**
  * Vector identifier
@@ -44,7 +44,7 @@ export interface ITierConfig {
     format: 'float32' | 'float16' | 'pq8' | 'pq4' | 'binary';
     /** Compression ratio (1 = no compression) */
     compressionRatio: number;
-    /** Bytes per 768-dim vector */
+    /** Bytes per VECTOR_DIM vector */
     bytesPerVector: number;
     /** Maximum acceptable error rate */
     maxErrorRate: number;
@@ -110,7 +110,7 @@ export interface IMemoryUsageStats {
  * Compression manager configuration
  */
 export interface ICompressionConfig {
-    /** Default dimension (default: 768) */
+    /** Default dimension (default: VECTOR_DIM = 1536) */
     dimension?: number;
     /** Heat decay rate per hour (default: 0.1) */
     heatDecayRate?: number;

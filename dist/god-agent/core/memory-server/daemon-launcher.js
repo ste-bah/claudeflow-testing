@@ -205,7 +205,7 @@ async function findDaemonScript() {
             return candidate;
         }
         catch {
-            // Not found, try next
+            // INTENTIONAL: Not found at this location - try next candidate path
         }
     }
     return null;
@@ -217,6 +217,7 @@ async function readPidFile(agentDbPath) {
         return JSON.parse(content);
     }
     catch {
+        // INTENTIONAL: PID file not found or parse failure - return null
         return null;
     }
 }
@@ -226,7 +227,7 @@ async function cleanupPidFile(agentDbPath) {
         await fs.unlink(pidPath);
     }
     catch {
-        // Ignore
+        // INTENTIONAL: PID file already removed or doesn't exist - safe to ignore
     }
 }
 function isProcessRunning(pid) {
@@ -235,6 +236,7 @@ function isProcessRunning(pid) {
         return true;
     }
     catch {
+        // INTENTIONAL: Process.kill(0) failure means process not running
         return false;
     }
 }

@@ -184,7 +184,7 @@ export class FirstPrinciplesEngine {
                 }
             }
             catch {
-                // Fall through
+                // INTENTIONAL: Causal memory query failure - try alternative sources
             }
         }
         // Try pattern matcher
@@ -196,7 +196,7 @@ export class FirstPrinciplesEngine {
                 }
             }
             catch {
-                // Fall through
+                // INTENTIONAL: Pattern matcher query failure - try predefined axioms
             }
         }
         // Use predefined domain axioms

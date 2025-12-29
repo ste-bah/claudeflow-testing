@@ -18,6 +18,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Longformer Attention Implementation
@@ -64,7 +65,7 @@ export class RealLongformerAttention {
      * Initialize Longformer attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.windowSize One-sided window size (default: 64)
      * @param config.globalIndices Indices of global attention tokens (default: [0])
@@ -74,7 +75,7 @@ export class RealLongformerAttention {
      * @throws Error if windowSize is not positive
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 8;
         this.windowSize = config?.windowSize ?? 64;
         this.globalIndices = new Set(config?.globalIndices ?? [0]);

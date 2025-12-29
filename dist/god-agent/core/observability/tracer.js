@@ -309,6 +309,7 @@ export async function withTrace(operationName, fn, parentContext) {
     }
     catch (error) {
         span.setError(error);
+        // INTENTIONAL: transparent rethrow - tracing wrapper should not modify errors
         throw error;
     }
     finally {
@@ -329,6 +330,7 @@ export function withTraceSync(operationName, fn, parentContext) {
     }
     catch (error) {
         span.setError(error);
+        // INTENTIONAL: transparent rethrow - tracing wrapper should not modify errors
         throw error;
     }
     finally {

@@ -17,6 +17,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real BigBird Attention Implementation
@@ -61,7 +62,7 @@ export class RealBigBirdAttention {
      * Initialize BigBird attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.windowSize One-sided window size (default: 64)
      * @param config.numRandomBlocks Number of random attention blocks (default: 3)
@@ -71,7 +72,7 @@ export class RealBigBirdAttention {
      * @throws Error if dimension not divisible by numHeads
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 8;
         this.windowSize = config?.windowSize ?? 64;
         this.numRandomBlocks = config?.numRandomBlocks ?? 3;

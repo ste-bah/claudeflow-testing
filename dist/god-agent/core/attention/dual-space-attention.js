@@ -9,7 +9,8 @@
  *
  * Used when: hierarchyDepth >2 AND hasGraphStructure = true
  */
-import { HyperbolicAttention, GraphRoPeAttention } from './attention-mechanisms.js';
+import { RealHyperbolicAttention } from './mechanisms/hyperbolic-attention.js';
+import { RealGraphRoPeAttention } from './mechanisms/graph-rope-attention.js';
 // ==================== DualSpace Attention ====================
 /**
  * DualSpace attention: combines hyperbolic + graph attention
@@ -20,9 +21,9 @@ export class DualSpaceAttention {
     graphAttention;
     alpha; // Mixing weight (0-1): 0=all graph, 1=all hyperbolic
     constructor(config) {
-        // Create component mechanisms
-        this.hyperbolicAttention = new HyperbolicAttention(config?.hyperbolicConfig);
-        this.graphAttention = new GraphRoPeAttention(config?.graphConfig);
+        // Create component mechanisms using Real* implementations
+        this.hyperbolicAttention = new RealHyperbolicAttention(config?.hyperbolicConfig);
+        this.graphAttention = new RealGraphRoPeAttention(config?.graphConfig);
         // Mixing weight: how much to weight hyperbolic vs graph
         // Default 0.5 = equal weight
         this.alpha = config?.mixingWeight ?? 0.5;

@@ -15,6 +15,11 @@
  */
 import { ShadowVectorError, DEFAULT_SHADOW_CONFIG, DEFAULT_CLASSIFICATION_THRESHOLDS, } from './shadow-types.js';
 import { createShadowVector, cosineSimilarity, isL2Normalized, normalizeL2, classifyDocument, determineEvidenceType, calculateCredibility, determineVerdict, calculateVerdictConfidence, calculateRefutationStrength, sortByRefutationStrength, filterByThreshold, } from './shadow-utils.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+const shadowLogger = createComponentLogger('ShadowVectorSearch', {
+    minLevel: LogLevel.INFO,
+    handlers: [new ConsoleLogHandler()]
+});
 // ==================== Mock Vector Store ====================
 /**
  * Mock vector store for testing
@@ -79,7 +84,7 @@ export class ShadowVectorSearch {
      */
     log(message) {
         if (this.config.verbose) {
-            console.log(`[ShadowVector] ${message}`);
+            shadowLogger.info(message);
         }
     }
     // ==================== Core Search Methods ====================
@@ -92,7 +97,7 @@ export class ShadowVectorSearch {
      * 3. For each result, calculate both hypothesis and shadow similarities
      * 4. Classify and filter by refutation strength
      *
-     * @param hypothesisVector - Query vector (768-dim, L2-normalized)
+     * @param hypothesisVector - Query vector (1536-dim, L2-normalized)
      * @param options - Search options
      * @returns Array of contradictions sorted by refutation strength
      */
@@ -164,7 +169,7 @@ export class ShadowVectorSearch {
     /**
      * Find supporting evidence for a hypothesis
      *
-     * @param hypothesisVector - Query vector (768-dim, L2-normalized)
+     * @param hypothesisVector - Query vector (1536-dim, L2-normalized)
      * @param k - Maximum results
      * @returns Array of supporting evidence
      */

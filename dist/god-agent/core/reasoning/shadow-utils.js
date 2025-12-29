@@ -16,7 +16,7 @@ import { DEFAULT_CLASSIFICATION_THRESHOLDS } from './shadow-types.js';
  *
  * Property: cosine(v, x) = -cosine(Shadow(v), x)
  *
- * @param vector - Original vector (768-dim, L2-normalized)
+ * @param vector - Original vector (1536-dim VECTOR_DIM, L2-normalized)
  * @returns Inverted shadow vector
  */
 export function createShadowVector(vector) {

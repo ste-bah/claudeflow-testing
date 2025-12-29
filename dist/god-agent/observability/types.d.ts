@@ -11,7 +11,7 @@
  * Activity event component types
  * Implements [REQ-OBS-03]: Events MUST have component field
  */
-export type ActivityEventComponent = 'routing' | 'pipeline' | 'memory' | 'learning' | 'agent' | 'search' | 'quality_monitor' | 'general' | 'ucm' | 'idesc' | 'episode' | 'hyperedge' | 'embedding' | 'daemon' | 'token_budget';
+export type ActivityEventComponent = 'routing' | 'pipeline' | 'memory' | 'learning' | 'agent' | 'search' | 'quality_monitor' | 'general' | 'ucm' | 'idesc' | 'episode' | 'hyperedge' | 'embedding' | 'daemon' | 'token_budget' | 'vectordb' | 'sona' | 'reasoning';
 /**
  * Activity event status types
  * Implements [REQ-OBS-03]: Events MUST have status field

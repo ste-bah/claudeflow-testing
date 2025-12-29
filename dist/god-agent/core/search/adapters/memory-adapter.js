@@ -87,7 +87,8 @@ export class MemorySourceAdapter {
                     error.message.includes('disconnected'))) {
                 return [];
             }
-            throw error;
+            // RULE-070: Re-throw with operation context
+            throw new Error(`Memory search failed for query "${query.substring(0, 50)}${query.length > 50 ? '...' : ''}" (namespace: ${_namespace}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
         }
         return result.patterns.map((pattern, index) => this.patternToResult(pattern, index));
     }

@@ -20,6 +20,11 @@
  * Performance Target: <150ms latency
  */
 import { AdvancedReasoningMode } from '../advanced-reasoning-types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../observability/index.js';
+const logger = createComponentLogger('AnalogicalEngine', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler()]
+});
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -312,7 +317,7 @@ export class AnalogicalEngine {
                 }
             }
             catch {
-                // Fall through to synthetic patterns
+                // INTENTIONAL: Pattern matcher query failure - use synthetic patterns
             }
         }
         // Generate synthetic patterns from domain knowledge
@@ -370,7 +375,7 @@ export class AnalogicalEngine {
                     }
                 }
                 catch (error) {
-                    console.warn('[AnalogicalEngine] Embedding failed, using real embeddings:', error);
+                    logger.warn('Embedding failed, using real embeddings', { error: String(error) });
                     // Fallback to real semantic embeddings (SPEC-EMB-002)
                     for (let i = 0; i < uncachedIndices.length; i++) {
                         const idx = uncachedIndices[i];
@@ -415,7 +420,7 @@ export class AnalogicalEngine {
         }
         catch (error) {
             // Ultimate fallback: hash-based deterministic embedding
-            console.warn('[AnalogicalEngine] Embedding provider failed, using hash-based fallback:', error);
+            logger.warn('Embedding provider failed, using hash-based fallback', { error: String(error) });
             return this.generateHashBasedEmbedding(text);
         }
     }

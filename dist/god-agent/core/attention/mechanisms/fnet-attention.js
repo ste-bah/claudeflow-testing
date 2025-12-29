@@ -12,6 +12,7 @@
  *
  * @module fnet-attention
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 /**
  * FNet Attention Implementation
  *
@@ -33,7 +34,7 @@ export class RealFNetAttention {
     featSinTable;
     lastSeqLen;
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.useApproximateDFT = config.useApproximateDFT ?? false;
         // Validate configuration

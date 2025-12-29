@@ -19,7 +19,7 @@ import type { IAttentionMechanism } from '../attention-types.js';
  * Configuration for Luna Attention
  */
 export interface LunaAttentionConfig {
-    /** Model dimension (default: 768) */
+    /** Model dimension (default: VECTOR_DIM=1536) */
     dimension?: number;
     /** Number of attention heads (default: 12) */
     numHeads?: number;

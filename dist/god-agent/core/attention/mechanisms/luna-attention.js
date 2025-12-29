@@ -14,6 +14,7 @@
  *
  * @module attention/mechanisms/luna-attention
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Luna Attention Implementation
@@ -36,7 +37,7 @@ export class RealLunaAttention {
     wv; // [dimension, dimension]
     wo; // [dimension, dimension]
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.projectedLength = config.projectedLength ?? 64;
         // Validate configuration

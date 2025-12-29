@@ -16,7 +16,7 @@
  *   const { output, trajectoryId } = await agent.ask("Your question", { returnResult: true });
  *   await agent.feedback(trajectoryId, 0.9, { isTrajectoryId: true });
  */
-export { UniversalAgent, universalAgent, type AgentMode, type UniversalConfig, type Interaction, type KnowledgeEntry, type ResearchResult, type CodeResult, type WriteResult, type AskOptions, type AskResult, type ITaskOptions, type ITaskResult, } from './universal-agent.js';
+export { UniversalAgent, universalAgent, type AgentMode, type UniversalConfig, type Interaction, type KnowledgeEntry, type ResearchResult, type CodeResult, type WriteResult, type AskOptions, type AskResult, type TaskExecutionResult, type ITaskOptions, type ITaskResult, } from './universal-agent.js';
 export { InteractionStore, type InteractionStoreConfig, type InteractionStats, } from './interaction-store.js';
 export { TrajectoryBridge, type TrajectoryResult, type FeedbackResult, type FeedbackOptions, } from './trajectory-bridge.js';
 export { estimateQuality, assessQuality, qualityToVerdict, calculateLScore, type QualityInteraction, type QualityAssessment, } from './quality-estimator.js';

@@ -6,9 +6,12 @@
  *
  * Exports episode storage functionality for episodic memory management.
  */
-export { EpisodeStore, type EpisodeStoreOptions, } from './episode-store.js';
-export { TimeIndex, type IndexStats, } from './time-index.js';
-export { EpisodeLinker, type LinkType, type EpisodeContext, type LinkDirection, } from './episode-linker.js';
+export type { EpisodeStoreOptions, } from './episode-store.js';
+export type { IndexStats, } from './time-index.js';
+export type { LinkType, EpisodeContext, LinkDirection, } from './episode-linker.js';
+export { EpisodeStore, } from './episode-store.js';
+export { TimeIndex, } from './time-index.js';
+export { EpisodeLinker, } from './episode-linker.js';
 export { type Episode, type EpisodeMetadata, type EpisodeUpdateData, type CreateEpisodeOptions, type TimeRangeQuery, type SimilarityQuery, type EpisodeLink, type TaskOutcome, type EpisodeLinkType, EpisodeValidator, EpisodeValidationError, EpisodeStorageError, } from './episode-types.js';
 export type { BPlusNode, SerializedBPlusNode, PersistedIndexData, CollectedStats, } from './time-index-utils.js';
 export type { EpisodeRow, } from './episode-store-queries.js';

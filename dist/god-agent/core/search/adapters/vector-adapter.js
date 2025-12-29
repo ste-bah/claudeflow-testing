@@ -23,7 +23,7 @@ export class VectorSourceAdapter {
     /**
      * Execute vector similarity search
      *
-     * @param embedding - Query embedding (768 dimensions)
+     * @param embedding - Query embedding (VECTOR_DIM dimensions, default 1536)
      * @param topK - Maximum results to return
      * @param timeoutMs - Timeout in milliseconds
      * @returns Source execution result
@@ -76,7 +76,8 @@ export class VectorSourceAdapter {
             if (error instanceof Error && error.message.includes('not available')) {
                 return [];
             }
-            throw error;
+            // RULE-070: Re-throw with operation context
+            throw new Error(`Vector search failed (topK: ${topK}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
         }
         return searchResults.map((result, index) => ({
             source: 'vector',

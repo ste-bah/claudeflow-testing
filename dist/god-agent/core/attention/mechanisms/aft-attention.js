@@ -17,6 +17,7 @@
  * - w_{i,j} is learned position bias
  * - ⊙ is element-wise multiplication
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, hasNaNOrInf } from '../utils/index.js';
 /**
  * AFT (Attention Free Transformer) Attention Mechanism
@@ -34,7 +35,7 @@ export class RealAFTAttention {
     // w_bias[i][j] represents the bias from position j to position i
     positionBias;
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.maxSeqLen = config.maxSeqLen ?? 512;
         this.headDim = this.dimension / this.numHeads;

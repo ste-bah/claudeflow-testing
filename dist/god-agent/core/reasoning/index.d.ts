@@ -10,7 +10,7 @@
  * - Template-based retrieval of successful reasoning patterns
  * - Hypergraph-based causal reasoning with multi-cause support
  * - Unified reasoning interface with 4 modes (pattern-match, causal-inference, contextual, hybrid)
- * - GNN-enhanced embeddings (768D → 1024D)
+ * - GNN-enhanced embeddings (1536D → 1024D)
  * - Trajectory tracking for Sona feedback
  *
  * Performance targets:
@@ -37,7 +37,14 @@ export { CycleDetector } from './cycle-detector.js';
 export type { NodeID, NodeType, TraversalDirection, CausalNode, CausalLink, CausalChain, TraversalOptions, InferenceResult, CauseFindingResult, AddCausalLinkParams, CausalGraphStats, SerializedCausalGraph, CycleCheckResult, } from './causal-types.js';
 export { ReasoningBank } from './reasoning-bank.js';
 export { GNNEnhancer } from './gnn-enhancer.js';
-export type { TrajectoryGraph, TrajectoryNode, TrajectoryEdge } from './gnn-enhancer.js';
+export type { TrajectoryGraph, TrajectoryNode, TrajectoryEdge, LayerActivationCache, ForwardResult, } from './gnn-enhancer.js';
+export { WeightManager } from './weight-manager.js';
+export type { IWeightConfig, IWeightMetadata, ICheckpointConfig, IWeightValidationResult, } from './weight-manager.js';
+export { softmax, attentionScore, weightedAggregate, computeNeighborAttention, } from './gnn-math.js';
+export { project_backward, softmax_backward, attention_backward, aggregate_backward, relu_backward, leaky_relu_backward, tanh_backward, sigmoid_backward, activation_backward, layer_backward, clipGradient, isGradientValid, accumulateGradient, accumulateWeightGradients, createWeightGradientAccumulator, } from './gnn-backprop.js';
+export type { GradientResult, AttentionGradients, GradientConfig, } from './gnn-backprop.js';
+export { AdamOptimizer, createAdamOptimizer, flattenWeights, unflattenWeights, applyAdamTo2DWeights, } from './adam-optimizer.js';
+export type { AdamConfig, AdamState, StepResult, } from './adam-optimizer.js';
 export { TrajectoryTracker } from './trajectory-tracker.js';
 export type { TrajectoryTrackerConfig, TrajectoryStats } from './trajectory-tracker.js';
 export { ModeSelector } from './mode-selector.js';
@@ -54,4 +61,18 @@ export type { IVectorStore, IVectorSearchResult } from './shadow-vector-search.j
 export { createShadowVector, cosineSimilarity, isL2Normalized, normalizeL2, classifyDocument, determineEvidenceType, calculateCredibility, determineVerdict, calculateVerdictConfidence, calculateRefutationStrength, sortByRefutationStrength, filterByThreshold, } from './shadow-utils.js';
 export { ShadowVectorError, DEFAULT_CLASSIFICATION_THRESHOLDS, DEFAULT_SHADOW_CONFIG, } from './shadow-types.js';
 export type { DocumentID, ShadowSearchType, ValidationVerdict, EvidenceType, IShadowSearchOptions, IShadowFilters, IContradiction, ISupportingEvidence, IValidationReport, IShadowVectorConfig, IShadowSearchResult, IClassificationThresholds, } from './shadow-types.js';
+export { ContrastiveLoss, mineHardNegatives, mineHardPositives, createSemiHardTriplets, POSITIVE_QUALITY_THRESHOLD, NEGATIVE_QUALITY_THRESHOLD, DEFAULT_MARGIN, } from './contrastive-loss.js';
+export type { ContrastiveLossConfig, TrajectoryPair, TripletGradient, GradientBatch, ITrajectoryWithFeedback, } from './contrastive-loss.js';
+export { TrainingHistoryManager } from './training-history.js';
+export type { TrainingRecord, ITrainingStats } from './training-history.js';
+export { GNNTrainer, createGNNTrainer } from './gnn-trainer.js';
+export type { TrainingConfig, TrainingResult, EpochResult, ValidationResult as GNNValidationResult, TrainingDataset, TrainerCheckpoint, } from './gnn-trainer.js';
+export { TrainingTriggerController, createTrainingTriggerController } from './training-trigger.js';
+export type { TriggerConfig, TriggerStats, TriggerResult, } from './training-trigger.js';
+export { EWCRegularizer, createEWCRegularizer } from './ewc-utils.js';
+export { computeImportanceScores, getTopImportantParams, computeFisherOverlap, } from './ewc-utils.js';
+export type { EWCConfig, EWCPenaltyResult, EWCGradientResult, FisherUpdateResult, } from './ewc-utils.js';
+export { BackgroundTrainer, createBackgroundTrainer } from './background-trainer.js';
+export type { BackgroundTrainerConfig, TrainingProgress, TrainingPhase, BackgroundTrainingResult, BackgroundTrainerEvents, WorkerMessage, } from './background-trainer.js';
+export { TrainingWorker } from './training-worker.js';
 //# sourceMappingURL=index.d.ts.map

@@ -17,6 +17,11 @@ import { ChapterWriterAgent } from './chapter-writer-agent.js';
 import { PaperCombiner } from './paper-combiner.js';
 import { StyleApplier } from './style-applier.js';
 import { ProgressLogger } from './progress-logger.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel as ObsLogLevel } from '../../core/observability/index.js';
+const orchLogger = createComponentLogger('FinalStageOrchestrator', {
+    minLevel: ObsLogLevel.INFO,
+    handlers: [new ConsoleLogHandler()]
+});
 // ============================================
 // Valid State Transitions
 // ============================================
@@ -190,6 +195,11 @@ export class FinalStageOrchestrator {
     // Research query (extracted from structure or slug)
     // Used for metadata generation and exposed via getResearchQuery()
     _researchQuery = '';
+    // Cached intermediate results for prompt generation
+    // Populated during execute() or initialize()
+    _chapterStructure = null;
+    _summaries = null;
+    _mapping = null;
     // ============================================
     // Constructor
     // ============================================
@@ -229,8 +239,8 @@ export class FinalStageOrchestrator {
      */
     getChapterWriter() {
         if (!this.chapterWriter) {
-            console.log(`[Orchestrator] Creating ChapterWriterAgent with style profile: ${this._styleProfileId || 'none'}`);
-            this.chapterWriter = new ChapterWriterAgent(this._styleProfileId || undefined);
+            orchLogger.info('Creating ChapterWriterAgent', { styleProfileId: this._styleProfileId || 'none' });
+            this.chapterWriter = new ChapterWriterAgent(this._styleProfileId || undefined, this.researchDir || undefined);
         }
         return this.chapterWriter;
     }
@@ -248,6 +258,27 @@ export class FinalStageOrchestrator {
      */
     getResearchQuery() {
         return this._researchQuery;
+    }
+    /**
+     * Get the cached chapter structure (available after INITIALIZING phase)
+     * Used by CLI for --generate-prompts
+     */
+    getChapterStructure() {
+        return this._chapterStructure;
+    }
+    /**
+     * Get the cached summaries (available after SUMMARIZING phase)
+     * Used by CLI for --generate-prompts
+     */
+    getSummaries() {
+        return this._summaries;
+    }
+    /**
+     * Get the cached semantic mapping (available after MAPPING phase)
+     * Used by CLI for --generate-prompts
+     */
+    getMapping() {
+        return this._mapping;
     }
     // ============================================
     // Public Methods
@@ -294,12 +325,13 @@ export class FinalStageOrchestrator {
                     await this.logger.initFileLogging(this.outputDir);
                 }
                 catch {
-                    // Non-fatal - continue without file logging
+                    // INTENTIONAL: Non-fatal - file logging is optional, continue without it
                 }
             }
             // Phase 8.1: Load chapter structure
             this.log('info', 'Loading chapter structure');
             const structure = await this.loadChapterStructure();
+            this._chapterStructure = structure;
             this.log('debug', `Loaded ${structure.totalChapters} chapters`, {
                 chapters: structure.totalChapters,
                 estimatedWords: structure.estimatedTotalWords
@@ -370,6 +402,7 @@ export class FinalStageOrchestrator {
                 });
             }
             const summaries = filesToSummarize;
+            this._summaries = summaries;
             this.updateTokenBudget('summaryExtraction', this.calculateSummaryTokens(summaries));
             this.log('info', `Summarized ${summaries.length} files`, {
                 files: summaries.length,
@@ -389,6 +422,7 @@ export class FinalStageOrchestrator {
                 elapsedMs: Date.now() - this.startTime
             });
             const mapping = await this.mapOutputsToChapters(structure.chapters, summaries, options.threshold ?? 0.30);
+            this._mapping = mapping;
             this.log('info', 'Semantic mapping complete', {
                 chaptersWithSources: mapping.mappings.filter(m => m.sourceCount > 0).length,
                 orphanedSources: mapping.orphanedSources.length,
@@ -637,7 +671,7 @@ export class FinalStageOrchestrator {
                 // Don't let callback errors break execution
                 // Log but continue
                 if (this.verbose) {
-                    console.error('[Orchestrator] Progress callback error:', e);
+                    orchLogger.error('Progress callback error', e instanceof Error ? e : new Error(String(e)));
                 }
             }
         }
@@ -959,6 +993,7 @@ export class FinalStageOrchestrator {
             return stat.isDirectory();
         }
         catch {
+            // INTENTIONAL: Directory stat failure means directory doesn't exist - false is correct
             return false;
         }
     }
@@ -998,7 +1033,7 @@ export class FinalStageOrchestrator {
             }
         }
         catch {
-            // Ignore errors during pruning (non-critical)
+            // INTENTIONAL: Archive pruning is non-critical - errors during cleanup are acceptable
         }
     }
     // ============================================
@@ -1121,6 +1156,7 @@ export class FinalStageOrchestrator {
             content = await fs.readFile(structurePath, 'utf-8');
         }
         catch {
+            // INTENTIONAL: Chapter structure file must exist - throw descriptive error for user
             throw new FinalStageError(`Chapter structure not found: ${structurePath}. Run dissertation-architect first.`, 'NO_SOURCES', false, FinalStageError.getExitCode('NO_SOURCES'));
         }
         // Extract JSON from markdown code block
@@ -1265,7 +1301,7 @@ export class FinalStageOrchestrator {
             return profile;
         }
         catch {
-            // Continue to next location
+            // INTENTIONAL: Style profile not at this location - try next search location
         }
         // Location 2: Research directory profile
         const altPath = path.join(this.researchDir, 'style-profile.json');
@@ -1278,7 +1314,7 @@ export class FinalStageOrchestrator {
             return profile;
         }
         catch {
-            // Continue to next location
+            // INTENTIONAL: Style profile not at this location - try next search location
         }
         // Location 3: AgentDB universal style profiles (look for academic-papers or first en-GB profile)
         const agentDbPath = path.join(this.basePath, '.agentdb/universal/style-profiles.json');
@@ -1296,7 +1332,7 @@ export class FinalStageOrchestrator {
             }
         }
         catch {
-            // No AgentDB profiles available
+            // INTENTIONAL: AgentDB profiles not available - style profile is optional, use defaults
         }
         // No style profile found
         this._styleProfile = null;
@@ -1461,6 +1497,59 @@ export class FinalStageOrchestrator {
             }
         }
         return chapters;
+    }
+    /**
+     * Generate synthesis prompts for Claude Code to spawn chapter-synthesizer agents
+     *
+     * This is the PREFERRED method for high-quality output. Instead of writing
+     * chapters directly (which uses basic concatenation), this generates prompts
+     * that Claude Code can use to spawn the chapter-synthesizer agent for each
+     * chapter.
+     *
+     * @param structure - Chapter structure from dissertation-architect
+     * @param summaries - Output summaries from scanner
+     * @param mapping - Chapter-to-source mapping
+     * @returns Array of synthesis prompts for Claude Code Task tool
+     */
+    async generateSynthesisPrompts(structure, summaries, mapping) {
+        const prompts = [];
+        const style = this._styleProfile;
+        // Create index for fast source lookup
+        const summaryByIndex = new Map();
+        for (const summary of summaries) {
+            summaryByIndex.set(summary.index, summary);
+        }
+        orchLogger.info('Generating synthesis prompts', { totalChapters: structure.totalChapters, styleProfileId: this._styleProfileId || 'default' });
+        for (const chapterDef of structure.chapters) {
+            // Find mapping for this chapter
+            const chapterMapping = mapping.mappings.find((m) => m.chapterNumber === chapterDef.number);
+            // Collect sources for this chapter
+            const chapterSources = [];
+            if (chapterMapping) {
+                for (const sourceIndex of chapterMapping.allSources) {
+                    const source = summaryByIndex.get(sourceIndex);
+                    if (source) {
+                        chapterSources.push(source);
+                    }
+                }
+            }
+            // Generate synthesis prompt using ChapterWriterAgent
+            const prompt = await this.getChapterWriter().generateSynthesisPrompt({
+                chapter: chapterDef,
+                sources: chapterSources,
+                style,
+                allChapters: structure.chapters,
+                tokenBudget: this.tokenBudget.phases.chapterWriting.allocatedPerChapter
+            });
+            prompts.push(prompt);
+            this.log('debug', `Generated synthesis prompt for Chapter ${chapterDef.number}`, {
+                chapter: chapterDef.number,
+                title: chapterDef.title,
+                sections: prompt.sections.length,
+                styleProfile: prompt.styleProfileId
+            });
+        }
+        return prompts;
     }
     /**
      * Combine chapters into final paper

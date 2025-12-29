@@ -8,7 +8,7 @@
  * - Primary domain (research, testing, code, writing, design, review)
  * - Complexity assessment (simple, moderate, complex)
  * - Required capabilities
- * - Semantic embedding (768-dim, L2-normalized)
+ * - Semantic embedding (VECTOR_DIM (1536), L2-normalized)
  * - Multi-step detection
  * - Expected artifacts
  *

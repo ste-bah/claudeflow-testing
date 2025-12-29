@@ -42,7 +42,7 @@ export class TrajectoryBridge {
      *
      * @param input - User input text
      * @param mode - Agent mode (code, research, write, general)
-     * @param embedding - Query embedding vector (768 dimensions)
+     * @param embedding - Query embedding vector (1536 dimensions, VECTOR_DIM)
      * @returns Trajectory result with ID and patterns
      */
     async createTrajectoryFromInteraction(input, mode, embedding) {
@@ -88,7 +88,7 @@ export class TrajectoryBridge {
      * This triggers:
      * 1. ReasoningBank.provideFeedback() for trajectory update
      * 2. SonaEngine weight updates via EWC++ regularization
-     * 3. Auto-pattern creation if quality > 0.8 (per PRD FR-11)
+     * 3. Auto-pattern creation if quality >= 0.7 (per RULE-035)
      *
      * @param trajectoryId - Trajectory to provide feedback for
      * @param quality - Quality score 0-1

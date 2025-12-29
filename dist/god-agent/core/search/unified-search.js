@@ -63,7 +63,7 @@ export class UnifiedSearch {
      * Execute quad-fusion search
      *
      * @param query - Text query string
-     * @param embedding - Optional pre-computed query embedding (768 dimensions)
+     * @param embedding - Optional pre-computed query embedding (VECTOR_DIM dimensions, default 1536)
      * @param options - Optional per-query options
      * @returns Quad-fusion search result
      */
@@ -143,7 +143,8 @@ export class UnifiedSearch {
                 error: error instanceof Error ? error.message : 'Unknown error',
                 durationMs,
             }, 'error');
-            throw error;
+            // RULE-070: Re-throw with operation context
+            throw new Error(`Quad-fusion search failed for query "${query.substring(0, 50)}${query.length > 50 ? '...' : ''}" (correlationId: ${correlationId}): ${error instanceof Error ? error.message : String(error)}`, { cause: error });
         }
     }
     /**

@@ -25,6 +25,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real RWKV Attention Implementation
@@ -65,13 +66,13 @@ export class RealRWKVAttention {
      * Initialize RWKV attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.seed Random seed for initialization (optional)
      *
      * @throws Error if dimension < 1
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         // Validate configuration
         if (this.dimension < 1) {
             throw new Error(`ANTI-009: Dimension must be positive, got ${this.dimension}`);

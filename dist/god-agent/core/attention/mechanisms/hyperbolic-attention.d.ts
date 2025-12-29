@@ -56,7 +56,7 @@ export declare class RealHyperbolicAttention implements IAttentionMechanism {
      * Initialize Hyperbolic attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.curvature Curvature of hyperbolic space (default: -1.0)
      * @param config.seed Random seed for initialization (optional)

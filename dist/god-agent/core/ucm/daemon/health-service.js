@@ -79,6 +79,7 @@ export class HealthService {
                 embeddingAvailable = await this.embeddingProvider.isAvailable();
             }
             catch {
+                // INTENTIONAL: Embedding availability check failure - treat as unavailable
                 embeddingAvailable = false;
             }
         }
@@ -130,6 +131,7 @@ export class HealthService {
                 embeddingAvailable = await this.embeddingProvider.isAvailable();
             }
             catch {
+                // INTENTIONAL: Embedding availability check failure - treat as unavailable
                 embeddingAvailable = false;
             }
         }

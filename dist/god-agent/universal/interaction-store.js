@@ -12,6 +12,11 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { ObservabilityBus } from '../core/observability/bus.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+const logger = createComponentLogger('InteractionStore', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 // ==================== Serialization Helpers ====================
 /**
  * Convert Float32Array embeddings to regular arrays for JSON serialization
@@ -165,7 +170,7 @@ export class InteractionStore {
         catch (error) {
             // File doesn't exist yet, that's okay
             if (error.code !== 'ENOENT') {
-                console.warn('Failed to load interactions:', error);
+                logger.warn('Failed to load interactions', { error: String(error) });
             }
         }
         // Load high-quality interactions
@@ -184,7 +189,7 @@ export class InteractionStore {
         }
         catch (error) {
             if (error.code !== 'ENOENT') {
-                console.warn('Failed to load high-quality interactions:', error);
+                logger.warn('Failed to load high-quality interactions', { error: String(error) });
             }
         }
         // Load knowledge
@@ -198,7 +203,7 @@ export class InteractionStore {
         }
         catch (error) {
             if (error.code !== 'ENOENT') {
-                console.warn('Failed to load knowledge:', error);
+                logger.warn('Failed to load knowledge', { error: String(error) });
             }
         }
         // Prune after loading
@@ -229,7 +234,7 @@ export class InteractionStore {
             await fs.mkdir(this.config.storageDir, { recursive: true });
         }
         catch (error) {
-            console.warn('Failed to create storage directory:', error);
+            logger.warn('Failed to create storage directory', { storageDir: this.config.storageDir, error: String(error) });
         }
     }
     // ==================== Statistics ====================

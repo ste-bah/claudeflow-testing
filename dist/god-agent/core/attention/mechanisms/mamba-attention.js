@@ -21,6 +21,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Mamba Attention Implementation
@@ -61,7 +62,7 @@ export class RealMambaAttention {
      * Initialize Mamba attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.stateSize SSM state dimension (default: 16)
      * @param config.expandFactor Inner dimension expansion (default: 2)
      * @param config.seed Random seed for initialization (optional)
@@ -69,7 +70,7 @@ export class RealMambaAttention {
      * @throws Error if stateSize < 1
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.stateSize = config?.stateSize ?? 16;
         this.expandFactor = config?.expandFactor ?? 2;
         // Validate configuration

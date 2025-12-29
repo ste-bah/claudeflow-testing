@@ -6,6 +6,7 @@
  *
  * Exports episode storage functionality for episodic memory management.
  */
+// Values
 export { EpisodeStore, } from './episode-store.js';
 export { TimeIndex, } from './time-index.js';
 export { EpisodeLinker, } from './episode-linker.js';

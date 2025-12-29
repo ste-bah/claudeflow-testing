@@ -115,7 +115,7 @@ export class UsageTracker extends EventEmitter {
                 type: 'warning',
                 message: `Token usage reached ${percentUsed.toFixed(1)}% of context window`,
                 usage: totalUsage,
-                threshold: warningThreshold ?? 0.8,
+                threshold: warningThreshold,
                 percentUsed,
                 phase
             };

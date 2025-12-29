@@ -190,6 +190,8 @@ export interface PipelineSession {
     errors: SessionError[];
     /** Research folder slug derived from query */
     slug?: string;
+    /** Full path to research directory (docs/research/{slug}) */
+    researchDir?: string;
     /** Locked chapter structure from dissertation-architect (Agent #6) */
     chapterStructure?: ChapterStructure;
     /** Dynamically generated Phase 6 agents based on chapter structure */
@@ -262,6 +264,8 @@ export interface NextResponse {
     desc?: {
         episodesInjected: number;
         episodeIds: string[];
+        /** Phase-aware window size used for retrieval (RULE-010 to RULE-014) */
+        windowSize: number;
     };
 }
 /**

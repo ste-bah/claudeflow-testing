@@ -243,7 +243,7 @@ export function getEnvOverrides() {
  */
 export function loadConfigWithEnv(overrides) {
     const envOverrides = getEnvOverrides();
-    const mergedOverrides = deepMerge(envOverrides, (overrides ?? {}));
+    const mergedOverrides = deepMerge(envOverrides, overrides ?? {});
     return loadAndValidateConfig(mergedOverrides);
 }
 //# sourceMappingURL=config.js.map

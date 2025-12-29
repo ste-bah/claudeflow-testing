@@ -82,8 +82,15 @@ export interface IActivityStream {
  * - [RULE-OBS-004]: Memory bounds enforcement
  */
 export declare class ActivityStream implements IActivityStream {
-    private static instance;
+    private static singletonInstance;
+    /**
+     * Get the singleton ActivityStream instance
+     * Creates one if it doesn't exist
+     */
     static getInstance(): Promise<ActivityStream>;
+    /**
+     * Reset the singleton (for testing)
+     */
     static resetInstance(): void;
     private buffer;
     private head;
@@ -184,6 +191,5 @@ export declare class ActivityStream implements IActivityStream {
      */
     private notifyListeners;
 }
-/** Singleton instance for global access */
 export default ActivityStream;
 //# sourceMappingURL=activity-stream.d.ts.map

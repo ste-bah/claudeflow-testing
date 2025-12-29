@@ -28,7 +28,7 @@ async function startDaemon() {
             return;
         }
         catch {
-            // Process not running, clean up stale PID file
+            // INTENTIONAL: Process not running, clean up stale PID file
             unlinkSync(PID_FILE);
         }
     }
@@ -83,7 +83,8 @@ async function stopDaemon() {
                 attempts++;
             }
             catch {
-                break; // Process exited
+                // INTENTIONAL: Process exited - break loop to continue cleanup
+                break;
             }
         }
         // Clean up
@@ -115,6 +116,7 @@ function statusDaemon() {
             console.log(`  Process: RUNNING`);
         }
         catch {
+            // INTENTIONAL: Process not found - stale PID file detected
             console.log(`  Process: NOT RUNNING (stale PID file)`);
         }
     }

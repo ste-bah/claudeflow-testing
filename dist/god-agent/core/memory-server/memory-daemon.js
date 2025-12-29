@@ -36,7 +36,7 @@ async function log(level, message, context) {
         await fs.appendFile(logPath, logLine + '\n');
     }
     catch {
-        // Ignore log file errors
+        // INTENTIONAL: Log file write errors are non-critical - daemon continues operation
     }
 }
 // ==================== Signal Handlers ====================
@@ -117,6 +117,7 @@ async function stopDaemon(agentDbPath = DEFAULT_AGENTDB_PATH) {
                     process.kill(pidFile.pid, 0);
                 }
                 catch {
+                    // INTENTIONAL: Process exited - successful stop
                     console.log('Memory server daemon stopped.');
                     return;
                 }
@@ -127,11 +128,13 @@ async function stopDaemon(agentDbPath = DEFAULT_AGENTDB_PATH) {
             console.log('Memory server daemon killed.');
         }
         catch {
+            // INTENTIONAL: Process not running - clean up stale PID file
             console.log('Daemon not running. Cleaning up stale PID file...');
             await fs.unlink(pidPath).catch(() => { });
         }
     }
     catch {
+        // INTENTIONAL: No PID file found - daemon is not running
         console.log('No PID file found. Daemon is not running.');
     }
 }

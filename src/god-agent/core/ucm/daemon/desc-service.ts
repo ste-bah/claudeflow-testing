@@ -383,4 +383,56 @@ export class DescService {
     const message = error instanceof Error ? error.message : 'Internal error';
     return this.errorResponse(ERROR_CODES.INTERNAL_ERROR, message, id);
   }
+
+  // ============================================================================
+  // Direct API Methods (for hook integration - TASK-HOOK-007)
+  // ============================================================================
+
+  /**
+   * Retrieve relevant episodes matching a query
+   * Implements IDescServiceLike interface for auto-injection hook
+   *
+   * RULE-033: DESC context MUST be injected into every Task-style tool call
+   *
+   * @param query - Search query text
+   * @param options - Optional retrieval parameters
+   * @returns Array of relevant episodes with id, summary, and content
+   */
+  async retrieveRelevant(
+    query: string,
+    options?: { limit?: number }
+  ): Promise<Array<{ id: string; summary?: string; content?: string }>> {
+    try {
+      // Chunk the query text
+      const searchChunks = await this.chunker.chunk(query);
+
+      // Generate embeddings for search chunks
+      const searchEmbeddings = await this.embeddingProxy.embedBatch(searchChunks);
+
+      // Retrieve similar episodes
+      const retrievalOptions: IRetrievalOptions = {
+        threshold: 0.75,  // Slightly lower threshold for hook injection
+        maxResults: options?.limit ?? 3,
+        includeQueryMatch: true,
+        includeAnswerMatch: true
+      };
+
+      const results = await this.retriever.retrieve(
+        searchChunks,
+        searchEmbeddings,
+        retrievalOptions
+      );
+
+      // Transform to IDescServiceLike interface format
+      return results.map(result => ({
+        id: result.episodeId,
+        summary: result.answerText?.slice(0, 200),  // Use answer text as summary (truncated)
+        content: result.answerText  // Full answer as content
+      }));
+    } catch (error) {
+      // Log error but return empty array - hook should not break on DESC failures
+      this.logger.error('retrieveRelevant failed', error);
+      return [];
+    }
+  }
 }

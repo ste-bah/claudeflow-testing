@@ -25,6 +25,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Hyena Attention Implementation
@@ -72,7 +73,7 @@ export class RealHyenaAttention {
      * Initialize Hyena attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.order Hyena recursion depth (default: 2)
      * @param config.filterSize Internal filter MLP size (default: 64)
@@ -81,7 +82,7 @@ export class RealHyenaAttention {
      * @throws Error if dimension not divisible by numHeads
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 8;
         this.order = config?.order ?? 2;
         this.filterSize = config?.filterSize ?? 64;

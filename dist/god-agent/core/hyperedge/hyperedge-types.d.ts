@@ -33,7 +33,7 @@ export interface QAHyperedge {
     question: {
         /** Question text */
         text: string;
-        /** 768-dimensional embedding for semantic search */
+        /** VECTOR_DIM (1536)-dimensional embedding for semantic search */
         embedding: Float32Array;
     };
     /** Array of answers with confidence and evidence */

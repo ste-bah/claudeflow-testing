@@ -9,6 +9,7 @@
  * - Graceful error reporting
  */
 import { PlatformDetector } from './platform-detector.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 // ==================== Default Module Definitions ====================
 /**
  * Default modules to validate
@@ -157,7 +158,7 @@ export class NativeBindingValidator {
                     insert: async (id, vector) => ({ id, inserted: true }),
                     search: async (query, k) => Array(k).fill({ id: 'v1', score: 0.9 }),
                     remove: async (id) => ({ id, removed: true }),
-                    getStats: async () => ({ vectors: 0, dimensions: 768 }),
+                    getStats: async () => ({ vectors: 0, dimensions: VECTOR_DIM }),
                 };
             case 'graph':
                 return {
@@ -231,7 +232,7 @@ export class NativeBindingValidator {
      * Get default test data for common functions
      */
     getDefaultTestData(funcName) {
-        const testVector = new Float32Array(768).fill(0.1);
+        const testVector = new Float32Array(VECTOR_DIM).fill(0.1);
         switch (funcName) {
             // Vector operations
             case 'l2Normalize':
@@ -242,7 +243,7 @@ export class NativeBindingValidator {
                 return [testVector, testVector];
             // VectorDB operations
             case 'createIndex':
-                return [{ dimensions: 768, metric: 'cosine' }];
+                return [{ dimensions: VECTOR_DIM, metric: 'cosine' }];
             case 'insert':
                 return ['test_id', testVector];
             case 'search':

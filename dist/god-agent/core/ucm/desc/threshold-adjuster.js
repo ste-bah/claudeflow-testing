@@ -119,7 +119,7 @@ export class ThresholdAdjuster {
         catch (error) {
             // GUARD-IDESC-005: Graceful degradation
             if (error instanceof ThresholdError) {
-                throw error; // Re-throw threshold-specific errors
+                throw error; // Re-throw threshold-specific errors (RULE-070: already typed)
             }
             console.error(`[ThresholdAdjuster] Failed to propose adjustment for ${category}:`, error);
             return null;
@@ -355,7 +355,8 @@ export async function initThresholdAdjustmentsTable(db) {
     }
     catch (error) {
         console.error('[ThresholdAdjuster] Failed to initialize table:', error);
-        throw error;
+        // RULE-070: Re-throw with initialization context
+        throw new Error(`Failed to initialize threshold_adjustments table: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
 }
 //# sourceMappingURL=threshold-adjuster.js.map

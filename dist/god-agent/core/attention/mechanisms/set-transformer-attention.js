@@ -17,6 +17,7 @@
  *
  * where MAB is a Multi-head Attention Block
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Multi-head Attention Block (MAB)
@@ -142,7 +143,7 @@ export class RealSetTransformerAttention {
     mab1; // I → X
     mab2; // X → H
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.numInducingPoints = config.numInducingPoints ?? 32;
         // Validation

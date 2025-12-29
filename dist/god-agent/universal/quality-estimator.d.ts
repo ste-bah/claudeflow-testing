@@ -30,10 +30,12 @@ export interface QualityAssessment {
         structure: number;
         codeContent: number;
         modeRelevance: number;
+        /** TASK-FIX-008: Bonus for Task() result patterns */
+        taskResultBonus: number;
     };
-    /** Whether this meets auto-store threshold */
+    /** Whether this meets auto-store threshold (feedback threshold) */
     meetsThreshold: boolean;
-    /** Whether this qualifies for auto-pattern creation (>0.8) */
+    /** Whether this qualifies for auto-pattern creation (RULE-035: >= 0.7) */
     qualifiesForPattern: boolean;
 }
 /**
@@ -46,7 +48,7 @@ export interface QualityAssessment {
  * - Mode relevance: Mode-specific quality indicators
  *
  * @param interaction - The interaction to assess
- * @param threshold - Auto-store threshold (default 0.6)
+ * @param threshold - Auto-store threshold (default 0.5 per RULE-035)
  * @returns Quality score between 0 and 1
  */
 export declare function estimateQuality(interaction: QualityInteraction, threshold?: number): number;
@@ -54,7 +56,7 @@ export declare function estimateQuality(interaction: QualityInteraction, thresho
  * Perform detailed quality assessment with factor breakdown.
  *
  * @param interaction - The interaction to assess
- * @param threshold - Auto-store threshold (default 0.6)
+ * @param threshold - Auto-store/feedback threshold (default 0.5 per RULE-035)
  * @returns Detailed quality assessment
  */
 export declare function assessQuality(interaction: QualityInteraction, threshold?: number): QualityAssessment;

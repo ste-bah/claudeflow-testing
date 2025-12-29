@@ -51,7 +51,7 @@ export type TrajectoryID = string;
  * reasoning mode, and optional parameters for filtering and enhancement.
  */
 export interface IReasoningRequest {
-    /** Query embedding vector (768 dimensions, L2-normalized) */
+    /** Query embedding vector (1536 dimensions, L2-normalized) */
     query: Float32Array;
     /** Optional context embeddings for multi-turn reasoning */
     context?: Float32Array[];
@@ -63,7 +63,7 @@ export interface IReasoningRequest {
     confidenceThreshold?: number;
     /** Minimum L-Score threshold [0, 1] (default: 0.5) */
     minLScore?: number;
-    /** Apply GNN enhancement to transform 768D → 1024D (default: false) */
+    /** Apply GNN enhancement to transform 1536D → 1024D (default: false) */
     enhanceWithGNN?: boolean;
     /** Apply Sona learning weights (default: true) */
     applyLearning?: boolean;
@@ -223,7 +223,7 @@ export interface TrajectoryRecord {
     request: IReasoningRequest;
     /** Reasoning response generated */
     response: IReasoningResponse;
-    /** Original query embedding (768D) */
+    /** Original query embedding (1536D) */
     embedding: Float32Array;
     /** GNN-enhanced embedding (1024D) if available */
     enhancedEmbedding?: Float32Array;
@@ -242,10 +242,10 @@ export interface TrajectoryRecord {
  * GNN (Graph Neural Network) configuration
  *
  * Configuration for the GNN enhancement module that transforms
- * 768D embeddings to 1024D enhanced representations.
+ * 1536D embeddings to 1024D enhanced representations.
  */
 export interface GNNConfig {
-    /** Input embedding dimension (fixed: 768) */
+    /** Input embedding dimension (fixed: 1536) */
     inputDim: number;
     /** Output embedding dimension (fixed: 1024) */
     outputDim: number;
@@ -383,7 +383,7 @@ export interface IContextualMatch {
 export interface IGNNEnhancementResult {
     /** Enhanced embedding (1024 dimensions) */
     enhanced: Float32Array;
-    /** Original embedding (768 dimensions) */
+    /** Original embedding (1536 dimensions) */
     original?: Float32Array;
     /** Enhancement time in milliseconds */
     enhancementTime?: number;

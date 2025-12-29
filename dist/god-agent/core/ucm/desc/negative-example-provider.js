@@ -80,7 +80,7 @@ export class NegativeExampleProvider {
             return await this.outcomeTracker.shouldWarn(episodeId);
         }
         catch {
-            // GUARD-IDESC-005: Graceful degradation
+            // INTENTIONAL: GUARD-IDESC-005 - Graceful degradation on tracker failure
             return false;
         }
     }
@@ -95,7 +95,7 @@ export class NegativeExampleProvider {
             return await this.outcomeTracker.generateWarning(episodeId);
         }
         catch {
-            // GUARD-IDESC-005: Graceful degradation
+            // INTENTIONAL: GUARD-IDESC-005 - Graceful degradation on warning generation failure
             return null;
         }
     }
@@ -165,7 +165,7 @@ export class NegativeExampleProvider {
             return stats;
         }
         catch {
-            // Graceful degradation - return null stats
+            // INTENTIONAL: Graceful degradation - return null stats on tracker failure
             return null;
         }
     }
@@ -192,7 +192,7 @@ export class NegativeExampleProvider {
             }
         }
         catch {
-            // Graceful degradation - return empty map
+            // INTENTIONAL: Graceful degradation - return null stats for all episodes on batch failure
             for (const id of episodeIds) {
                 statsMap.set(id, null);
             }

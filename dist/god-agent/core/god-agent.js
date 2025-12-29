@@ -42,7 +42,7 @@ import { EmbeddingProviderFactory } from './memory/embedding-provider.js';
  * // Store knowledge
  * const result = await agent.store({
  *   content: 'Important pattern',
- *   embedding: new Float32Array(768)
+ *   embedding: new Float32Array(VECTOR_DIM) // 1536 dimensions
  * });
  *
  * // Query knowledge
@@ -266,6 +266,7 @@ export class GodAgent {
             this.log('Loaded SoNA weights from disk');
         }
         catch {
+            // INTENTIONAL: No existing SoNA weights - start fresh is valid for first run
             this.log('No existing SoNA weights found, starting fresh');
         }
         // Inject SonaEngine into ReasoningBank for feedback loop
@@ -315,6 +316,7 @@ export class GodAgent {
             this.log('MemoryClient connected for search');
         }
         catch {
+            // INTENTIONAL: MemoryClient server not running - graceful degradation for search
             this.log('MemoryClient connection skipped (server not running)');
         }
         // Create UnifiedSearch with all components
@@ -908,6 +910,26 @@ export class GodAgent {
      */
     async shutdown() {
         this.log('Shutting down God Agent...');
+        // TASK-GNN-009: Force training before shutdown
+        // Ensures any pending feedback trajectories are trained
+        const trainingTrigger = this.reasoningBank?.getTrainingTrigger();
+        if (trainingTrigger) {
+            try {
+                this.log('Forcing final GNN training before shutdown...');
+                const result = await trainingTrigger.forceTraining();
+                if (result.triggered) {
+                    this.log(`Final training completed: ${result.epochResults?.length ?? 0} epochs, loss: ${result.finalLoss?.toFixed(6)}`);
+                }
+                else {
+                    this.log(`Final training skipped: ${result.reason}`);
+                }
+                // Clean up training trigger
+                trainingTrigger.destroy();
+            }
+            catch (error) {
+                console.error('[GodAgent] Failed to complete final training:', error);
+            }
+        }
         // Save SoNA weights before shutdown
         if (this.sonaEngine) {
             try {

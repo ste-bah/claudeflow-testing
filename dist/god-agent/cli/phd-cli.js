@@ -5,6 +5,7 @@
  */
 import { Command } from 'commander';
 import { v4 as uuidv4 } from 'uuid';
+import * as path from 'path';
 import { StyleProfileManager } from '../universal/style-profile.js';
 import { SessionManager } from './session-manager.js';
 import { AgentMismatchError } from './cli-types.js';
@@ -16,6 +17,7 @@ import { SessionNotFoundError, SessionCorruptedError, SessionExpiredError } from
 import { DynamicAgentGenerator } from './dynamic-agent-generator.js';
 import { ChapterStructureLoader } from './chapter-structure-loader.js';
 import { getUCMClient } from './ucm-daemon-client.js';
+import { PhdPipelineAdapter } from '../core/ucm/adapters/phd-pipeline-adapter.js';
 import { SocketClient } from '../observability/socket-client.js';
 import { FinalStageOrchestrator, PROGRESS_MILESTONES } from './final-stage/index.js';
 // Lazy-initialized socket client for event emission
@@ -27,7 +29,7 @@ async function getSocketClient() {
             await socketClient.connect();
         }
         catch {
-            // Non-blocking - observability is optional
+            // INTENTIONAL: Non-blocking - observability socket connection is optional for CLI operation
             return null;
         }
     }
@@ -45,7 +47,7 @@ function emitPipelineEvent(event) {
             };
             client.send(fullEvent);
         }
-        catch { /* ignore */ }
+        catch { /* INTENTIONAL: Best-effort event emission - observability failures must not block CLI */ }
     });
 }
 const program = new Command();
@@ -96,6 +98,7 @@ async function commandInit(query, options, sessionBasePath) {
     const slug = generateSlug(query);
     const session = sessionManager.createSession(sessionId, query, styleProfile.metadata.id, pipelineId);
     session.slug = slug;
+    session.researchDir = path.join(process.cwd(), 'docs/research', slug);
     // Persist to disk with atomic write pattern
     await sessionManager.saveSession(session);
     if (options.verbose) {
@@ -110,8 +113,8 @@ async function commandInit(query, options, sessionBasePath) {
     const firstAgentConfig = await pipelineLoader.getAgentByIndex(0);
     const pipelineConfig = await pipelineLoader.loadPipelineConfig();
     const totalAgentCount = pipelineConfig.agents.length;
-    // Build prompt with style injection (Phase 6 only) and query injection
-    const prompt = await styleInjector.buildAgentPrompt(firstAgentConfig, styleProfile.metadata.id, query);
+    // Build prompt with style injection (Phase 6 only), query injection, and output context
+    const prompt = await styleInjector.buildAgentPrompt(firstAgentConfig, styleProfile.metadata.id, query, { researchDir: session.researchDir, agentIndex: 0, agentKey: firstAgentConfig.key });
     // Build first agent details using pipeline loader (not hardcoded)
     const firstAgent = {
         index: 0,
@@ -156,7 +159,7 @@ async function determineStyleProfile(profileId) {
         }
     }
     catch {
-        // StyleProfileManager may not have profiles yet
+        // INTENTIONAL: StyleProfileManager may not have profiles yet - fallback to default is valid
     }
     // Fall back to a default identifier
     return 'default-academic';
@@ -179,7 +182,7 @@ async function loadStyleProfile(profileId) {
         }
     }
     catch {
-        // StyleProfileManager may fail if no profiles exist
+        // INTENTIONAL: StyleProfileManager may fail if no profiles exist - fallback to default profile
     }
     // Return minimal default profile
     return {
@@ -263,6 +266,58 @@ function generateSlug(query) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
         .substring(0, 50);
+}
+/**
+ * Get expected output path for an agent
+ * [REQ-PIPE-025] Consistent file naming: {index:02d}-{agent-key}.md
+ */
+function getExpectedOutputPath(researchDir, agentIndex, agentKey) {
+    const paddedIndex = String(agentIndex).padStart(2, '0');
+    return path.join(researchDir, `${paddedIndex}-${agentKey}.md`);
+}
+/**
+ * Try to find and read agent output file with fallback paths
+ * [REQ-PIPE-026] Auto-capture output from expected locations
+ */
+async function tryReadAgentOutput(researchDir, agentIndex, agentKey) {
+    const fs = await import('fs/promises');
+    // Transform agent key to common file name patterns
+    const baseKey = agentKey.replace(/-/g, '-');
+    const keyWithoutSuffix = agentKey
+        .replace(/-analyst$/, '')
+        .replace(/-analyzer$/, '')
+        .replace(/-hunter$/, '')
+        .replace(/-manager$/, '')
+        .replace(/-definer$/, '');
+    // Priority order of paths to check
+    const pathsToTry = [
+        // Standard numbered path: 00-agent-key.md
+        getExpectedOutputPath(researchDir, agentIndex, agentKey),
+        // Unnumbered: agent-key.md
+        path.join(researchDir, `${agentKey}.md`),
+        // Common variations: *-analysis.md, *-tiers.md, etc.
+        path.join(researchDir, `${keyWithoutSuffix}-analysis.md`),
+        path.join(researchDir, `${keyWithoutSuffix}-tiers.md`),
+        path.join(researchDir, `${keyWithoutSuffix}s.md`),
+        path.join(researchDir, `${keyWithoutSuffix}.md`),
+        // Legacy patterns from fourth-turning
+        path.join(researchDir, `${baseKey}-analysis.md`),
+        path.join(researchDir, 'risk-analysis-fmea.md'), // specific risk-analyst fallback
+        // In synthesis subfolder (legacy)
+        path.join(researchDir, 'synthesis', `${String(agentIndex).padStart(2, '0')}-${agentKey}.md`),
+        path.join(researchDir, 'synthesis', `${agentKey}.md`),
+        path.join(researchDir, 'synthesis', `${keyWithoutSuffix}.md`),
+    ];
+    for (const filePath of pathsToTry) {
+        try {
+            const content = await fs.readFile(filePath, 'utf-8');
+            return { content, outputPath: filePath };
+        }
+        catch {
+            // INTENTIONAL: File doesn't exist at this path - try next location in search order
+        }
+    }
+    return null;
 }
 // ============================================================================
 // TASK-PIPE-004: Next Command
@@ -398,8 +453,11 @@ async function commandNext(sessionId, options, sessionBasePath) {
         // No dynamic agents, use static
         agentConfig = await pipelineLoader.getAgentByIndex(session.currentAgentIndex);
     }
-    // Build prompt with style injection (Phase 6 only) and query injection
-    let prompt = await styleInjector.buildAgentPrompt(agentConfig, session.styleProfileId, session.query);
+    // Compute researchDir (handle legacy sessions without it)
+    const researchDir = session.researchDir ||
+        path.join(process.cwd(), 'docs/research', session.slug || generateSlug(session.query));
+    // Build prompt with style injection (Phase 6 only), query injection, and output context
+    let prompt = await styleInjector.buildAgentPrompt(agentConfig, session.styleProfileId, session.query, { researchDir, agentIndex: session.currentAgentIndex, agentKey: agentConfig.key });
     // [ROLLING-PROMPT] Add dynamic workflow context
     const previousAgentKey = session.currentAgentIndex > 0
         ? session.completedAgents[session.completedAgents.length - 1] || 'N/A'
@@ -453,33 +511,58 @@ When you complete this task, end your response with:
     // Prepend workflow context to prompt
     prompt = workflowContext + prompt;
     // [UCM-DESC] Inject prior solutions from DESC episodic memory
-    let descInjectionResult = { episodesUsed: 0, episodeIds: [] };
+    // Use PhdPipelineAdapter for phase-aware window sizes (RULE-010 to RULE-014)
+    let descInjectionResult = { episodesUsed: 0, episodeIds: [], windowSize: 3 };
     try {
         const ucmClient = getUCMClient();
         if (await ucmClient.isHealthy()) {
+            // Use PhdPipelineAdapter to get phase-aware window size
+            const pipelineAdapter = new PhdPipelineAdapter();
+            const phaseName = getPhaseName(agentConfig.phase);
+            // Map numeric phase to adapter's phase detection context
+            // Phase 1: Foundation -> planning (2 messages, RULE-011)
+            // Phase 2: Discovery -> research (3 messages, RULE-012)
+            // Phase 3-5: Architecture/Synthesis/Design -> default (3 messages, RULE-010)
+            // Phase 6: Writing -> writing (5 messages, RULE-013)
+            // Phase 7: Validation -> qa (10 messages, RULE-014)
+            const phaseContext = {
+                pipelineName: 'phd-pipeline',
+                agentId: agentConfig.key,
+                phase: phaseName.toLowerCase(),
+                task: session.query
+            };
+            const windowSize = pipelineAdapter.getWindowSize(phaseContext);
             const injection = await ucmClient.injectSolutions(prompt, {
-                threshold: 0.75,
-                maxEpisodes: 3,
+                threshold: 0.80, // Per task requirements
+                maxEpisodes: windowSize,
                 agentType: agentConfig.key,
                 metadata: {
                     sessionId: session.sessionId,
                     phase: agentConfig.phase,
-                    phaseName: getPhaseName(agentConfig.phase),
+                    phaseName,
                     agentIndex: session.currentAgentIndex,
                     totalAgents,
+                    windowSize, // Include for traceability
                 },
             });
             if (injection.episodesUsed > 0) {
                 prompt = injection.augmentedPrompt;
-                descInjectionResult = { episodesUsed: injection.episodesUsed, episodeIds: injection.episodeIds };
+                descInjectionResult = {
+                    episodesUsed: injection.episodesUsed,
+                    episodeIds: injection.episodeIds,
+                    windowSize
+                };
                 if (options.verbose) {
-                    console.error(`[UCM-DESC] Injected ${injection.episodesUsed} prior solutions for ${agentConfig.key}`);
+                    console.error(`[UCM-DESC] Injected ${injection.episodesUsed} prior solutions for ${agentConfig.key} (window: ${windowSize}, phase: ${phaseName})`);
                 }
+            }
+            else if (options.verbose) {
+                console.error(`[UCM-DESC] No matching episodes found for ${agentConfig.key} (window: ${windowSize}, phase: ${phaseName})`);
             }
         }
     }
     catch (error) {
-        // DESC injection is optional - continue without it
+        // DESC injection is optional - continue without it (graceful fallback)
         if (options.verbose) {
             console.error(`[UCM-DESC] Injection skipped: ${error}`);
         }
@@ -536,6 +619,7 @@ When you complete this task, end your response with:
         desc: descInjectionResult.episodesUsed > 0 ? {
             episodesInjected: descInjectionResult.episodesUsed,
             episodeIds: descInjectionResult.episodeIds,
+            windowSize: descInjectionResult.windowSize,
         } : undefined,
     };
 }
@@ -630,7 +714,7 @@ async function commandComplete(sessionId, agentKey, options, sessionBasePath) {
             output = JSON.parse(options.result);
         }
         catch {
-            // JSON parse error - still complete agent, but warn
+            // INTENTIONAL: JSON parse error - still complete agent, but warn user (logged via console.error)
             console.error(JSON.stringify({
                 warning: 'Invalid JSON in --result parameter; agent marked complete without output'
             }));
@@ -644,6 +728,7 @@ async function commandComplete(sessionId, agentKey, options, sessionBasePath) {
                 output = JSON.parse(content);
             }
             catch {
+                // INTENTIONAL: JSON parse error in file - warn user but still complete agent
                 console.error(JSON.stringify({
                     warning: 'Invalid JSON in file; agent marked complete without output'
                 }));
@@ -652,6 +737,34 @@ async function commandComplete(sessionId, agentKey, options, sessionBasePath) {
         catch (err) {
             console.error(JSON.stringify({
                 warning: `Could not read file ${options.file}; agent marked complete without output`
+            }));
+        }
+    }
+    // [REQ-PIPE-026] Auto-read output from expected location if not explicitly provided
+    if (output === null) {
+        // Compute researchDir from session or generate from slug
+        const researchDir = session.researchDir ||
+            path.join(process.cwd(), 'docs/research', session.slug || generateSlug(session.query));
+        // Store researchDir in session if not already set (for legacy sessions)
+        if (!session.researchDir) {
+            session.researchDir = researchDir;
+        }
+        const autoRead = await tryReadAgentOutput(researchDir, session.currentAgentIndex, agentKey);
+        if (autoRead) {
+            output = {
+                status: 'complete',
+                content: autoRead.content,
+                output_file: autoRead.outputPath,
+                auto_captured: true,
+                word_count: autoRead.content.split(/\s+/).length,
+            };
+            console.error(JSON.stringify({
+                info: `[REQ-PIPE-026] Auto-captured output from: ${autoRead.outputPath}`
+            }));
+        }
+        else {
+            console.error(JSON.stringify({
+                warning: `[REQ-PIPE-026] No output file found for ${agentKey} at index ${session.currentAgentIndex}`
             }));
         }
     }
@@ -1101,8 +1214,11 @@ async function commandResume(sessionId, options, sessionBasePath) {
         // No dynamic agents, use static
         agentConfig = await pipelineLoader.getAgentByIndex(session.currentAgentIndex);
     }
-    // Build prompt with style injection and query injection
-    const prompt = await styleInjector.buildAgentPrompt(agentConfig, session.styleProfileId, session.query);
+    // Compute researchDir (handle legacy sessions without it)
+    const researchDir = session.researchDir ||
+        path.join(process.cwd(), 'docs/research', session.slug || generateSlug(session.query));
+    // Build prompt with style injection, query injection, and output context
+    const prompt = await styleInjector.buildAgentPrompt(agentConfig, session.styleProfileId, session.query, { researchDir, agentIndex: session.currentAgentIndex, agentKey: agentConfig.key });
     // Build agent details
     const agentDetails = {
         index: session.currentAgentIndex,
@@ -1190,8 +1306,32 @@ program
     .option('--verbose', 'Enable detailed logging', false)
     .option('--sequential', 'Write chapters sequentially (safer, slower)', false)
     .option('--skip-validation', 'Skip quality validation (debug only)', false)
+    .option('--generate-prompts', 'Output synthesis prompts for Claude Code agents', false)
+    .option('--style-profile <id>', 'Style profile ID to use (overrides session lookup)')
     .action(async (options) => {
     try {
+        // If --generate-prompts is set, output synthesis prompts for Claude Code
+        if (options.generatePrompts) {
+            const prompts = await commandGeneratePrompts(options);
+            // Output prompts as JSON for Claude Code to consume
+            console.log(JSON.stringify({
+                success: true,
+                mode: 'generate-prompts',
+                totalPrompts: prompts.length,
+                prompts: prompts.map(p => ({
+                    chapterNumber: p.chapterNumber,
+                    chapterTitle: p.chapterTitle,
+                    wordTarget: p.wordTarget,
+                    sections: p.sections,
+                    styleProfileId: p.styleProfileId,
+                    outputPath: p.outputPath,
+                    agentType: p.agentType,
+                    prompt: p.prompt
+                }))
+            }, null, 2));
+            process.exit(0);
+            return;
+        }
         const result = await commandFinalize(options);
         // Output result as JSON
         console.log(JSON.stringify({
@@ -1401,6 +1541,68 @@ async function commandFinalize(cliOptions) {
         console.log('');
     }
     return result;
+}
+/**
+ * Generate synthesis prompts for Claude Code to spawn chapter-synthesizer agents
+ *
+ * This is the PREFERRED method for high-quality chapter generation.
+ * Instead of basic concatenation, it outputs prompts that Claude Code
+ * uses to spawn the chapter-synthesizer agent for each chapter.
+ *
+ * @param cliOptions - Command line options
+ * @returns Array of synthesis prompts for Claude Code Task tool
+ */
+async function commandGeneratePrompts(cliOptions) {
+    const basePath = process.cwd();
+    const threshold = parseFloat(cliOptions.threshold ?? '0.30');
+    if (isNaN(threshold) || threshold < 0 || threshold > 1) {
+        throw new Error('Threshold must be a number between 0 and 1');
+    }
+    console.error('[Phase 8 - Generate Prompts] Initializing...');
+    // Find session to get style profile ID
+    const sessionManager = new SessionManager();
+    const sessions = await sessionManager.listSessions();
+    const matchingSession = sessions.find((s) => s.slug === cliOptions.slug ||
+        s.query?.toLowerCase().includes(cliOptions.slug.toLowerCase().replace(/-/g, ' ')));
+    // Use explicitly passed style profile, or fall back to session lookup
+    const styleProfileId = cliOptions.styleProfile || matchingSession?.styleProfileId;
+    if (styleProfileId) {
+        const source = cliOptions.styleProfile ? 'CLI option' : 'session';
+        console.error(`[Phase 8] Using style profile: ${styleProfileId} (from ${source})`);
+    }
+    else {
+        console.error('[Phase 8] WARNING: No style profile found - using UK English defaults');
+    }
+    // Create orchestrator (styleProfileId passed to execute())
+    const orchestrator = new FinalStageOrchestrator(basePath, cliOptions.slug);
+    // Initialize and run scanning/mapping phases
+    console.error('[Phase 8] Scanning and mapping research outputs...');
+    // Run dry-run mode which executes SCANNING -> SUMMARIZING -> MAPPING phases
+    // This populates the cached structure, summaries, and mapping
+    const dryRunResult = await orchestrator.execute({
+        dryRun: true,
+        force: cliOptions.force ?? false,
+        verbose: cliOptions.verbose ?? false,
+        threshold,
+        styleProfileId
+    });
+    if (!dryRunResult.success) {
+        throw new Error(`Dry run failed: ${dryRunResult.errors?.join(', ') || 'unknown error'}`);
+    }
+    // Get the internal data we need
+    const structure = orchestrator.getChapterStructure();
+    const summaries = orchestrator.getSummaries();
+    const mapping = orchestrator.getMapping();
+    if (!structure || !summaries || !mapping) {
+        throw new Error('Failed to initialize - missing structure, summaries, or mapping');
+    }
+    // Generate synthesis prompts
+    console.error(`[Phase 8] Generating ${structure.totalChapters} synthesis prompts...`);
+    const prompts = await orchestrator.generateSynthesisPrompts(structure, summaries, mapping);
+    console.error('[Phase 8] Prompts generated successfully');
+    console.error('');
+    console.error('Use these prompts with Claude Code Task tool to spawn chapter-synthesizer agents.');
+    return prompts;
 }
 /**
  * Handle finalize command errors with appropriate exit codes

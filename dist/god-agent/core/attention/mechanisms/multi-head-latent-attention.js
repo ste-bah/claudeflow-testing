@@ -15,6 +15,7 @@
  *
  * @module attention/mechanisms/multi-head-latent-attention
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf } from '../utils/index.js';
 export class RealMultiHeadLatentAttention {
     name = 'multi-head-latent';
@@ -31,7 +32,7 @@ export class RealMultiHeadLatentAttention {
     Wv; // [dimension × dimension]
     Wo; // [dimension × dimension]
     constructor(config = {}) {
-        this.dimension = config.dimension ?? 768;
+        this.dimension = config.dimension ?? VECTOR_DIM;
         this.numHeads = config.numHeads ?? 12;
         this.numLatents = config.numLatents ?? 64;
         this.seed = config.seed ?? 42;

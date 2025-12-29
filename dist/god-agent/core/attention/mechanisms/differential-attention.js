@@ -26,6 +26,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Differential Attention Implementation
@@ -67,7 +68,7 @@ export class RealDifferentialAttention {
      * Initialize Differential attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.lambda Initial subtraction coefficient (default: 0.8)
      * @param config.seed Random seed for initialization (optional)
@@ -76,7 +77,7 @@ export class RealDifferentialAttention {
      * @throws Error if headDim is not even (needed for Q/K split)
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 8;
         this.lambda = config?.lambda ?? 0.8;
         // Validate configuration

@@ -63,11 +63,34 @@ export type QualityAssessmentCallback = (
 ) => Promise<IQualityAssessment>;
 
 // ============================================================================
+// Learning Feedback Types (TASK-HOOK-009)
+// ============================================================================
+
+/**
+ * Learning feedback callback type
+ *
+ * Called after quality assessment to feed scores to the learning system.
+ * RULE-035: All agent results MUST be assessed for quality with 0.5 threshold
+ *
+ * @param trajectoryId - The trajectory being assessed
+ * @param qualityScore - The quality score (0.0 - 1.0)
+ * @param metadata - Additional metadata for learning
+ */
+export type LearningFeedbackCallback = (
+  trajectoryId: string,
+  qualityScore: number,
+  metadata?: Record<string, unknown>
+) => Promise<void>;
+
+// ============================================================================
 // Callback Management
 // ============================================================================
 
 /** Registered callback for quality assessment */
 let qualityCallback: QualityAssessmentCallback | null = null;
+
+/** Registered callback for learning feedback (TASK-HOOK-009) */
+let learningFeedbackCallback: LearningFeedbackCallback | null = null;
 
 /**
  * Set the quality assessment callback
@@ -83,6 +106,36 @@ export function setQualityAssessmentCallback(callback: QualityAssessmentCallback
 }
 
 /**
+ * Set the learning feedback callback (TASK-HOOK-009)
+ *
+ * Should be called during initialization to connect to ReasoningBank/SonaEngine.
+ * The callback is invoked after quality assessment to feed scores to learning system.
+ *
+ * RULE-035: All agent results MUST be assessed for quality with 0.5 threshold
+ * RULE-036: Task hook outputs MUST include quality assessment scores
+ *
+ * @param callback - Function to call for learning feedback
+ *
+ * @example
+ * ```typescript
+ * import { setLearningFeedbackCallback } from './hooks/handlers/quality-assessment-trigger.js';
+ *
+ * // During initialization when ReasoningBank is available
+ * setLearningFeedbackCallback(async (trajectoryId, quality, metadata) => {
+ *   await reasoningBank.provideFeedback({
+ *     trajectoryId,
+ *     quality,
+ *     verdict: quality >= 0.7 ? 'correct' : quality >= 0.4 ? 'neutral' : 'incorrect'
+ *   });
+ * });
+ * ```
+ */
+export function setLearningFeedbackCallback(callback: LearningFeedbackCallback): void {
+  learningFeedbackCallback = callback;
+  logger.info('Learning feedback callback registered (TASK-HOOK-009)');
+}
+
+/**
  * Check if a quality assessment callback is registered
  *
  * @returns True if callback is registered
@@ -92,11 +145,28 @@ export function hasQualityAssessmentCallback(): boolean {
 }
 
 /**
+ * Check if a learning feedback callback is registered (TASK-HOOK-009)
+ *
+ * @returns True if callback is registered
+ */
+export function hasLearningFeedbackCallback(): boolean {
+  return learningFeedbackCallback !== null;
+}
+
+/**
  * Clear the quality assessment callback (for testing)
  * WARNING: Only for testing purposes
  */
 export function _clearQualityAssessmentCallbackForTesting(): void {
   qualityCallback = null;
+}
+
+/**
+ * Clear the learning feedback callback (for testing)
+ * WARNING: Only for testing purposes
+ */
+export function _clearLearningFeedbackCallbackForTesting(): void {
+  learningFeedbackCallback = null;
 }
 
 // ============================================================================
@@ -199,6 +269,38 @@ export function registerQualityAssessmentTriggerHook(): void {
           });
         }
 
+        // TASK-HOOK-009: Invoke learning feedback callback if registered
+        // This closes the feedback loop to ReasoningBank/SonaEngine
+        // RULE-035: All agent results MUST be assessed for quality with 0.5 threshold
+        let learningFeedbackSubmitted = false;
+        if (learningFeedbackCallback && meetsFeedbackThreshold) {
+          try {
+            await learningFeedbackCallback(
+              context.trajectoryId,
+              assessment.score,
+              {
+                toolName: context.toolName,
+                sessionId: context.sessionId,
+                meetsPatternThreshold,
+                meetsFeedbackThreshold,
+                breakdown: assessment.breakdown,
+              }
+            );
+            learningFeedbackSubmitted = true;
+            logger.info('Learning feedback submitted', {
+              trajectoryId: context.trajectoryId,
+              score: assessment.score,
+              meetsPatternThreshold,
+            });
+          } catch (feedbackError) {
+            // Log but don't fail - learning feedback is best-effort
+            logger.warn('Learning feedback failed', {
+              trajectoryId: context.trajectoryId,
+              error: feedbackError instanceof Error ? feedbackError.message : String(feedbackError),
+            });
+          }
+        }
+
         return {
           continue: true,
           metadata: {
@@ -207,6 +309,7 @@ export function registerQualityAssessmentTriggerHook(): void {
             qualityBreakdown: assessment.breakdown,
             meetsPatternThreshold,
             meetsFeedbackThreshold,
+            learningFeedbackSubmitted,
             assessedAt: Date.now()
           }
         };

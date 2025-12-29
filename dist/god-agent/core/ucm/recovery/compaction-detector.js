@@ -70,7 +70,7 @@ export class CompactionDetector {
      * @returns Timestamp in milliseconds, or 0 if never detected
      */
     getCompactionTimestamp() {
-        return this.state.timestamp || null;
+        return this.state.timestamp;
     }
     /**
      * Check if currently in recovery mode

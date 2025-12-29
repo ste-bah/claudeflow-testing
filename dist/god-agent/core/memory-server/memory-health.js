@@ -121,7 +121,7 @@ export class MemoryHealthMonitor {
                 listener(result);
             }
             catch {
-                // Ignore listener errors
+                // INTENTIONAL: Listener errors must not propagate to prevent cascade failures
             }
         }
     }
@@ -140,11 +140,12 @@ export class MemoryHealthMonitor {
                 return pidFile.address;
             }
             catch {
-                // Process not running
+                // INTENTIONAL: Process not running - return null to indicate server down
                 return null;
             }
         }
         catch {
+            // INTENTIONAL: PID file not found - server not started
             return null;
         }
     }
@@ -160,6 +161,7 @@ export class MemoryHealthMonitor {
             return result !== null;
         }
         catch {
+            // INTENTIONAL: Server health check failure - return false to indicate unhealthy
             return false;
         }
     }
@@ -198,6 +200,7 @@ export class MemoryHealthMonitor {
                         }
                     }
                     catch {
+                        // INTENTIONAL: Message parse failure - return null to indicate ping failed
                         resolve(null);
                     }
                     socket.destroy();
@@ -241,6 +244,7 @@ export class MemoryHealthMonitor {
                         }
                     }
                     catch {
+                        // INTENTIONAL: JSON parse failure - return null to indicate ping failed
                         resolve(null);
                     }
                 });
@@ -282,10 +286,12 @@ export class MemoryHealthMonitor {
                 report.serverProcessRunning = true;
             }
             catch {
+                // INTENTIONAL: Process not found - mark as not running
                 report.serverProcessRunning = false;
             }
         }
         catch {
+            // INTENTIONAL: PID file read failed - mark as not existing
             report.pidFileExists = false;
         }
         // Check server reachability

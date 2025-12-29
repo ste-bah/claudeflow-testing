@@ -15,6 +15,11 @@ import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 import { BUFFER_LIMITS, } from './types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../core/observability/index.js';
+const logger = createComponentLogger('EventStore', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler({ useStderr: true })]
+});
 // =============================================================================
 // Implementation
 // =============================================================================
@@ -195,7 +200,7 @@ export class EventStore {
         }
         catch (error) {
             // Log error but don't throw (non-blocking)
-            console.error('[EventStore] SQLite batch write failed:', error);
+            logger.error('SQLite batch write failed', error instanceof Error ? error : new Error(String(error)));
         }
         // Continue flushing if more events queued
         if (this.writeQueue.length > 0) {
@@ -321,7 +326,7 @@ export class EventStore {
                 resolve(events);
             }
             catch (error) {
-                console.error('[EventStore] SQLite query failed:', error);
+                logger.error('SQLite query failed', error instanceof Error ? error : new Error(String(error)));
                 resolve([]);
             }
         });

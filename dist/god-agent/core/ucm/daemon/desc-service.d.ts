@@ -13,6 +13,22 @@ import { SymmetricChunker } from '../desc/symmetric-chunker.js';
 import { DualEmbeddingStore } from '../desc/dual-embedding-store.js';
 import { EpisodeRetriever } from '../desc/episode-retriever.js';
 import { EmbeddingProxy } from '../desc/embedding-proxy.js';
+/**
+ * Configuration for DescService
+ * RULE-030: DescService MUST use persistent storage
+ */
+export interface IDescServiceConfig {
+    /** Database path for persistent storage (required if embeddingStore not provided) */
+    dbPath?: string;
+    /** Pre-configured embedding store (overrides dbPath) */
+    embeddingStore?: DualEmbeddingStore;
+    /** Pre-configured chunker (optional) */
+    chunker?: SymmetricChunker;
+    /** Pre-configured retriever (optional) */
+    retriever?: EpisodeRetriever;
+    /** Pre-configured embedding proxy (optional) */
+    embeddingProxy?: EmbeddingProxy;
+}
 interface JsonRpcRequest {
     jsonrpc: '2.0';
     method: string;
@@ -35,7 +51,17 @@ export declare class DescService {
     private embeddingStore;
     private retriever;
     private embeddingProxy;
-    constructor(chunker?: SymmetricChunker, embeddingStore?: DualEmbeddingStore, retriever?: EpisodeRetriever, embeddingProxy?: EmbeddingProxy);
+    private readonly logger;
+    /**
+     * Create a new DescService instance
+     *
+     * RULE-030: DescService MUST use persistent storage.
+     * Either `embeddingStore` or `dbPath` must be provided.
+     *
+     * @param config - Configuration with persistent storage settings
+     * @throws MissingConfigError if no storage configuration is provided
+     */
+    constructor(config: IDescServiceConfig);
     /**
      * Handle JSON-RPC 2.0 request
      */
@@ -63,6 +89,23 @@ export declare class DescService {
     private successResponse;
     private errorResponse;
     private handleError;
+    /**
+     * Retrieve relevant episodes matching a query
+     * Implements IDescServiceLike interface for auto-injection hook
+     *
+     * RULE-033: DESC context MUST be injected into every Task-style tool call
+     *
+     * @param query - Search query text
+     * @param options - Optional retrieval parameters
+     * @returns Array of relevant episodes with id, summary, and content
+     */
+    retrieveRelevant(query: string, options?: {
+        limit?: number;
+    }): Promise<Array<{
+        id: string;
+        summary?: string;
+        content?: string;
+    }>>;
 }
 export {};
 //# sourceMappingURL=desc-service.d.ts.map

@@ -273,6 +273,7 @@ export class MultiInstanceTest {
             }
         }
         catch {
+            // INTENTIONAL: Network partition test - failure is recorded via survivedPartition flag
             survivedPartition = false;
         }
         // Heal partition

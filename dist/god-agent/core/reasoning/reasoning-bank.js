@@ -21,7 +21,13 @@ import { ModeSelector } from './mode-selector.js';
 import { ReasoningMode } from './reasoning-types.js';
 import { TaskType } from './pattern-types.js';
 import { assertDimensions } from '../validation/index.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 import { ObservabilityBus } from '../observability/bus.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../observability/index.js';
+const logger = createComponentLogger('ReasoningBank', {
+    minLevel: LogLevel.INFO,
+    handlers: [new ConsoleLogHandler()]
+});
 /**
  * Default configuration for ReasoningBank
  */
@@ -49,12 +55,12 @@ export class ReasoningBank {
     vectorDB;
     gnnEnhancer;
     trajectoryTracker;
-    // Reserved for future auto-selection feature
-    _modeSelector;
+    _modeSelector; // Reserved for future auto-selection feature
     config;
     initialized = false;
     sonaEngine;
     provenanceStore;
+    trainingTrigger;
     constructor(deps) {
         this.patternMatcher = deps.patternMatcher;
         this.causalMemory = deps.causalMemory;
@@ -62,17 +68,22 @@ export class ReasoningBank {
         this.sonaEngine = deps.sonaEngine;
         this.provenanceStore = deps.provenanceStore;
         this.config = { ...DEFAULT_CONFIG, ...deps.config };
-        // Initialize GNN enhancer with proper config (1536D per architecture diagram)
+        // Initialize GNN enhancer with proper config
+        // Per CONSTITUTION RULE-089: Use VECTOR_DIM constant for dimension consistency
         this.gnnEnhancer = new GNNEnhancer({
-            inputDim: 1536,
-            outputDim: 1536,
+            inputDim: VECTOR_DIM,
+            outputDim: VECTOR_DIM,
             numLayers: 3,
-            attentionHeads: 12,
+            attentionHeads: 8,
             dropout: 0.1,
             maxNodes: 50
         });
         // Initialize trajectory tracker with config
+        // Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference
+        // Note: sonaEngine may be undefined at construction time (late binding via setSonaEngine)
+        // We use a proxy that defers to this.sonaEngine to support late binding
         this.trajectoryTracker = new TrajectoryTracker({
+            sonaEngine: this.createSonaEngineProxy(),
             maxTrajectories: 10000,
             autoPrune: true
         });
@@ -114,13 +125,34 @@ export class ReasoningBank {
                     successRate: pattern.successRate ?? 0.9,
                     metadata: pattern.metadata,
                 });
-                console.log(`[ReasoningBank] Synced pattern ${pattern.id} to PatternStore`);
+                logger.info('Synced pattern to PatternStore', { patternId: pattern.id });
             }
             catch (error) {
                 // May fail if duplicate or validation error - that's ok
-                console.debug(`[ReasoningBank] Pattern sync skipped: ${error}`);
+                logger.debug('Pattern sync skipped', { error: String(error) });
             }
         });
+    }
+    /**
+     * Set TrainingTriggerController for GNN training triggers
+     *
+     * Implements: TASK-GNN-009
+     * The training trigger monitors feedback and automatically triggers
+     * GNN training when threshold is reached (default: 50 samples)
+     *
+     * @param trigger - TrainingTriggerController instance
+     */
+    setTrainingTrigger(trigger) {
+        this.trainingTrigger = trigger;
+        logger.info('TrainingTriggerController set on ReasoningBank');
+    }
+    /**
+     * Get the TrainingTriggerController instance
+     *
+     * @returns TrainingTriggerController or undefined if not set
+     */
+    getTrainingTrigger() {
+        return this.trainingTrigger;
     }
     /**
      * Get L-Score for a pattern or inference
@@ -160,10 +192,37 @@ export class ReasoningBank {
         // 2. Use explicit mode or default to PATTERN_MATCH
         // (ModeSelector expects string query, but we have embedding)
         const mode = request.type ?? ReasoningMode.PATTERN_MATCH;
+        // Emit reasoning query start event
+        ObservabilityBus.getInstance().emit({
+            component: 'reasoning',
+            operation: 'reasoning_query_executed',
+            status: 'running',
+            metadata: {
+                mode,
+                queryDimension: request.query.length,
+                enhanceWithGNN: request.enhanceWithGNN ?? false,
+                maxResults: request.maxResults ?? this.config.defaultMaxResults,
+                confidenceThreshold: request.confidenceThreshold ?? this.config.defaultConfidenceThreshold,
+            },
+        });
         // 3. Apply GNN enhancement if requested
         let enhancedEmbedding;
         if (request.enhanceWithGNN && this.config.enableGNN) {
+            const gnnStart = performance.now();
             enhancedEmbedding = await this.applyGNNEnhancement(request.query);
+            const gnnDuration = performance.now() - gnnStart;
+            // Emit GNN enhancement event
+            ObservabilityBus.getInstance().emit({
+                component: 'reasoning',
+                operation: 'reasoning_gnn_enhanced',
+                status: enhancedEmbedding ? 'success' : 'warning',
+                durationMs: gnnDuration,
+                metadata: {
+                    inputDim: request.query.length,
+                    outputDim: enhancedEmbedding?.length ?? 0,
+                    success: !!enhancedEmbedding,
+                },
+            });
         }
         // 4. Execute reasoning based on mode
         let result;
@@ -189,14 +248,46 @@ export class ReasoningBank {
         }
         // 6. Track trajectory if enabled
         if (this.config.enableTrajectoryTracking) {
+            const trajectoryStart = performance.now();
             const trajectory = await this.trajectoryTracker.createTrajectory(request, result, request.query, enhancedEmbedding);
             result.trajectoryId = trajectory.id;
+            // Emit trajectory stored event
+            ObservabilityBus.getInstance().emit({
+                component: 'reasoning',
+                operation: 'reasoning_trajectory_stored',
+                status: 'success',
+                durationMs: performance.now() - trajectoryStart,
+                metadata: {
+                    trajectoryId: trajectory.id,
+                    mode,
+                    patternCount: result.patterns.length,
+                    inferenceCount: result.causalInferences.length,
+                    confidence: result.confidence,
+                    lScore: trajectory.lScore,
+                },
+            });
         }
         else {
             result.trajectoryId = `traj_${Date.now()}_untracked`;
         }
         // 7. Set processing time
         result.processingTimeMs = performance.now() - startTime;
+        // Emit reasoning query completed event
+        ObservabilityBus.getInstance().emit({
+            component: 'reasoning',
+            operation: 'reasoning_query_executed',
+            status: 'success',
+            durationMs: result.processingTimeMs,
+            metadata: {
+                mode,
+                trajectoryId: result.trajectoryId,
+                patternCount: result.patterns.length,
+                inferenceCount: result.causalInferences.length,
+                confidence: result.confidence,
+                combinedLScore: result.provenanceInfo.combinedLScore,
+                hasEnhancedEmbedding: !!result.enhancedEmbedding,
+            },
+        });
         return result;
     }
     /**
@@ -206,6 +297,7 @@ export class ReasoningBank {
      * Filters by confidence and L-Score thresholds.
      */
     async patternMatchReasoning(request) {
+        const startTime = performance.now();
         const patterns = await this.patternMatcher.findPatterns({
             embedding: request.query,
             taskType: this.inferTaskType(request),
@@ -223,6 +315,20 @@ export class ReasoningBank {
         // Filter by L-Score
         const minLScore = request.minLScore ?? this.config.defaultMinLScore;
         const filteredPatterns = patternMatches.filter(p => p.lScore >= minLScore);
+        // Emit pattern match event
+        ObservabilityBus.getInstance().emit({
+            component: 'reasoning',
+            operation: 'reasoning_pattern_matched',
+            status: 'success',
+            durationMs: performance.now() - startTime,
+            metadata: {
+                totalCandidates: patterns.length,
+                filteredCount: filteredPatterns.length,
+                topConfidence: filteredPatterns[0]?.confidence ?? 0,
+                minLScore,
+                taskType: this.inferTaskType(request),
+            },
+        });
         return this.buildResponse({
             query: request.query,
             type: ReasoningMode.PATTERN_MATCH,
@@ -239,10 +345,23 @@ export class ReasoningBank {
      * through the causal graph using edge weights and transitivity.
      */
     async causalInferenceReasoning(request) {
+        const startTime = performance.now();
         // Use VectorDB to find relevant nodes based on query embedding
         const searchResults = await this.vectorDB.search(request.query, request.maxResults ?? this.config.defaultMaxResults);
         const nodeIds = searchResults.map(r => r.id);
         if (nodeIds.length === 0) {
+            // Emit event for empty result
+            ObservabilityBus.getInstance().emit({
+                component: 'reasoning',
+                operation: 'reasoning_causal_inference',
+                status: 'warning',
+                durationMs: performance.now() - startTime,
+                metadata: {
+                    nodeCount: 0,
+                    effectCount: 0,
+                    reason: 'no_matching_nodes',
+                },
+            });
             return this.buildResponse({
                 query: request.query,
                 type: ReasoningMode.CAUSAL_INFERENCE,
@@ -271,6 +390,20 @@ export class ReasoningBank {
         });
         // Filter by confidence threshold
         const filtered = inferences.filter(i => i.confidence >= (request.confidenceThreshold ?? this.config.defaultConfidenceThreshold));
+        // Emit causal inference event
+        ObservabilityBus.getInstance().emit({
+            component: 'reasoning',
+            operation: 'reasoning_causal_inference',
+            status: 'success',
+            durationMs: performance.now() - startTime,
+            metadata: {
+                nodeCount: nodeIds.length,
+                effectCount: inference.effects.length,
+                filteredCount: filtered.length,
+                topConfidence: filtered[0]?.confidence ?? 0,
+                inferenceDepth: 3,
+            },
+        });
         return this.buildResponse({
             query: request.query,
             type: ReasoningMode.CAUSAL_INFERENCE,
@@ -287,11 +420,11 @@ export class ReasoningBank {
      * Leverages graph structure to improve context understanding.
      */
     async contextualReasoning(request) {
-        // Note: VectorDB only supports 1536D vectors
-        // Always use original 1536D query for search (GNN enhancement is for response only)
-        const searchEmbedding = request.query.length === 1536
+        // Per CONSTITUTION RULE-079 & RULE-089: Embeddings must be correct dimension
+        // No slicing allowed - all vectors must be VECTOR_DIM
+        const searchEmbedding = request.query.length === VECTOR_DIM
             ? request.query
-            : request.query.slice(0, 1536);
+            : (() => { throw new Error(`Query embedding must be ${VECTOR_DIM}D, got ${request.query.length}D`); })();
         // Search VectorDB for similar contexts
         const results = await this.vectorDB.search(new Float32Array(searchEmbedding), request.maxResults ?? this.config.defaultMaxResults);
         // Filter by similarity threshold
@@ -372,6 +505,7 @@ export class ReasoningBank {
      * @param feedback - Learning feedback with quality score
      */
     async provideFeedback(feedback) {
+        const startTime = performance.now();
         // Implements [REQ-OBS-17]: Emit learning_feedback event
         ObservabilityBus.getInstance().emit({
             component: 'learning',
@@ -386,6 +520,19 @@ export class ReasoningBank {
         });
         // Update trajectory with feedback
         await this.trajectoryTracker.updateFeedback(feedback.trajectoryId, feedback);
+        // Emit verdict event for the trajectory feedback
+        ObservabilityBus.getInstance().emit({
+            component: 'reasoning',
+            operation: 'reasoning_verdict_issued',
+            status: 'success',
+            durationMs: performance.now() - startTime,
+            metadata: {
+                trajectoryId: feedback.trajectoryId,
+                quality: feedback.quality,
+                outcome: feedback.outcome,
+                isHighQuality: (feedback.quality ?? 0) >= 0.8,
+            },
+        });
         // Call SonaEngine for weight updates if available
         if (this.sonaEngine && feedback.quality !== undefined) {
             const trajectory = await this.trajectoryTracker.getTrajectory(feedback.trajectoryId);
@@ -402,21 +549,21 @@ export class ReasoningBank {
                         // Always create trajectory - enables route-level learning even without patterns
                         // This fixes the chicken-egg problem where patterns can't accumulate without trajectories
                         this.sonaEngine.createTrajectoryWithId(feedback.trajectoryId, route, patternIds, contextIds);
-                        console.log(`[ReasoningBank] Created SonaEngine trajectory: ${feedback.trajectoryId} with ${patternIds.length} patterns (route: ${route})`);
+                        logger.info('Created SonaEngine trajectory', { trajectoryId: feedback.trajectoryId, patternCount: patternIds.length, route });
                     }
                     // Only provide feedback if trajectory exists in SonaEngine
                     // (prevents FeedbackValidationError when no patterns were available)
                     const trajectoryInSona = this.sonaEngine.getTrajectory(feedback.trajectoryId);
                     if (trajectoryInSona) {
                         await this.sonaEngine.provideFeedback(feedback.trajectoryId, feedback.quality, { lScore: trajectory.lScore ?? 1.0 });
-                        console.log(`[ReasoningBank] SonaEngine updated for trajectory ${feedback.trajectoryId}`);
+                        logger.info('SonaEngine updated for trajectory', { trajectoryId: feedback.trajectoryId });
                     }
                     else {
-                        console.log(`[ReasoningBank] Skipping SonaEngine feedback (no trajectory): ${feedback.trajectoryId}`);
+                        logger.info('Skipping SonaEngine feedback (no trajectory)', { trajectoryId: feedback.trajectoryId });
                     }
                 }
                 catch (error) {
-                    console.warn(`[ReasoningBank] SonaEngine feedback failed:`, error);
+                    logger.warn('SonaEngine feedback failed', { error: String(error) });
                 }
             }
         }
@@ -424,9 +571,55 @@ export class ReasoningBank {
         if (feedback.quality !== undefined && feedback.quality >= 0.8) {
             const trajectory = await this.trajectoryTracker.getTrajectory(feedback.trajectoryId);
             if (trajectory) {
-                console.log(`[ReasoningBank] High-quality trajectory ${feedback.trajectoryId} (quality=${feedback.quality}) eligible for hyperedge creation`);
+                logger.info('High-quality trajectory eligible for hyperedge creation', { trajectoryId: feedback.trajectoryId, quality: feedback.quality });
                 // Create causal hyperedge from high-quality trajectory
                 await this.createCausalHyperedge(trajectory);
+                // Emit trajectory retrieved event for high-quality extraction
+                ObservabilityBus.getInstance().emit({
+                    component: 'reasoning',
+                    operation: 'reasoning_trajectory_retrieved',
+                    status: 'success',
+                    metadata: {
+                        trajectoryId: feedback.trajectoryId,
+                        purpose: 'hyperedge_creation',
+                        quality: feedback.quality,
+                        patternCount: trajectory.response.patterns.length,
+                        inferenceCount: trajectory.response.causalInferences.length,
+                    },
+                });
+            }
+        }
+        // TASK-GNN-009: Forward trajectory to TrainingTriggerController for GNN training
+        if (this.trainingTrigger && feedback.quality !== undefined) {
+            const trajectory = await this.trajectoryTracker.getTrajectory(feedback.trajectoryId);
+            if (trajectory) {
+                // Add trajectory to training buffer
+                this.trainingTrigger.addTrajectory({
+                    id: trajectory.id,
+                    embedding: trajectory.embedding,
+                    enhancedEmbedding: trajectory.enhancedEmbedding,
+                    quality: feedback.quality,
+                    feedback: feedback,
+                });
+                // Emit training trigger event
+                ObservabilityBus.getInstance().emit({
+                    component: 'reasoning',
+                    operation: 'training_trigger_trajectory_added',
+                    status: 'success',
+                    metadata: {
+                        trajectoryId: feedback.trajectoryId,
+                        quality: feedback.quality,
+                        bufferSize: this.trainingTrigger.getBufferSize(),
+                        shouldTrigger: this.trainingTrigger.shouldTrigger(),
+                    },
+                });
+                // Check if training should trigger (auto-check also runs on timer)
+                if (this.trainingTrigger.shouldTrigger()) {
+                    logger.info('Training trigger threshold reached, initiating training');
+                    this.trainingTrigger.checkAndTrain().catch(error => {
+                        logger.error('Training trigger failed', { error: String(error) });
+                    });
+                }
             }
         }
     }
@@ -447,9 +640,9 @@ export class ReasoningBank {
         if (!request.query || request.query.length === 0) {
             throw new Error('Query embedding is required');
         }
-        // Validate embedding dimensions (1536 for base)
-        if (request.query.length !== 1536) {
-            assertDimensions(request.query, 1536, 'Query embedding');
+        // Per CONSTITUTION RULE-089: All embeddings must be VECTOR_DIM
+        if (request.query.length !== VECTOR_DIM) {
+            assertDimensions(request.query, VECTOR_DIM, 'Query embedding');
         }
         if (request.maxResults !== undefined && request.maxResults <= 0) {
             throw new Error('maxResults must be positive');
@@ -472,7 +665,7 @@ export class ReasoningBank {
             return result.enhanced;
         }
         catch (error) {
-            console.warn('[ReasoningBank] GNN enhancement failed:', error);
+            logger.warn('GNN enhancement failed', { error: String(error) });
             return undefined;
         }
     }
@@ -528,7 +721,7 @@ export class ReasoningBank {
             }
         }
         catch {
-            // Node might already exist, ignore
+            // INTENTIONAL: Node might already exist - duplicate add is safe to ignore
         }
     }
     /**
@@ -536,6 +729,19 @@ export class ReasoningBank {
      * Called when feedback.quality >= 0.8
      */
     async createCausalHyperedge(trajectory) {
+        const startTime = performance.now();
+        // Emit distillation started event
+        ObservabilityBus.getInstance().emit({
+            component: 'reasoning',
+            operation: 'reasoning_distillation_started',
+            status: 'running',
+            metadata: {
+                trajectoryId: trajectory.id,
+                quality: trajectory.feedback?.quality,
+                patternCount: trajectory.response.patterns.length,
+                inferenceCount: trajectory.response.causalInferences.length,
+            },
+        });
         try {
             const now = Date.now();
             // 1. Create query node (cause)
@@ -615,12 +821,38 @@ export class ReasoningBank {
                         createdAt: now
                     }
                 });
-                console.log(`[ReasoningBank] Created causal hyperedge: ${allCauses.length} causes → ${allEffects.length} effects`);
+                logger.info('Created causal hyperedge', { causesCount: allCauses.length, effectsCount: allEffects.length });
+                // Emit distillation completed event
+                ObservabilityBus.getInstance().emit({
+                    component: 'reasoning',
+                    operation: 'reasoning_distillation_completed',
+                    status: 'success',
+                    durationMs: performance.now() - startTime,
+                    metadata: {
+                        trajectoryId: trajectory.id,
+                        causesCount: allCauses.length,
+                        effectsCount: allEffects.length,
+                        nodesCreated: 1 + patternNodeIds.length + effectNodeIds.length + 1, // query + patterns + effects + outcome
+                        hyperedgeCreated: true,
+                    },
+                });
             }
         }
         catch (error) {
             // Don't fail feedback on hyperedge creation error
-            console.warn(`[ReasoningBank] Hyperedge creation failed:`, error);
+            logger.warn('Hyperedge creation failed', { error: String(error) });
+            // Emit distillation error event
+            ObservabilityBus.getInstance().emit({
+                component: 'reasoning',
+                operation: 'reasoning_distillation_completed',
+                status: 'error',
+                durationMs: performance.now() - startTime,
+                metadata: {
+                    trajectoryId: trajectory.id,
+                    error: String(error),
+                    hyperedgeCreated: false,
+                },
+            });
         }
     }
     /**
@@ -653,6 +885,53 @@ export class ReasoningBank {
             default:
                 return 'reasoning.general';
         }
+    }
+    /**
+     * Create a proxy for SonaEngine that supports late binding
+     *
+     * Per CONSTITUTION RULE-031: TrajectoryTracker MUST receive injected SonaEngine reference.
+     * This proxy defers to this.sonaEngine, supporting late binding via setSonaEngine().
+     *
+     * Implements: RULE-031, RULE-025
+     */
+    createSonaEngineProxy() {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self = this;
+        return {
+            createTrajectoryWithId(trajectoryId, route, patterns, context) {
+                if (self.sonaEngine) {
+                    self.sonaEngine.createTrajectoryWithId(trajectoryId, route, patterns, context ?? []);
+                }
+                else {
+                    console.debug('[ReasoningBank] SonaEngine not yet bound, skipping createTrajectoryWithId');
+                }
+            },
+            async provideFeedback(trajectoryId, quality, options) {
+                if (self.sonaEngine) {
+                    return self.sonaEngine.provideFeedback(trajectoryId, quality, options);
+                }
+                // Return no-op result when SonaEngine not bound
+                return {
+                    trajectoryId,
+                    patternsUpdated: 0,
+                    reward: 0,
+                    patternAutoCreated: false,
+                    elapsedMs: 0
+                };
+            },
+            async getWeight(patternId, route) {
+                if (self.sonaEngine) {
+                    return self.sonaEngine.getWeight(patternId, route);
+                }
+                return 0.0;
+            },
+            getTrajectory(trajectoryId) {
+                if (self.sonaEngine) {
+                    return self.sonaEngine.getTrajectory(trajectoryId);
+                }
+                return null;
+            }
+        };
     }
 }
 //# sourceMappingURL=reasoning-bank.js.map

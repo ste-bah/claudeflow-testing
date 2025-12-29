@@ -14,6 +14,11 @@
  */
 import { AdvancedReasoningMode } from '../advanced-reasoning-types.js';
 import { Granularity, } from '../../graph-db/types.js';
+import { createComponentLogger, ConsoleLogHandler, LogLevel } from '../../observability/index.js';
+const logger = createComponentLogger('TemporalEngine', {
+    minLevel: LogLevel.WARN,
+    handlers: [new ConsoleLogHandler()]
+});
 /**
  * Temporal Reasoning Engine
  *
@@ -243,7 +248,7 @@ export class TemporalEngine {
                 }
                 catch (error) {
                     // Continue if causal inference fails
-                    console.warn('Temporal causal inference failed:', error);
+                    logger.warn('Temporal causal inference failed', { error: String(error) });
                 }
             }
             enhancedChains.push(decayedChain);
@@ -783,7 +788,7 @@ export class TemporalEngine {
      * Generate semantic embedding for a concept using real embedding provider (SPEC-EMB-002)
      *
      * @param concept Concept identifier
-     * @returns Semantic embedding vector (768 dimensions)
+     * @returns Semantic embedding vector (1536 dimensions)
      */
     async generatePlaceholderEmbedding(concept) {
         try {
@@ -802,7 +807,7 @@ export class TemporalEngine {
         }
         catch (error) {
             // Ultimate fallback: hash-based deterministic embedding
-            console.warn('[TemporalEngine] Embedding provider failed, using hash-based fallback:', error);
+            logger.warn('Embedding provider failed, using hash-based fallback', { error: String(error) });
             return this.generateHashBasedEmbedding(concept);
         }
     }

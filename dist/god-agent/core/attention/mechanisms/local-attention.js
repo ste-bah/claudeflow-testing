@@ -25,6 +25,7 @@
  *
  * ANTI-009: This is a REAL implementation, not a placeholder.
  */
+import { VECTOR_DIM } from '../../validation/constants.js';
 import { SeededRandom, xavierUniform, matmul, hasNaNOrInf, } from '../utils/index.js';
 /**
  * Real Local Attention Implementation
@@ -67,7 +68,7 @@ export class RealLocalAttention {
      * Initialize Local attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 12)
      * @param config.windowSize Total window size (default: 64)
      * @param config.seed Random seed for initialization (optional)
@@ -75,7 +76,7 @@ export class RealLocalAttention {
      * @throws Error if dimension not divisible by numHeads
      */
     constructor(config) {
-        this.dimension = config?.dimension ?? 768;
+        this.dimension = config?.dimension ?? VECTOR_DIM;
         this.numHeads = config?.numHeads ?? 12;
         this.windowSize = config?.windowSize ?? 64;
         // Validate configuration

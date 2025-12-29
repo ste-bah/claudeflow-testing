@@ -30,7 +30,7 @@ export interface TrajectoryResult {
 export interface FeedbackResult {
     /** Number of weight updates applied */
     weightUpdates: number;
-    /** Whether a new pattern was auto-created (quality > 0.8) */
+    /** Whether a new pattern was auto-created (quality >= 0.7 per RULE-035) */
     patternCreated: boolean;
     /** Route/domain that was updated */
     route?: string;
@@ -73,7 +73,7 @@ export declare class TrajectoryBridge {
      *
      * @param input - User input text
      * @param mode - Agent mode (code, research, write, general)
-     * @param embedding - Query embedding vector (768 dimensions)
+     * @param embedding - Query embedding vector (1536 dimensions, VECTOR_DIM)
      * @returns Trajectory result with ID and patterns
      */
     createTrajectoryFromInteraction(input: string, mode: AgentMode, embedding: Float32Array): Promise<TrajectoryResult>;
@@ -83,7 +83,7 @@ export declare class TrajectoryBridge {
      * This triggers:
      * 1. ReasoningBank.provideFeedback() for trajectory update
      * 2. SonaEngine weight updates via EWC++ regularization
-     * 3. Auto-pattern creation if quality > 0.8 (per PRD FR-11)
+     * 3. Auto-pattern creation if quality >= 0.7 (per RULE-035)
      *
      * @param trajectoryId - Trajectory to provide feedback for
      * @param quality - Quality score 0-1

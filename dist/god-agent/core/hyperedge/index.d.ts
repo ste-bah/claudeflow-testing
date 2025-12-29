@@ -9,12 +9,13 @@
  * - Anomaly Detection (outlier identification)
  */
 export type { QAAnswer, QAHyperedge, QASearchResult, CausalNode, CausalEdge, CausalChain, CausalLoop, RootCauseResult, Community, CommunityDetectionResult, AnomalyResult, AnomalyDetectionConfig, TraversalOptions, ValidationResult, HyperedgeCreateOptions, } from './hyperedge-types.js';
-export { QAStore } from './qa/qa-store.js';
 export type { QAStoreConfig } from './qa/qa-store.js';
-export { CausalStore } from './causal/causal-store.js';
+export { QAStore } from './qa/qa-store.js';
 export type { CausalStoreConfig } from './causal/causal-store.js';
+export { CausalStore } from './causal/causal-store.js';
 export { LoopDetector, validateNoCycles } from './causal/loop-detector.js';
 export { CommunityDetector, LouvainDetector, LabelPropagationDetector } from './community/index.js';
-export { LOFDetector, GraphAnomalyDetector, AnomalyDetector, createAnomalyDetector, type AnomalyAlert, type AlertSeverity, type BatchDetectionResult } from './anomaly/index.js';
+export type { AnomalyAlert, AlertSeverity, BatchDetectionResult, } from './anomaly/index.js';
 export type { GraphStructure } from './anomaly/graph-anomaly-detector.js';
+export { LOFDetector, GraphAnomalyDetector, AnomalyDetector, createAnomalyDetector, } from './anomaly/index.js';
 //# sourceMappingURL=index.d.ts.map

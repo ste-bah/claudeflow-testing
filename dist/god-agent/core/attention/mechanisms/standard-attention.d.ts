@@ -56,7 +56,7 @@ export declare class RealStandardAttention implements IAttentionMechanism {
      * Initialize standard attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 12)
      * @param config.seed Random seed for deterministic initialization (optional)
      *

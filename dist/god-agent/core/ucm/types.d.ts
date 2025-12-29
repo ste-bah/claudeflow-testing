@@ -271,7 +271,7 @@ export interface IRetrievalOptions {
     includeAnswerMatch?: boolean;
 }
 /**
- * Pinned agent record for recovery
+ * Reconstructed context after compaction recovery
  */
 export interface IPinnedAgent {
     agentId: string;
@@ -279,9 +279,6 @@ export interface IPinnedAgent {
     pinnedAt: number;
     priority: number;
 }
-/**
- * Active window state for recovery
- */
 export interface IActiveWindow {
     agentStates: Array<{
         agentId: string;
@@ -291,27 +288,18 @@ export interface IActiveWindow {
     pinnedContextIds: string[];
     estimatedTokens: number;
 }
-/**
- * Archived summary record for recovery
- */
 export interface IArchivedSummary {
     id: string;
     timestamp: number;
     content: string;
     agentId?: string;
 }
-/**
- * Dependency graph node for recovery
- */
 export interface IDependencyNode {
     agentId: string;
     dependencies: Set<string>;
     dependents: Set<string>;
     depth: number;
 }
-/**
- * Reconstructed context after compaction recovery
- */
 export interface IReconstructedContext {
     pinnedAgents: Map<string, string> | IPinnedAgent[];
     activeWindow: string[] | IActiveWindow;

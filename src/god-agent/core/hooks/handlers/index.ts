@@ -46,15 +46,21 @@ export {
   setQualityAssessmentCallback,
   hasQualityAssessmentCallback,
 
+  // Learning feedback callback (TASK-HOOK-009)
+  setLearningFeedbackCallback,
+  hasLearningFeedbackCallback,
+
   // Constants
   QUALITY_THRESHOLDS,
 
   // Testing utilities
   _clearQualityAssessmentCallbackForTesting,
+  _clearLearningFeedbackCallbackForTesting,
 
   // Types
   type QualityAssessmentCallback,
-  type IQualityAssessment
+  type IQualityAssessment,
+  type LearningFeedbackCallback
 } from './quality-assessment-trigger.js';
 
 // ============================================================================

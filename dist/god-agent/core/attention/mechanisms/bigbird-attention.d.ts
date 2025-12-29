@@ -60,7 +60,7 @@ export declare class RealBigBirdAttention implements IAttentionMechanism {
      * Initialize BigBird attention mechanism
      *
      * @param config Configuration options
-     * @param config.dimension Model dimension (default: 768)
+     * @param config.dimension Model dimension (default: VECTOR_DIM=1536)
      * @param config.numHeads Number of attention heads (default: 8)
      * @param config.windowSize One-sided window size (default: 64)
      * @param config.numRandomBlocks Number of random attention blocks (default: 3)

@@ -88,6 +88,8 @@ export declare class PatternStore {
     private findDuplicate;
     /**
      * Persist patterns to MemoryEngine
+     *
+     * Implements: TASK-ERR-004, RULE-072 (database retry on failure)
      */
     private persist;
     /**

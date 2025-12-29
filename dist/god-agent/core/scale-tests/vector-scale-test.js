@@ -9,11 +9,12 @@
  * - Memory tracking
  */
 import { MemoryMonitor } from './utils/memory-monitor.js';
+import { VECTOR_DIM } from '../validation/constants.js';
 /**
  * Default vector scale configuration
  */
 export const DEFAULT_VECTOR_SCALE_CONFIG = {
-    dimensions: 768,
+    dimensions: VECTOR_DIM,
     scalePoints: [10000, 100000, 500000, 1000000],
     compressionEnabled: true,
     searchValidation: true,
@@ -180,9 +181,9 @@ export class VectorScaleTest {
         const bytesPerVector = {
             hot: dimensions * 4, // Float32
             warm: dimensions * 2, // Float16
-            cool: dimensions / 4, // PQ8 (192 bytes for 768D)
-            cold: dimensions / 8, // PQ4 (96 bytes for 768D)
-            frozen: dimensions / 64, // Binary (12 bytes for 768D)
+            cool: dimensions / 4, // PQ8 (384 bytes for 1536D)
+            cold: dimensions / 8, // PQ4 (192 bytes for 1536D)
+            frozen: dimensions / 64, // Binary (24 bytes for 1536D)
         };
         const totalBytes = tiers.hot * bytesPerVector.hot +
             tiers.warm * bytesPerVector.warm +
