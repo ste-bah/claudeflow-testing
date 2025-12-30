@@ -229,5 +229,34 @@ export class TaskExecutor {
         }
         return lines.join('\n');
     }
+    /**
+     * Build a structured task for Claude Code execution
+     * Implements [REQ-EXEC-002]: Return Task for Claude Code Execution
+     * Implements [REQ-EXEC-003]: Integrate with Claude Code Task Tool
+     * Implements [REQ-EXEC-001]: No external API calls - returns task for Claude Code
+     */
+    buildStructuredTask(agent, prompt, options) {
+        const agentType = agent.frontmatter.type ?? agent.category;
+        return {
+            taskId: `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            agentType,
+            prompt,
+            agentKey: agent.key,
+            timeout: options?.timeout ?? this.defaultTimeout,
+            trajectoryId: options?.trajectoryId,
+            expectedOutput: {
+                // Implements [REQ-EXEC-003]: Determine output format based on agent type
+                format: agentType.includes('research') || agentType.includes('analyst')
+                    ? 'markdown'
+                    : agentType.includes('coder') || agentType.includes('dev')
+                        ? 'code'
+                        : 'text',
+            },
+            metadata: {
+                createdAt: Date.now(),
+                requestId: options?.trajectoryId || `req-${Date.now()}`,
+            },
+        };
+    }
 }
 //# sourceMappingURL=task-executor.js.map

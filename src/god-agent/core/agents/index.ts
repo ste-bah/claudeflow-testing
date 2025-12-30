@@ -36,6 +36,7 @@ export type {
   ITaskExecutionOptions,
   ITaskExecutionResult,
   TaskExecutionFunction,
+  IStructuredTask,
 } from './task-executor.js';
 
 // ==================== Type Guards & Utilities ====================

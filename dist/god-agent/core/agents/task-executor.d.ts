@@ -26,6 +26,34 @@ export interface ITaskExecutionOptions {
     memoryTags?: string[];
 }
 /**
+ * Structured task for Claude Code execution
+ * Implements [REQ-EXEC-002]: Return Task for Claude Code Execution
+ * Implements [REQ-EXEC-003]: Integrate with Claude Code Task Tool
+ */
+export interface IStructuredTask {
+    /** Unique task identifier */
+    taskId: string;
+    /** Agent type for Claude Code Task tool subagent_type parameter */
+    agentType: string;
+    /** Full prompt for task execution */
+    prompt: string;
+    /** Agent key from registry */
+    agentKey: string;
+    /** Execution timeout in milliseconds */
+    timeout: number;
+    /** Trajectory ID for learning integration */
+    trajectoryId?: string;
+    /** Expected output format */
+    expectedOutput: {
+        format: 'markdown' | 'code' | 'json' | 'text';
+    };
+    /** Task metadata */
+    metadata: {
+        createdAt: number;
+        requestId: string;
+    };
+}
+/**
  * Task execution result
  */
 export interface ITaskExecutionResult {
@@ -101,5 +129,15 @@ export declare class TaskExecutor {
      * Create a summary of the execution for logging/storage
      */
     createExecutionSummary(result: ITaskExecutionResult): string;
+    /**
+     * Build a structured task for Claude Code execution
+     * Implements [REQ-EXEC-002]: Return Task for Claude Code Execution
+     * Implements [REQ-EXEC-003]: Integrate with Claude Code Task Tool
+     * Implements [REQ-EXEC-001]: No external API calls - returns task for Claude Code
+     */
+    buildStructuredTask(agent: ILoadedAgentDefinition, prompt: string, options?: {
+        timeout?: number;
+        trajectoryId?: string;
+    }): IStructuredTask;
 }
 //# sourceMappingURL=task-executor.d.ts.map

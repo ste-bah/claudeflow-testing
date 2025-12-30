@@ -34,10 +34,18 @@ npx tsx src/god-agent/universal/cli.ts learn --file ./docs/learnings.md --domain
 ```
 
 The knowledge will be:
-- Embedded into the vector database
+- **Automatically chunked** if content exceeds 2000 characters (OpenAI 8191 token limit compliance)
+- Embedded into the vector database (each chunk gets its own embedding)
 - Tagged for retrieval (auto-extracted or specified)
-- Available for future queries
+- Available for future queries (chunks are reconstructed on retrieval)
 - Contributing to domain expertise
+
+**Large Content Handling (Sprint 13):**
+- Content > 2000 chars is automatically split using SymmetricChunker
+- Each chunk maintains parent reference for reconstruction
+- Semantic boundaries (code blocks, tables) are preserved
+- Content-aware token estimation (code=1.5x, tables=2.0x, prose=1.3x)
+- Chunks < 200 chars are merged with adjacent chunks
 
 **Query stored knowledge:**
 ```bash

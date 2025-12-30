@@ -32,6 +32,11 @@ const TASK_TYPE_PATTERNS = {
         /\b(?:research|analyze|investigate|study|explore|examine|review)\b/i,
         /\b(?:literature|papers?|articles?|sources?|data|evidence)\b/i,
         /\b(?:findings?|insights?|conclusions?|synthesis)\b/i,
+        // Book/document knowledge retrieval patterns (added for TASK-ROUTING-001)
+        /\b(?:what|how|why|when|where|who|which).*\b(?:book|document|chapter|paper|article)\b/i,
+        /\b(?:book|document|paper|article).*\b(?:says?|states?|describes?|explains?|mentions?)\b/i,
+        /\b(?:according to|from the|in the)\b.*\b(?:book|document|chapter|paper|article)\b/i,
+        /\b(?:governance|framework|model|theory|concept).*\b(?:book|document)\b/i,
     ],
     write: [
         /\b(?:write|draft|compose|author|document|describe)\b/i,
@@ -52,7 +57,7 @@ const TASK_TYPE_PATTERNS = {
 const TASK_TYPE_CAPABILITIES = {
     design: ['architecture', 'design', 'system', 'observability', 'monitoring', 'telemetry', 'infrastructure', 'scalability', 'patterns'],
     code: ['code', 'implementation', 'development', 'programming', 'engineering'],
-    research: ['research', 'analysis', 'synthesis', 'investigation', 'review'],
+    research: ['research', 'analysis', 'synthesis', 'investigation', 'review', 'knowledge', 'retrieval'],
     write: ['writing', 'documentation', 'content', 'authoring'],
     ask: ['answer', 'explain', 'knowledge', 'general'],
     general: ['architecture', 'system'],
@@ -64,9 +69,9 @@ const TASK_TYPE_CAPABILITIES = {
 const TASK_TYPE_CATEGORIES = {
     design: ['architecture', 'core', 'systeminspect', 'sprinkle'], // Architecture first for design tasks
     code: ['core', 'logicalcode', 'frontendvisualsimplementation', 'sprinkle', 'systeminspect'],
-    research: ['business-research', 'sprinkle', 'phdresearch'],
+    research: ['core', 'business-research', 'phdresearch', 'sprinkle'], // core has researcher.md
     write: ['sprinkle', 'phdresearch'], // Moved phdresearch lower priority
-    ask: ['sprinkle', 'core'],
+    ask: ['core', 'sprinkle'], // Put core first - researcher.md is there
     general: ['architecture', 'core', 'sprinkle'],
 };
 /**

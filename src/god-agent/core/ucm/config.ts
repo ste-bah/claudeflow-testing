@@ -49,7 +49,7 @@ export const DEFAULT_CHUNKING_CONFIG: IChunkingConfig = {
   maxChars: 2000,
   minChars: 200,  // Implements REQ-CHUNK-002: Minimum chunk size to prevent tiny chunks
   overlap: 300,
-  maxChunks: 25,
+  maxChunks: 2000,  // Increased from 25 to handle books/large documents
   breakPatterns: DEFAULT_BREAK_PATTERNS,
   protectedPatterns: PROTECTED_PATTERNS
 };

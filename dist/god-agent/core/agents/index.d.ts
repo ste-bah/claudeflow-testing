@@ -12,7 +12,7 @@
  */
 export type { IAgentHooks, IAgentFrontmatter, ILoadedAgentDefinition, ICategoryInfo, IAgentLoaderOptions, IRegistryValidationResult, IRegistryStats, } from './agent-types.js';
 export type { ITaskAnalysis, IScoredAgent, IAgentSelectionResult, } from './agent-selector.js';
-export type { ITaskExecutionOptions, ITaskExecutionResult, TaskExecutionFunction, } from './task-executor.js';
+export type { ITaskExecutionOptions, ITaskExecutionResult, TaskExecutionFunction, IStructuredTask, } from './task-executor.js';
 export { hasHooks, hasPreHook, hasPostHook, DEFAULT_LOADER_OPTIONS, createDefaultFrontmatter, } from './agent-types.js';
 export { AgentError, AgentDirectoryNotFoundError, AgentLoadError, AgentSelectionError, AgentExecutionError, DuplicateAgentKeyError, AgentRegistryNotInitializedError, AgentNotFoundError, AgentCategoryError, } from './agent-errors.js';
 export { AgentCategoryScanner } from './agent-category-scanner.js';

@@ -33,6 +33,35 @@ export interface ITaskExecutionOptions {
 }
 
 /**
+ * Structured task for Claude Code execution
+ * Implements [REQ-EXEC-002]: Return Task for Claude Code Execution
+ * Implements [REQ-EXEC-003]: Integrate with Claude Code Task Tool
+ */
+export interface IStructuredTask {
+  /** Unique task identifier */
+  taskId: string;
+  /** Agent type for Claude Code Task tool subagent_type parameter */
+  agentType: string;
+  /** Full prompt for task execution */
+  prompt: string;
+  /** Agent key from registry */
+  agentKey: string;
+  /** Execution timeout in milliseconds */
+  timeout: number;
+  /** Trajectory ID for learning integration */
+  trajectoryId?: string;
+  /** Expected output format */
+  expectedOutput: {
+    format: 'markdown' | 'code' | 'json' | 'text';
+  };
+  /** Task metadata */
+  metadata: {
+    createdAt: number;
+    requestId: string;
+  };
+}
+
+/**
  * Task execution result
  */
 export interface ITaskExecutionResult {
@@ -328,5 +357,40 @@ export class TaskExecutor {
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Build a structured task for Claude Code execution
+   * Implements [REQ-EXEC-002]: Return Task for Claude Code Execution
+   * Implements [REQ-EXEC-003]: Integrate with Claude Code Task Tool
+   * Implements [REQ-EXEC-001]: No external API calls - returns task for Claude Code
+   */
+  buildStructuredTask(
+    agent: ILoadedAgentDefinition,
+    prompt: string,
+    options?: { timeout?: number; trajectoryId?: string }
+  ): IStructuredTask {
+    const agentType = agent.frontmatter.type ?? agent.category;
+
+    return {
+      taskId: `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      agentType,
+      prompt,
+      agentKey: agent.key,
+      timeout: options?.timeout ?? this.defaultTimeout,
+      trajectoryId: options?.trajectoryId,
+      expectedOutput: {
+        // Implements [REQ-EXEC-003]: Determine output format based on agent type
+        format: agentType.includes('research') || agentType.includes('analyst')
+          ? 'markdown'
+          : agentType.includes('coder') || agentType.includes('dev')
+            ? 'code'
+            : 'text',
+      },
+      metadata: {
+        createdAt: Date.now(),
+        requestId: options?.trajectoryId || `req-${Date.now()}`,
+      },
+    };
   }
 }

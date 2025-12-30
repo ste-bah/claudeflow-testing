@@ -50,6 +50,7 @@ import {
   TaskExecutor,
   type IAgentSelectionResult,
   type ITaskExecutionResult,
+  type IStructuredTask,
 } from '../core/agents/index.js';
 
 // DAI-002: Multi-Agent Sequential Pipeline Orchestration
@@ -960,18 +961,40 @@ export class UniversalAgent {
           { timeout: 120000 }
         );
       } else {
-        // Use TaskExecutor.execute() with a stub that returns the prompt
-        // In production, this would be wired to actual Claude Code Task() API
-        // For now, we provide a working fallback that enables testing
+        // Implements [REQ-EXEC-001]: No external API calls - output structured task for Claude Code
+        // Implements [REQ-EXEC-002]: Return Task for Claude Code Execution
+        // Implements [REQ-EXEC-003]: Integrate with Claude Code Task Tool
         const executionResult = await this.taskExecutor.execute(
           agent,
           modifiedInput,
-          async (_agentType: string, prompt: string, _options?: { timeout?: number }) => {
-            // STUB: In production, this would call Claude Code's Task() API
-            // For now, return the prompt as the "result" to enable end-to-end testing
-            // The actual Task() execution is handled by Claude Code's runtime
-            this.log(`TASK-LEARN-007: Stub executor returning prompt as result (Task() integration pending)`);
-            return prompt;
+          async (_agentType: string, prompt: string, options?: { timeout?: number }) => {
+            // Implements [REQ-EXEC-002]: Build structured task for Claude Code
+            const structuredTask: IStructuredTask = this.taskExecutor.buildStructuredTask(
+              agent,
+              prompt,
+              { timeout: options?.timeout, trajectoryId }
+            );
+
+            // Implements [REQ-EXEC-003]: Output task as JSON for Claude Code Task tool
+            // The markers allow Claude Code to parse the task specification
+            console.log('\n================================================================================');
+            console.log('CLAUDE_CODE_TASK_START');
+            console.log('================================================================================');
+            console.log(JSON.stringify(structuredTask, null, 2));
+            console.log('================================================================================');
+            console.log('CLAUDE_CODE_TASK_END');
+            console.log('================================================================================\n');
+
+            this.log(`TASK-EXEC-001: Structured task output for Claude Code execution`, {
+              taskId: structuredTask.taskId,
+              agentType: structuredTask.agentType,
+              agentKey: structuredTask.agentKey,
+              promptLength: prompt.length,
+            });
+
+            // Implements [REQ-EXEC-005]: Return prompt for learning integration
+            // The actual result will come from Claude Code executing the task
+            return `[TASK_QUEUED:${structuredTask.taskId}] Execute via Claude Code Task tool with subagent_type="${structuredTask.agentType}"`;
           },
           { context: agentSelection.context }
         );
@@ -1353,17 +1376,40 @@ export class UniversalAgent {
           throw new Error(`Agent '${agentUsed}' not found in registry`);
         }
 
-        // TASK-FIX-002: Execute via TaskExecutor with ObservabilityBus events
+        // Implements [REQ-EXEC-001]: No external API calls - output structured task for Claude Code
+        // Implements [REQ-EXEC-002]: Return Task for Claude Code Execution
+        // Implements [REQ-EXEC-003]: Integrate with Claude Code Task Tool
         // Per RULE-033: Quality MUST be assessed on Task() RESULT, not prompt
         // TaskExecutor.execute() emits agent_started, agent_completed, agent_failed events
+        const taskTrajectoryId = `traj-task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         const executionResult = await this.taskExecutor.execute(
           agent,
           description,
-          async (_agentType: string, prompt: string, _options?: { timeout?: number }) => {
-            // Stub callback returns prompt - actual execution via Claude Code runtime
-            // The hooks system captures Task() results for quality assessment
-            this.log(`DAI-003 task(): Executing via TaskExecutor framework`);
-            return prompt;
+          async (_agentType: string, prompt: string, options?: { timeout?: number }) => {
+            // Implements [REQ-EXEC-002]: Build structured task for Claude Code
+            const structuredTask: IStructuredTask = this.taskExecutor.buildStructuredTask(
+              agent,
+              prompt,
+              { timeout: options?.timeout, trajectoryId: taskTrajectoryId }
+            );
+
+            // Implements [REQ-EXEC-003]: Output task as JSON for Claude Code Task tool
+            console.log('\n================================================================================');
+            console.log('CLAUDE_CODE_TASK_START');
+            console.log('================================================================================');
+            console.log(JSON.stringify(structuredTask, null, 2));
+            console.log('================================================================================');
+            console.log('CLAUDE_CODE_TASK_END');
+            console.log('================================================================================\n');
+
+            this.log(`DAI-003 task(): Structured task output for Claude Code`, {
+              taskId: structuredTask.taskId,
+              agentType: structuredTask.agentType,
+              agentKey: structuredTask.agentKey,
+            });
+
+            // Implements [REQ-EXEC-005]: Return message for learning integration
+            return `[TASK_QUEUED:${structuredTask.taskId}] Execute via Claude Code Task tool with subagent_type="${structuredTask.agentType}"`;
           }
         );
         result = executionResult.output;
