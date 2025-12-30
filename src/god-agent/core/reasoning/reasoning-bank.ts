@@ -688,26 +688,37 @@ export class ReasoningBank {
     }
 
     // Get high-quality trajectories for hyperedge creation
+    // Implements [REQ-TRAJ-009]: Null-safe response access
     if (feedback.quality !== undefined && feedback.quality >= 0.8) {
       const trajectory = await this.trajectoryTracker.getTrajectory(feedback.trajectoryId);
       if (trajectory) {
-        logger.info('High-quality trajectory eligible for hyperedge creation', { trajectoryId: feedback.trajectoryId, quality: feedback.quality });
-        // Create causal hyperedge from high-quality trajectory
-        await this.createCausalHyperedge(trajectory);
-
-        // Emit trajectory retrieved event for high-quality extraction
-        ObservabilityBus.getInstance().emit({
-          component: 'reasoning',
-          operation: 'reasoning_trajectory_retrieved',
-          status: 'success',
-          metadata: {
+        // Implements [REQ-TRAJ-010]: Skip hyperedge creation for SQLite-loaded trajectories with minimal data
+        if (!trajectory.response || !trajectory.response.patterns || !trajectory.response.causalInferences) {
+          logger.warn('Skipping hyperedge creation: trajectory has minimal data (loaded from SQLite)', {
             trajectoryId: feedback.trajectoryId,
-            purpose: 'hyperedge_creation',
-            quality: feedback.quality,
-            patternCount: trajectory.response.patterns.length,
-            inferenceCount: trajectory.response.causalInferences.length,
-          },
-        });
+            hasResponse: !!trajectory.response,
+            hasPatterns: !!trajectory.response?.patterns,
+            hasCausalInferences: !!trajectory.response?.causalInferences,
+          });
+        } else {
+          logger.info('High-quality trajectory eligible for hyperedge creation', { trajectoryId: feedback.trajectoryId, quality: feedback.quality });
+          // Create causal hyperedge from high-quality trajectory
+          await this.createCausalHyperedge(trajectory);
+
+          // Emit trajectory retrieved event for high-quality extraction
+          ObservabilityBus.getInstance().emit({
+            component: 'reasoning',
+            operation: 'reasoning_trajectory_retrieved',
+            status: 'success',
+            metadata: {
+              trajectoryId: feedback.trajectoryId,
+              purpose: 'hyperedge_creation',
+              quality: feedback.quality,
+              patternCount: trajectory.response.patterns.length,
+              inferenceCount: trajectory.response.causalInferences.length,
+            },
+          });
+        }
       }
     }
 
@@ -864,8 +875,18 @@ export class ReasoningBank {
   /**
    * Create causal hyperedge from high-quality trajectory
    * Called when feedback.quality >= 0.8
+   * Implements [REQ-TRAJ-009]: Null-safe response access
    */
   private async createCausalHyperedge(trajectory: TrajectoryRecord): Promise<void> {
+    // Implements [REQ-TRAJ-010]: Early return for trajectories with minimal data
+    if (!trajectory.response || !trajectory.response.patterns || !trajectory.response.causalInferences) {
+      logger.warn('Cannot create hyperedge: trajectory has minimal data', {
+        trajectoryId: trajectory.id,
+        hasResponse: !!trajectory.response,
+      });
+      return;
+    }
+
     const startTime = performance.now();
 
     // Emit distillation started event
@@ -1091,6 +1112,28 @@ export class ReasoningBank {
       getTrajectory(trajectoryId: string): ITrajectory | null {
         if (self.sonaEngine) {
           return self.sonaEngine.getTrajectory(trajectoryId);
+        }
+        return null;
+      },
+
+      /**
+       * Check if trajectory exists in persistent storage (SQLite)
+       * Implements: REQ-TRAJ-006
+       */
+      hasTrajectoryInStorage(trajectoryId: string): boolean {
+        if (self.sonaEngine) {
+          return self.sonaEngine.hasTrajectoryInStorage(trajectoryId);
+        }
+        return false;
+      },
+
+      /**
+       * Load trajectory from persistent storage (SQLite)
+       * Implements: REQ-TRAJ-006
+       */
+      getTrajectoryFromStorage(trajectoryId: string): ITrajectory | null {
+        if (self.sonaEngine) {
+          return self.sonaEngine.getTrajectoryFromStorage(trajectoryId);
         }
         return null;
       }

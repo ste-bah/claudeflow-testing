@@ -200,3 +200,45 @@ export function isDaemonError(error: unknown): error is DaemonError {
     Object.values(DaemonErrorCode).includes((error as DaemonError).code)
   );
 }
+
+/**
+ * JSON-RPC 2.0 Request - TASK-DAEMON-002
+ */
+export interface JsonRpcRequest {
+  jsonrpc: '2.0';
+  method: string;
+  params: unknown;
+  id: string | number | null;
+}
+
+/**
+ * JSON-RPC 2.0 Response - TASK-DAEMON-002
+ */
+export interface JsonRpcResponse {
+  jsonrpc: '2.0';
+  result?: unknown;
+  error?: JsonRpcError;
+  id: string | number | null;
+}
+
+/**
+ * JSON-RPC 2.0 Error - TASK-DAEMON-002
+ */
+export interface JsonRpcError {
+  code: number;
+  message: string;
+  data?: unknown;
+}
+
+/**
+ * Standard JSON-RPC 2.0 Error Codes - TASK-DAEMON-002
+ */
+export const JSON_RPC_ERROR_CODES = {
+  PARSE_ERROR: -32700,
+  INVALID_REQUEST: -32600,
+  METHOD_NOT_FOUND: -32601,
+  INVALID_PARAMS: -32602,
+  INTERNAL_ERROR: -32603,
+  SERVICE_UNAVAILABLE: -32000,
+  HANDLER_ERROR: -32001,
+} as const;

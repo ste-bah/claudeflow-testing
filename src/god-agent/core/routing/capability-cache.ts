@@ -154,8 +154,8 @@ export class CapabilityIndexCache implements ICapabilityIndexCache {
   /** REQ-CAPIDX-006: Cached hash to avoid recomputation within same operation */
   private cachedContentHash: string | null = null;
   private cachedHashTimestamp: number = 0;
-  // 50ms TTL - enough for isValid()+load() sequence, short enough for tests
-  private static readonly HASH_CACHE_TTL_MS = 50;
+  // 500ms TTL - enough for isValid()+load() sequence, short enough for tests
+  private static readonly HASH_CACHE_TTL_MS = 500;
 
   /**
    * Initialize cache manager

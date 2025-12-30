@@ -541,6 +541,7 @@ export class UniversalAgent {
       descThreshold: config.descThreshold ?? 0.80,
       descMaxEpisodes: config.descMaxEpisodes ?? 3,
       // DAEMON-003: Core daemon for EpisodeStore/GraphDB IPC (default: enabled)
+      // TASK-DAEMON-002: Core daemon RPC now implemented
       enableCoreDaemon: config.enableCoreDaemon ?? true,
     };
 

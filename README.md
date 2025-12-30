@@ -64,6 +64,14 @@ The learning system has been completely overhauled to fix critical issues where 
   - Agent Selector: Intelligent agent selection based on task requirements
   - Task Executor: Executes tasks with proper agent coordination
 - **Capability Index Caching**: 76x faster CLI startup with hash-based agent definition caching
+- **Two-Phase Execution Model** (`/god-code`, `/god-write`):
+  - Phase 1: CLI prepares task, creates trajectory, stores in SQLite
+  - Phase 2: Task subagent executes with full context
+  - Enables feedback collection across process boundaries
+- **Cross-Session Trajectory Feedback** (TASK-TRAJ-001, TASK-TRAJ-002):
+  - SQLite fallback for trajectory lookup (no more "Trajectory not found" errors)
+  - Null-safe response access for SQLite-loaded trajectories
+  - Graceful degradation when trajectory has minimal data
 
 ### Architecture Improvements
 

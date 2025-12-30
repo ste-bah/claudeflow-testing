@@ -221,12 +221,45 @@ export class TrajectoryTracker {
 
   /**
    * Get trajectory by ID
+   * Implements: REQ-TRAJ-005 (SQLite fallback for cross-session retrieval)
+   * Constitution: RULE-008 (SQLite primary), RULE-069 (try/catch), RULE-070 (error logging)
    *
    * @param trajectoryId - Trajectory identifier
    * @returns Trajectory record or null if not found
    */
   async getTrajectory(trajectoryId: TrajectoryID): Promise<TrajectoryRecord | null> {
-    const node = this.trajectories.get(trajectoryId);
+    let node = this.trajectories.get(trajectoryId);
+
+    // Implements [REQ-TRAJ-005]: Check SQLite if not in memory (cross-session support)
+    if (!node) {
+      try {
+        // Implements [RULE-069]: try/catch for SQLite operation
+        if (this.sonaEngine.hasTrajectoryInStorage(trajectoryId)) {
+          const storedTrajectory = this.sonaEngine.getTrajectoryFromStorage(trajectoryId);
+          if (storedTrajectory) {
+            // Create minimal TrajectoryRecord from stored trajectory
+            const record: TrajectoryRecord = {
+              id: storedTrajectory.id,
+              timestamp: storedTrajectory.createdAt,
+              request: {} as IReasoningRequest, // Minimal, not available from storage
+              response: {} as IReasoningResponse, // Minimal, not available from storage
+              embedding: new Float32Array(0), // Not available from storage
+              lScore: 0,
+            };
+            node = {
+              record,
+              lastAccessed: Date.now(),
+            };
+            // Cache for future access
+            this.trajectories.set(trajectoryId, node);
+            logger.info('Loaded trajectory from SQLite', { trajectoryId });
+          }
+        }
+      } catch (error) {
+        // Implements [RULE-070]: Log error with context
+        logger.warn('Failed to load trajectory from SQLite', { trajectoryId, error: String(error) });
+      }
+    }
 
     if (!node) {
       return null;
@@ -240,6 +273,8 @@ export class TrajectoryTracker {
 
   /**
    * Update trajectory with Sona feedback
+   * Implements: REQ-TRAJ-004 (SQLite fallback for cross-session feedback)
+   * Constitution: RULE-008 (SQLite primary), RULE-069 (try/catch), RULE-070 (error logging)
    *
    * @param trajectoryId - Trajectory to update
    * @param feedback - Learning feedback from Sona
@@ -249,7 +284,38 @@ export class TrajectoryTracker {
     trajectoryId: TrajectoryID,
     feedback: ILearningFeedback
   ): Promise<TrajectoryRecord> {
-    const node = this.trajectories.get(trajectoryId);
+    let node = this.trajectories.get(trajectoryId);
+
+    // Implements [REQ-TRAJ-004]: Check SQLite if not in memory (cross-session support)
+    if (!node) {
+      try {
+        // Implements [RULE-069]: try/catch for SQLite operation
+        if (this.sonaEngine.hasTrajectoryInStorage(trajectoryId)) {
+          const storedTrajectory = this.sonaEngine.getTrajectoryFromStorage(trajectoryId);
+          if (storedTrajectory) {
+            // Create minimal TrajectoryRecord from stored trajectory
+            const record: TrajectoryRecord = {
+              id: storedTrajectory.id,
+              timestamp: storedTrajectory.createdAt,
+              request: {} as IReasoningRequest, // Minimal, not available from storage
+              response: {} as IReasoningResponse, // Minimal, not available from storage
+              embedding: new Float32Array(0), // Not available from storage
+              lScore: 0,
+            };
+            node = {
+              record,
+              lastAccessed: Date.now(),
+            };
+            // Cache for future access
+            this.trajectories.set(trajectoryId, node);
+            logger.info('Loaded trajectory from SQLite for feedback', { trajectoryId });
+          }
+        }
+      } catch (error) {
+        // Implements [RULE-070]: Log error with context
+        logger.warn('Failed to load trajectory from SQLite', { trajectoryId, error: String(error) });
+      }
+    }
 
     if (!node) {
       throw new Error(`Trajectory not found: ${trajectoryId}`);

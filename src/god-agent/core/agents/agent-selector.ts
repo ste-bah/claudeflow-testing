@@ -120,7 +120,7 @@ const TASK_TYPE_CATEGORIES: Record<ITaskAnalysis['taskType'], string[]> = {
   design: ['architecture', 'core', 'systeminspect', 'sprinkle'],  // Architecture first for design tasks
   code: ['core', 'logicalcode', 'frontendvisualsimplementation', 'sprinkle', 'systeminspect'],
   research: ['core', 'business-research', 'phdresearch', 'sprinkle'],  // core has researcher.md
-  write: ['sprinkle', 'phdresearch'],  // Moved phdresearch lower priority
+  write: ['writing', 'sprinkle', 'phdresearch'],  // Writing agents first for write tasks
   ask: ['core', 'sprinkle'],  // Put core first - researcher.md is there
   general: ['architecture', 'core', 'sprinkle'],
 };
