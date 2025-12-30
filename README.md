@@ -86,6 +86,74 @@ The learning system has been completely overhauled to fix critical issues where 
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Here's how the God Agent learns from stored knowledge:
+
+  ##Learning Flow
+```
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                        KNOWLEDGE STORAGE                             │
+  │  /god-learn "Factory pattern enables flexible object creation"      │
+  │                               ↓                                      │
+  │  ┌──────────────────────────────────────────────────────────────┐   │
+  │  │ storeKnowledge()                                              │   │
+  │  │  1. Generate embedding vector (OpenAI text-embedding-3-small) │   │
+  │  │  2. Chunk if >2000 chars (Sprint 13)                          │   │
+  │  │  3. Store in AgentDB with metadata (domain, tags, quality)    │   │
+  │  │  4. Track domain expertise counter                            │   │
+  │  └──────────────────────────────────────────────────────────────┘   │
+  └─────────────────────────────────────────────────────────────────────┘
+                                    ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                     SEMANTIC RETRIEVAL                               │
+  │  /god-ask "How do I create objects flexibly?"                       │
+  │                               ↓                                      │
+  │  ┌──────────────────────────────────────────────────────────────┐   │
+  │  │ retrieveRelevant()                                            │   │
+  │  │  1. Embed the query                                           │   │
+  │  │  2. Vector similarity search (minSimilarity: 0.3)             │   │
+  │  │  3. Return top-k matches with provenance                      │   │
+  │  │  4. Increment usageCount for retrieved patterns               │   │
+  │  └──────────────────────────────────────────────────────────────┘   │
+  │                               ↓                                      │
+  │  Context injected into LLM prompt → Better response                 │
+  └─────────────────────────────────────────────────────────────────────┘
+                                    ↓
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │                      FEEDBACK LOOP                                   │
+  │  /god-feedback <trajectory-id> --rating 0.9 --useful                │
+  │                               ↓                                      │
+  │  ┌──────────────────────────────────────────────────────────────┐   │
+  │  │ feedback()                                                    │   │
+  │  │  rating > 0.7: reinforcePattern() → verdict: 'positive'       │   │
+  │  │  rating < 0.3: weakenPattern()    → verdict: 'negative'       │   │
+  │  │                                                               │   │
+  │  │ SonaEngine (SONA-weighted update):                            │   │
+  │  │  - Adjusts pattern weights based on feedback                  │   │
+  │  │  - Higher weights = retrieved more often                      │   │
+  │  │  - Creates new patterns from successful interactions          │   │
+  │  └──────────────────────────────────────────────────────────────┘   │
+  └─────────────────────────────────────────────────────────────────────┘
+```
+##  Key Methods (universal-agent.ts)
+
+  | Method             | Line | Purpose                                |
+  |--------------------|------|----------------------------------------|
+  | storeKnowledge()   | 2278 | Store + chunk + embed knowledge        |
+  | retrieveRelevant() | 2357 | Vector search for relevant knowledge   |
+  | feedback()         | 2146 | User feedback triggers learning        |
+  | reinforcePattern() | 2233 | Boost patterns with positive feedback  |
+  | weakenPattern()    | 2256 | Demote patterns with negative feedback |
+
+  Learning Signals
+
+  1. Usage tracking - Retrieved patterns get usageCount++
+  2. Quality scoring - Auto-assessed (0.0-1.0) based on response characteristics
+  3. Explicit feedback - /god-feedback manually adjusts weights
+  4. Domain expertise - Tracks knowledge density per domain
+
+  The more you use and rate knowledge, the better it surfaces relevant context in future queries.
+
+
 ## Quick Setup (Automated) ⚡ RECOMMENDED
 
 **For a fresh machine, the setup script handles everything automatically:**
