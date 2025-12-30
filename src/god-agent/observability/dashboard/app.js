@@ -24,6 +24,7 @@ class DashboardApp {
         this.tokenMetrics = {};
         this.daemonMetrics = {};
         this.registryMetrics = { total: 264, categories: 30 };
+        this.learningMetrics = { trajectories: {}, patterns: {} };
     }
 
     /**
@@ -137,10 +138,16 @@ class DashboardApp {
     }
 
     /**
-     * Initialize Chart.js quality chart
+     * Initialize Chart.js quality chart (if element exists)
      */
     initializeChart() {
-        const ctx = document.getElementById('qualityChart').getContext('2d');
+        const chartEl = document.getElementById('qualityChart');
+        if (!chartEl) {
+            // No chart element in current dashboard layout
+            this.qualityChart = null;
+            return;
+        }
+        const ctx = chartEl.getContext('2d');
         this.qualityChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -271,6 +278,7 @@ class DashboardApp {
                 if (metrics.token) this.tokenMetrics = metrics.token;
                 if (metrics.daemon) this.daemonMetrics = metrics.daemon;
                 if (metrics.registry) this.registryMetrics = metrics.registry;
+                if (metrics.learning) this.learningMetrics = metrics.learning;
                 this.updateAllPanels();
             }
         } catch (error) {
@@ -610,6 +618,7 @@ class DashboardApp {
         if (data.token) this.tokenMetrics = data.token;
         if (data.daemon) this.daemonMetrics = data.daemon;
         if (data.registry) this.registryMetrics = data.registry;
+        if (data.learning) this.learningMetrics = data.learning;
         this.updateAllPanels();
     }
 
@@ -665,14 +674,15 @@ class DashboardApp {
      * Update Token Budget panel
      */
     updateTokenPanel() {
-        document.getElementById('tokenBudgetUsage').textContent = 
-            ((this.tokenMetrics.usage || 0) * 100).toFixed(1) + '%';
-        document.getElementById('tokenWarnings').textContent = 
-            (this.tokenMetrics.warnings || 0).toString();
-        document.getElementById('summarizations').textContent = 
-            (this.tokenMetrics.summarizations || 0).toString();
-        document.getElementById('rollingWindowSize').textContent = 
-            (this.tokenMetrics.rollingWindowSize || 0).toLocaleString();
+        const totalEl = document.getElementById('tokenTotal');
+        const inputEl = document.getElementById('tokenInput');
+        const outputEl = document.getElementById('tokenOutput');
+        const requestsEl = document.getElementById('tokenRequests');
+
+        if (totalEl) totalEl.textContent = (this.tokenMetrics.totalTokens || 0).toLocaleString();
+        if (inputEl) inputEl.textContent = (this.tokenMetrics.inputTokens || 0).toLocaleString();
+        if (outputEl) outputEl.textContent = (this.tokenMetrics.outputTokens || 0).toLocaleString();
+        if (requestsEl) requestsEl.textContent = (this.tokenMetrics.requestCount || 0).toLocaleString();
     }
 
     /**
@@ -696,14 +706,51 @@ class DashboardApp {
      * Update Agent Registry panel
      */
     updateRegistryPanel() {
-        document.getElementById('registryTotal').textContent = 
-            (this.registryMetrics.total || 264).toString();
-        document.getElementById('registryCategories').textContent = 
-            (this.registryMetrics.categories || 30).toString();
-        document.getElementById('registrySelections').textContent = 
-            (this.registryMetrics.selectionsToday || 0).toLocaleString();
-        document.getElementById('embeddingDim').textContent = 
-            (this.registryMetrics.embeddingDimensions || 1536).toString();
+        const total = this.registryMetrics.total || 264;
+        const totalEl = document.getElementById('registryTotal');
+        const badgeEl = document.getElementById('totalAgentCount');
+        if (totalEl) totalEl.textContent = total.toString();
+        if (badgeEl) badgeEl.textContent = total.toString();
+
+        const catEl = document.getElementById('registryCategories');
+        if (catEl) catEl.textContent = (this.registryMetrics.categories || 30).toString();
+
+        const selEl = document.getElementById('registrySelections');
+        if (selEl) selEl.textContent = (this.registryMetrics.selectionsToday || 0).toLocaleString();
+
+        const embEl = document.getElementById('embeddingDim');
+        if (embEl) embEl.textContent = (this.registryMetrics.embeddingDimensions || 1536).toString();
+    }
+
+    /**
+     * Update Learning Metrics panel (trajectories & patterns from learning.db)
+     */
+    updateLearningPanel() {
+        const traj = this.learningMetrics.trajectories || {};
+        const pat = this.learningMetrics.patterns || {};
+
+        // Trajectory metrics
+        const trajTotalEl = document.getElementById('trajTotal');
+        if (trajTotalEl) trajTotalEl.textContent = (traj.total || 0).toString();
+
+        const trajActiveEl = document.getElementById('trajActive');
+        if (trajActiveEl) trajActiveEl.textContent = (traj.active || 0).toString();
+
+        const trajCompletedEl = document.getElementById('trajCompleted');
+        if (trajCompletedEl) trajCompletedEl.textContent = (traj.completed || 0).toString();
+
+        // Pattern metrics
+        const patternCountEl = document.getElementById('patternCount');
+        if (patternCountEl) patternCountEl.textContent = (pat.total || 0).toString();
+
+        const patternWeightEl = document.getElementById('patternAvgWeight');
+        if (patternWeightEl) patternWeightEl.textContent = (pat.avgWeight || 0).toFixed(2);
+
+        const patternSuccessFailEl = document.getElementById('patternSuccessFail');
+        if (patternSuccessFailEl) {
+            patternSuccessFailEl.textContent =
+                `${pat.successCount || 0}/${pat.failureCount || 0}`;
+        }
     }
 
     /**
@@ -717,6 +764,7 @@ class DashboardApp {
         this.updateTokenPanel();
         this.updateDaemonPanel();
         this.updateRegistryPanel();
+        this.updateLearningPanel();
     }
 
     /**
@@ -920,17 +968,16 @@ class DashboardApp {
     }
 
     /**
-     * Update learning metrics and chart
+     * Update learning metrics and chart (from /api/learning/stats)
      */
     updateLearningMetrics(stats) {
         // Update summary metrics - handle both API field names
         const patterns = stats.patternCount || stats.patternsLearned || 0;
-        const quality = stats.avgQuality || stats.learnedQuality || 0;
-        document.getElementById('patternCount').textContent = patterns.toString();
-        document.getElementById('avgQuality').textContent = quality.toFixed(2);
+        const patternEl = document.getElementById('patternCount');
+        if (patternEl) patternEl.textContent = patterns.toString();
 
-        // Update chart with quality history
-        if (stats.qualityHistory && Array.isArray(stats.qualityHistory)) {
+        // Update chart with quality history (if chart exists)
+        if (this.qualityChart && stats.qualityHistory && Array.isArray(stats.qualityHistory)) {
             const labels = stats.qualityHistory.map((_, i) => i.toString());
             const data = stats.qualityHistory.map(h => h.quality || 0);
 

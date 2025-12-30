@@ -12,7 +12,9 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import * as http from 'http';
 import * as path from 'path';
+import * as fs from 'fs';
 import { fileURLToPath } from 'url';
+import Database from 'better-sqlite3';
 import { IActivityStream } from './activity-stream.js';
 import { IAgentExecutionTracker } from './agent-tracker.js';
 import { IPipelineTracker } from './pipeline-tracker.js';
@@ -20,6 +22,12 @@ import { IRoutingHistory } from './routing-history.js';
 import { IEventStore, IEventQuery } from './event-store.js';
 import { ISSEBroadcaster } from './sse-broadcaster.js';
 import { ActivityEventComponent, ActivityEventStatus } from './types.js';
+
+// Database paths for real metrics
+const GOD_AGENT_DIR = path.join(process.cwd(), '.god-agent');
+const LEARNING_DB_PATH = path.join(GOD_AGENT_DIR, 'learning.db');
+const DESC_DB_PATH = path.join(GOD_AGENT_DIR, 'desc.db');
+const AGENTS_DIR = path.join(process.cwd(), '.claude', 'agents');
 
 // =============================================================================
 // Interfaces
@@ -129,6 +137,116 @@ export class ExpressServer implements IExpressServer {
 
     // Initialize Express app
     this.app = this.createApp();
+  }
+
+  /**
+   * Get real metrics from SQLite databases
+   * Queries learning.db and desc.db for actual trajectory/pattern/episode counts
+   */
+  private getRealDatabaseMetrics(): {
+    trajectories: { total: number; active: number; completed: number; avgQuality: number | null };
+    patterns: { total: number; avgWeight: number; totalSuccess: number; totalFailure: number };
+    episodes: { total: number; avgQuality: number | null };
+    agents: { total: number; categories: number };
+    tokens: { totalTokens: number; inputTokens: number; outputTokens: number; requestCount: number };
+  } {
+    const result = {
+      trajectories: { total: 0, active: 0, completed: 0, avgQuality: null as number | null },
+      patterns: { total: 0, avgWeight: 0, totalSuccess: 0, totalFailure: 0 },
+      episodes: { total: 0, avgQuality: null as number | null },
+      agents: { total: 0, categories: 0 },
+      tokens: { totalTokens: 0, inputTokens: 0, outputTokens: 0, requestCount: 0 },
+    };
+
+    // Query learning.db for trajectories and patterns
+    try {
+      const learningDb = new Database(LEARNING_DB_PATH, { readonly: true });
+
+      // Trajectory stats
+      const trajStats = learningDb.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          AVG(quality_score) as avgQuality
+        FROM trajectory_metadata
+      `).get() as { total: number; active: number; completed: number; avgQuality: number | null };
+
+      if (trajStats) {
+        result.trajectories = trajStats;
+      }
+
+      // Pattern stats
+      const patternStats = learningDb.prepare(`
+        SELECT
+          COUNT(*) as total,
+          AVG(weight) as avgWeight,
+          SUM(success_count) as totalSuccess,
+          SUM(failure_count) as totalFailure
+        FROM patterns WHERE deprecated = 0
+      `).get() as { total: number; avgWeight: number; totalSuccess: number; totalFailure: number };
+
+      if (patternStats) {
+        result.patterns = patternStats;
+      }
+
+      // Token usage stats
+      const tokenStats = learningDb.prepare(`
+        SELECT
+          COALESCE(SUM(total_tokens), 0) as totalTokens,
+          COALESCE(SUM(input_tokens), 0) as inputTokens,
+          COALESCE(SUM(output_tokens), 0) as outputTokens,
+          COUNT(*) as requestCount
+        FROM token_usage
+      `).get() as { totalTokens: number; inputTokens: number; outputTokens: number; requestCount: number };
+
+      if (tokenStats) {
+        result.tokens = tokenStats;
+      }
+
+      learningDb.close();
+    } catch (err) {
+      // Silently handle missing database
+    }
+
+    // Query desc.db for episodes
+    try {
+      const descDb = new Database(DESC_DB_PATH, { readonly: true });
+
+      const episodeStats = descDb.prepare(`
+        SELECT COUNT(*) as total, AVG(quality) as avgQuality FROM episodes
+      `).get() as { total: number; avgQuality: number | null };
+
+      if (episodeStats) {
+        result.episodes = episodeStats;
+      }
+
+      descDb.close();
+    } catch (err) {
+      // Silently handle missing database
+    }
+
+    // Count agent files and categories
+    try {
+      if (fs.existsSync(AGENTS_DIR)) {
+        const categories = fs.readdirSync(AGENTS_DIR).filter((f: string) =>
+          fs.statSync(path.join(AGENTS_DIR, f)).isDirectory()
+        );
+        result.agents.categories = categories.length;
+
+        let totalAgents = 0;
+        for (const cat of categories) {
+          const catPath = path.join(AGENTS_DIR, cat);
+          const agentFiles = fs.readdirSync(catPath).filter((f: string) => f.endsWith('.md'));
+          totalAgents += agentFiles.length;
+        }
+        result.agents.total = totalAgents;
+      }
+    } catch (err) {
+      // Silently handle errors
+    }
+
+    return result;
   }
 
   /**
@@ -924,10 +1042,14 @@ export class ExpressServer implements IExpressServer {
         new Date(e.timestamp).toDateString() === today
       ).length;
 
+      // Get REAL metrics from databases (not fake event-derived data)
+      const realMetrics = this.getRealDatabaseMetrics();
+
       res.setHeader('Content-Type', 'application/json');
       res.json({
         ucm: {
-          episodesStored: ucmStored || eventStats.dbEventCount,
+          // Use real DESC episode count, fallback to events only if no episodes
+          episodesStored: realMetrics.episodes.total || ucmStored || eventStats.dbEventCount,
           contextSize: ucmContextSize || Math.floor(eventStats.dbEventCount * 150),
         },
         idesc: {
@@ -947,9 +1069,13 @@ export class ExpressServer implements IExpressServer {
           communities: communities || Math.min(5, Math.floor(eventStats.dbEventCount / 10)),
         },
         token: {
-          // Usage should be a ratio (0-1), not raw token count
-          // Estimate ~200 tokens per event, budget is ~200K tokens
-          usage: tokenUsage || Math.min((eventStats.dbEventCount * 200) / 200000, 1),
+          // Real token usage from learning.db token_usage table
+          totalTokens: realMetrics.tokens.totalTokens,
+          inputTokens: realMetrics.tokens.inputTokens,
+          outputTokens: realMetrics.tokens.outputTokens,
+          requestCount: realMetrics.tokens.requestCount,
+          // Keep legacy fields for backward compatibility
+          usage: realMetrics.tokens.totalTokens > 0 ? Math.min(realMetrics.tokens.totalTokens / 200000, 1) : 0,
           warnings: tokenWarnings,
           summarizations: summarizations,
           rollingWindowSize: rollingWindowSize || 50,
@@ -961,10 +1087,26 @@ export class ExpressServer implements IExpressServer {
           memoryUsage: process.memoryUsage().heapUsed,
         },
         registry: {
-          total: 264,
-          categories: 30,
+          // Use REAL agent count from file system
+          total: realMetrics.agents.total || 264,
+          categories: realMetrics.agents.categories || 30,
           selectionsToday: selectionsToday,
           embeddingDimensions: 1536,
+        },
+        // NEW: Real learning metrics from learning.db
+        learning: {
+          trajectories: {
+            total: realMetrics.trajectories.total,
+            active: realMetrics.trajectories.active,
+            completed: realMetrics.trajectories.completed,
+            avgQuality: realMetrics.trajectories.avgQuality,
+          },
+          patterns: {
+            total: realMetrics.patterns.total,
+            avgWeight: realMetrics.patterns.avgWeight,
+            successCount: realMetrics.patterns.totalSuccess,
+            failureCount: realMetrics.patterns.totalFailure,
+          },
         },
       });
     } catch (error) {

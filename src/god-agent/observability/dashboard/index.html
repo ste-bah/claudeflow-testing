@@ -93,20 +93,34 @@
         <section class="panel learning-panel">
             <div class="panel-header">
                 <h2>Learning Metrics</h2>
+                <span class="panel-badge" id="learningBadge">SoNA</span>
             </div>
             <div class="panel-body">
-                <div class="metrics-summary" id="metricsSummary">
-                    <div class="metric-item">
-                        <span class="metric-label">Patterns:</span>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Trajectories</span>
+                        <span class="metric-value" id="trajTotal">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Active</span>
+                        <span class="metric-value" id="trajActive">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Completed</span>
+                        <span class="metric-value" id="trajCompleted">0</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Patterns</span>
                         <span class="metric-value" id="patternCount">0</span>
                     </div>
-                    <div class="metric-item">
-                        <span class="metric-label">Avg Quality:</span>
-                        <span class="metric-value" id="avgQuality">0.00</span>
+                    <div class="metric-card">
+                        <span class="metric-label">Avg Weight</span>
+                        <span class="metric-value" id="patternAvgWeight">0.00</span>
                     </div>
-                </div>
-                <div class="chart-container">
-                    <canvas id="qualityChart"></canvas>
+                    <div class="metric-card">
+                        <span class="metric-label">Success/Fail</span>
+                        <span class="metric-value" id="patternSuccessFail">0/0</span>
+                    </div>
                 </div>
             </div>
         </section>
@@ -209,28 +223,28 @@
             </div>
         </section>
 
-        <!-- Token Budget Panel -->
+        <!-- Token Usage Panel -->
         <section class="panel token-panel">
             <div class="panel-header">
-                <h2>Token Budget</h2>
+                <h2>Token Usage</h2>
             </div>
             <div class="panel-body">
                 <div class="metrics-grid">
                     <div class="metric-card">
-                        <span class="metric-label">Budget Usage</span>
-                        <span class="metric-value" id="tokenBudgetUsage">0%</span>
+                        <span class="metric-label">Total Tokens</span>
+                        <span class="metric-value" id="tokenTotal">0</span>
                     </div>
                     <div class="metric-card">
-                        <span class="metric-label">Warnings</span>
-                        <span class="metric-value" id="tokenWarnings">0</span>
+                        <span class="metric-label">Input Tokens</span>
+                        <span class="metric-value" id="tokenInput">0</span>
                     </div>
                     <div class="metric-card">
-                        <span class="metric-label">Summarizations</span>
-                        <span class="metric-value" id="summarizations">0</span>
+                        <span class="metric-label">Output Tokens</span>
+                        <span class="metric-value" id="tokenOutput">0</span>
                     </div>
                     <div class="metric-card">
-                        <span class="metric-label">Rolling Window</span>
-                        <span class="metric-value" id="rollingWindowSize">0</span>
+                        <span class="metric-label">Requests</span>
+                        <span class="metric-value" id="tokenRequests">0</span>
                     </div>
                 </div>
             </div>

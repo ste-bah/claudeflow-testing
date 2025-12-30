@@ -72,6 +72,17 @@ The learning system has been completely overhauled to fix critical issues where 
   - SQLite fallback for trajectory lookup (no more "Trajectory not found" errors)
   - Null-safe response access for SQLite-loaded trajectories
   - Graceful degradation when trajectory has minimal data
+- **Core Daemon JSON-RPC 2.0** (TASK-DAEMON-002):
+  - Newline-delimited message parsing with `handleData()`
+  - JSON parsing/validation with `processMessage()`
+  - Service routing (health.status, health.ping) with `routeRequest()`
+  - Proper JSON serialization with `sendResponse()`
+- **MBTI-Based Writing Agent Routing** (TASK-WRITING-001):
+  - `creative-writer` (ENFP + Type 7) - poems, stories, humor
+  - `professional-writer` (ESTJ + Type 3) - formal, business
+  - `academic-writer` (INTJ + Type 1) - scholarly, research
+  - `casual-writer` (ESFP + Type 7) - social, conversational
+  - `technical-writer` (ISTJ + Type 5) - documentation
 
 ### Architecture Improvements
 
