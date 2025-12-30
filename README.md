@@ -483,12 +483,38 @@ npx tsx src/god-agent/universal/cli.ts learn "TypeScript best practice: Always u
 
 # Via slash command
 /god-learn "Your knowledge here"
+
+# Store with metadata
+npx tsx src/god-agent/universal/cli.ts learn "Factory pattern enables flexible object creation" \
+  --domain patterns --category pattern --tags "design,factory,creational"
+
+# Store from file (large documents)
+npx tsx src/god-agent/universal/cli.ts learn --file ./docs/learnings.md --domain "project/docs"
 ```
 
 Knowledge is stored with:
 - Vector embeddings for semantic retrieval
 - Metadata (timestamp, source, category)
 - Confidence scoring based on usage patterns
+- **Automatic chunking** for content >2000 characters (OpenAI 8191 token limit compliance)
+
+#### Large Content Handling (Sprint 13)
+
+Content exceeding 2000 characters is automatically chunked using SymmetricChunker:
+
+| Feature | Description |
+|---------|-------------|
+| **Symmetric Chunking** | Same algorithm for storage AND retrieval (RULE-064) |
+| **Semantic Boundaries** | Preserves code blocks, tables, Task() calls |
+| **Parent Tracking** | Each chunk references parent for reconstruction |
+| **Content-Aware Tokens** | PROSE=1.3x, CODE=1.5x, TABLE=2.0x, CITATION=1.4x |
+| **Minimum Merge** | Chunks <200 chars merged with adjacent chunks |
+| **Backward Compatible** | Legacy entries work seamlessly with new chunked entries |
+
+```bash
+# Query stored knowledge (chunks auto-reconstructed)
+npx tsx src/god-agent/universal/cli.ts query --domain "patterns" --tags "factory" --limit 5
+```
 
 #### Learn Writing Styles from Documents
 
