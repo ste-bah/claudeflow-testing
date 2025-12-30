@@ -37,7 +37,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 
 ## What's New in v2.0.0
 
-### Learning System Remediation (FUCKUP-001)
+### Learning System Remediation
 
 The learning system has been completely overhauled to fix critical issues where learning data was lost on restart and components were disconnected:
 
