@@ -9,7 +9,8 @@
 import type {
   IChunkingConfig,
   IRange,
-  ISymmetricChunker
+  ISymmetricChunker,
+  IChunkWithPosition
 } from '../types.js';
 import {
   DEFAULT_CHUNKING_CONFIG,
@@ -82,6 +83,88 @@ export class SymmetricChunker implements ISymmetricChunker {
         { originalError: error }
       );
     }
+  }
+
+  /**
+   * Chunk text with position metadata for reconstruction
+   * Implements: REQ-CHUNK-003 (offset tracking)
+   * RULE-064: Same algorithm as chunk(), returns positions for reconstruction
+   */
+  async chunkWithPositions(text: string): Promise<IChunkWithPosition[]> {
+    try {
+      // Validate input
+      if (!text || text.trim().length === 0) {
+        return [];
+      }
+
+      // Find all protected regions that should not be split
+      const protectedRegions = this.findProtectedRegions(text);
+
+      // Perform chunking while respecting protected regions
+      const chunks = this.performChunking(text, protectedRegions);
+
+      // Enforce minimum chunk size by merging tiny chunks [REQ-CHUNK-002]
+      const mergedChunks = this.mergeTinyChunks(chunks);
+
+      // Enforce maximum chunk limit
+      if (mergedChunks.length > this.config.maxChunks) {
+        throw new DESCChunkingError(
+          `Text produced ${mergedChunks.length} chunks, exceeding maximum of ${this.config.maxChunks}`,
+          { chunkCount: mergedChunks.length, maxChunks: this.config.maxChunks }
+        );
+      }
+
+      // Convert to IChunkWithPosition with estimated tokens
+      return mergedChunks.map((c, idx) => ({
+        text: c.text,
+        start: c.start,
+        end: c.end,
+        index: idx,
+        estimatedTokens: Math.ceil(c.text.length / 4) // ~4 chars per token estimate
+      }));
+    } catch (error) {
+      if (error instanceof DESCChunkingError) {
+        throw error;
+      }
+      throw new DESCChunkingError(
+        `Chunking with positions failed: ${error instanceof Error ? error.message : String(error)}`,
+        { originalError: error }
+      );
+    }
+  }
+
+  /**
+   * Merge chunks that are smaller than minChars with adjacent chunks
+   * Implements: REQ-CHUNK-002 (minimum chunk size)
+   */
+  private mergeTinyChunks(chunks: Chunk[]): Chunk[] {
+    if (chunks.length <= 1) {
+      return chunks;
+    }
+
+    const minChars = this.config.minChars ?? 200;
+    const result: Chunk[] = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+
+      if (chunk.text.length < minChars && result.length > 0) {
+        // Merge with previous chunk
+        const prev = result[result.length - 1];
+        prev.text = prev.text + '\n\n' + chunk.text;
+        prev.end = chunk.end;
+      } else if (chunk.text.length < minChars && i < chunks.length - 1) {
+        // Merge with next chunk
+        const next = chunks[i + 1];
+        next.text = chunk.text + '\n\n' + next.text;
+        next.start = chunk.start;
+      } else {
+        result.push({ ...chunk });
+      }
+    }
+
+    // Reindex after merging
+    return result.map((c, idx) => ({ ...c, index: idx }));
   }
 
   /**

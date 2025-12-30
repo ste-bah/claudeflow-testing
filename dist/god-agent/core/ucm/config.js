@@ -33,6 +33,7 @@ export const PROTECTED_PATTERNS = [
 // ============================================================================
 export const DEFAULT_CHUNKING_CONFIG = {
     maxChars: 2000,
+    minChars: 200, // Implements REQ-CHUNK-002: Minimum chunk size to prevent tiny chunks
     overlap: 300,
     maxChunks: 25,
     breakPatterns: DEFAULT_BREAK_PATTERNS,

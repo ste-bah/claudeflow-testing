@@ -47,6 +47,7 @@ export const PROTECTED_PATTERNS: RegExp[] = [
 
 export const DEFAULT_CHUNKING_CONFIG: IChunkingConfig = {
   maxChars: 2000,
+  minChars: 200,  // Implements REQ-CHUNK-002: Minimum chunk size to prevent tiny chunks
   overlap: 300,
   maxChunks: 25,
   breakPatterns: DEFAULT_BREAK_PATTERNS,

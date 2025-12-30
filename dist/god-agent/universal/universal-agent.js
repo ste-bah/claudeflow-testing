@@ -42,6 +42,9 @@ import { getMemoryClient, } from '../core/memory-server/index.js';
 // TASK-HOOK-006: Hook Executor for pre/post Tool Use hooks
 // CONSTITUTION COMPLIANCE: RULE-033 (DESC context injection), RULE-035 (quality threshold 0.5), RULE-036 (quality scores)
 import { getHookExecutor, } from '../core/hooks/index.js';
+// TASK-CHUNK-003: Knowledge chunking for OpenAI token limit compliance
+// CONSTITUTION COMPLIANCE: RULE-064 (symmetric chunking), RULE-008 (SQLite persistence)
+import { KnowledgeChunker, } from './knowledge-chunker.js';
 // ==================== Universal Agent ====================
 export class UniversalAgent {
     agent;
@@ -84,6 +87,9 @@ export class UniversalAgent {
     ucmClient;
     // DAEMON-003: Core Daemon client for EpisodeStore/GraphDB IPC
     coreDaemonClient;
+    // TASK-CHUNK-003: Knowledge chunker for OpenAI token limit compliance
+    // CONSTITUTION: RULE-064 (symmetric chunking)
+    knowledgeChunker;
     constructor(config = {}) {
         const storageDir = config.storageDir ?? '.agentdb/universal';
         const enablePersistence = config.enablePersistence ?? true;
@@ -156,6 +162,10 @@ export class UniversalAgent {
         if (this.config.enablePersistence) {
             await this.loadPersistedState();
         }
+        // TASK-CHUNK-003: Initialize knowledge chunker for OpenAI token limit compliance
+        // CONSTITUTION: RULE-064 (symmetric chunking), RULE-008 (SQLite persistence)
+        this.knowledgeChunker = new KnowledgeChunker();
+        this.log('KnowledgeChunker initialized - Chunking enabled');
         // Initialize TrajectoryBridge for auto-feedback (FR-11)
         const reasoningBank = this.agent.getReasoningBank();
         const sonaEngine = this.agent.getSonaEngine();
@@ -1630,36 +1640,69 @@ export class UniversalAgent {
     }
     // ==================== Knowledge Management ====================
     /**
-     * Store knowledge for future use
+     * Store knowledge for future use with automatic chunking
+     * Implements: REQ-CHUNK-001 (chunking), REQ-CHUNK-006 (token limit validation)
+     * CONSTITUTION: RULE-064 (symmetric chunking), RULE-046 (atomic writes)
      */
     async storeKnowledge(entry) {
         const id = this.generateId();
-        const embedding = await this.embed(entry.content);
+        const now = Date.now();
+        // TASK-CHUNK-003: Chunk content for OpenAI token limit compliance
+        // Detects content type for accurate token estimation (REQ-CHUNK-009)
+        const contentType = this.knowledgeChunker.detectContentType(entry.content);
+        const chunkingResult = await this.knowledgeChunker.chunkForStorage(entry.content, id, { domain: entry.domain, type: entry.type, tags: entry.tags }, { contentType });
+        // REQ-CHUNK-006: Warn about very large content
+        if (chunkingResult.totalTokensEstimate > 100000) {
+            this.log(`WARNING: Large content (${chunkingResult.totalTokensEstimate} tokens) may have reduced retrieval quality`);
+        }
+        // Log chunking info
+        if (chunkingResult.wasChunked) {
+            this.log(`TASK-CHUNK-003: Chunked content into ${chunkingResult.chunks.length} chunks (${chunkingResult.totalTokensEstimate} estimated tokens)`);
+        }
         const knowledge = {
             ...entry,
             id,
             quality: 0.5, // Initial quality
             usageCount: 0,
-            lastUsed: Date.now(),
-            createdAt: Date.now(),
+            lastUsed: now,
+            createdAt: now,
         };
-        await this.agent.store({
-            content: knowledge,
-            embedding,
-            metadata: {
-                type: entry.type,
-                domain: entry.domain,
-                tags: entry.tags,
-            }
-        }, {
-            trackProvenance: true,
-            namespace: `knowledge.${entry.domain}`,
-        });
+        // Store each chunk separately with its own embedding for semantic search
+        // This enables retrieval of relevant chunks without loading entire document
+        for (const chunk of chunkingResult.chunks) {
+            const chunkEmbedding = await this.embed(chunk.text);
+            await this.agent.store({
+                content: {
+                    ...knowledge,
+                    // Store chunk text instead of full content for the embedding match
+                    chunkText: chunk.text,
+                    chunkIndex: chunk.metadata.chunkIndex,
+                    totalChunks: chunk.metadata.totalChunks,
+                    startOffset: chunk.metadata.startOffset,
+                    endOffset: chunk.metadata.endOffset,
+                    isChunked: chunkingResult.wasChunked,
+                },
+                embedding: chunkEmbedding,
+                metadata: {
+                    type: entry.type,
+                    domain: entry.domain,
+                    tags: entry.tags,
+                    chunkIndex: chunk.metadata.chunkIndex,
+                    totalChunks: chunk.metadata.totalChunks,
+                    parentId: id,
+                    estimatedTokens: chunk.metadata.estimatedTokens,
+                }
+            }, {
+                trackProvenance: true,
+                namespace: `knowledge.${entry.domain}`,
+            });
+        }
+        // Store parent entry in interaction store for quick metadata access
         this.interactionStore.addKnowledge(knowledge);
         // Track domain expertise
         const domainCount = (this.domainExpertise.get(entry.domain) ?? 0) + 1;
         this.domainExpertise.set(entry.domain, domainCount);
-        this.log(`Stored knowledge: ${id} (${entry.domain}/${entry.type})`);
+        this.log(`Stored knowledge: ${id} (${entry.domain}/${entry.type}) - ${chunkingResult.chunks.length} chunk(s)`);
         return id;
     }
     /**
@@ -1677,6 +1720,372 @@ export class UniversalAgent {
             await this.updateUsageStats(pattern.id);
         }
         return results.patterns;
+    }
+    // ==================== TASK-CHUNK-010: Backward Compatibility Layer ====================
+    /**
+     * Check if a knowledge entry is chunked
+     * Implements: TASK-CHUNK-010 (backward compatibility)
+     * CONSTITUTION: RULE-064 (symmetric chunking)
+     *
+     * Detects chunked entries by checking:
+     * 1. is_chunked flag (primary indicator)
+     * 2. chunk_count > 1 (fallback indicator)
+     * 3. totalChunks metadata field (legacy entries)
+     *
+     * @param entry - The entry content object from vector store
+     * @returns True if entry is chunked, false for legacy single-content entries
+     */
+    isChunkedEntry(entry) {
+        // Primary: check is_chunked flag (set during storeKnowledge)
+        if (entry.isChunked === true || entry.is_chunked === true) {
+            return true;
+        }
+        // Fallback: check chunk_count from metadata
+        const chunkCount = entry.chunk_count ?? entry.chunkCount ?? entry.totalChunks;
+        if (typeof chunkCount === 'number' && chunkCount > 1) {
+            return true;
+        }
+        // Legacy entries without chunking metadata are not chunked
+        return false;
+    }
+    /**
+     * Retrieve knowledge by ID with backward compatibility for chunked/non-chunked entries
+     * Implements: TASK-CHUNK-010 (backward compatible retrieval)
+     * CONSTITUTION: RULE-064 (symmetric chunking), REQ-CHUNK-010
+     *
+     * Logic:
+     * - For non-chunked entries: return content directly (legacy behavior)
+     * - For chunked entries: reconstruct from chunks using KnowledgeChunker.reconstructContent()
+     *
+     * @param id - The knowledge entry ID (parentId for chunked entries)
+     * @returns Full knowledge entry with reconstructed content, or null if not found
+     */
+    async retrieveKnowledge(id) {
+        // First, try to get entry from interaction store (quick metadata lookup)
+        const allKnowledge = this.interactionStore.getKnowledge();
+        const cachedEntry = allKnowledge.find(k => k.id === id);
+        if (cachedEntry) {
+            this.log(`TASK-CHUNK-010: Retrieved from cache: ${id}`);
+            return cachedEntry;
+        }
+        // Query vector store for chunks/entries with this ID
+        // Use a dummy embedding since we're looking up by ID, not similarity
+        const dummyEmbedding = new Float32Array(384); // Default embedding dimension
+        const results = await this.agent.query(dummyEmbedding, {
+            k: 100, // Get enough results to find all chunks
+            minSimilarity: 0,
+            includeProvenance: true,
+        });
+        // Filter results to find entries matching this ID or parentId
+        // Cast to PatternWithMetadata to access runtime metadata field
+        const matchingEntries = results.patterns.filter(p => {
+            const content = p.content;
+            return content.id === id || p.metadata?.parentId === id;
+        });
+        if (matchingEntries.length === 0) {
+            this.log(`TASK-CHUNK-010: Knowledge not found: ${id}`);
+            return null;
+        }
+        // Get the first entry to check if chunked
+        const firstEntry = matchingEntries[0];
+        const entryContent = firstEntry.content;
+        // Check if this is a chunked entry
+        if (!this.isChunkedEntry(entryContent)) {
+            // Legacy non-chunked entry: return content directly
+            this.log(`TASK-CHUNK-010: Retrieved non-chunked entry: ${id}`);
+            return this.contentToKnowledgeEntry(entryContent);
+        }
+        // Chunked entry: reconstruct from all chunks
+        this.log(`TASK-CHUNK-010: Reconstructing chunked entry: ${id}`);
+        return this.reconstructChunkedKnowledge(id, matchingEntries);
+    }
+    /**
+     * Reconstruct full content from chunked knowledge entries
+     * Implements: REQ-CHUNK-010 (backward compatible retrieval)
+     *
+     * @param parentId - The parent knowledge entry ID
+     * @param chunks - Array of chunk entries from vector store
+     * @returns Reconstructed KnowledgeEntry with full content
+     */
+    async reconstructChunkedKnowledge(parentId, chunks) {
+        // Sort chunks by index
+        const sortedChunks = chunks.sort((a, b) => {
+            const aContent = a.content;
+            const bContent = b.content;
+            const aIndex = (aContent.chunkIndex ?? a.metadata?.chunkIndex ?? 0);
+            const bIndex = (bContent.chunkIndex ?? b.metadata?.chunkIndex ?? 0);
+            return aIndex - bIndex;
+        });
+        // Validate chunk sequence
+        const expectedTotal = sortedChunks[0].content.totalChunks ??
+            sortedChunks[0].metadata?.totalChunks;
+        if (typeof expectedTotal !== 'number') {
+            this.log(`TASK-CHUNK-010: WARNING - Missing totalChunks for ${parentId}, using chunk count`);
+        }
+        // Convert to KnowledgeChunk format for reconstructContent()
+        const knowledgeChunks = sortedChunks.map((chunk, idx) => {
+            const content = chunk.content;
+            const metadata = chunk.metadata;
+            return {
+                text: (content.chunkText ?? content.content ?? ''),
+                metadata: {
+                    parentId,
+                    chunkIndex: (content.chunkIndex ?? metadata?.chunkIndex ?? idx),
+                    totalChunks: (content.totalChunks ?? metadata?.totalChunks ?? sortedChunks.length),
+                    startOffset: (content.startOffset ?? metadata?.startOffset ?? 0),
+                    endOffset: (content.endOffset ?? metadata?.endOffset ?? 0),
+                    domain: (content.domain ?? metadata?.domain ?? 'unknown'),
+                    type: (content.type ?? metadata?.type ?? 'unknown'),
+                    tags: (content.tags ?? metadata?.tags ?? []),
+                    estimatedTokens: (metadata?.estimatedTokens ?? 0),
+                }
+            };
+        });
+        // Validate we can reconstruct
+        if (!this.knowledgeChunker.canReconstruct(knowledgeChunks)) {
+            this.log(`TASK-CHUNK-010: ERROR - Cannot reconstruct chunks for ${parentId}, missing chunks`);
+            // Fall back to returning first chunk's content
+            const firstContent = sortedChunks[0].content;
+            return this.contentToKnowledgeEntry({
+                ...firstContent,
+                content: firstContent.chunkText ?? firstContent.content,
+            });
+        }
+        // Reconstruct full content using KnowledgeChunker
+        const reconstructedContent = this.knowledgeChunker.reconstructContent(knowledgeChunks);
+        // Build KnowledgeEntry from first chunk's metadata + reconstructed content
+        const firstContent = sortedChunks[0].content;
+        const firstMetadata = sortedChunks[0].metadata;
+        this.log(`TASK-CHUNK-010: Reconstructed ${knowledgeChunks.length} chunks (${reconstructedContent.length} chars) for ${parentId}`);
+        return {
+            id: parentId,
+            content: reconstructedContent,
+            type: (firstContent.type ?? firstMetadata?.type ?? 'pattern'),
+            domain: (firstContent.domain ?? firstMetadata?.domain ?? 'unknown'),
+            tags: (firstContent.tags ?? firstMetadata?.tags ?? []),
+            quality: (firstContent.quality ?? 0.5),
+            usageCount: (firstContent.usageCount ?? 0),
+            lastUsed: (firstContent.lastUsed ?? Date.now()),
+            createdAt: (firstContent.createdAt ?? Date.now()),
+            source: firstContent.source,
+        };
+    }
+    /**
+     * Convert raw content object to KnowledgeEntry
+     * Helper for backward compatibility with legacy non-chunked entries
+     *
+     * @param content - Raw content object from vector store
+     * @returns KnowledgeEntry
+     */
+    contentToKnowledgeEntry(content) {
+        return {
+            id: content.id,
+            content: (content.content ?? content.chunkText ?? ''),
+            type: (content.type ?? 'pattern'),
+            domain: (content.domain ?? 'unknown'),
+            tags: (content.tags ?? []),
+            quality: (content.quality ?? 0.5),
+            usageCount: (content.usageCount ?? 0),
+            lastUsed: (content.lastUsed ?? Date.now()),
+            createdAt: (content.createdAt ?? Date.now()),
+            source: content.source,
+        };
+    }
+    // ==================== TASK-CHUNK-004: Chunk Retrieval & Reconstruction ====================
+    /**
+     * Get all chunks for a knowledge entry by parentId
+     * Implements: TASK-CHUNK-004 (chunk retrieval)
+     * CONSTITUTION: RULE-064 (symmetric chunking), REQ-CHUNK-010 (backward compatibility)
+     *
+     * @param knowledgeId - The parent knowledge entry ID
+     * @returns Array of KnowledgeChunk objects sorted by chunkIndex, empty array if not found
+     */
+    async getKnowledgeChunks(knowledgeId) {
+        await this.ensureInitialized();
+        this.log(`TASK-CHUNK-004: Retrieving chunks for knowledge ID: ${knowledgeId}`);
+        // Query vector store for all entries with this parentId
+        // Use a dummy embedding since we're looking up by ID, not similarity
+        const dummyEmbedding = new Float32Array(384); // Default embedding dimension
+        const results = await this.agent.query(dummyEmbedding, {
+            k: 100, // Get enough results to find all chunks
+            minSimilarity: 0,
+            includeProvenance: true,
+        });
+        // Filter results to find chunks matching this parentId
+        // Cast to PatternWithMetadata to access runtime metadata field
+        const patternsWithMeta = results.patterns;
+        const matchingChunks = patternsWithMeta.filter(p => {
+            const content = p.content;
+            return p.metadata?.parentId === knowledgeId || content.id === knowledgeId;
+        });
+        if (matchingChunks.length === 0) {
+            this.log(`TASK-CHUNK-004: No chunks found for knowledge ID: ${knowledgeId}`);
+            return [];
+        }
+        // Convert to KnowledgeChunk format and sort by chunkIndex
+        const knowledgeChunks = matchingChunks.map((chunk) => {
+            const content = chunk.content;
+            const metadata = chunk.metadata ?? {};
+            return {
+                text: (content.chunkText ?? content.content ?? ''),
+                metadata: {
+                    parentId: knowledgeId,
+                    chunkIndex: (content.chunkIndex ?? metadata?.chunkIndex ?? 0),
+                    totalChunks: (content.totalChunks ?? metadata?.totalChunks ?? matchingChunks.length),
+                    startOffset: (content.startOffset ?? metadata?.startOffset ?? 0),
+                    endOffset: (content.endOffset ?? metadata?.endOffset ?? 0),
+                    domain: (content.domain ?? metadata?.domain ?? 'unknown'),
+                    type: (content.type ?? metadata?.type ?? 'unknown'),
+                    tags: (content.tags ?? metadata?.tags ?? []),
+                    estimatedTokens: (metadata?.estimatedTokens ?? 0),
+                }
+            };
+        });
+        // Sort by chunkIndex to ensure correct order
+        knowledgeChunks.sort((a, b) => a.metadata.chunkIndex - b.metadata.chunkIndex);
+        this.log(`TASK-CHUNK-004: Retrieved ${knowledgeChunks.length} chunks for ${knowledgeId}`);
+        return knowledgeChunks;
+    }
+    /**
+     * Reconstruct full content from knowledge chunks
+     * Implements: TASK-CHUNK-004 (content reconstruction)
+     * CONSTITUTION: RULE-064 (symmetric chunking), REQ-CHUNK-010 (backward compatibility)
+     *
+     * @param knowledgeId - The parent knowledge entry ID
+     * @returns Reconstructed full content string, or empty string if not found
+     * @throws Error if chunks are incomplete or cannot be reconstructed
+     */
+    async reconstructKnowledge(knowledgeId) {
+        await this.ensureInitialized();
+        this.log(`TASK-CHUNK-004: Reconstructing knowledge ID: ${knowledgeId}`);
+        // Get all chunks for this knowledge entry
+        const chunks = await this.getKnowledgeChunks(knowledgeId);
+        if (chunks.length === 0) {
+            this.log(`TASK-CHUNK-004: No chunks found for reconstruction: ${knowledgeId}`);
+            return '';
+        }
+        // For single chunk, return directly without reconstruction overhead
+        if (chunks.length === 1) {
+            this.log(`TASK-CHUNK-004: Single chunk, returning directly: ${knowledgeId}`);
+            return chunks[0].text;
+        }
+        // Validate chunk sequence can be reconstructed
+        if (!this.knowledgeChunker.canReconstruct(chunks)) {
+            const missing = this.findMissingChunkIndices(chunks);
+            throw new Error(`TASK-CHUNK-004: Cannot reconstruct ${knowledgeId} - missing chunks at indices: ${missing.join(', ')}`);
+        }
+        // Use KnowledgeChunker to reconstruct content
+        const reconstructedContent = this.knowledgeChunker.reconstructContent(chunks);
+        this.log(`TASK-CHUNK-004: Reconstructed ${chunks.length} chunks into ${reconstructedContent.length} characters for ${knowledgeId}`);
+        return reconstructedContent;
+    }
+    /**
+     * Query knowledge base with automatic chunk handling
+     * Implements: TASK-CHUNK-004 (chunked query results)
+     * CONSTITUTION: RULE-064 (symmetric chunking), REQ-CHUNK-010 (backward compatibility)
+     *
+     * Returns deduplicated results where chunked entries are consolidated by parentId.
+     * Each result includes the reconstructed content for chunked entries.
+     *
+     * @param query - Search query text
+     * @param options - Query options (k, minSimilarity, domain filter)
+     * @returns Array of KnowledgeEntry objects with reconstructed content
+     */
+    async queryKnowledge(query, options = {}) {
+        await this.ensureInitialized();
+        const { k = 10, minSimilarity = 0.3, domain } = options;
+        this.log(`TASK-CHUNK-004: Querying knowledge with: "${query.substring(0, 50)}..."`);
+        // Generate embedding for query
+        const embedding = await this.embed(query);
+        // Query vector store for matching chunks/entries
+        const results = await this.agent.query(embedding, {
+            k: k * 3, // Fetch extra to account for chunk deduplication
+            minSimilarity,
+            includeProvenance: true,
+        });
+        // Filter by domain if specified
+        // Cast to PatternWithMetadata to access runtime metadata field
+        let patterns = results.patterns;
+        if (domain) {
+            patterns = patterns.filter(p => {
+                const content = p.content;
+                return content.domain === domain || p.metadata?.domain === domain;
+            });
+        }
+        // Group by parentId to deduplicate chunked entries
+        const parentIdMap = new Map();
+        for (const pattern of patterns) {
+            const content = pattern.content;
+            const parentId = (pattern.metadata?.parentId ?? content.id);
+            const existing = parentIdMap.get(parentId);
+            if (existing) {
+                existing.patterns.push(pattern);
+                existing.maxSimilarity = Math.max(existing.maxSimilarity, pattern.similarity);
+            }
+            else {
+                parentIdMap.set(parentId, {
+                    patterns: [pattern],
+                    maxSimilarity: pattern.similarity,
+                });
+            }
+        }
+        // Sort by max similarity
+        const sortedEntries = Array.from(parentIdMap.entries())
+            .sort((a, b) => b[1].maxSimilarity - a[1].maxSimilarity)
+            .slice(0, k);
+        // Reconstruct chunked entries and return KnowledgeEntry objects
+        const knowledgeEntries = [];
+        for (const [parentId, { patterns: entryPatterns }] of sortedEntries) {
+            const firstPattern = entryPatterns[0];
+            const content = firstPattern.content;
+            // Check if this is a chunked entry
+            if (this.isChunkedEntry(content)) {
+                // Reconstruct full content from all chunks
+                try {
+                    const reconstructed = await this.reconstructKnowledge(parentId);
+                    knowledgeEntries.push({
+                        id: parentId,
+                        content: reconstructed,
+                        type: (content.type ?? 'pattern'),
+                        domain: (content.domain ?? 'unknown'),
+                        tags: (content.tags ?? []),
+                        quality: (content.quality ?? 0.5),
+                        usageCount: (content.usageCount ?? 0),
+                        lastUsed: (content.lastUsed ?? Date.now()),
+                        createdAt: (content.createdAt ?? Date.now()),
+                        source: content.source,
+                    });
+                }
+                catch (error) {
+                    // Fall back to returning the matched chunk's text on reconstruction failure
+                    this.log(`TASK-CHUNK-004: Reconstruction failed for ${parentId}, using chunk text: ${error}`);
+                    knowledgeEntries.push(this.contentToKnowledgeEntry(content));
+                }
+            }
+            else {
+                // Non-chunked entry, return directly
+                knowledgeEntries.push(this.contentToKnowledgeEntry(content));
+            }
+        }
+        this.log(`TASK-CHUNK-004: Query returned ${knowledgeEntries.length} knowledge entries (from ${patterns.length} raw results)`);
+        return knowledgeEntries;
+    }
+    /**
+     * Find missing chunk indices for error reporting
+     * Helper for TASK-CHUNK-004
+     */
+    findMissingChunkIndices(chunks) {
+        if (chunks.length === 0)
+            return [];
+        const expectedTotal = chunks[0].metadata.totalChunks;
+        const presentIndices = new Set(chunks.map(c => c.metadata.chunkIndex));
+        const missing = [];
+        for (let i = 0; i < expectedTotal; i++) {
+            if (!presentIndices.has(i)) {
+                missing.push(i);
+            }
+        }
+        return missing;
     }
     /**
      * Maybe store a pattern if it's high quality

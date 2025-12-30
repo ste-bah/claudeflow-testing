@@ -20,6 +20,7 @@ import { AgentRegistry, AgentSelector, TaskExecutor, type IAgentSelectionResult 
 import { PipelineExecutor, type IPipelineDefinition, type DAI002PipelineResult, type DAI002PipelineOptions } from '../core/pipeline/index.js';
 import { type IRoutingResult, type IGeneratedPipeline } from '../core/routing/index.js';
 import { MemoryClient } from '../core/memory-server/index.js';
+import { type KnowledgeChunk } from './knowledge-chunker.js';
 export type AgentMode = 'code' | 'research' | 'write' | 'general';
 export interface UniversalConfig {
     /** Enable automatic learning from all interactions */
@@ -276,6 +277,7 @@ export declare class UniversalAgent {
     private memoryClient;
     private ucmClient;
     private coreDaemonClient;
+    private knowledgeChunker;
     constructor(config?: UniversalConfig);
     initialize(): Promise<void>;
     /**
@@ -548,13 +550,100 @@ export declare class UniversalAgent {
      */
     private weakenPattern;
     /**
-     * Store knowledge for future use
+     * Store knowledge for future use with automatic chunking
+     * Implements: REQ-CHUNK-001 (chunking), REQ-CHUNK-006 (token limit validation)
+     * CONSTITUTION: RULE-064 (symmetric chunking), RULE-046 (atomic writes)
      */
     storeKnowledge(entry: Omit<KnowledgeEntry, 'id' | 'quality' | 'usageCount' | 'lastUsed' | 'createdAt'>): Promise<string>;
     /**
      * Retrieve relevant knowledge
      */
     private retrieveRelevant;
+    /**
+     * Check if a knowledge entry is chunked
+     * Implements: TASK-CHUNK-010 (backward compatibility)
+     * CONSTITUTION: RULE-064 (symmetric chunking)
+     *
+     * Detects chunked entries by checking:
+     * 1. is_chunked flag (primary indicator)
+     * 2. chunk_count > 1 (fallback indicator)
+     * 3. totalChunks metadata field (legacy entries)
+     *
+     * @param entry - The entry content object from vector store
+     * @returns True if entry is chunked, false for legacy single-content entries
+     */
+    isChunkedEntry(entry: Record<string, unknown>): boolean;
+    /**
+     * Retrieve knowledge by ID with backward compatibility for chunked/non-chunked entries
+     * Implements: TASK-CHUNK-010 (backward compatible retrieval)
+     * CONSTITUTION: RULE-064 (symmetric chunking), REQ-CHUNK-010
+     *
+     * Logic:
+     * - For non-chunked entries: return content directly (legacy behavior)
+     * - For chunked entries: reconstruct from chunks using KnowledgeChunker.reconstructContent()
+     *
+     * @param id - The knowledge entry ID (parentId for chunked entries)
+     * @returns Full knowledge entry with reconstructed content, or null if not found
+     */
+    retrieveKnowledge(id: string): Promise<KnowledgeEntry | null>;
+    /**
+     * Reconstruct full content from chunked knowledge entries
+     * Implements: REQ-CHUNK-010 (backward compatible retrieval)
+     *
+     * @param parentId - The parent knowledge entry ID
+     * @param chunks - Array of chunk entries from vector store
+     * @returns Reconstructed KnowledgeEntry with full content
+     */
+    private reconstructChunkedKnowledge;
+    /**
+     * Convert raw content object to KnowledgeEntry
+     * Helper for backward compatibility with legacy non-chunked entries
+     *
+     * @param content - Raw content object from vector store
+     * @returns KnowledgeEntry
+     */
+    private contentToKnowledgeEntry;
+    /**
+     * Get all chunks for a knowledge entry by parentId
+     * Implements: TASK-CHUNK-004 (chunk retrieval)
+     * CONSTITUTION: RULE-064 (symmetric chunking), REQ-CHUNK-010 (backward compatibility)
+     *
+     * @param knowledgeId - The parent knowledge entry ID
+     * @returns Array of KnowledgeChunk objects sorted by chunkIndex, empty array if not found
+     */
+    getKnowledgeChunks(knowledgeId: string): Promise<KnowledgeChunk[]>;
+    /**
+     * Reconstruct full content from knowledge chunks
+     * Implements: TASK-CHUNK-004 (content reconstruction)
+     * CONSTITUTION: RULE-064 (symmetric chunking), REQ-CHUNK-010 (backward compatibility)
+     *
+     * @param knowledgeId - The parent knowledge entry ID
+     * @returns Reconstructed full content string, or empty string if not found
+     * @throws Error if chunks are incomplete or cannot be reconstructed
+     */
+    reconstructKnowledge(knowledgeId: string): Promise<string>;
+    /**
+     * Query knowledge base with automatic chunk handling
+     * Implements: TASK-CHUNK-004 (chunked query results)
+     * CONSTITUTION: RULE-064 (symmetric chunking), REQ-CHUNK-010 (backward compatibility)
+     *
+     * Returns deduplicated results where chunked entries are consolidated by parentId.
+     * Each result includes the reconstructed content for chunked entries.
+     *
+     * @param query - Search query text
+     * @param options - Query options (k, minSimilarity, domain filter)
+     * @returns Array of KnowledgeEntry objects with reconstructed content
+     */
+    queryKnowledge(query: string, options?: {
+        k?: number;
+        minSimilarity?: number;
+        domain?: string;
+    }): Promise<KnowledgeEntry[]>;
+    /**
+     * Find missing chunk indices for error reporting
+     * Helper for TASK-CHUNK-004
+     */
+    private findMissingChunkIndices;
     /**
      * Maybe store a pattern if it's high quality
      */

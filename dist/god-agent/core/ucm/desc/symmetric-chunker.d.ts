@@ -5,7 +5,7 @@
  * Structure-aware chunking that preserves semantic boundaries
  * using protected patterns and configurable break points.
  */
-import type { IChunkingConfig, ISymmetricChunker } from '../types.js';
+import type { IChunkingConfig, ISymmetricChunker, IChunkWithPosition } from '../types.js';
 /**
  * SymmetricChunker - RULE-064 compliant chunking
  *
@@ -23,6 +23,17 @@ export declare class SymmetricChunker implements ISymmetricChunker {
      * RULE-064: This SAME method is used for both storage and retrieval
      */
     chunk(text: string): Promise<string[]>;
+    /**
+     * Chunk text with position metadata for reconstruction
+     * Implements: REQ-CHUNK-003 (offset tracking)
+     * RULE-064: Same algorithm as chunk(), returns positions for reconstruction
+     */
+    chunkWithPositions(text: string): Promise<IChunkWithPosition[]>;
+    /**
+     * Merge chunks that are smaller than minChars with adjacent chunks
+     * Implements: REQ-CHUNK-002 (minimum chunk size)
+     */
+    private mergeTinyChunks;
     /**
      * Find regions that must not be split (code blocks, tables, Task() calls)
      */

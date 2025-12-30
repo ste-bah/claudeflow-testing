@@ -74,9 +74,11 @@ export interface IEstimationHints {
 
 /**
  * Chunking configuration (RULE-064: symmetric)
+ * Implements: REQ-CHUNK-001 to REQ-CHUNK-006
  */
 export interface IChunkingConfig {
   maxChars: number;      // Default: 2000
+  minChars: number;      // Default: 200 - Minimum chunk size to prevent tiny chunks [REQ-CHUNK-002]
   overlap: number;       // Default: 300
   maxChunks: number;     // Default: 25
   breakPatterns: BreakPattern[];
@@ -451,12 +453,32 @@ export interface IRange {
   end: number;
 }
 
+/**
+ * Chunk with position metadata for reconstruction
+ * Implements: REQ-CHUNK-003 (offset tracking for reconstruction)
+ */
+export interface IChunkWithPosition {
+  /** Chunk text content */
+  text: string;
+  /** Start character offset in original text (0-indexed) */
+  start: number;
+  /** End character offset in original text (exclusive) */
+  end: number;
+  /** Chunk index (0-indexed) */
+  index: number;
+  /** Estimated token count for this chunk */
+  estimatedTokens?: number;
+}
+
 // ============================================================================
 // Service Interfaces
 // ============================================================================
 
 export interface ISymmetricChunker {
+  /** Chunk text and return only the text content */
   chunk(text: string): Promise<string[]>;
+  /** Chunk text and return chunks with position metadata [REQ-CHUNK-003] */
+  chunkWithPositions(text: string): Promise<IChunkWithPosition[]>;
 }
 
 export interface IEpisodeRetriever {
