@@ -14,7 +14,7 @@
  *   npx tsx src/god-agent/universal/cli.ts status
  */
 
-import { UniversalAgent } from './universal-agent.js';
+import { UniversalAgent, type ICodeTaskPreparation } from './universal-agent.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
@@ -281,7 +281,11 @@ async function main() {
         break;
 
       case 'code':
-      case 'c':
+      case 'c': {
+        // TASK-GODCODE-001: Two-phase execution model
+        // Implements [REQ-GODCODE-001]: CLI does NOT attempt task execution
+        // Implements [REQ-GODCODE-002]: CLI returns builtPrompt in JSON
+        // Implements [REQ-GODCODE-006]: CLI exits immediately after JSON output
         if (!input) {
           if (jsonMode) {
             outputJson({
@@ -298,35 +302,96 @@ async function main() {
           }
           process.exit(1);
         }
-        const codeResult = await agent.code(input);
-        if (jsonMode) {
-          outputJson({
-            command: 'code',
-            selectedAgent: getSelectedAgent(command),
-            prompt: input,
-            isPipeline: isPipelineTask(input),
-            result: {
-              code: codeResult.code,
-              language: codeResult.language,
-              patternsUsed: codeResult.patterns_used.length,
-              learned: codeResult.learned,
-            },
-            success: true,
-            trajectoryId: codeResult.trajectoryId,
-          });
+
+        // Check for --execute flag for backward compatibility
+        const executeFlag = getFlag(flags, 'execute', 'e') === true;
+
+        if (executeFlag) {
+          // Legacy behavior: Full execution via agent.code()
+          const codeResult = await agent.code(input);
+          if (jsonMode) {
+            outputJson({
+              command: 'code',
+              selectedAgent: getSelectedAgent(command),
+              prompt: input,
+              isPipeline: isPipelineTask(input),
+              result: {
+                code: codeResult.code,
+                language: codeResult.language,
+                patternsUsed: codeResult.patterns_used.length,
+                learned: codeResult.learned,
+              },
+              success: true,
+              trajectoryId: codeResult.trajectoryId,
+            });
+          } else {
+            console.log('\n--- Generated Code ---\n');
+            console.log(codeResult.code);
+            console.log('\n--- Details ---');
+            console.log(`Language: ${codeResult.language}`);
+            console.log(`Patterns used: ${codeResult.patterns_used.length}`);
+            console.log(`Learned: ${codeResult.learned}`);
+            if (codeResult.trajectoryId) {
+              console.log(`Trajectory: ${codeResult.trajectoryId}`);
+              console.log(`\nProvide feedback: npx tsx src/god-agent/universal/cli.ts feedback ${codeResult.trajectoryId} <rating>`);
+            }
+          }
         } else {
-          console.log('\n--- Generated Code ---\n');
-          console.log(codeResult.code);
-          console.log('\n--- Details ---');
-          console.log(`Language: ${codeResult.language}`);
-          console.log(`Patterns used: ${codeResult.patterns_used.length}`);
-          console.log(`Learned: ${codeResult.learned}`);
-          if (codeResult.trajectoryId) {
-            console.log(`Trajectory: ${codeResult.trajectoryId}`);
-            console.log(`\nProvide feedback: npx tsx src/god-agent/universal/cli.ts feedback ${codeResult.trajectoryId} <rating>`);
+          // Implements [REQ-GODCODE-001]: New two-phase behavior (default)
+          // Phase 1: Prepare task (agent selection, DESC injection, prompt building)
+          // Phase 2: Skill executes Task() with builtPrompt
+          const languageFlag = getFlag(flags, 'language', 'l') as string | undefined;
+          const preparation = await agent.prepareCodeTask(input, { language: languageFlag });
+
+          // Implements [REQ-GODCODE-002]: Output structured JSON with builtPrompt
+          if (jsonMode) {
+            // Machine-readable output for skill consumption
+            outputJson({
+              command: 'code',
+              selectedAgent: preparation.selectedAgent,
+              prompt: input,
+              isPipeline: preparation.isPipeline,
+              result: {
+                // Implements [REQ-GODCODE-002]: builtPrompt field
+                builtPrompt: preparation.builtPrompt,
+                // Implements [REQ-GODCODE-003]: agentType for Task()
+                agentType: preparation.agentType,
+                agentCategory: preparation.agentCategory,
+                descContext: preparation.descContext,
+                memoryContext: preparation.memoryContext,
+                language: preparation.language,
+                pipeline: preparation.pipeline,
+              },
+              success: true,
+              trajectoryId: preparation.trajectoryId ?? undefined,
+            });
+          } else {
+            // Human-readable output
+            console.log('\n--- Code Task Preparation ---\n');
+            console.log(`Task: ${input}`);
+            console.log(`Selected Agent: ${preparation.selectedAgent}`);
+            console.log(`Agent Type: ${preparation.agentType}`);
+            console.log(`Agent Category: ${preparation.agentCategory}`);
+            console.log(`Pipeline: ${preparation.isPipeline}`);
+            if (preparation.descContext) {
+              console.log(`DESC Context: ${preparation.descContext.substring(0, 100)}...`);
+            }
+            if (preparation.trajectoryId) {
+              console.log(`Trajectory: ${preparation.trajectoryId}`);
+            }
+            console.log('\n--- Built Prompt ---\n');
+            console.log(preparation.builtPrompt);
+            console.log('\n--- Execution Instructions ---');
+            console.log('Execute via Task() in /god-code skill with:');
+            console.log(`  agentType: "${preparation.agentType}"`);
+            console.log(`  prompt: [builtPrompt above]`);
           }
         }
-        break;
+
+        // Implements [REQ-GODCODE-006]: Shutdown and exit immediately
+        await agent.shutdown();
+        process.exit(0);
+      }
 
       case 'research':
       case 'r':

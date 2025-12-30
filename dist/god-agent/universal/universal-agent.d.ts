@@ -176,6 +176,43 @@ export interface AskResult {
     assessedContentType?: 'result' | 'prompt';
 }
 /**
+ * TASK-GODCODE-001: Code task preparation result for two-phase execution
+ *
+ * Implements [REQ-GODCODE-001]: CLI does NOT attempt task execution
+ * Implements [REQ-GODCODE-002]: CLI returns builtPrompt in JSON
+ * Implements [REQ-GODCODE-003]: CLI returns agentType for Task()
+ *
+ * Phase 1: CLI calls prepareCodeTask() -> returns this interface
+ * Phase 2: Skill executes Task() with builtPrompt and agentType
+ */
+export interface ICodeTaskPreparation {
+    /** Agent key from registry (DAI-001) */
+    selectedAgent: string;
+    /** Agent type for Task() subagent_type parameter */
+    agentType: string;
+    /** Agent category (e.g., "development", "analysis") */
+    agentCategory: string;
+    /** Full prompt with DESC injection for Task() execution */
+    builtPrompt: string;
+    /** Original user input task */
+    userTask: string;
+    /** Injected DESC episodes context (RULE-010) */
+    descContext: string | null;
+    /** Retrieved memory context from InteractionStore */
+    memoryContext: string | null;
+    /** Trajectory ID for learning feedback (FR-11) */
+    trajectoryId: string | null;
+    /** Whether this is a multi-agent pipeline task */
+    isPipeline: boolean;
+    /** Pipeline definition if isPipeline is true */
+    pipeline?: {
+        steps: string[];
+        agents: string[];
+    };
+    /** Detected or specified programming language */
+    language?: string;
+}
+/**
  * TASK-LEARN-007: Task execution result from default executor
  * Captures execution metadata for quality assessment and learning
  *
@@ -449,6 +486,45 @@ export declare class UniversalAgent {
     ask(input: string, options: AskOptions & {
         returnResult: true;
     }): Promise<AskResult>;
+    /**
+     * TASK-GODCODE-001: Prepare code task for two-phase execution
+     *
+     * Implements [REQ-GODCODE-001]: CLI does NOT attempt task execution
+     * Implements [REQ-GODCODE-002]: CLI returns builtPrompt in JSON
+     * Implements [REQ-GODCODE-003]: CLI returns agentType for Task()
+     * Implements [REQ-GODCODE-004]: Agent selection via AgentSelector (DAI-001)
+     * Implements [REQ-GODCODE-005]: DESC episode injection (RULE-010)
+     *
+     * This method performs Phase 1 preparation:
+     * 1. Injects DESC episodes for prior solutions (RULE-010: window size 3)
+     * 2. Selects optimal agent via AgentSelector (DAI-001)
+     * 3. Builds full prompt via TaskExecutor.buildPrompt()
+     * 4. Creates trajectory for learning feedback (FR-11)
+     * 5. Returns ICodeTaskPreparation (NO execution)
+     *
+     * Phase 2 execution happens in the /god-code skill via Task() tool.
+     *
+     * CONSTITUTION COMPLIANCE:
+     * - RULE-001: All code references REQ-GODCODE-*
+     * - RULE-003: Comments reference requirements
+     * - RULE-010: DESC window size 3
+     * - RULE-019: Real implementation, no scaffolding
+     * - RULE-069: Proper try/catch for async operations
+     *
+     * @param task - The code task to prepare
+     * @param options - Optional configuration (language, context)
+     * @returns ICodeTaskPreparation with builtPrompt for Task() execution
+     */
+    prepareCodeTask(task: string, options?: {
+        language?: string;
+        context?: string;
+    }): Promise<ICodeTaskPreparation>;
+    /**
+     * Check if a task requires multi-agent pipeline execution
+     * @param task - The task description
+     * @returns true if task benefits from pipeline execution
+     */
+    private isPipelineTask;
     /**
      * Code mode - write code with pattern learning
      */

@@ -281,6 +281,41 @@ export interface AskResult {
 }
 
 /**
+ * TASK-GODCODE-001: Code task preparation result for two-phase execution
+ *
+ * Implements [REQ-GODCODE-001]: CLI does NOT attempt task execution
+ * Implements [REQ-GODCODE-002]: CLI returns builtPrompt in JSON
+ * Implements [REQ-GODCODE-003]: CLI returns agentType for Task()
+ *
+ * Phase 1: CLI calls prepareCodeTask() -> returns this interface
+ * Phase 2: Skill executes Task() with builtPrompt and agentType
+ */
+export interface ICodeTaskPreparation {
+  /** Agent key from registry (DAI-001) */
+  selectedAgent: string;
+  /** Agent type for Task() subagent_type parameter */
+  agentType: string;
+  /** Agent category (e.g., "development", "analysis") */
+  agentCategory: string;
+  /** Full prompt with DESC injection for Task() execution */
+  builtPrompt: string;
+  /** Original user input task */
+  userTask: string;
+  /** Injected DESC episodes context (RULE-010) */
+  descContext: string | null;
+  /** Retrieved memory context from InteractionStore */
+  memoryContext: string | null;
+  /** Trajectory ID for learning feedback (FR-11) */
+  trajectoryId: string | null;
+  /** Whether this is a multi-agent pipeline task */
+  isPipeline: boolean;
+  /** Pipeline definition if isPipeline is true */
+  pipeline?: { steps: string[]; agents: string[] };
+  /** Detected or specified programming language */
+  language?: string;
+}
+
+/**
  * TASK-LEARN-007: Task execution result from default executor
  * Captures execution metadata for quality assessment and learning
  *
@@ -977,13 +1012,16 @@ export class UniversalAgent {
 
             // Implements [REQ-EXEC-003]: Output task as JSON for Claude Code Task tool
             // The markers allow Claude Code to parse the task specification
-            console.log('\n================================================================================');
-            console.log('CLAUDE_CODE_TASK_START');
-            console.log('================================================================================');
-            console.log(JSON.stringify(structuredTask, null, 2));
-            console.log('================================================================================');
-            console.log('CLAUDE_CODE_TASK_END');
-            console.log('================================================================================\n');
+            // Only output markers when verbose=true (not in --json mode) to avoid corrupting JSON output
+            if (this.config.verbose) {
+              console.log('\n================================================================================');
+              console.log('CLAUDE_CODE_TASK_START');
+              console.log('================================================================================');
+              console.log(JSON.stringify(structuredTask, null, 2));
+              console.log('================================================================================');
+              console.log('CLAUDE_CODE_TASK_END');
+              console.log('================================================================================\n');
+            }
 
             this.log(`TASK-EXEC-001: Structured task output for Claude Code execution`, {
               taskId: structuredTask.taskId,
@@ -1394,13 +1432,16 @@ export class UniversalAgent {
             );
 
             // Implements [REQ-EXEC-003]: Output task as JSON for Claude Code Task tool
-            console.log('\n================================================================================');
-            console.log('CLAUDE_CODE_TASK_START');
-            console.log('================================================================================');
-            console.log(JSON.stringify(structuredTask, null, 2));
-            console.log('================================================================================');
-            console.log('CLAUDE_CODE_TASK_END');
-            console.log('================================================================================\n');
+            // Only output markers when verbose=true (not in --json mode) to avoid corrupting JSON output
+            if (this.config.verbose) {
+              console.log('\n================================================================================');
+              console.log('CLAUDE_CODE_TASK_START');
+              console.log('================================================================================');
+              console.log(JSON.stringify(structuredTask, null, 2));
+              console.log('================================================================================');
+              console.log('CLAUDE_CODE_TASK_END');
+              console.log('================================================================================\n');
+            }
 
             this.log(`DAI-003 task(): Structured task output for Claude Code`, {
               taskId: structuredTask.taskId,
@@ -1683,6 +1724,137 @@ export class UniversalAgent {
   }
 
   // ==================== Mode-Specific Processing ====================
+
+  /**
+   * TASK-GODCODE-001: Prepare code task for two-phase execution
+   *
+   * Implements [REQ-GODCODE-001]: CLI does NOT attempt task execution
+   * Implements [REQ-GODCODE-002]: CLI returns builtPrompt in JSON
+   * Implements [REQ-GODCODE-003]: CLI returns agentType for Task()
+   * Implements [REQ-GODCODE-004]: Agent selection via AgentSelector (DAI-001)
+   * Implements [REQ-GODCODE-005]: DESC episode injection (RULE-010)
+   *
+   * This method performs Phase 1 preparation:
+   * 1. Injects DESC episodes for prior solutions (RULE-010: window size 3)
+   * 2. Selects optimal agent via AgentSelector (DAI-001)
+   * 3. Builds full prompt via TaskExecutor.buildPrompt()
+   * 4. Creates trajectory for learning feedback (FR-11)
+   * 5. Returns ICodeTaskPreparation (NO execution)
+   *
+   * Phase 2 execution happens in the /god-code skill via Task() tool.
+   *
+   * CONSTITUTION COMPLIANCE:
+   * - RULE-001: All code references REQ-GODCODE-*
+   * - RULE-003: Comments reference requirements
+   * - RULE-010: DESC window size 3
+   * - RULE-019: Real implementation, no scaffolding
+   * - RULE-069: Proper try/catch for async operations
+   *
+   * @param task - The code task to prepare
+   * @param options - Optional configuration (language, context)
+   * @returns ICodeTaskPreparation with builtPrompt for Task() execution
+   */
+  async prepareCodeTask(task: string, options: {
+    language?: string;
+    context?: string;
+  } = {}): Promise<ICodeTaskPreparation> {
+    // Implements [REQ-GODCODE-006]: Ensure initialized before processing
+    await this.ensureInitialized();
+
+    // Implements [REQ-GODCODE-005]: DESC episode injection (RULE-010: window size 3)
+    let descContext: string | null = null;
+    let augmentedTask = task;
+    try {
+      const descResult = await this.injectDESCEpisodes(task, { command: 'god-code', mode: 'code' });
+      augmentedTask = descResult.augmentedPrompt;
+      if (descResult.episodesUsed > 0) {
+        // Extract just the DESC portion (difference between augmented and original)
+        descContext = augmentedTask.length > task.length
+          ? augmentedTask.substring(0, augmentedTask.length - task.length).trim()
+          : null;
+        this.log(`TASK-GODCODE-001: DESC injected ${descResult.episodesUsed} episodes`);
+      }
+    } catch (error) {
+      // Implements [REQ-GODCODE-007]: Graceful DESC failure handling
+      this.log(`TASK-GODCODE-001: DESC injection failed (continuing): ${error}`);
+    }
+
+    // Implements [REQ-GODCODE-004]: Agent selection via AgentSelector (DAI-001)
+    const agentSelection = await this.selectAgentForTask(augmentedTask);
+    const agent = agentSelection.selection.selected;
+    this.log(`TASK-GODCODE-001: Selected agent '${agent.key}' (${agent.category})`);
+
+    // Implements [REQ-GODCODE-003]: Extract agentType for Task() subagent_type
+    const agentType = agent.frontmatter?.type ?? agent.category;
+
+    // Implements [REQ-GODCODE-008]: Create trajectory for learning feedback (FR-11)
+    let trajectoryId: string | null = null;
+    if (this.trajectoryBridge) {
+      try {
+        const embedding = await this.embed(task);
+        const trajectory = await this.trajectoryBridge.createTrajectoryFromInteraction(
+          task, 'code', embedding
+        );
+        trajectoryId = trajectory.trajectoryId;
+        this.log(`TASK-GODCODE-001: Trajectory created: ${trajectoryId}`);
+      } catch (error) {
+        // Implements [REQ-GODCODE-007]: Graceful trajectory failure handling
+        this.log(`TASK-GODCODE-001: Trajectory creation failed (continuing): ${error}`);
+      }
+    }
+
+    // Implements [REQ-GODCODE-002]: Build full prompt via TaskExecutor.buildPrompt()
+    const builtPrompt = this.taskExecutor.buildPrompt(
+      agent,
+      augmentedTask,
+      agentSelection.context
+    );
+
+    // Check if this is a pipeline task (multi-agent)
+    const isPipeline = this.isPipelineTask(task);
+    let pipeline: { steps: string[]; agents: string[] } | undefined;
+    if (isPipeline) {
+      // Extract pipeline info if available
+      pipeline = {
+        steps: ['analyze', 'implement', 'test'],
+        agents: [agent.key],
+      };
+    }
+
+    // Implements [REQ-GODCODE-001]: Return preparation result (NO execution)
+    return {
+      selectedAgent: agent.key,
+      agentType,
+      agentCategory: agent.category,
+      builtPrompt,
+      userTask: task,
+      descContext,
+      memoryContext: agentSelection.context ?? null,
+      trajectoryId,
+      isPipeline,
+      pipeline,
+      language: options.language,
+    };
+  }
+
+  /**
+   * Check if a task requires multi-agent pipeline execution
+   * @param task - The task description
+   * @returns true if task benefits from pipeline execution
+   */
+  private isPipelineTask(task: string): boolean {
+    const pipelineIndicators = [
+      /implement.*and.*test/i,
+      /create.*with.*validation/i,
+      /build.*complete/i,
+      /full.*implementation/i,
+      /end.to.end/i,
+      /multi.step/i,
+      /comprehensive/i,
+      /including.*tests/i,
+    ];
+    return pipelineIndicators.some(pattern => pattern.test(task));
+  }
 
   /**
    * Code mode - write code with pattern learning
