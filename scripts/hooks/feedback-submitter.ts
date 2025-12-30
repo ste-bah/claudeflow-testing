@@ -11,9 +11,14 @@
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import type { ReasoningBank } from '../../src/god-agent/core/reasoning/reasoning-bank.js';
 import type { ITaskSummary, IHookConfig, IHookLogger, IFeedbackQueueEntry, ILearningFeedback } from './hook-types.js';
 import { createHookLogger } from './hook-logger.js';
+// Implements [REQ-QUAL-001]: Import universal quality estimator (RULE-034)
+import { assessQuality, type QualityInteraction } from '../../src/god-agent/universal/quality-estimator.js';
+import type { IPostToolUseContext } from '../../src/god-agent/core/hooks/types.js';
+import type { AgentMode } from '../../src/god-agent/universal/universal-agent.js';
 
 /**
  * Feedback queue file paths
@@ -52,77 +57,125 @@ export class FeedbackSubmitter {
   }
 
   /**
-   * Estimate quality score from task summary and output
+   * Build QualityInteraction from hook context
    *
-   * Implements: REQ-HKS-008
+   * Implements [REQ-QUAL-002]: Build QualityInteraction from hook context (RULE-033)
    *
    * @param summary - Parsed task summary (may be null)
    * @param output - Raw task output
+   * @param context - Post-tool-use context
+   * @returns QualityInteraction object for universal estimator
+   */
+  private buildQualityInteraction(
+    summary: ITaskSummary | null,
+    output: string,
+    context: IPostToolUseContext
+  ): QualityInteraction {
+    // Detect mode from context
+    const mode = this.detectMode(context);
+
+    return {
+      id: context.sessionId || crypto.randomUUID(),
+      mode: mode,
+      input: typeof context.toolInput === 'string'
+        ? context.toolInput
+        : JSON.stringify(context.toolInput).substring(0, 500),
+      output: output,
+      timestamp: context.timestamp || Date.now(),
+    };
+  }
+
+  /**
+   * Detect agent mode from context metadata
+   *
+   * Implements [REQ-QUAL-002]: Mode detection for quality assessment (RULE-033)
+   *
+   * @param context - Post-tool-use context
+   * @returns Detected agent mode
+   */
+  private detectMode(context: IPostToolUseContext): AgentMode {
+    const agentType = (context.metadata?.agentType as string) ||
+                      (context.metadata?.agentCategory as string) || '';
+    const input = typeof context.toolInput === 'string' ? context.toolInput : '';
+
+    if (agentType.includes('code') || agentType.includes('coder') || input.includes('implement')) {
+      return 'code';
+    }
+    if (agentType.includes('research') || agentType.includes('analyst')) {
+      return 'research';
+    }
+    if (agentType.includes('writ') || agentType.includes('document')) {
+      return 'write';
+    }
+    return 'general';
+  }
+
+  /**
+   * Estimate quality score from task summary and output
+   *
+   * Implements: REQ-HKS-008, [REQ-QUAL-003]: Delegate to universal assessQuality (RULE-033, RULE-034)
+   *
+   * @param summary - Parsed task summary (may be null)
+   * @param output - Raw task output
+   * @param context - Optional post-tool-use context for mode detection
    * @returns Quality score 0-1
    */
-  estimateQuality(summary: ITaskSummary | null, output: string): number {
-    // If summary has explicit quality score, trust the agent
-    if (summary?.reasoningBankFeedback?.quality !== undefined) {
-      const explicitQuality = summary.reasoningBankFeedback.quality;
-      if (explicitQuality >= 0 && explicitQuality <= 1) {
-        this.logger.debug('Using explicit quality from summary', { quality: explicitQuality });
-        return explicitQuality;
+  estimateQuality(summary: ITaskSummary | null, output: string, context?: IPostToolUseContext): number {
+    // Implements [REQ-QUAL-003]: Delegate to universal assessQuality (RULE-033, RULE-034)
+    try {
+      // If explicit quality provided in summary, trust it
+      if (summary?.reasoningBankFeedback?.quality !== undefined) {
+        const explicitQuality = summary.reasoningBankFeedback.quality;
+        if (explicitQuality >= 0 && explicitQuality <= 1) {
+          this.logger.debug('Using explicit quality from summary', { quality: explicitQuality });
+          return explicitQuality;
+        }
       }
+
+      // Build QualityInteraction and delegate to universal estimator
+      const defaultContext: IPostToolUseContext = {
+        timestamp: Date.now(),
+        toolName: 'Task',
+        toolInput: '',
+        toolOutput: {},
+        sessionId: crypto.randomUUID()
+      };
+
+      const interaction = this.buildQualityInteraction(
+        summary,
+        output,
+        context || defaultContext
+      );
+
+      // Use universal assessQuality with RULE-035 compliant threshold (0.5)
+      const assessment = assessQuality(interaction, 0.5);
+
+      this.logger.info('Quality assessed via universal estimator', {
+        quality: assessment.score,
+        factors: assessment.factors,
+        meetsThreshold: assessment.meetsThreshold
+      });
+
+      return assessment.score;
+    } catch (error) {
+      // Implements RULE-069, RULE-070: Log errors with context
+      this.logger.error('Quality assessment failed, returning default 0.5', {
+        error: (error as Error).message,
+        summaryPresent: summary !== null,
+        outputLength: output.length
+      });
+      return 0.5;
     }
-
-    // Quality scoring heuristics
-    let quality = 0;
-
-    // Has TASK COMPLETION SUMMARY: +0.3
-    if (summary !== null) {
-      quality += 0.3;
-      this.logger.debug('Quality +0.3: Has TASK COMPLETION SUMMARY');
-    }
-
-    // Has InteractionStore entries: +0.2
-    if (summary && summary.interactionStoreEntries.length > 0) {
-      quality += 0.2;
-      this.logger.debug('Quality +0.2: Has InteractionStore entries');
-    }
-
-    // Has ReasoningBank feedback: +0.1
-    if (summary?.reasoningBankFeedback) {
-      quality += 0.1;
-      this.logger.debug('Quality +0.1: Has ReasoningBank feedback');
-    }
-
-    // No error messages in output: +0.2
-    const errorPatterns = /(?:error:|exception:|failed:|fatal:|panic:)/i;
-    if (!errorPatterns.test(output)) {
-      quality += 0.2;
-      this.logger.debug('Quality +0.2: No error messages');
-    }
-
-    // Has file modifications: +0.1
-    if (summary && (summary.filesCreated.length > 0 || summary.filesModified.length > 0)) {
-      quality += 0.1;
-      this.logger.debug('Quality +0.1: Has file modifications');
-    }
-
-    // Has next agent guidance: +0.1
-    if (summary && summary.nextAgentGuidance && summary.nextAgentGuidance.trim() !== '') {
-      quality += 0.1;
-      this.logger.debug('Quality +0.1: Has next agent guidance');
-    }
-
-    // Cap at 1.0
-    const finalQuality = Math.min(quality, 1.0);
-
-    this.logger.info('Quality estimated', { quality: finalQuality });
-
-    return finalQuality;
   }
 
   /**
    * Determine outcome from quality score
+   *
+   * Implements [REQ-QUAL-004]: RULE-035 compliant thresholds (0.5, not 0.7)
    */
   determineOutcome(quality: number): 'positive' | 'negative' | 'neutral' {
-    if (quality >= 0.7) return 'positive';
+    // Implements [REQ-QUAL-004]: Changed from 0.7 to 0.5 per RULE-035
+    if (quality >= 0.5) return 'positive';
     if (quality <= 0.3) return 'negative';
     return 'neutral';
   }

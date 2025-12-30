@@ -83,6 +83,12 @@ The learning system has been completely overhauled to fix critical issues where 
   - `academic-writer` (INTJ + Type 1) - scholarly, research
   - `casual-writer` (ESFP + Type 7) - social, conversational
   - `technical-writer` (ISTJ + Type 5) - documentation
+- **Unified Quality Estimator** (TASK-QUAL-001):
+  - Hook delegates to universal `assessQuality()` (no duplicate logic)
+  - Mode-aware scoring: prose (ask/research) vs structured (code/write)
+  - RULE-035 compliant threshold: 0.5 for positive (was 0.7)
+  - IT Governance prose responses now score 0.5+ (was 0.2)
+  - 42 new tests with regression coverage
 
 ### Architecture Improvements
 

@@ -258,7 +258,8 @@ The changes are in ./src/api/users.ts and ./src/routes/index.ts.
 
       expect(submitter.determineOutcome(0.9)).toBe('positive');
       expect(submitter.determineOutcome(0.7)).toBe('positive');
-      expect(submitter.determineOutcome(0.5)).toBe('neutral');
+      // Implements RULE-035: Threshold 0.5 for positive (not 0.7)
+      expect(submitter.determineOutcome(0.5)).toBe('positive');
       expect(submitter.determineOutcome(0.3)).toBe('negative');
     });
   });
