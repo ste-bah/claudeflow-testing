@@ -41,6 +41,7 @@ export declare class CapabilityIndex implements ICapabilityIndex {
     private readonly agentRegistry;
     private readonly vectorDB;
     private embeddingProvider;
+    private readonly cache;
     private capabilities;
     private lastSyncTime;
     private initialized;
@@ -57,6 +58,7 @@ export declare class CapabilityIndex implements ICapabilityIndex {
      * Initialize the index with agents from registry
      * Per RULE-DAI-003-004: Sync with AgentRegistry
      * Per INT-002: Store agent embeddings
+     * REQ-CAPIDX-003: Check cache before rebuilding
      *
      * @throws CapabilityIndexError if initialization fails
      */
@@ -70,6 +72,21 @@ export declare class CapabilityIndex implements ICapabilityIndex {
      * @throws CapabilityIndexError if rebuild fails
      */
     rebuild(): Promise<void>;
+    /**
+     * REQ-CAPIDX-003: Rebuild index and save to cache
+     * REQ-CAPIDX-004: Atomic cache write
+     *
+     * @throws CapabilityIndexError if rebuild or cache save fails
+     */
+    private rebuildAndCache;
+    /**
+     * REQ-CAPIDX-003: Load cached embeddings into index
+     * REQ-CAPIDX-005: Validate cached data
+     *
+     * @param cachedData - Cached embeddings data
+     * @throws Error if cached data is invalid
+     */
+    private loadFromCache;
     /**
      * Index a batch of agents using batched embedding requests
      * Reduces API calls by embedding multiple texts in a single request

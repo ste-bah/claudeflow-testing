@@ -16,6 +16,7 @@ import { CapabilityIndexError, IndexSyncError } from './routing-errors.js';
 import { AgentRegistry } from '../agents/index.js';
 import { VectorDB, DistanceMetric } from '../vector-db/index.js';
 import { EmbeddingProviderFactory } from '../memory/embedding-provider.js';
+import { CapabilityIndexCache } from './capability-cache.js';
 // ==================== Capability Index Implementation ====================
 /**
  * Capability index for semantic agent search
@@ -28,6 +29,7 @@ export class CapabilityIndex {
     agentRegistry;
     vectorDB;
     embeddingProvider = null;
+    cache;
     // Index state
     capabilities = new Map();
     lastSyncTime = 0;
@@ -53,6 +55,8 @@ export class CapabilityIndex {
             hnswM: 16,
             metric: DistanceMetric.COSINE,
         });
+        // REQ-CAPIDX-001: Initialize cache for hash-based caching
+        this.cache = new CapabilityIndexCache(process.cwd(), this.config.agentsPath);
         // Listen for registry events
         this.setupRegistryListeners();
     }
@@ -85,6 +89,7 @@ export class CapabilityIndex {
      * Initialize the index with agents from registry
      * Per RULE-DAI-003-004: Sync with AgentRegistry
      * Per INT-002: Store agent embeddings
+     * REQ-CAPIDX-003: Check cache before rebuilding
      *
      * @throws CapabilityIndexError if initialization fails
      */
@@ -103,8 +108,29 @@ export class CapabilityIndex {
             if (!this.agentRegistry.isInitialized) {
                 await this.agentRegistry.initialize(this.config.agentsPath);
             }
-            // Build initial index
-            await this.rebuild();
+            // REQ-CAPIDX-003: Check if cache is valid before rebuilding
+            const isCacheValid = await this.cache.isValid();
+            if (isCacheValid) {
+                // REQ-CAPIDX-007: Log cache HIT
+                const cacheLoadStart = performance.now();
+                const cachedData = await this.cache.load();
+                if (cachedData) {
+                    // Load cached embeddings into index
+                    await this.loadFromCache(cachedData);
+                    const cacheLoadDuration = performance.now() - cacheLoadStart;
+                    console.log(`[CapabilityIndex] Cache HIT - loaded ${this.capabilities.size} agents in ${cacheLoadDuration.toFixed(2)}ms`);
+                }
+                else {
+                    // Cache load failed, rebuild
+                    console.log('[CapabilityIndex] Cache load failed despite validation, rebuilding');
+                    await this.rebuildAndCache();
+                }
+            }
+            else {
+                // REQ-CAPIDX-007: Log cache MISS
+                console.log('[CapabilityIndex] Cache MISS - hash mismatch, rebuilding');
+                await this.rebuildAndCache();
+            }
             this.initialized = true;
             const duration = performance.now() - startTime;
             if (this.config.verbose) {
@@ -159,6 +185,81 @@ export class CapabilityIndex {
         catch (error) {
             throw new CapabilityIndexError('Failed to rebuild capability index', 'rebuild', this.capabilities.size, undefined, error);
         }
+    }
+    /**
+     * REQ-CAPIDX-003: Rebuild index and save to cache
+     * REQ-CAPIDX-004: Atomic cache write
+     *
+     * @throws CapabilityIndexError if rebuild or cache save fails
+     */
+    async rebuildAndCache() {
+        // Rebuild index
+        await this.rebuild();
+        // REQ-CAPIDX-002: Prepare cached embeddings data structure
+        const cachedData = {
+            version: '1.0.0',
+            generatedAt: Date.now(),
+            embeddingDimension: 1536,
+            agentCount: this.capabilities.size,
+            entries: {},
+        };
+        // Convert capabilities to cached format
+        for (const [agentKey, entry] of this.capabilities.entries()) {
+            cachedData.entries[agentKey] = {
+                agentKey: entry.capability.agentKey,
+                name: entry.capability.name,
+                description: entry.capability.description,
+                domains: [...entry.capability.domains], // Convert readonly array to mutable
+                keywords: [...entry.capability.keywords], // Convert readonly array to mutable
+                embedding: Array.from(entry.capability.embedding),
+                successRate: entry.capability.successRate,
+                taskCount: entry.capability.taskCount,
+                indexedAt: entry.capability.indexedAt,
+            };
+        }
+        // REQ-CAPIDX-001: Compute content hash
+        const hash = await this.cache.computeContentHash();
+        // REQ-CAPIDX-004: Save to cache atomically
+        await this.cache.save(cachedData, hash);
+    }
+    /**
+     * REQ-CAPIDX-003: Load cached embeddings into index
+     * REQ-CAPIDX-005: Validate cached data
+     *
+     * @param cachedData - Cached embeddings data
+     * @throws Error if cached data is invalid
+     */
+    async loadFromCache(cachedData) {
+        // Clear existing index
+        this.capabilities.clear();
+        await this.vectorDB.clear();
+        // Load each cached entry
+        for (const [agentKey, entry] of Object.entries(cachedData.entries)) {
+            // Convert array back to Float32Array
+            const embedding = new Float32Array(entry.embedding);
+            // Create capability definition
+            const capability = {
+                agentKey: entry.agentKey,
+                name: entry.name,
+                description: entry.description,
+                domains: entry.domains,
+                keywords: entry.keywords,
+                tools: [], // Not stored in cache
+                embedding,
+                successRate: entry.successRate,
+                taskCount: entry.taskCount,
+                indexedAt: entry.indexedAt,
+            };
+            // Store in index
+            this.capabilities.set(agentKey, {
+                capability,
+                keywords: new Set(entry.keywords),
+                domains: new Set(entry.domains),
+            });
+            // Add to vector DB
+            await this.vectorDB.insertWithId(agentKey, embedding);
+        }
+        this.lastSyncTime = cachedData.generatedAt;
     }
     /**
      * Index a batch of agents using batched embedding requests
