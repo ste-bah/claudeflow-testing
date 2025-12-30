@@ -316,6 +316,67 @@ export interface ICodeTaskPreparation {
 }
 
 /**
+ * TASK-GODWRITE-001: Write task preparation result for two-phase execution
+ *
+ * Implements [REQ-GODWRITE-001]: CLI does NOT attempt task execution
+ * Implements [REQ-GODWRITE-002]: CLI returns builtPrompt in JSON
+ * Implements [REQ-GODWRITE-003]: CLI returns agentType for Task()
+ *
+ * Phase 1: CLI calls prepareWriteTask() -> returns this interface
+ * Phase 2: Skill executes Task() with builtPrompt and agentType
+ */
+export interface IWriteTaskPreparation {
+  // ========== Core Fields (same as ICodeTaskPreparation) ==========
+
+  /** Agent key from registry (DAI-001) */
+  selectedAgent: string;
+
+  /** Agent type for Task() subagent_type parameter */
+  agentType: string;
+
+  /** Agent category (e.g., "documentation", "writing") */
+  agentCategory: string;
+
+  /** Full prompt with DESC injection for Task() execution */
+  builtPrompt: string;
+
+  /** Original user input topic */
+  userTask: string;
+
+  /** Injected DESC episodes context (RULE-010) */
+  descContext: string | null;
+
+  /** Retrieved memory context from InteractionStore */
+  memoryContext: string | null;
+
+  /** Trajectory ID for learning feedback (FR-11) */
+  trajectoryId: string | null;
+
+  /** Whether this is a multi-agent pipeline task */
+  isPipeline: boolean;
+
+  /** Pipeline definition if isPipeline is true */
+  pipeline?: { steps: string[]; agents: string[] };
+
+  // ========== Writing-Specific Fields ==========
+
+  /** Writing style (academic, professional, casual, technical) */
+  style: 'academic' | 'professional' | 'casual' | 'technical';
+
+  /** Document format (essay, report, article, paper) */
+  format: 'essay' | 'report' | 'article' | 'paper';
+
+  /** Content length (short, medium, long, comprehensive) */
+  length: 'short' | 'medium' | 'long' | 'comprehensive';
+
+  /** Style profile ID if using learned style (optional) */
+  styleProfileId?: string;
+
+  /** Whether a style profile was applied */
+  styleProfileApplied: boolean;
+}
+
+/**
  * TASK-LEARN-007: Task execution result from default executor
  * Captures execution metadata for quality assessment and learning
  *
@@ -1835,6 +1896,249 @@ export class UniversalAgent {
       pipeline,
       language: options.language,
     };
+  }
+
+  /**
+   * TASK-GODWRITE-001: Prepare write task for two-phase execution
+   *
+   * Implements [REQ-GODWRITE-001]: CLI does NOT attempt task execution
+   * Implements [REQ-GODWRITE-002]: CLI returns builtPrompt in JSON
+   * Implements [REQ-GODWRITE-003]: CLI returns agentType for Task()
+   * Implements [REQ-GODWRITE-004]: Agent selection via AgentSelector (DAI-001)
+   * Implements [REQ-GODWRITE-005]: DESC episode injection (RULE-010)
+   *
+   * This method performs Phase 1 preparation:
+   * 1. Injects DESC episodes for prior solutions (RULE-010: window size 3)
+   * 2. Selects optimal agent via AgentSelector (DAI-001)
+   * 3. Builds full prompt via TaskExecutor.buildPrompt()
+   * 4. Creates trajectory for learning feedback (FR-11)
+   * 5. Applies style profile if available (REQ-GODWRITE-009)
+   * 6. Returns IWriteTaskPreparation (NO execution)
+   *
+   * Phase 2 execution happens in the /god-write skill via Task() tool.
+   *
+   * CONSTITUTION COMPLIANCE:
+   * - RULE-001: All code references REQ-GODWRITE-*
+   * - RULE-003: Comments reference requirements
+   * - RULE-010: DESC window size 3
+   * - RULE-019: Real implementation, no scaffolding
+   * - RULE-069: Proper try/catch for async operations
+   * - RULE-070: Errors logged with context before re-throwing
+   *
+   * @param topic - The writing topic
+   * @param options - Writing options (style, format, length, styleProfileId)
+   * @returns IWriteTaskPreparation with builtPrompt for Task() execution
+   */
+  async prepareWriteTask(topic: string, options: {
+    style?: 'academic' | 'professional' | 'casual' | 'technical';
+    format?: 'essay' | 'report' | 'article' | 'paper';
+    length?: 'short' | 'medium' | 'long' | 'comprehensive';
+    styleProfileId?: string;
+  } = {}): Promise<IWriteTaskPreparation> {
+    // Implements [REQ-GODWRITE-006]: Ensure initialized before processing
+    await this.ensureInitialized();
+
+    // Set defaults for writing options
+    const style = options.style ?? 'professional';
+    const format = options.format ?? 'article';
+    const length = options.length ?? 'medium';
+
+    // Implements [REQ-GODWRITE-005]: DESC episode injection (RULE-010: window size 3)
+    let descContext: string | null = null;
+    let augmentedTopic = topic;
+    try {
+      const descResult = await this.injectDESCEpisodes(topic, { command: 'god-write', mode: 'write' });
+      augmentedTopic = descResult.augmentedPrompt;
+      if (descResult.episodesUsed > 0) {
+        // Extract just the DESC portion (difference between augmented and original)
+        descContext = augmentedTopic.length > topic.length
+          ? augmentedTopic.substring(0, augmentedTopic.length - topic.length).trim()
+          : null;
+        this.log(`TASK-GODWRITE-001: DESC injected ${descResult.episodesUsed} episodes`);
+      }
+    } catch (error) {
+      // Implements [REQ-GODWRITE-007]: Graceful DESC failure handling
+      // RULE-070: Log error with context before continuing
+      this.log(`TASK-GODWRITE-001: DESC injection failed (continuing): ${error}`);
+    }
+
+    // Implements [REQ-GODWRITE-004]: Agent selection via AgentSelector (DAI-001)
+    const agentSelection = await this.selectAgentForTask(augmentedTopic);
+    const agent = agentSelection.selection.selected;
+    this.log(`TASK-GODWRITE-001: Selected agent '${agent.key}' (${agent.category})`);
+
+    // Implements [REQ-GODWRITE-003]: Extract agentType for Task() subagent_type
+    const agentType = agent.frontmatter?.type ?? agent.category;
+
+    // Implements [REQ-GODWRITE-008]: Create trajectory for learning feedback (FR-11)
+    let trajectoryId: string | null = null;
+    if (this.trajectoryBridge) {
+      try {
+        const embedding = await this.embed(topic);
+        const trajectory = await this.trajectoryBridge.createTrajectoryFromInteraction(
+          topic, 'write', embedding
+        );
+        trajectoryId = trajectory.trajectoryId;
+        this.log(`TASK-GODWRITE-001: Trajectory created: ${trajectoryId}`);
+      } catch (error) {
+        // Implements [REQ-GODWRITE-007]: Graceful trajectory failure handling
+        // RULE-070: Log error with context before continuing
+        this.log(`TASK-GODWRITE-001: Trajectory creation failed (continuing): ${error}`);
+      }
+    }
+
+    // Implements [REQ-GODWRITE-009]: Style profile integration
+    let stylePrompt: string | null = null;
+    let styleProfileApplied = false;
+    if (this.styleProfileManager) {
+      try {
+        if (options.styleProfileId) {
+          // Use specific style profile
+          stylePrompt = this.styleProfileManager.generateStylePrompt(options.styleProfileId);
+          styleProfileApplied = !!stylePrompt;
+          if (styleProfileApplied) {
+            this.log(`TASK-GODWRITE-001: Style profile '${options.styleProfileId}' applied`);
+          }
+        } else {
+          // Try active style profile
+          stylePrompt = this.styleProfileManager.generateStylePrompt();
+          styleProfileApplied = !!stylePrompt;
+          if (styleProfileApplied) {
+            this.log(`TASK-GODWRITE-001: Active style profile applied`);
+          }
+        }
+      } catch (error) {
+        // RULE-070: Log error with context before continuing
+        this.log(`TASK-GODWRITE-001: Style profile application failed (continuing): ${error}`);
+      }
+    }
+
+    // Build writing instructions with style, format, and length
+    const writingInstructions = this.buildWritingInstructions(style, format, length, stylePrompt);
+
+    // Implements [REQ-GODWRITE-002]: Build full prompt via TaskExecutor.buildPrompt()
+    const builtPrompt = this.taskExecutor.buildPrompt(
+      agent,
+      `${writingInstructions}\n\n## Topic\n${augmentedTopic}`,
+      agentSelection.context
+    );
+
+    // Implements [REQ-GODWRITE-010]: Check if pipeline task (multi-chapter, complex docs)
+    const isPipeline = this.isPipelineWritingTask(topic, format);
+    let pipeline: { steps: string[]; agents: string[] } | undefined;
+    if (isPipeline) {
+      pipeline = {
+        steps: ['research', 'outline', 'draft', 'review'],
+        agents: [agent.key],
+      };
+      this.log(`TASK-GODWRITE-001: Pipeline task detected, ${pipeline.steps.length} steps defined`);
+    }
+
+    // Implements [REQ-GODWRITE-001]: Return preparation result (NO execution)
+    return {
+      selectedAgent: agent.key,
+      agentType,
+      agentCategory: agent.category,
+      builtPrompt,
+      userTask: topic,
+      descContext,
+      memoryContext: agentSelection.context ?? null,
+      trajectoryId,
+      isPipeline,
+      pipeline,
+      style,
+      format,
+      length,
+      styleProfileId: options.styleProfileId,
+      styleProfileApplied,
+    };
+  }
+
+  /**
+   * Build writing instructions with style, format, and length guidance
+   * Used by prepareWriteTask() to construct the prompt
+   *
+   * @param style - Writing style (academic, professional, casual, technical)
+   * @param format - Document format (essay, report, article, paper)
+   * @param length - Content length (short, medium, long, comprehensive)
+   * @param stylePrompt - Optional style profile prompt
+   * @returns Formatted writing instructions string
+   */
+  private buildWritingInstructions(
+    style: 'academic' | 'professional' | 'casual' | 'technical',
+    format: 'essay' | 'report' | 'article' | 'paper',
+    length: 'short' | 'medium' | 'long' | 'comprehensive',
+    stylePrompt: string | null
+  ): string {
+    const lengthGuide: Record<string, string> = {
+      short: '500-800 words',
+      medium: '1000-2000 words',
+      long: '2500-4000 words',
+      comprehensive: '5000+ words with sections',
+    };
+
+    const styleGuide: Record<string, string> = {
+      academic: 'formal tone, citations where appropriate, objective analysis',
+      professional: 'clear and concise, business-appropriate, actionable insights',
+      casual: 'conversational tone, engaging, accessible language',
+      technical: 'precise terminology, detailed explanations, code examples where relevant',
+    };
+
+    const formatGuide: Record<string, string> = {
+      essay: 'introduction, body paragraphs with clear thesis, conclusion',
+      report: 'executive summary, findings, analysis, recommendations',
+      article: 'headline, lead paragraph, supporting sections, conclusion',
+      paper: 'abstract, introduction, methodology, results, discussion, conclusion',
+    };
+
+    let instructions = `## Writing Instructions
+
+**Style**: ${style} - ${styleGuide[style]}
+**Format**: ${format} - ${formatGuide[format]}
+**Length**: ${length} - ${lengthGuide[length]}`;
+
+    if (stylePrompt) {
+      instructions += `\n\n## Style Profile\n${stylePrompt}`;
+    }
+
+    return instructions;
+  }
+
+  /**
+   * Check if a writing task requires multi-agent pipeline execution
+   * Used for complex documents like dissertations, multi-chapter works
+   *
+   * @param topic - The writing topic
+   * @param format - The document format
+   * @returns true if task benefits from pipeline execution
+   */
+  private isPipelineWritingTask(topic: string, format: string): boolean {
+    // Complex document formats that benefit from pipeline
+    const complexFormats = ['paper', 'report'];
+    if (complexFormats.includes(format)) {
+      // Check for complexity indicators in topic
+      const complexityIndicators = [
+        /dissertation/i,
+        /thesis/i,
+        /multi.chapter/i,
+        /comprehensive.*research/i,
+        /full.*analysis/i,
+        /in.depth.*study/i,
+        /complete.*guide/i,
+      ];
+      if (complexityIndicators.some(pattern => pattern.test(topic))) {
+        return true;
+      }
+    }
+
+    // Long-form content indicators
+    const longFormIndicators = [
+      /book/i,
+      /manuscript/i,
+      /whitepaper/i,
+      /research.*paper/i,
+    ];
+    return longFormIndicators.some(pattern => pattern.test(topic));
   }
 
   /**

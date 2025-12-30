@@ -213,6 +213,51 @@ export interface ICodeTaskPreparation {
     language?: string;
 }
 /**
+ * TASK-GODWRITE-001: Write task preparation result for two-phase execution
+ *
+ * Implements [REQ-GODWRITE-001]: CLI does NOT attempt task execution
+ * Implements [REQ-GODWRITE-002]: CLI returns builtPrompt in JSON
+ * Implements [REQ-GODWRITE-003]: CLI returns agentType for Task()
+ *
+ * Phase 1: CLI calls prepareWriteTask() -> returns this interface
+ * Phase 2: Skill executes Task() with builtPrompt and agentType
+ */
+export interface IWriteTaskPreparation {
+    /** Agent key from registry (DAI-001) */
+    selectedAgent: string;
+    /** Agent type for Task() subagent_type parameter */
+    agentType: string;
+    /** Agent category (e.g., "documentation", "writing") */
+    agentCategory: string;
+    /** Full prompt with DESC injection for Task() execution */
+    builtPrompt: string;
+    /** Original user input topic */
+    userTask: string;
+    /** Injected DESC episodes context (RULE-010) */
+    descContext: string | null;
+    /** Retrieved memory context from InteractionStore */
+    memoryContext: string | null;
+    /** Trajectory ID for learning feedback (FR-11) */
+    trajectoryId: string | null;
+    /** Whether this is a multi-agent pipeline task */
+    isPipeline: boolean;
+    /** Pipeline definition if isPipeline is true */
+    pipeline?: {
+        steps: string[];
+        agents: string[];
+    };
+    /** Writing style (academic, professional, casual, technical) */
+    style: 'academic' | 'professional' | 'casual' | 'technical';
+    /** Document format (essay, report, article, paper) */
+    format: 'essay' | 'report' | 'article' | 'paper';
+    /** Content length (short, medium, long, comprehensive) */
+    length: 'short' | 'medium' | 'long' | 'comprehensive';
+    /** Style profile ID if using learned style (optional) */
+    styleProfileId?: string;
+    /** Whether a style profile was applied */
+    styleProfileApplied: boolean;
+}
+/**
  * TASK-LEARN-007: Task execution result from default executor
  * Captures execution metadata for quality assessment and learning
  *
@@ -519,6 +564,63 @@ export declare class UniversalAgent {
         language?: string;
         context?: string;
     }): Promise<ICodeTaskPreparation>;
+    /**
+     * TASK-GODWRITE-001: Prepare write task for two-phase execution
+     *
+     * Implements [REQ-GODWRITE-001]: CLI does NOT attempt task execution
+     * Implements [REQ-GODWRITE-002]: CLI returns builtPrompt in JSON
+     * Implements [REQ-GODWRITE-003]: CLI returns agentType for Task()
+     * Implements [REQ-GODWRITE-004]: Agent selection via AgentSelector (DAI-001)
+     * Implements [REQ-GODWRITE-005]: DESC episode injection (RULE-010)
+     *
+     * This method performs Phase 1 preparation:
+     * 1. Injects DESC episodes for prior solutions (RULE-010: window size 3)
+     * 2. Selects optimal agent via AgentSelector (DAI-001)
+     * 3. Builds full prompt via TaskExecutor.buildPrompt()
+     * 4. Creates trajectory for learning feedback (FR-11)
+     * 5. Applies style profile if available (REQ-GODWRITE-009)
+     * 6. Returns IWriteTaskPreparation (NO execution)
+     *
+     * Phase 2 execution happens in the /god-write skill via Task() tool.
+     *
+     * CONSTITUTION COMPLIANCE:
+     * - RULE-001: All code references REQ-GODWRITE-*
+     * - RULE-003: Comments reference requirements
+     * - RULE-010: DESC window size 3
+     * - RULE-019: Real implementation, no scaffolding
+     * - RULE-069: Proper try/catch for async operations
+     * - RULE-070: Errors logged with context before re-throwing
+     *
+     * @param topic - The writing topic
+     * @param options - Writing options (style, format, length, styleProfileId)
+     * @returns IWriteTaskPreparation with builtPrompt for Task() execution
+     */
+    prepareWriteTask(topic: string, options?: {
+        style?: 'academic' | 'professional' | 'casual' | 'technical';
+        format?: 'essay' | 'report' | 'article' | 'paper';
+        length?: 'short' | 'medium' | 'long' | 'comprehensive';
+        styleProfileId?: string;
+    }): Promise<IWriteTaskPreparation>;
+    /**
+     * Build writing instructions with style, format, and length guidance
+     * Used by prepareWriteTask() to construct the prompt
+     *
+     * @param style - Writing style (academic, professional, casual, technical)
+     * @param format - Document format (essay, report, article, paper)
+     * @param length - Content length (short, medium, long, comprehensive)
+     * @param stylePrompt - Optional style profile prompt
+     * @returns Formatted writing instructions string
+     */
+    private buildWritingInstructions;
+    /**
+     * Check if a writing task requires multi-agent pipeline execution
+     * Used for complex documents like dissertations, multi-chapter works
+     *
+     * @param topic - The writing topic
+     * @param format - The document format
+     * @returns true if task benefits from pipeline execution
+     */
+    private isPipelineWritingTask;
     /**
      * Check if a task requires multi-agent pipeline execution
      * @param task - The task description

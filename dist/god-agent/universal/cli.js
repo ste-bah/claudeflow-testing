@@ -369,6 +369,10 @@ async function main() {
                 break;
             case 'write':
             case 'w': {
+                // TASK-GODWRITE-001: Two-phase execution model
+                // Implements [REQ-GODWRITE-001]: CLI does NOT attempt task execution
+                // Implements [REQ-GODWRITE-002]: CLI returns builtPrompt in JSON
+                // Implements [REQ-GODWRITE-006]: CLI exits immediately after JSON output
                 if (!input) {
                     if (jsonMode) {
                         outputJson({
@@ -386,34 +390,114 @@ async function main() {
                     }
                     process.exit(1);
                 }
+                // Parse writing options from flags
                 const style = getFlag(flags, 'style', 's');
                 const length = getFlag(flags, 'length', 'l');
                 const format = getFlag(flags, 'format', 'f');
-                const writeResult = await agent.write(input, { style, length, format });
-                if (jsonMode) {
-                    outputJson({
-                        command: 'write',
-                        selectedAgent: getSelectedAgent(command),
-                        prompt: input,
-                        isPipeline: isPipelineTask(input),
-                        result: {
-                            content: writeResult.content,
-                            style: writeResult.style,
-                            wordCount: writeResult.wordCount,
-                            sourcesCount: writeResult.sources.length,
-                        },
-                        success: true,
-                    });
+                const styleProfileId = getFlag(flags, 'style-profile', 'p');
+                // Check for --execute flag for backward compatibility
+                // Implements [REQ-GODWRITE-011]: Backward compatibility with --execute flag
+                const executeFlag = getFlag(flags, 'execute', 'e') === true;
+                if (executeFlag) {
+                    // Legacy behavior: Full execution via agent.write()
+                    const writeResult = await agent.write(input, { style, length, format, styleProfileId });
+                    if (jsonMode) {
+                        outputJson({
+                            command: 'write',
+                            selectedAgent: getSelectedAgent(command),
+                            prompt: input,
+                            isPipeline: isPipelineTask(input),
+                            result: {
+                                content: writeResult.content,
+                                style: writeResult.style,
+                                wordCount: writeResult.wordCount,
+                                sourcesCount: writeResult.sources.length,
+                            },
+                            success: true,
+                            trajectoryId: writeResult.trajectoryId,
+                        });
+                    }
+                    else {
+                        console.log('\n--- Generated Content ---\n');
+                        console.log(writeResult.content);
+                        console.log(`\n--- Details ---`);
+                        console.log(`Style: ${writeResult.style}`);
+                        console.log(`Word count: ${writeResult.wordCount}`);
+                        console.log(`Sources: ${writeResult.sources.length}`);
+                        if (writeResult.trajectoryId) {
+                            console.log(`Trajectory: ${writeResult.trajectoryId}`);
+                            console.log(`\nProvide feedback: npx tsx src/god-agent/universal/cli.ts feedback ${writeResult.trajectoryId} <rating> --trajectory`);
+                        }
+                    }
                 }
                 else {
-                    console.log('\n--- Generated Content ---\n');
-                    console.log(writeResult.content);
-                    console.log(`\n--- Details ---`);
-                    console.log(`Style: ${writeResult.style}`);
-                    console.log(`Word count: ${writeResult.wordCount}`);
-                    console.log(`Sources: ${writeResult.sources.length}`);
+                    // Implements [REQ-GODWRITE-001]: New two-phase behavior (default)
+                    // Phase 1: Prepare task (agent selection, DESC injection, prompt building)
+                    // Phase 2: Skill executes Task() with builtPrompt
+                    const preparation = await agent.prepareWriteTask(input, {
+                        style,
+                        length,
+                        format,
+                        styleProfileId,
+                    });
+                    // Implements [REQ-GODWRITE-002]: Output structured JSON with builtPrompt
+                    if (jsonMode) {
+                        // Machine-readable output for skill consumption
+                        outputJson({
+                            command: 'write',
+                            selectedAgent: preparation.selectedAgent,
+                            prompt: input,
+                            isPipeline: preparation.isPipeline,
+                            result: {
+                                // Implements [REQ-GODWRITE-002]: builtPrompt field
+                                builtPrompt: preparation.builtPrompt,
+                                // Implements [REQ-GODWRITE-003]: agentType for Task()
+                                agentType: preparation.agentType,
+                                agentCategory: preparation.agentCategory,
+                                style: preparation.style,
+                                format: preparation.format,
+                                length: preparation.length,
+                                styleProfileId: preparation.styleProfileId,
+                                styleProfileApplied: preparation.styleProfileApplied,
+                                descContext: preparation.descContext,
+                                memoryContext: preparation.memoryContext,
+                                pipeline: preparation.pipeline,
+                            },
+                            success: true,
+                            trajectoryId: preparation.trajectoryId ?? undefined,
+                        });
+                    }
+                    else {
+                        // Human-readable output
+                        console.log('\n--- Write Task Preparation ---\n');
+                        console.log(`Topic: ${input}`);
+                        console.log(`Selected Agent: ${preparation.selectedAgent}`);
+                        console.log(`Agent Type: ${preparation.agentType}`);
+                        console.log(`Agent Category: ${preparation.agentCategory}`);
+                        console.log(`Style: ${preparation.style}`);
+                        console.log(`Format: ${preparation.format}`);
+                        console.log(`Length: ${preparation.length}`);
+                        console.log(`Pipeline: ${preparation.isPipeline}`);
+                        if (preparation.styleProfileApplied) {
+                            console.log(`Style Profile Applied: ${preparation.styleProfileId ?? 'active'}`);
+                        }
+                        if (preparation.descContext) {
+                            console.log(`DESC Context: ${preparation.descContext.substring(0, 100)}...`);
+                        }
+                        if (preparation.trajectoryId) {
+                            console.log(`Trajectory: ${preparation.trajectoryId}`);
+                        }
+                        console.log('\n--- Built Prompt ---\n');
+                        console.log(preparation.builtPrompt);
+                        console.log('\n--- Execution Instructions ---');
+                        console.log('Execute via Task() in /god-write skill with:');
+                        console.log(`  agentType: "${preparation.agentType}"`);
+                        console.log(`  prompt: [builtPrompt above]`);
+                    }
                 }
-                break;
+                // Implements [REQ-GODWRITE-006]: Shutdown and exit immediately
+                await agent.shutdown();
+                process.exit(0);
             }
             case 'status':
             case 's': {
@@ -782,6 +866,8 @@ WRITE OPTIONS:
   --style, -s <type>     academic, professional, casual, technical
   --length, -l <size>    short, medium, long, comprehensive
   --format, -f <type>    essay, report, article, paper
+  --style-profile, -p <id>  Style profile ID for learned writing styles
+  --execute, -e          Execute full write (legacy mode, bypasses two-phase)
 
 GLOBAL OPTIONS:
   --json, -j             Output results as JSON (DAI-002: machine-readable)
