@@ -60,6 +60,10 @@ The learning system has been completely overhauled to fix critical issues where 
   - Auto-Injection: Automatic DESC context injection into prompts
   - Task Result Capture: Captures task outputs for learning pipeline
 - **Hook Runner** (`src/god-agent/core/executor/hook-runner.ts`): Safe hook execution with timeout and sandboxing
+- **Agent Execution System** (`src/god-agent/core/agents/`):
+  - Agent Selector: Intelligent agent selection based on task requirements
+  - Task Executor: Executes tasks with proper agent coordination
+- **Capability Index Caching**: 76x faster CLI startup with hash-based agent definition caching
 
 ### Architecture Improvements
 
