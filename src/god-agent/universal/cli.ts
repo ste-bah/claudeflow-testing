@@ -264,19 +264,26 @@ async function main() {
           }
           process.exit(1);
         }
-        const askResult = await agent.ask(input);
+        // TASK-GODASK-001: Use returnResult to get trajectoryId for feedback tracking
+        const askResult = await agent.ask(input, { returnResult: true });
         if (jsonMode) {
           outputJson({
             command: 'ask',
-            selectedAgent: getSelectedAgent(command),
+            selectedAgent: askResult.selectedAgent ?? getSelectedAgent(command),
             prompt: input,
             isPipeline: isPipelineTask(input),
-            result: { response: askResult },
+            result: { response: askResult.output },
             success: true,
+            trajectoryId: askResult.trajectoryId,
+            qualityScore: askResult.qualityScore,
           });
         } else {
           console.log('\n--- Response ---\n');
-          console.log(askResult);
+          console.log(askResult.output);
+          if (askResult.trajectoryId) {
+            console.log(`\nTrajectory: ${askResult.trajectoryId}`);
+            console.log(`Provide feedback: npx tsx src/god-agent/universal/cli.ts feedback ${askResult.trajectoryId} <rating> --trajectory`);
+          }
         }
         break;
 
