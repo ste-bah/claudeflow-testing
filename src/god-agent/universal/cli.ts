@@ -63,6 +63,8 @@ export interface ICLIJsonOutput {
   error?: string;
   /** Trajectory ID for feedback (if applicable) */
   trajectoryId?: string;
+  /** Quality score from the response (0-1 range) */
+  qualityScore?: number;
 }
 
 // ==================== Argument Parsing ====================
