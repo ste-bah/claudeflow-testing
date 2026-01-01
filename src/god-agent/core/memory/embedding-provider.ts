@@ -312,7 +312,7 @@ export class EmbeddingProviderFactory {
 
     if (forceLocal) {
       throw new Error(
-        'Local embedding API not available. Start it with: /home/unixdude/projects/api-embed.sh start'
+        'Local embedding API not available. Start it with: ./embedding-api/api-embed.sh start'
       );
     }
 
