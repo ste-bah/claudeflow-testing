@@ -799,8 +799,9 @@ export class ExpressServer implements IExpressServer {
    */
   private async getMemoryInteractions(req: Request, res: Response): Promise<void> {
     try {
+      // Query vectordb events (actual component name used by God Agent)
       const events = await this.eventStore.query({
-        component: 'memory',
+        component: 'vectordb',
         limit: 50,
       });
       
@@ -825,12 +826,23 @@ export class ExpressServer implements IExpressServer {
    */
   private async getMemoryReasoning(req: Request, res: Response): Promise<void> {
     try {
-      const events = await this.eventStore.query({
-        component: 'learning',
+      // Query reasoning and sona events (actual component names used by God Agent)
+      const reasoningEvents = await this.eventStore.query({
+        component: 'reasoning',
         limit: 100,
       });
-      
-      const feedbackEvents = events.filter(e => e.operation === 'learning_feedback');
+      const sonaEvents = await this.eventStore.query({
+        component: 'sona',
+        limit: 100,
+      });
+      const events = [...reasoningEvents, ...sonaEvents];
+
+      // Include trajectory and pattern events as "feedback" equivalent
+      const feedbackEvents = events.filter(e =>
+        e.operation === 'sona_feedback_processed' ||
+        e.operation === 'reasoning_pattern_matched' ||
+        e.operation === 'sona_trajectory_created'
+      );
       const totalFeedback = feedbackEvents.length;
       const avgQuality = totalFeedback > 0 
         ? feedbackEvents.reduce((sum, e) => sum + Number(e.metadata?.quality || 0), 0) / totalFeedback
@@ -862,13 +874,22 @@ export class ExpressServer implements IExpressServer {
    */
   private async getEpisodeStore(req: Request, res: Response): Promise<void> {
     try {
-      // Query memory events as episodes (each memory store is an episode)
-      const events = await this.eventStore.query({
-        component: 'memory',
+      // Query vectordb and sona events as episodes
+      const vectorEvents = await this.eventStore.query({
+        component: 'vectordb',
         limit: 100,
       });
-      
-      const memoryEvents = events.filter(e => e.operation === 'memory_stored');
+      const sonaEvents = await this.eventStore.query({
+        component: 'sona',
+        limit: 50,
+      });
+      const events = [...vectorEvents, ...sonaEvents];
+
+      // Include insert operations as episode equivalents
+      const memoryEvents = events.filter(e =>
+        e.operation === 'vectordb_insert_completed' ||
+        e.operation === 'sona_trajectory_created'
+      );
       const linkedCount = memoryEvents.filter(e =>
         (Array.isArray(e.metadata?.tags) && e.metadata.tags.length > 0) || e.metadata?.trajectoryId
       ).length;
@@ -900,8 +921,9 @@ export class ExpressServer implements IExpressServer {
    */
   private async getUcmContext(req: Request, res: Response): Promise<void> {
     try {
+      // Query vectordb events for UCM context estimation
       const events = await this.eventStore.query({
-        component: 'memory',
+        component: 'vectordb',
         limit: 50,
       });
       
@@ -937,14 +959,14 @@ export class ExpressServer implements IExpressServer {
    */
   private async getHyperedgeStore(req: Request, res: Response): Promise<void> {
     try {
-      // Query for Q&A-like patterns (memory + learning pairs)
+      // Query for Q&A-like patterns (vectordb + reasoning pairs)
       const memoryEvents = await this.eventStore.query({
-        component: 'memory',
+        component: 'vectordb',
         limit: 50,
       });
-      
+
       const learningEvents = await this.eventStore.query({
-        component: 'learning',
+        component: 'reasoning',
         limit: 50,
       });
       
