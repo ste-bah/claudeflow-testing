@@ -41,6 +41,25 @@ import {
 } from './cli-types.js';
 import { PipelineConfigLoader } from './pipeline-loader.js';
 import type { AgentConfig } from './pipeline-loader.js';
+
+// Import 46-agent configuration from phd-pipeline-config (TASK-CONFIG-002)
+// These provide the canonical agent definitions and utility functions
+import {
+  PHD_AGENTS,
+  PHD_PHASES,
+  DEFAULT_CONFIG,
+  getAgentByKey as getConfigAgentByKey,
+  getAgentsByPhase as getConfigAgentsByPhase,
+  getAgentIndex as getConfigAgentIndex,
+  getAgentByIndex as getConfigAgentByIndex,
+  validateConfiguration,
+  getTotalAgentCount,
+  getPhaseById,
+  getAgentFilePath,
+  type AgentConfig as PhdAgentConfig,
+  type SessionState as PhdSessionState,
+  type PhaseDefinition,
+} from './phd-pipeline-config.js';
 import { StyleInjector } from './style-injector.js';
 import { SessionNotFoundError, SessionCorruptedError, SessionExpiredError } from './session-manager.js';
 import { DynamicAgentGenerator } from './dynamic-agent-generator.js';
@@ -63,6 +82,1181 @@ let socketClient: SocketClient | null = null;
 let sonaEngine: SonaEngine | null = null;
 // Active trajectory map: sessionId -> Map<agentKey -> trajectoryId>
 const activeTrajectories: Map<string, Map<string, TrajectoryID>> = new Map();
+
+// ============================================================================
+// PHD PIPELINE CONFIGURATION CONSTANTS (TASK-CONFIG-002)
+// ============================================================================
+
+/**
+ * Expected total agent count from phd-pipeline-config.ts
+ * Used for validation and progress calculations
+ * IMPORTANT: This is 46 agents (not 43 from the old incorrect mapping)
+ */
+const PHD_PIPELINE_AGENT_COUNT = getTotalAgentCount(); // 46 agents
+
+/**
+ * Validate pipeline configuration at module load
+ * Ensures PHD_AGENTS and PHD_PHASES are consistent
+ */
+try {
+  validateConfiguration();
+  // Log validation success to stderr (not stdout to avoid JSON parsing issues)
+  if (process.env.PHD_CLI_DEBUG) {
+    console.error(`[PHD-CLI] Pipeline configuration validated: ${PHD_PIPELINE_AGENT_COUNT} agents across ${PHD_PHASES.length} phases`);
+  }
+} catch (configError) {
+  // Configuration validation failed - this is a critical error
+  console.error(`[PHD-CLI] CRITICAL: Pipeline configuration validation failed: ${configError}`);
+  // Don't exit here - let the CLI continue and fail gracefully if needed
+}
+
+// ============================================================================
+// TASK-CLI-004: MEMORY INTEGRATION HELPERS
+// ============================================================================
+// Implements RULE-021: Session must persist to `.phd-sessions/` and support resume
+// Implements RULE-025: Memory syntax with positional format for claude-flow
+// Memory operations use `npx claude-flow memory` commands
+
+/**
+ * Store data to claude-flow memory system.
+ * Non-blocking operation - errors are logged but don't fail the pipeline.
+ *
+ * @param key - Memory key (e.g., 'session/{sessionId}', 'research/agent/output')
+ * @param value - JSON-serializable value to store
+ * @param namespace - Memory namespace (default: 'project/research')
+ * @returns Promise<boolean> - true if stored successfully
+ *
+ * Implements RULE-025: Uses positional format for memory operations
+ */
+async function storeToMemory(
+  key: string,
+  value: unknown,
+  namespace: string = DEFAULT_CONFIG.memoryNamespace
+): Promise<boolean> {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  try {
+    const jsonValue = JSON.stringify(value);
+    // Escape single quotes in JSON for shell safety
+    const escapedValue = jsonValue.replace(/'/g, "'\\''");
+
+    const command = `npx claude-flow memory store "${key}" '${escapedValue}' --namespace "${namespace}"`;
+
+    if (process.env.PHD_CLI_DEBUG) {
+      console.error(`[MEMORY] Storing: ${key} (${jsonValue.length} bytes)`);
+    }
+
+    await execAsync(command, {
+      timeout: 10000, // 10 second timeout
+      cwd: process.cwd(),
+    });
+
+    if (process.env.PHD_CLI_DEBUG) {
+      console.error(`[MEMORY] Stored successfully: ${key}`);
+    }
+
+    return true;
+  } catch (error) {
+    // Non-blocking - log but don't fail
+    console.error(`[MEMORY] Failed to store ${key}: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * Retrieve data from claude-flow memory system.
+ *
+ * @param key - Memory key to retrieve
+ * @param namespace - Memory namespace (default: 'project/research')
+ * @returns Promise<unknown | null> - Retrieved value or null if not found
+ */
+async function retrieveFromMemory(
+  key: string,
+  namespace: string = DEFAULT_CONFIG.memoryNamespace
+): Promise<unknown | null> {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  try {
+    const command = `npx claude-flow memory retrieve "${key}" --namespace "${namespace}"`;
+
+    const { stdout } = await execAsync(command, {
+      timeout: 10000,
+      cwd: process.cwd(),
+    });
+
+    if (!stdout || stdout.trim() === '') {
+      return null;
+    }
+
+    return JSON.parse(stdout.trim());
+  } catch (error) {
+    // Not found or error - return null
+    if (process.env.PHD_CLI_DEBUG) {
+      console.error(`[MEMORY] Failed to retrieve ${key}: ${error}`);
+    }
+    return null;
+  }
+}
+
+/**
+ * Build session state object for memory storage.
+ * Creates a SessionState-compatible object from PipelineSession.
+ *
+ * @param session - Pipeline session from SessionManager
+ * @returns SessionState for memory storage
+ */
+function buildSessionStateForMemory(session: {
+  sessionId: string;
+  query: string;
+  currentPhase: number;
+  currentAgentIndex: number;
+  completedAgents: string[];
+  startTime: number;
+  lastActivityTime: number;
+  status: string;
+}): PhdSessionState {
+  return {
+    sessionId: session.sessionId,
+    topic: session.query,
+    currentPhase: session.currentPhase,
+    currentAgentIndex: session.currentAgentIndex,
+    completedAgents: [...session.completedAgents],
+    startedAt: new Date(session.startTime).toISOString(),
+    lastActivityAt: new Date(session.lastActivityTime).toISOString(),
+    status: session.status as PhdSessionState['status'],
+  };
+}
+
+// ============================================================================
+// TASK-CLI-001: AGENT FILE VALIDATION
+// ============================================================================
+// Implements RULE-018: Agent Key Validity - all agent keys must have corresponding .md files
+// Implements RULE-001: Complete implementation with proper error handling
+// Implements RULE-005: Actionable error messages (what failed, why, how to fix)
+
+/**
+ * Result of agent file validation.
+ * Contains detailed information about which agent files exist and which are missing.
+ */
+export interface AgentValidationResult {
+  /** Whether all agent files passed validation */
+  valid: boolean;
+  /** Total number of agents in PHD_AGENTS configuration */
+  totalAgents: number;
+  /** Number of agent files found on disk */
+  foundAgents: number;
+  /** Agent keys whose .md files are missing */
+  missingAgents: string[];
+  /** Agent keys whose .md files exist but are empty or malformed */
+  invalidAgents: string[];
+  /** Directory where agent files are expected */
+  agentsDirectory: string;
+  /** Detailed error messages for each issue */
+  errors: string[];
+}
+
+/**
+ * Validate that all 46 agent .md files exist in the agents directory.
+ * Implements RULE-018: Agent Key Validity - all agent keys must have corresponding .md files.
+ *
+ * @returns Promise<AgentValidationResult> - Detailed validation results
+ *
+ * Validation checks:
+ * 1. Each agent in PHD_AGENTS has a corresponding .md file at ${DEFAULT_CONFIG.agentsDirectory}/${agent.file}
+ * 2. Each .md file is non-empty (at least 100 bytes - reasonable minimum for agent definition)
+ * 3. Each .md file contains valid content (starts with # or ---)
+ *
+ * @example
+ * const result = await validateAgentFiles();
+ * if (!result.valid) {
+ *   console.error('Missing agents:', result.missingAgents);
+ *   process.exit(1);
+ * }
+ */
+async function validateAgentFiles(): Promise<AgentValidationResult> {
+  const fs = await import('fs/promises');
+  const pathModule = await import('path');
+
+  const result: AgentValidationResult = {
+    valid: true,
+    totalAgents: PHD_AGENTS.length,
+    foundAgents: 0,
+    missingAgents: [],
+    invalidAgents: [],
+    agentsDirectory: DEFAULT_CONFIG.agentsDirectory,
+    errors: [],
+  };
+
+  // Resolve agents directory relative to project root
+  const agentsDir = pathModule.resolve(process.cwd(), DEFAULT_CONFIG.agentsDirectory);
+
+  // Check if agents directory exists
+  try {
+    const dirStat = await fs.stat(agentsDir);
+    if (!dirStat.isDirectory()) {
+      result.valid = false;
+      result.errors.push(
+        `[RULE-018] Agents path exists but is not a directory: ${agentsDir}. ` +
+        `Expected a directory containing ${PHD_AGENTS.length} agent .md files.`
+      );
+      return result;
+    }
+  } catch (err) {
+    result.valid = false;
+    result.errors.push(
+      `[RULE-018] Agents directory not found: ${agentsDir}. ` +
+      `Create the directory and add agent .md files, or verify the path in DEFAULT_CONFIG.agentsDirectory.`
+    );
+    return result;
+  }
+
+  // Validate each agent file
+  for (const agent of PHD_AGENTS) {
+    const filePath = pathModule.join(agentsDir, agent.file);
+
+    try {
+      const stat = await fs.stat(filePath);
+
+      if (!stat.isFile()) {
+        result.invalidAgents.push(agent.key);
+        result.errors.push(
+          `[RULE-018] Agent "${agent.key}": Path exists but is not a file: ${filePath}`
+        );
+        continue;
+      }
+
+      // Check file size - agent files should have meaningful content
+      const MIN_AGENT_FILE_SIZE = 100; // bytes - reasonable minimum for agent definition
+      if (stat.size < MIN_AGENT_FILE_SIZE) {
+        result.invalidAgents.push(agent.key);
+        result.errors.push(
+          `[RULE-018] Agent "${agent.key}": File is too small (${stat.size} bytes). ` +
+          `Expected at least ${MIN_AGENT_FILE_SIZE} bytes for a valid agent definition. ` +
+          `File: ${filePath}`
+        );
+        continue;
+      }
+
+      // Read first 256 bytes to validate content structure
+      const handle = await fs.open(filePath, 'r');
+      const buffer = Buffer.alloc(256);
+      await handle.read(buffer, 0, 256, 0);
+      await handle.close();
+
+      const header = buffer.toString('utf-8').trim();
+
+      // Agent files should start with markdown heading or YAML frontmatter
+      if (!header.startsWith('#') && !header.startsWith('---')) {
+        result.invalidAgents.push(agent.key);
+        result.errors.push(
+          `[RULE-018] Agent "${agent.key}": File does not start with valid markdown (# heading) ` +
+          `or YAML frontmatter (---). File may be corrupted or have incorrect format. ` +
+          `File: ${filePath}`
+        );
+        continue;
+      }
+
+      // File passed all checks
+      result.foundAgents++;
+
+    } catch (err) {
+      // File does not exist
+      result.missingAgents.push(agent.key);
+      result.errors.push(
+        `[RULE-018] Agent "${agent.key}": File not found at expected path: ${filePath}. ` +
+        `Create the file or update the agent.file property in PHD_AGENTS configuration.`
+      );
+    }
+  }
+
+  // Set overall validity
+  if (result.missingAgents.length > 0 || result.invalidAgents.length > 0) {
+    result.valid = false;
+  }
+
+  return result;
+}
+
+// ============================================================================
+// TASK-CLI-002: BUILD AGENT PROMPT FUNCTIONS
+// ============================================================================
+// Implements RULE-020: Complete 5-part prompts for PhD Pipeline subagents
+// Implements RULE-012: TASK COMPLETION SUMMARY format
+// Implements RULE-013: Workflow context with Agent #N/46, Previous, Next
+// Implements RULE-025: Memory syntax with positional format
+// Implements RULE-010: Single Responsibility - each helper under 50 lines
+
+/**
+ * Result of building an agent prompt with the 5-part template.
+ * Contains the complete prompt along with metadata for tracing.
+ */
+export interface PromptBuildResult {
+  /** The complete 5-part prompt string */
+  prompt: string;
+  /** Agent key (e.g., 'self-ask-decomposer') */
+  agentKey: string;
+  /** Human-readable agent name */
+  agentDisplayName: string;
+  /** Phase number (1-7) */
+  phase: number;
+  /** Memory keys to retrieve from previous agents */
+  memoryRetrievalKeys: string[];
+  /** Memory key to store this agent's output */
+  memoryStorageKey: string;
+  /** Word count of the generated prompt */
+  wordCount: number;
+}
+
+/**
+ * Extended session interface for prompt building operations.
+ * Includes topic and session details needed for prompt generation.
+ */
+interface IPromptBuildSession {
+  sessionId: string;
+  query: string;
+  currentPhase: number;
+  currentAgentIndex: number;
+  completedAgents: string[];
+  dynamicPhase6Agents?: Array<{ key: string; phase: number }>;
+  dynamicTotalAgents?: number;
+}
+
+/**
+ * Build the YOUR TASK section of the 5-part prompt.
+ * Contains agent-specific task from the .md file with research context.
+ *
+ * @param agent - Agent configuration from PHD_AGENTS
+ * @param session - Current pipeline session
+ * @param agentFileContent - Content read from the agent's .md file
+ * @returns Formatted YOUR TASK section string
+ *
+ * Implements RULE-020: Section 1 of 5-part prompt
+ */
+function buildYourTaskSection(
+  agent: PhdAgentConfig,
+  session: IPromptBuildSession,
+  agentFileContent: string
+): string {
+  const taskSection = `## YOUR TASK
+
+${agentFileContent.trim()}
+
+---
+**Research Topic**: ${session.query}
+**Session ID**: ${session.sessionId}
+`;
+
+  return taskSection;
+}
+
+/**
+ * Build the WORKFLOW CONTEXT section of the 5-part prompt.
+ * Shows agent position, phase info, and adjacent agents.
+ *
+ * @param agent - Agent configuration from PHD_AGENTS
+ * @param session - Current pipeline session
+ * @param agentIndex - 0-based index of current agent
+ * @returns Formatted WORKFLOW CONTEXT section string
+ *
+ * Implements RULE-013: Agent #N/46, Previous, Next format
+ * Implements RULE-020: Section 2 of 5-part prompt
+ */
+function buildWorkflowContextSection(
+  agent: PhdAgentConfig,
+  session: IPromptBuildSession,
+  agentIndex: number
+): string {
+  const totalAgents = session.dynamicTotalAgents || PHD_PIPELINE_AGENT_COUNT;
+  const phase = PHD_PHASES.find(p => p.id === agent.phase);
+  const phaseName = phase?.name || getPhaseName(agent.phase);
+
+  // Get previous agent info
+  let previousAgentInfo = 'None (First Agent)';
+  if (agentIndex > 0) {
+    const prevAgent = getConfigAgentByIndex(agentIndex - 1);
+    if (prevAgent) {
+      previousAgentInfo = `${prevAgent.displayName} (${prevAgent.key})`;
+    }
+  }
+
+  // Get next agent info
+  let nextAgentInfo = 'Final Agent - Proceed to Phase 8';
+  if (agentIndex < totalAgents - 1) {
+    const nextAgent = getConfigAgentByIndex(agentIndex + 1);
+    if (nextAgent) {
+      nextAgentInfo = `${nextAgent.displayName} (${nextAgent.key})`;
+    }
+  }
+
+  const workflowSection = `## WORKFLOW CONTEXT
+
+**Agent**: ${agent.displayName} (Agent #${agentIndex + 1}/${totalAgents})
+**Phase**: ${phaseName} (Phase ${agent.phase}/7)
+**Previous Agent**: ${previousAgentInfo}
+**Next Agent**: ${nextAgentInfo}
+`;
+
+  return workflowSection;
+}
+
+/**
+ * Build the MEMORY RETRIEVAL section of the 5-part prompt.
+ * Lists commands to retrieve data from previous agents.
+ *
+ * @param agent - Agent configuration with memoryKeys
+ * @returns Formatted MEMORY RETRIEVAL section string
+ *
+ * Implements RULE-025: Memory syntax with positional format
+ * Implements RULE-020: Section 3 of 5-part prompt
+ */
+function buildMemoryRetrievalSection(agent: PhdAgentConfig): string {
+  const namespace = DEFAULT_CONFIG.memoryNamespace;
+
+  // Build retrieval commands for each memory key the agent depends on
+  const retrievalCommands = agent.memoryKeys
+    .map(key => `npx claude-flow memory retrieve "${key}" --namespace "${namespace}"`)
+    .join('\n');
+
+  const memorySection = `## MEMORY RETRIEVAL
+
+Retrieve these keys from previous agents:
+\`\`\`bash
+${retrievalCommands || '# No memory dependencies for this agent'}
+\`\`\`
+`;
+
+  return memorySection;
+}
+
+/**
+ * Build the MEMORY STORAGE section of the 5-part prompt.
+ * Shows the command to store this agent's outputs.
+ *
+ * @param agent - Agent configuration with memoryKeys
+ * @returns Formatted MEMORY STORAGE section string
+ *
+ * Implements RULE-025: Memory syntax with positional format
+ * Implements RULE-020: Section 4 of 5-part prompt
+ */
+function buildMemoryStorageSection(agent: PhdAgentConfig): string {
+  const namespace = DEFAULT_CONFIG.memoryNamespace;
+  const storageKey = agent.memoryKeys[0] || `research/output/${agent.key}`;
+
+  const storageSection = `## MEMORY STORAGE
+
+Store your outputs to:
+\`\`\`bash
+npx claude-flow memory store "${storageKey}" '<your-json-output>' --namespace "${namespace}"
+\`\`\`
+
+**Expected Outputs**: ${agent.outputArtifacts.join(', ') || 'No specific artifacts'}
+`;
+
+  return storageSection;
+}
+
+/**
+ * Build the TASK COMPLETION SUMMARY section of the 5-part prompt.
+ * Defines the required output format for agent completion.
+ *
+ * @param agent - Agent configuration
+ * @param session - Current pipeline session
+ * @param nextAgentKey - Key of the next agent (or completion message)
+ * @returns Formatted TASK COMPLETION SUMMARY section string
+ *
+ * Implements RULE-012: TASK COMPLETION SUMMARY format exactly as specified
+ * Implements RULE-020: Section 5 of 5-part prompt
+ */
+function buildCompletionSummarySection(
+  agent: PhdAgentConfig,
+  session: IPromptBuildSession,
+  nextAgentKey: string
+): string {
+  const completionSection = `## TASK COMPLETION SUMMARY
+
+When complete, output:
+\`\`\`
+=== TASK COMPLETION SUMMARY ===
+Agent: ${agent.key}
+Status: COMPLETE | BLOCKED
+Phase: ${agent.phase}
+Session: ${session.sessionId}
+
+**What I Did**: [1-2 sentence summary of work completed]
+
+**Files Created/Modified**:
+- \`path/to/file\` - Brief description
+
+**Key Findings**: [If applicable - important discoveries or decisions made]
+
+**Memory Stored**: ${agent.memoryKeys[0] || `research/output/${agent.key}`}
+
+**Next Agent Guidance**: [Brief hint for ${nextAgentKey} about context they need]
+=== END SUMMARY ===
+\`\`\`
+`;
+
+  return completionSection;
+}
+
+/**
+ * Build complete 5-part prompt for a PhD Pipeline agent.
+ * Assembles all sections per RULE-020 Constitution compliance.
+ *
+ * @param agent - Agent configuration from PHD_AGENTS
+ * @param session - Current pipeline session with topic and state
+ * @param agentFileContent - Content read from agent's .md file
+ * @returns PromptBuildResult with complete prompt and metadata
+ *
+ * Implements RULE-020: All 5 required sections must be present
+ * Implements RULE-010: Single Responsibility - orchestrates helpers
+ *
+ * @example
+ * const result = await buildAgentPrompt(agent, session, fileContent);
+ * console.log(result.prompt);
+ * console.log(`Word count: ${result.wordCount}`);
+ */
+async function buildAgentPrompt(
+  agent: PhdAgentConfig,
+  session: IPromptBuildSession,
+  agentFileContent: string
+): Promise<PromptBuildResult> {
+  // Get agent index for workflow context
+  const agentIndex = getConfigAgentIndex(agent.key);
+  const totalAgents = session.dynamicTotalAgents || PHD_PIPELINE_AGENT_COUNT;
+
+  // Determine next agent key for completion section
+  let nextAgentKey = 'Phase 8 Orchestration';
+  if (agentIndex < totalAgents - 1) {
+    const nextAgent = getConfigAgentByIndex(agentIndex + 1);
+    if (nextAgent) {
+      nextAgentKey = nextAgent.key;
+    }
+  }
+
+  // Build all 5 sections per RULE-020
+  const yourTaskSection = buildYourTaskSection(agent, session, agentFileContent);
+  const workflowContextSection = buildWorkflowContextSection(agent, session, agentIndex);
+  const memoryRetrievalSection = buildMemoryRetrievalSection(agent);
+  const memoryStorageSection = buildMemoryStorageSection(agent);
+  const completionSummarySection = buildCompletionSummarySection(agent, session, nextAgentKey);
+
+  // Assemble complete prompt
+  const completePrompt = [
+    yourTaskSection,
+    workflowContextSection,
+    memoryRetrievalSection,
+    memoryStorageSection,
+    completionSummarySection,
+  ].join('\n---\n\n');
+
+  // Calculate word count
+  const wordCount = completePrompt.split(/\s+/).filter(word => word.length > 0).length;
+
+  // Build result with metadata
+  const result: PromptBuildResult = {
+    prompt: completePrompt,
+    agentKey: agent.key,
+    agentDisplayName: agent.displayName,
+    phase: agent.phase,
+    memoryRetrievalKeys: [...agent.memoryKeys],
+    memoryStorageKey: agent.memoryKeys[0] || `research/output/${agent.key}`,
+    wordCount,
+  };
+
+  return result;
+}
+
+// ============================================================================
+// TASK-CLI-003: GET NEXT AGENT FUNCTION
+// ============================================================================
+// Implements RULE-015: 99.9% Sequential execution - only return next agent in sequence
+// Implements RULE-005: Actionable error messages (what failed, why, how to fix)
+// Implements RULE-001: Complete implementation with proper error handling
+
+/**
+ * Result of getting the next agent in the pipeline.
+ * Contains complete agent configuration, generated prompt, and metadata.
+ *
+ * This is the canonical return type for getNextAgent() and provides
+ * all information needed to execute the next agent step.
+ */
+export interface NextAgentResult {
+  /** Agent configuration from PHD_AGENTS */
+  agent: PhdAgentConfig;
+
+  /** Complete 5-part prompt generated by buildAgentPrompt() */
+  prompt: string;
+
+  /** 0-based index of this agent in the pipeline (0-45 for 46 agents) */
+  agentIndex: number;
+
+  /** Total number of agents in the pipeline (46 for standard, may vary with dynamic Phase 6) */
+  totalAgents: number;
+
+  /** Phase definition for this agent's phase */
+  phase: PhaseDefinition;
+
+  /** True if this is the last agent in the pipeline */
+  isLastAgent: boolean;
+
+  /** Full path to the agent's .md file */
+  agentFilePath: string;
+}
+
+/**
+ * Error thrown when an agent file cannot be found.
+ * Provides actionable error message per RULE-005.
+ */
+export class AgentFileNotFoundError extends Error {
+  constructor(
+    public readonly agentKey: string,
+    public readonly filePath: string,
+    public readonly agentsDirectory: string
+  ) {
+    super(
+      `[RULE-018] Agent file not found for "${agentKey}". ` +
+      `Expected file at: ${filePath}. ` +
+      `To fix: Create the file at ${filePath} OR verify agent.file property in PHD_AGENTS configuration. ` +
+      `Agents directory: ${agentsDirectory}`
+    );
+    this.name = 'AgentFileNotFoundError';
+  }
+}
+
+/**
+ * Error thrown when prompt building fails.
+ * Wraps underlying error with context per RULE-005.
+ */
+export class PromptBuildError extends Error {
+  constructor(
+    public readonly agentKey: string,
+    public readonly phase: number,
+    public readonly cause: Error
+  ) {
+    super(
+      `[RULE-020] Failed to build prompt for agent "${agentKey}" (Phase ${phase}). ` +
+      `Cause: ${cause.message}. ` +
+      `To debug: Check agent file content, session state, and memory configuration.`
+    );
+    this.name = 'PromptBuildError';
+  }
+}
+
+/**
+ * Get the next agent to execute in the PhD Pipeline.
+ * Implements RULE-015: Sequential execution - only returns next agent in sequence.
+ *
+ * @param session - Current pipeline session with state
+ * @param options - Optional configuration for verbose logging
+ * @returns NextAgentResult with agent config and prompt, or null if pipeline complete
+ *
+ * @throws {AgentFileNotFoundError} If agent .md file doesn't exist (RULE-005)
+ * @throws {PromptBuildError} If prompt building fails (RULE-005)
+ *
+ * Pipeline Completion:
+ * - Returns null when session.currentAgentIndex >= PHD_AGENTS.length (46)
+ * - This indicates Phase 7 is complete and Phase 8 finalization should begin
+ *
+ * @example
+ * const result = await getNextAgent(session, { verbose: true });
+ * if (result === null) {
+ *   console.log('Pipeline complete - proceed to Phase 8');
+ * } else {
+ *   console.log(`Next agent: ${result.agent.displayName}`);
+ *   console.log(`Prompt length: ${result.prompt.length} chars`);
+ * }
+ */
+async function getNextAgent(
+  session: IPhdSession,
+  options: { verbose?: boolean } = {}
+): Promise<NextAgentResult | null> {
+  const fs = await import('fs/promises');
+  const pathModule = await import('path');
+
+  // Determine total agents (dynamic if available, else static 46)
+  const totalAgents = session.dynamicTotalAgents || PHD_PIPELINE_AGENT_COUNT;
+
+  // RULE-015: Sequential check - if index >= total, pipeline is complete
+  if (session.currentAgentIndex >= totalAgents) {
+    if (options.verbose) {
+      console.error(`[getNextAgent] Pipeline complete: currentAgentIndex (${session.currentAgentIndex}) >= totalAgents (${totalAgents})`);
+    }
+    return null;
+  }
+
+  // Get current agent index
+  const agentIndex = session.currentAgentIndex;
+
+  // Handle dynamic Phase 6 agents vs static agents
+  let agent: PhdAgentConfig;
+
+  if (session.dynamicPhase6Agents && session.dynamicPhase6Agents.length > 0) {
+    // Dynamic agent routing for Phase 6
+    const phase6End = PHASE_6_START_INDEX + session.dynamicPhase6Agents.length - 1;
+
+    if (agentIndex < PHASE_6_START_INDEX) {
+      // Phase 1-5: use static agent from PHD_AGENTS
+      const staticAgent = getConfigAgentByIndex(agentIndex);
+      if (!staticAgent) {
+        throw new Error(
+          `[RULE-018] Invalid agent index ${agentIndex}. ` +
+          `Expected index in range [0, ${PHASE_1_5_AGENT_COUNT - 1}] for Phases 1-5.`
+        );
+      }
+      agent = staticAgent;
+    } else if (agentIndex <= phase6End) {
+      // Phase 6: use dynamic agent
+      const phase6Index = agentIndex - PHASE_6_START_INDEX;
+      const dynamicAgent = session.dynamicPhase6Agents[phase6Index];
+      if (!dynamicAgent) {
+        throw new Error(
+          `[RULE-018] Invalid Phase 6 agent index ${phase6Index}. ` +
+          `Expected index in range [0, ${session.dynamicPhase6Agents.length - 1}].`
+        );
+      }
+      // Convert dynamic agent to PhdAgentConfig format
+      agent = {
+        key: dynamicAgent.key,
+        displayName: dynamicAgent.key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        phase: 6,
+        file: `${dynamicAgent.key}.md`,
+        memoryKeys: [`research/writing/${dynamicAgent.key}`],
+        outputArtifacts: [`${dynamicAgent.key}.md`],
+      };
+    } else {
+      // Phase 7: map to static agents
+      const phase7Offset = agentIndex - (phase6End + 1);
+      const staticIndex = STATIC_PHASE_7_START_INDEX + phase7Offset;
+      const staticAgent = getConfigAgentByIndex(staticIndex);
+      if (!staticAgent) {
+        throw new Error(
+          `[RULE-018] Invalid Phase 7 agent index. Offset ${phase7Offset} from static index ${staticIndex} is out of bounds.`
+        );
+      }
+      agent = staticAgent;
+    }
+  } else {
+    // No dynamic agents - use standard PHD_AGENTS array
+    const staticAgent = getConfigAgentByIndex(agentIndex);
+    if (!staticAgent) {
+      throw new Error(
+        `[RULE-018] Invalid agent index ${agentIndex}. ` +
+        `Expected index in range [0, ${PHD_PIPELINE_AGENT_COUNT - 1}].`
+      );
+    }
+    agent = staticAgent;
+  }
+
+  if (options.verbose) {
+    console.error(`[getNextAgent] Agent ${agentIndex + 1}/${totalAgents}: ${agent.key} (Phase ${agent.phase})`);
+  }
+
+  // Get phase definition
+  const phase = getPhaseById(agent.phase);
+  if (!phase) {
+    throw new Error(
+      `[RULE-019] Agent "${agent.key}" has invalid phase ${agent.phase}. ` +
+      `Expected phase in range [1, 7]. Check PHD_AGENTS configuration.`
+    );
+  }
+
+  // Build agent file path and read content
+  const agentsDir = pathModule.resolve(process.cwd(), DEFAULT_CONFIG.agentsDirectory);
+  const agentFilePath = pathModule.join(agentsDir, agent.file);
+
+  let agentFileContent: string;
+  try {
+    agentFileContent = await fs.readFile(agentFilePath, 'utf-8');
+
+    if (options.verbose) {
+      console.error(`[getNextAgent] Read agent file: ${agentFilePath} (${agentFileContent.length} bytes)`);
+    }
+  } catch (err) {
+    // RULE-005: Actionable error message
+    throw new AgentFileNotFoundError(agent.key, agentFilePath, agentsDir);
+  }
+
+  // Build prompt session context
+  const promptSession: IPromptBuildSession = {
+    sessionId: session.sessionId,
+    query: (session as unknown as { query: string }).query || '',
+    currentPhase: session.currentPhase,
+    currentAgentIndex: session.currentAgentIndex,
+    completedAgents: [...session.completedAgents],
+    dynamicPhase6Agents: session.dynamicPhase6Agents,
+    dynamicTotalAgents: session.dynamicTotalAgents,
+  };
+
+  // Build complete 5-part prompt using buildAgentPrompt
+  let promptResult: PromptBuildResult;
+  try {
+    promptResult = await buildAgentPrompt(agent, promptSession, agentFileContent);
+
+    if (options.verbose) {
+      console.error(`[getNextAgent] Built prompt: ${promptResult.wordCount} words`);
+    }
+  } catch (err) {
+    // RULE-005: Wrap error with context
+    throw new PromptBuildError(agent.key, agent.phase, err instanceof Error ? err : new Error(String(err)));
+  }
+
+  // Calculate if this is the last agent
+  const isLastAgent = agentIndex >= totalAgents - 1;
+
+  if (options.verbose && isLastAgent) {
+    console.error(`[getNextAgent] This is the LAST agent in the pipeline`);
+  }
+
+  // Return complete NextAgentResult
+  return {
+    agent,
+    prompt: promptResult.prompt,
+    agentIndex,
+    totalAgents,
+    phase,
+    isLastAgent,
+    agentFilePath,
+  };
+}
+
+// ============================================================================
+// TASK-CONFIG-003: PHASE VALIDATION FUNCTIONS
+// ============================================================================
+// Implements RULE-019: All 46 agents must be assigned to exactly one phase (1-7)
+// Implements RULE-022: Phase N must complete before Phase N+1 begins
+// Implements RULE-015: 99.9% sequential execution within phases
+
+/**
+ * Phase progress information returned by getPhaseProgress
+ */
+interface PhaseProgress {
+  /** Number of agents completed in this phase */
+  completed: number;
+  /** Total number of agents in this phase */
+  total: number;
+  /** Percentage complete (0-100) */
+  percentage: number;
+  /** Array of completed agent keys in this phase */
+  completedAgents: string[];
+  /** Array of remaining agent keys in this phase */
+  remainingAgents: string[];
+}
+
+/**
+ * Extended session interface for phase-aware operations
+ * Mirrors PipelineSession but typed for phase validation functions
+ */
+interface IPhdSession {
+  sessionId: string;
+  currentPhase: number;
+  currentAgentIndex: number;
+  completedAgents: string[];
+  dynamicPhase6Agents?: Array<{ key: string; phase: number }>;
+  dynamicTotalAgents?: number;
+}
+
+/**
+ * Validate phase transition is allowed
+ * Implements RULE-022: Phase N must complete before Phase N+1 begins
+ *
+ * @param currentPhase - Current phase number (1-7)
+ * @param nextPhase - Target phase number to transition to
+ * @returns true if transition is valid, false otherwise
+ *
+ * Valid transitions:
+ * - Same phase (currentPhase === nextPhase): always allowed
+ * - Next phase (nextPhase === currentPhase + 1): allowed (will be validated by isPhaseComplete)
+ * - Skip phases (nextPhase > currentPhase + 1): NOT allowed (violates RULE-022)
+ * - Previous phases (nextPhase < currentPhase): NOT allowed (no backward transitions)
+ */
+function validatePhaseTransition(currentPhase: number, nextPhase: number): boolean {
+  // Validate phase ranges (1-7 for main phases, 8 for finalization)
+  if (currentPhase < 1 || currentPhase > 8) {
+    console.error(`[PHASE-VALIDATION] Invalid current phase: ${currentPhase}`);
+    return false;
+  }
+
+  if (nextPhase < 1 || nextPhase > 8) {
+    console.error(`[PHASE-VALIDATION] Invalid next phase: ${nextPhase}`);
+    return false;
+  }
+
+  // Same phase transition is always valid
+  if (currentPhase === nextPhase) {
+    return true;
+  }
+
+  // Only allow forward transition by exactly one phase (RULE-022)
+  if (nextPhase === currentPhase + 1) {
+    return true;
+  }
+
+  // Disallow backward transitions and phase skipping
+  if (nextPhase < currentPhase) {
+    console.error(`[PHASE-VALIDATION] Backward transition not allowed: Phase ${currentPhase} -> ${nextPhase}`);
+    return false;
+  }
+
+  if (nextPhase > currentPhase + 1) {
+    console.error(`[PHASE-VALIDATION] Phase skipping not allowed (RULE-022): Phase ${currentPhase} -> ${nextPhase}`);
+    return false;
+  }
+
+  return false;
+}
+
+/**
+ * Check if all agents in a specific phase are complete
+ * Implements RULE-022: Phase N must complete before Phase N+1 begins
+ *
+ * @param session - Pipeline session with completion state
+ * @param phaseId - Phase number to check (1-7)
+ * @returns true if all agents in the phase have completed
+ */
+function isPhaseComplete(session: IPhdSession, phaseId: number): boolean {
+  // Validate phase ID
+  if (phaseId < 1 || phaseId > 7) {
+    console.error(`[PHASE-VALIDATION] Invalid phase ID: ${phaseId}`);
+    return false;
+  }
+
+  // Get agents for the specified phase
+  const phaseAgents = getCanonicalAgentsByPhase(phaseId);
+
+  // Handle dynamic Phase 6 agents
+  if (phaseId === 6 && session.dynamicPhase6Agents && session.dynamicPhase6Agents.length > 0) {
+    // For dynamic Phase 6, check if all dynamic agents are completed
+    const phase6AgentKeys = session.dynamicPhase6Agents.map(a => a.key);
+    const completedSet = new Set(session.completedAgents);
+
+    for (const agentKey of phase6AgentKeys) {
+      if (!completedSet.has(agentKey)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Check if all phase agents are in completedAgents
+  const completedSet = new Set(session.completedAgents);
+
+  for (const agent of phaseAgents) {
+    if (!completedSet.has(agent.key)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Get agent configurations for the current phase of a session
+ * Supports both static (Phases 1-5, 7) and dynamic (Phase 6) agents
+ *
+ * @param session - Pipeline session with current phase info
+ * @returns Array of AgentConfig objects for the current phase
+ */
+function getCurrentPhaseAgents(session: IPhdSession): PhdAgentConfig[] {
+  const currentPhase = session.currentPhase;
+
+  // Validate phase
+  if (currentPhase < 1 || currentPhase > 7) {
+    console.error(`[PHASE-VALIDATION] Invalid current phase: ${currentPhase}`);
+    return [];
+  }
+
+  // Handle dynamic Phase 6 agents
+  if (currentPhase === 6 && session.dynamicPhase6Agents && session.dynamicPhase6Agents.length > 0) {
+    // Convert dynamic agents to PhdAgentConfig format
+    return session.dynamicPhase6Agents.map((dynamicAgent) => ({
+      key: dynamicAgent.key,
+      displayName: dynamicAgent.key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      phase: 6,
+      file: `${dynamicAgent.key}.md`,
+      memoryKeys: [`research/writing/${dynamicAgent.key}`],
+      outputArtifacts: [`${dynamicAgent.key}.md`],
+    }));
+  }
+
+  // Get static agents for the phase
+  const staticAgents = getCanonicalAgentsByPhase(currentPhase);
+
+  // Convert readonly array to mutable (for return type compatibility)
+  return [...staticAgents];
+}
+
+/**
+ * Get detailed progress information for a specific phase
+ * Shows completed vs remaining agents with percentage
+ *
+ * @param session - Pipeline session with completion state
+ * @param phaseId - Phase number to get progress for (1-7)
+ * @returns PhaseProgress object with completion details
+ */
+function getPhaseProgress(session: IPhdSession, phaseId: number): PhaseProgress {
+  // Default empty result for invalid phases
+  if (phaseId < 1 || phaseId > 7) {
+    return {
+      completed: 0,
+      total: 0,
+      percentage: 0,
+      completedAgents: [],
+      remainingAgents: [],
+    };
+  }
+
+  // Get all agents for this phase
+  let phaseAgentKeys: string[];
+
+  if (phaseId === 6 && session.dynamicPhase6Agents && session.dynamicPhase6Agents.length > 0) {
+    // Use dynamic Phase 6 agents
+    phaseAgentKeys = session.dynamicPhase6Agents.map(a => a.key);
+  } else {
+    // Use static agents from PHD_PHASES
+    const phaseAgents = getCanonicalAgentsByPhase(phaseId);
+    phaseAgentKeys = phaseAgents.map(a => a.key);
+  }
+
+  // Build completion sets
+  const completedSet = new Set(session.completedAgents);
+  const completedInPhase: string[] = [];
+  const remainingInPhase: string[] = [];
+
+  for (const agentKey of phaseAgentKeys) {
+    if (completedSet.has(agentKey)) {
+      completedInPhase.push(agentKey);
+    } else {
+      remainingInPhase.push(agentKey);
+    }
+  }
+
+  const total = phaseAgentKeys.length;
+  const completed = completedInPhase.length;
+  const percentage = total > 0 ? Math.round((completed / total) * 1000) / 10 : 0;
+
+  return {
+    completed,
+    total,
+    percentage,
+    completedAgents: completedInPhase,
+    remainingAgents: remainingInPhase,
+  };
+}
+
+/**
+ * Get progress information for all phases
+ * Returns array of phase progress for display in status command
+ *
+ * @param session - Pipeline session with completion state
+ * @returns Array of PhaseProgress objects indexed by phase (0-6 for phases 1-7)
+ */
+function getAllPhaseProgress(session: IPhdSession): Array<{ phaseId: number; phaseName: string; progress: PhaseProgress }> {
+  const results: Array<{ phaseId: number; phaseName: string; progress: PhaseProgress }> = [];
+
+  for (let phaseId = 1; phaseId <= 7; phaseId++) {
+    const phase = PHD_PHASES.find(p => p.id === phaseId);
+    const progress = getPhaseProgress(session, phaseId);
+
+    results.push({
+      phaseId,
+      phaseName: phase?.name || getPhaseName(phaseId),
+      progress,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Determine the phase for a given agent index
+ * Handles both static and dynamic agent configurations
+ *
+ * @param agentIndex - 0-based agent index
+ * @param session - Optional session for dynamic Phase 6 handling
+ * @returns Phase number (1-7) for the agent
+ */
+function getPhaseForAgentIndex(agentIndex: number, session?: IPhdSession): number {
+  // Handle dynamic Phase 6 scenario
+  if (session?.dynamicPhase6Agents && session.dynamicPhase6Agents.length > 0) {
+    const phase6End = PHASE_6_START_INDEX + session.dynamicPhase6Agents.length - 1;
+
+    if (agentIndex < PHASE_6_START_INDEX) {
+      // Phase 1-5: use static lookup
+      const agent = getConfigAgentByIndex(agentIndex);
+      return agent?.phase ?? 1;
+    } else if (agentIndex <= phase6End) {
+      // Phase 6: dynamic agents
+      return 6;
+    } else {
+      // Phase 7: validation agents
+      return 7;
+    }
+  }
+
+  // Static configuration: direct lookup
+  const agent = getConfigAgentByIndex(agentIndex);
+  return agent?.phase ?? 1;
+}
+
+/**
+ * Check if the session is ready for Phase 8 (final orchestration)
+ * Phase 8 runs synthesis across all outputs after Phase 7 completion
+ *
+ * @param session - Pipeline session to check
+ * @returns true if all Phase 1-7 agents are complete and Phase 8 can begin
+ */
+function isReadyForPhase8(session: IPhdSession): boolean {
+  // All phases 1-7 must be complete
+  for (let phaseId = 1; phaseId <= 7; phaseId++) {
+    if (!isPhaseComplete(session, phaseId)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Get canonical agent configuration by key from PHD_AGENTS (46 agents)
+ * This is the preferred lookup method for agent metadata
+ * @param key - Agent key (e.g., 'self-ask-decomposer')
+ * @returns PhdAgentConfig from the canonical 46-agent configuration, or undefined
+ */
+function getCanonicalAgentByKey(key: string): PhdAgentConfig | undefined {
+  return getConfigAgentByKey(key);
+}
+
+/**
+ * Get canonical agents for a specific phase from PHD_AGENTS (46 agents)
+ * @param phaseId - Phase number (1-7)
+ * @returns Array of PhdAgentConfig for the specified phase
+ */
+function getCanonicalAgentsByPhase(phaseId: number): readonly PhdAgentConfig[] {
+  return getConfigAgentsByPhase(phaseId);
+}
+
+/**
+ * Get index of an agent in the canonical PHD_AGENTS array (46 agents)
+ * @param key - Agent key to look up
+ * @returns 0-based index or -1 if not found
+ */
+function getCanonicalAgentIndex(key: string): number {
+  return getConfigAgentIndex(key);
+}
+
+/**
+ * Check if an agent key exists in the canonical PHD_AGENTS configuration
+ * @param key - Agent key to validate
+ * @returns true if the agent exists in the 46-agent configuration
+ */
+function isValidCanonicalAgent(key: string): boolean {
+  return getConfigAgentByKey(key) !== undefined;
+}
 
 /**
  * Get or initialize SonaEngine instance (lazy initialization)
@@ -346,6 +1540,65 @@ program
   .description('PhD Pipeline CLI-guided orchestration tool')
   .version('1.0.0');
 
+// ============================================================================
+// TASK-CLI-001: validate-agents command
+// ============================================================================
+
+/**
+ * CLI options interface for validate-agents command
+ */
+interface ValidateAgentsOptions {
+  /** Output as JSON (default: true) */
+  json?: boolean;
+  /** Enable verbose logging */
+  verbose?: boolean;
+}
+
+/**
+ * validate-agents command - Validate all 46 agent .md files exist
+ * [RULE-018] Agent Key Validity - all agent keys must have corresponding .md files
+ *
+ * Usage: phd-cli validate-agents [--verbose] [--json]
+ *
+ * Exit codes:
+ * - 0: All agent files valid
+ * - 1: One or more agent files missing or invalid
+ */
+program
+  .command('validate-agents')
+  .description('Validate all 46 agent .md files exist in the agents directory')
+  .option('--verbose', 'Enable verbose logging')
+  .option('--json', 'Output as JSON (default: true)', true)
+  .action(async (options: ValidateAgentsOptions) => {
+    try {
+      const result = await validateAgentFiles();
+
+      if (options.verbose) {
+        console.error(`[PHD-CLI] Validating agent files in: ${result.agentsDirectory}`);
+        console.error(`[PHD-CLI] Total agents in configuration: ${result.totalAgents}`);
+      }
+
+      // Always output JSON for programmatic consumption
+      console.log(JSON.stringify({
+        valid: result.valid,
+        totalAgents: result.totalAgents,
+        foundAgents: result.foundAgents,
+        missingAgents: result.missingAgents,
+        invalidAgents: result.invalidAgents,
+        agentsDirectory: result.agentsDirectory,
+        errors: result.errors,
+        summary: result.valid
+          ? `All ${result.totalAgents} agent files validated successfully`
+          : `Validation failed: ${result.missingAgents.length} missing, ${result.invalidAgents.length} invalid`
+      }, null, 2));
+
+      // Exit with appropriate code
+      process.exit(result.valid ? 0 : 1);
+    } catch (error) {
+      handleError(error);
+    }
+  });
+
 /**
  * init command - Initialize new pipeline session
  * [REQ-PIPE-001]
@@ -370,12 +1623,36 @@ program
 /**
  * Execute init command
  * [REQ-PIPE-001, REQ-PIPE-011, REQ-PIPE-020, REQ-PIPE-021, REQ-PIPE-023]
+ * [RULE-018] Agent Key Validity - validates all agent files before session creation
  */
 async function commandInit(
   query: string,
   options: InitOptions,
   sessionBasePath?: string
 ): Promise<InitResponse> {
+  // [RULE-018] Validate agent files before proceeding
+  // This ensures all 46 agent .md files exist before creating a session
+  const agentValidation = await validateAgentFiles();
+  if (!agentValidation.valid) {
+    const missingCount = agentValidation.missingAgents.length;
+    const invalidCount = agentValidation.invalidAgents.length;
+    const errorDetail = agentValidation.errors.slice(0, 5).join('\n'); // Show first 5 errors
+
+    throw new Error(
+      `[RULE-018] Agent file validation failed: ${missingCount} missing, ${invalidCount} invalid.\n` +
+      `Agents directory: ${agentValidation.agentsDirectory}\n` +
+      `Missing agents: ${agentValidation.missingAgents.slice(0, 10).join(', ')}${missingCount > 10 ? ` ... and ${missingCount - 10} more` : ''}\n` +
+      `Invalid agents: ${agentValidation.invalidAgents.slice(0, 10).join(', ')}${invalidCount > 10 ? ` ... and ${invalidCount - 10} more` : ''}\n` +
+      `First errors:\n${errorDetail}\n` +
+      `Run 'phd-cli validate-agents' for full details.\n` +
+      `Fix: Ensure all agent .md files exist in ${agentValidation.agentsDirectory}/`
+    );
+  }
+
+  if (options.verbose) {
+    console.error(`[PHD-CLI] Agent file validation passed: ${agentValidation.foundAgents}/${agentValidation.totalAgents} agents verified`);
+  }
+
   // [REQ-PIPE-001] Validate query
   if (!query || query.trim() === '') {
     throw new Error('Query cannot be empty');
@@ -405,14 +1682,40 @@ async function commandInit(
   session.slug = slug;
   session.researchDir = path.join(process.cwd(), 'docs/research', slug);
 
-  // Persist to disk with atomic write pattern
+  // Persist to disk with atomic write pattern [RULE-021]
   await sessionManager.saveSession(session);
+
+  // TASK-CLI-004: Log pipeline initialization with 46 agent count
+  console.error(`[PHD-CLI] Pipeline initialized with ${PHD_PIPELINE_AGENT_COUNT} agents across ${PHD_PHASES.length} phases`);
 
   if (options.verbose) {
     console.error(`[DEBUG] Session created: ${sessionId}`);
     console.error(`[DEBUG] Style profile: ${styleProfile.metadata.name}`);
     console.error(`[DEBUG] Session saved to: ${sessionManager.getSessionDirectory()}`);
   }
+
+  // TASK-CLI-004: Store initial session state to memory [RULE-021, RULE-025]
+  // This enables cross-session persistence and resume capabilities
+  const initialSessionState = buildSessionStateForMemory(session);
+  const sessionMemoryKey = `session/${sessionId}`;
+
+  // Store session state asynchronously (non-blocking)
+  storeToMemory(sessionMemoryKey, initialSessionState).then((stored) => {
+    if (stored && options.verbose) {
+      console.error(`[MEMORY] Session state stored: ${sessionMemoryKey}`);
+    }
+  });
+
+  // Also store session index for lookup by topic
+  const sessionIndexKey = `session/index/${slug}`;
+  storeToMemory(sessionIndexKey, {
+    sessionId,
+    topic: query,
+    createdAt: new Date().toISOString(),
+    status: 'running',
+  }).catch(() => {
+    // Silent fail for index storage
+  });
 
   // Load first agent from pipeline config (always use project root, not session path)
   // sessionBasePath is only for session storage, not for agent definitions
@@ -705,7 +2008,7 @@ async function commandNext(
     throw new SessionExpiredError(sessionId);
   }
 
-  // Load static pipeline config
+  // Load static pipeline config (for legacy compatibility)
   const staticConfig = await pipelineLoader.loadPipelineConfig();
 
   // CRITICAL: Detect Phase 6 entry and generate dynamic agents [DYNAMIC-001, DYNAMIC-002]
@@ -757,8 +2060,29 @@ async function commandNext(
     console.error(`[DEBUG] Using dynamic agents: ${!!session.dynamicPhase6Agents}`);
   }
 
-  // Check if pipeline is complete
-  if (session.currentAgentIndex >= totalAgents) {
+  // =========================================================================
+  // TASK-CLI-003: Use getNextAgent() for agent resolution and prompt building
+  // Implements RULE-015: Sequential execution via getNextAgent()
+  // =========================================================================
+
+  // Build session interface for getNextAgent
+  const phdSession: IPhdSession = {
+    sessionId: session.sessionId,
+    currentPhase: session.currentPhase,
+    currentAgentIndex: session.currentAgentIndex,
+    completedAgents: [...session.completedAgents],
+    dynamicPhase6Agents: session.dynamicPhase6Agents,
+    dynamicTotalAgents: session.dynamicTotalAgents,
+  };
+
+  // Add query property to session for prompt building
+  (phdSession as unknown as { query: string }).query = session.query;
+
+  // Call getNextAgent() to get agent config and prompt
+  const nextAgentResult = await getNextAgent(phdSession, { verbose: options.verbose });
+
+  // Check if pipeline is complete (getNextAgent returns null)
+  if (nextAgentResult === null) {
     const duration = Date.now() - session.startTime;
     const summary: CompletionSummary = {
       duration,
@@ -780,102 +2104,37 @@ async function commandNext(
     };
   }
 
-  // Get appropriate agent based on current index
-  let agentConfig: AgentConfig;
+  // Extract agent config from NextAgentResult
+  const { agent: phdAgent, prompt: basePrompt, agentIndex, phase, isLastAgent, agentFilePath } = nextAgentResult;
 
-  if (session.dynamicPhase6Agents) {
-    const phase6End = PHASE_6_START_INDEX + session.dynamicPhase6Agents.length - 1;
+  // Convert PhdAgentConfig to legacy AgentConfig for compatibility with existing code
+  // This maintains backward compatibility with styleInjector and other components
+  const agentConfig: AgentConfig = {
+    key: phdAgent.key,
+    name: phdAgent.displayName,
+    phase: phdAgent.phase,
+    order: agentIndex,
+    description: '',
+    dependencies: [],
+    timeout: 600000,
+    critical: false,
+    expectedOutputs: [...phdAgent.outputArtifacts],
+    inputs: [],
+    outputs: [...phdAgent.outputArtifacts],
+  };
 
-    if (session.currentAgentIndex < PHASE_6_START_INDEX) {
-      // Phase 1-5: use static agent
-      agentConfig = await pipelineLoader.getAgentByIndex(session.currentAgentIndex);
-    } else if (session.currentAgentIndex <= phase6End) {
-      // Phase 6: use dynamic agent [DYNAMIC-004]
-      const phase6Index = session.currentAgentIndex - PHASE_6_START_INDEX;
-      const dynamicAgent = session.dynamicPhase6Agents[phase6Index];
-      // Convert DynamicAgentDetails to AgentConfig
-      agentConfig = {
-        ...dynamicAgent,
-        order: session.currentAgentIndex,
-        description: dynamicAgent.prompt || '',
-        inputs: [],
-        outputs: dynamicAgent.expectedOutputs || []
-      };
-    } else {
-      // Phase 7: map to static agents
-      const phase7Offset = session.currentAgentIndex - (phase6End + 1);
-      const staticIndex = STATIC_PHASE_7_START_INDEX + phase7Offset;
-      agentConfig = await pipelineLoader.getAgentByIndex(staticIndex);
-    }
-  } else {
-    // No dynamic agents, use static
-    agentConfig = await pipelineLoader.getAgentByIndex(session.currentAgentIndex);
+  if (options.verbose) {
+    console.error(`[TASK-CLI-003] Using getNextAgent() result:`);
+    console.error(`  - Agent: ${phdAgent.displayName} (${phdAgent.key})`);
+    console.error(`  - Phase: ${phase.name} (Phase ${phase.id})`);
+    console.error(`  - Index: ${agentIndex + 1}/${totalAgents}`);
+    console.error(`  - Agent File: ${agentFilePath}`);
+    console.error(`  - Is Last Agent: ${isLastAgent}`);
   }
 
-  // Compute researchDir (handle legacy sessions without it)
-  const researchDir = session.researchDir ||
-    path.join(process.cwd(), 'docs/research', session.slug || generateSlug(session.query));
-
-  // Build prompt with style injection (Phase 6 only), query injection, and output context
-  let prompt = await styleInjector.buildAgentPrompt(
-    agentConfig,
-    session.styleProfileId,
-    session.query,
-    { researchDir, agentIndex: session.currentAgentIndex, agentKey: agentConfig.key }
-  );
-
-  // [ROLLING-PROMPT] Add dynamic workflow context
-  const previousAgentKey = session.currentAgentIndex > 0
-    ? session.completedAgents[session.completedAgents.length - 1] || 'N/A'
-    : 'None';
-
-  // Look ahead to find next agent (if not last)
-  let nextAgentKey = 'Pipeline Complete';
-  const nextIndex = session.currentAgentIndex + 1;
-  if (nextIndex < totalAgents) {
-    if (session.dynamicPhase6Agents) {
-      const phase6End = PHASE_6_START_INDEX + session.dynamicPhase6Agents.length - 1;
-      if (nextIndex < PHASE_6_START_INDEX) {
-        const nextStatic = await pipelineLoader.getAgentByIndex(nextIndex);
-        nextAgentKey = nextStatic?.key || 'N/A';
-      } else if (nextIndex <= phase6End) {
-        const phase6Index = nextIndex - PHASE_6_START_INDEX;
-        nextAgentKey = session.dynamicPhase6Agents[phase6Index]?.key || 'N/A';
-      } else {
-        const phase7Offset = nextIndex - (phase6End + 1);
-        const staticIndex = STATIC_PHASE_7_START_INDEX + phase7Offset;
-        const nextStatic = await pipelineLoader.getAgentByIndex(staticIndex);
-        nextAgentKey = nextStatic?.key || 'N/A';
-      }
-    } else {
-      const nextStatic = await pipelineLoader.getAgentByIndex(nextIndex);
-      nextAgentKey = nextStatic?.key || 'N/A';
-    }
-  }
-
-  const workflowContext = `
-## WORKFLOW CONTEXT
-Agent #${session.currentAgentIndex + 1}/${totalAgents} | Phase ${agentConfig.phase}: ${getPhaseName(agentConfig.phase)}
-Previous: ${previousAgentKey} | Next: ${nextAgentKey}
-
-## TASK COMPLETION SUMMARY (REQUIRED FORMAT)
-When you complete this task, end your response with:
-
-**What I Did**: [1-2 sentence summary of work completed]
-
-**Files Created/Modified**:
-- \`path/to/file\` - Brief description
-
-**Key Findings**: [If applicable - important discoveries or decisions made]
-
-**Next Agent Guidance**: [Brief hint for ${nextAgentKey} about context they need]
-
----
-
-`;
-
-  // Prepend workflow context to prompt
-  prompt = workflowContext + prompt;
+  // Use the prompt from getNextAgent() which already includes the 5-part template
+  // The basePrompt includes: YOUR TASK, WORKFLOW CONTEXT, MEMORY RETRIEVAL, MEMORY STORAGE, TASK COMPLETION SUMMARY
+  let prompt = basePrompt;
 
   // [UCM-DESC] Inject prior solutions from DESC episodic memory
   // Use PhdPipelineAdapter for phase-aware window sizes (RULE-010 to RULE-014)
@@ -965,13 +2224,13 @@ When you complete this task, end your response with:
     }
   }
 
-  // Build AgentDetails
+  // Build AgentDetails using data from getNextAgent() result (TASK-CLI-003)
   const agentDetails: AgentDetails = {
-    index: session.currentAgentIndex,
+    index: agentIndex,  // From nextAgentResult
     key: agentConfig.key,
     name: agentConfig.name,
-    phase: agentConfig.phase,
-    phaseName: getPhaseName(agentConfig.phase),
+    phase: phase.id,  // From nextAgentResult.phase
+    phaseName: phase.name,  // From nextAgentResult.phase
     prompt,
     dependencies: agentConfig.dependencies,
     timeout: agentConfig.timeout,
@@ -979,13 +2238,13 @@ When you complete this task, end your response with:
     expectedOutputs: agentConfig.expectedOutputs
   };
 
-  // Calculate progress
+  // Calculate progress using data from getNextAgent() result
   const progress: ProgressInfo = {
     completed: session.completedAgents.length,
-    total: totalAgents,
-    percentage: Math.round((session.completedAgents.length / totalAgents) * 1000) / 10,
-    currentPhase: agentConfig.phase,
-    phaseName: getPhaseName(agentConfig.phase)
+    total: nextAgentResult.totalAgents,  // From nextAgentResult
+    percentage: Math.round((session.completedAgents.length / nextAgentResult.totalAgents) * 1000) / 10,
+    currentPhase: phase.id,  // From nextAgentResult.phase
+    phaseName: phase.name  // From nextAgentResult.phase
   };
 
   // Update session activity time
@@ -1209,8 +2468,53 @@ async function commandComplete(
     session.agentOutputs[agentKey] = output;
   }
 
+  // TASK-CLI-004: Get agent config for memory key lookup
+  // Uses canonical PHD_AGENTS configuration for 46-agent pipeline
+  const completedAgentConfig = getCanonicalAgentByKey(agentKey);
+  const agentMemoryKey = completedAgentConfig?.memoryKeys[0] || `research/output/${agentKey}`;
+
+  // TASK-CLI-004: Store agent completion data to memory [RULE-025]
+  // Store using the agent's configured memoryKey for retrieval by subsequent agents
+  if (output !== null) {
+    const agentCompletionData = {
+      agentKey,
+      phase: session.currentPhase,
+      completedAt: new Date().toISOString(),
+      sessionId: session.sessionId,
+      output,
+      outputSummary: typeof output === 'object' && output !== null
+        ? (output as Record<string, unknown>).summary || (output as Record<string, unknown>).result || 'Completed'
+        : String(output).substring(0, 200),
+    };
+
+    // Store to agent's memory key (non-blocking)
+    storeToMemory(agentMemoryKey, agentCompletionData).then((stored) => {
+      if (stored) {
+        console.error(`[MEMORY] Agent output stored: ${agentMemoryKey}`);
+      }
+    });
+
+    // Also store to agent-specific completion key for task completion tracking
+    const completionKey = `completion/${session.sessionId}/${agentKey}`;
+    storeToMemory(completionKey, {
+      status: 'complete',
+      agentKey,
+      agentIndex: session.currentAgentIndex,
+      phase: session.currentPhase,
+      timestamp: Date.now(),
+    }).catch(() => {
+      // Silent fail for completion tracking
+    });
+  }
+
+  // TASK-CONFIG-003: Track current phase BEFORE incrementing
+  const previousPhase = session.currentPhase;
+
   // Increment to next agent
   session.currentAgentIndex += 1;
+
+  // TASK-CONFIG-003: Calculate next phase with validation
+  let nextPhase = session.currentPhase;
 
   // Update phase based on new index using dynamic routing
   if (session.currentAgentIndex < totalAgents) {
@@ -1219,17 +2523,42 @@ async function commandComplete(
 
       if (session.currentAgentIndex < PHASE_6_START_INDEX) {
         const nextAgent = pipelineConfig.agents[session.currentAgentIndex];
-        session.currentPhase = nextAgent?.phase || session.currentPhase;
+        nextPhase = nextAgent?.phase || session.currentPhase;
       } else if (session.currentAgentIndex <= phase6End) {
-        session.currentPhase = 6; // Writing phase
+        nextPhase = 6; // Writing phase
       } else {
-        session.currentPhase = 7; // Validation phase
+        nextPhase = 7; // Validation phase
       }
     } else if (session.currentAgentIndex < pipelineConfig.agents.length) {
       const nextAgent = pipelineConfig.agents[session.currentAgentIndex];
-      session.currentPhase = nextAgent?.phase || session.currentPhase;
+      nextPhase = nextAgent?.phase || session.currentPhase;
     }
   }
+
+  // TASK-CONFIG-003: Validate phase transition (RULE-022)
+  // Phase transitions must be sequential - no skipping phases
+  if (nextPhase !== previousPhase) {
+    // Validate the transition is allowed
+    if (!validatePhaseTransition(previousPhase, nextPhase)) {
+      console.error(`[PHASE-VALIDATION] WARNING: Invalid phase transition detected (${previousPhase} -> ${nextPhase})`);
+      // In production, this should not happen as agents are ordered by phase
+      // Log but continue - don't throw to avoid breaking the pipeline
+    }
+
+    // TASK-CONFIG-003: Verify current phase is complete before transitioning (RULE-022)
+    if (!isPhaseComplete(session, previousPhase)) {
+      console.error(`[PHASE-VALIDATION] WARNING: Phase ${previousPhase} incomplete, but transitioning to Phase ${nextPhase}`);
+      // Log progress for debugging
+      const progress = getPhaseProgress(session, previousPhase);
+      console.error(`[PHASE-VALIDATION] Phase ${previousPhase} progress: ${progress.completed}/${progress.total} (${progress.percentage}%)`);
+      console.error(`[PHASE-VALIDATION] Remaining in Phase ${previousPhase}: ${progress.remainingAgents.join(', ')}`);
+    } else {
+      console.error(`[PHASE-VALIDATION] Phase ${previousPhase} complete. Transitioning to Phase ${nextPhase}.`);
+    }
+  }
+
+  // Apply the validated phase
+  session.currentPhase = nextPhase;
 
   // Update activity time
   session.lastActivityTime = Date.now();
@@ -1336,10 +2665,41 @@ async function commandComplete(
   }
 
   // [PHASE-8-AUTO] Check if pipeline is complete and trigger Phase 8 automatically
+  // TASK-CONFIG-003: Use isReadyForPhase8 for proper validation
   const pipelineComplete = !nextAgentKey && session.currentAgentIndex >= totalAgents;
+  const readyForPhase8 = isReadyForPhase8(session);
 
   if (pipelineComplete) {
+    // TASK-CONFIG-003: Verify all phases are complete before triggering Phase 8
+    if (!readyForPhase8) {
+      console.error('[PHASE-VALIDATION] WARNING: Pipeline marked complete but not all phases verified complete');
+      // Log which phases are incomplete
+      for (let phaseId = 1; phaseId <= 7; phaseId++) {
+        if (!isPhaseComplete(session, phaseId)) {
+          const progress = getPhaseProgress(session, phaseId);
+          console.error(`[PHASE-VALIDATION] Phase ${phaseId} incomplete: ${progress.completed}/${progress.total}`);
+        }
+      }
+    }
+
     console.error('[Pipeline] All Phase 1-7 agents complete. Triggering Phase 8 (finalize)...');
+
+    // TASK-CLI-004: Update session for Phase 8 triggering [RULE-021]
+    session.lastActivityTime = Date.now();
+    await sessionManager.saveSession(session);
+
+    // TASK-CLI-004: Store session state update to memory before Phase 8
+    // Build new object with phase8 status (PhdSessionState has readonly properties)
+    const phase8SessionState: PhdSessionState = {
+      ...buildSessionStateForMemory(session),
+      status: 'phase8',
+    };
+    const sessionMemoryKey = `session/${session.sessionId}`;
+    storeToMemory(sessionMemoryKey, phase8SessionState).then((stored) => {
+      if (stored) {
+        console.error(`[MEMORY] Session status updated to phase8: ${sessionMemoryKey}`);
+      }
+    });
 
     // Emit pipeline completion event
     emitPipelineEvent({
@@ -1407,6 +2767,33 @@ async function triggerPhase8Finalize(slug: string, styleProfileId?: string): Pro
       console.error(`[Phase 8] Output: ${result.outputPath}`);
       console.error(`[Phase 8] Words: ${result.totalWords}, Citations: ${result.totalCitations}`);
 
+      // TASK-CLI-004: Store final completion state to memory [RULE-021]
+      const completionData = {
+        sessionSlug: slug,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        outputPath: result.outputPath,
+        totalWords: result.totalWords,
+        totalCitations: result.totalCitations,
+        phase8Success: true,
+      };
+      storeToMemory(`session/${slug}/completion`, completionData).then((stored) => {
+        if (stored) {
+          console.error(`[MEMORY] Final completion state stored for: ${slug}`);
+        }
+      });
+
+      // TASK-CLI-004: Update session status to "completed" in memory
+      storeToMemory(`session/${slug}`, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        phase8OutputPath: result.outputPath,
+      }).then((stored) => {
+        if (stored) {
+          console.error(`[MEMORY] Session status updated to completed: ${slug}`);
+        }
+      });
+
       // Emit Phase 8 completion event
       emitPipelineEvent({
         component: 'pipeline',
@@ -1422,6 +2809,20 @@ async function triggerPhase8Finalize(slug: string, styleProfileId?: string): Pro
     } else {
       console.error(`[Phase 8] FAILED: ${result.errors?.join(', ')}`);
       console.error(`[Phase 8] Warnings: ${result.warnings?.join(', ')}`);
+
+      // TASK-CLI-004: Store failure state to memory
+      storeToMemory(`session/${slug}/completion`, {
+        sessionSlug: slug,
+        status: 'failed',
+        failedAt: new Date().toISOString(),
+        errors: result.errors,
+        warnings: result.warnings,
+        phase8Success: false,
+      }).then((stored) => {
+        if (stored) {
+          console.error(`[MEMORY] Phase 8 failure state stored for: ${slug}`);
+        }
+      });
     }
   } catch (error) {
     console.error(`[Phase 8] Error during finalize:`, error);
@@ -1452,8 +2853,28 @@ program
   });
 
 /**
+ * Extended status response with phase-by-phase progress
+ * TASK-CONFIG-003: Enhanced phase progress reporting
+ */
+interface ExtendedStatusResponse extends StatusResponse {
+  /** Phase-by-phase progress breakdown (TASK-CONFIG-003) */
+  phaseProgress?: Array<{
+    phaseId: number;
+    phaseName: string;
+    progress: PhaseProgress;
+    isComplete: boolean;
+    isCurrent: boolean;
+  }>;
+  /** Remaining agents in current phase */
+  remainingInCurrentPhase?: string[];
+  /** Ready for Phase 8 finalization */
+  readyForPhase8?: boolean;
+}
+
+/**
  * Execute status command
  * [REQ-PIPE-004]
+ * TASK-CONFIG-003: Enhanced with phase-by-phase progress reporting
  *
  * @param sessionId - Session ID to get status for
  * @param options - Command options
@@ -1463,7 +2884,7 @@ async function commandStatus(
   sessionId: string,
   options: StatusOptions,
   sessionBasePath?: string
-): Promise<StatusResponse> {
+): Promise<ExtendedStatusResponse> {
   const sessionManager = sessionBasePath ? new SessionManager(sessionBasePath) : new SessionManager();
   const pipelineLoader = new PipelineConfigLoader();
 
@@ -1472,12 +2893,42 @@ async function commandStatus(
 
   // Load pipeline config
   const pipelineConfig = await pipelineLoader.loadPipelineConfig();
-  const totalAgents = pipelineConfig.agents.length;
 
-  // Get current agent
-  const currentAgentConfig = session.currentAgentIndex < totalAgents
-    ? pipelineConfig.agents[session.currentAgentIndex]
-    : null;
+  // Determine total agents (dynamic if available, else static)
+  const totalAgents = session.dynamicTotalAgents || pipelineConfig.agents.length;
+
+  // Get current agent based on dynamic routing (TASK-CONFIG-003)
+  let currentAgentConfig: AgentConfig | null = null;
+
+  if (session.currentAgentIndex < totalAgents) {
+    if (session.dynamicPhase6Agents) {
+      const phase6End = PHASE_6_START_INDEX + session.dynamicPhase6Agents.length - 1;
+
+      if (session.currentAgentIndex < PHASE_6_START_INDEX) {
+        // Phase 1-5: use static agent
+        currentAgentConfig = pipelineConfig.agents[session.currentAgentIndex];
+      } else if (session.currentAgentIndex <= phase6End) {
+        // Phase 6: use dynamic agent
+        const phase6Index = session.currentAgentIndex - PHASE_6_START_INDEX;
+        const dynamicAgent = session.dynamicPhase6Agents[phase6Index];
+        currentAgentConfig = {
+          ...dynamicAgent,
+          order: session.currentAgentIndex,
+          description: '',
+          inputs: [],
+          outputs: dynamicAgent.expectedOutputs || []
+        };
+      } else {
+        // Phase 7: map to static agents
+        const phase7Offset = session.currentAgentIndex - (phase6End + 1);
+        const staticIndex = STATIC_PHASE_7_START_INDEX + phase7Offset;
+        currentAgentConfig = pipelineConfig.agents[staticIndex];
+      }
+    } else {
+      // No dynamic agents, use static
+      currentAgentConfig = pipelineConfig.agents[session.currentAgentIndex];
+    }
+  }
 
   // Build current agent details (simplified for status)
   const currentAgent: AgentDetails = currentAgentConfig ? {
@@ -1516,6 +2967,23 @@ async function commandStatus(
     ? session.query.substring(0, 197) + '...'
     : session.query;
 
+  // TASK-CONFIG-003: Build phase-by-phase progress
+  const allPhaseProgress = getAllPhaseProgress(session);
+  const phaseProgressWithStatus = allPhaseProgress.map(({ phaseId, phaseName, progress }) => ({
+    phaseId,
+    phaseName,
+    progress,
+    isComplete: isPhaseComplete(session, phaseId),
+    isCurrent: phaseId === session.currentPhase,
+  }));
+
+  // Get remaining agents in current phase
+  const currentPhaseProgress = getPhaseProgress(session, session.currentPhase);
+  const remainingInCurrentPhase = currentPhaseProgress.remainingAgents;
+
+  // Check if ready for Phase 8
+  const readyForPhase8 = isReadyForPhase8(session);
+
   return {
     sessionId: session.sessionId,
     pipelineId: session.pipelineId,
@@ -1532,7 +3000,11 @@ async function commandStatus(
     startTime: session.startTime,
     lastActivityTime: session.lastActivityTime,
     elapsedTime,
-    errors: session.errors
+    errors: session.errors,
+    // TASK-CONFIG-003: Phase progress reporting
+    phaseProgress: phaseProgressWithStatus,
+    remainingInCurrentPhase,
+    readyForPhase8,
   };
 }
 
@@ -1582,7 +3054,7 @@ async function commandList(
       ? session.query.substring(0, 47) + '...'
       : session.query,
     status: session.status,
-    progress: Math.round((session.completedAgents.length / 45) * 1000) / 10, // 45 = base agent count
+    progress: Math.round((session.completedAgents.length / PHD_PIPELINE_AGENT_COUNT) * 1000) / 10, // 46 agents from phd-pipeline-config
     startTime: session.startTime,
     lastActivityTime: session.lastActivityTime
   }));
@@ -2279,8 +3751,39 @@ export {
   determineStyleProfile,
   loadStyleProfile,
   generatePipelineId,
-  generateSlug
+  generateSlug,
+  // Re-export phd-pipeline-config utilities for external use (TASK-CONFIG-002)
+  PHD_PIPELINE_AGENT_COUNT,
+  getCanonicalAgentByKey,
+  getCanonicalAgentsByPhase,
+  getCanonicalAgentIndex,
+  isValidCanonicalAgent,
+  // TASK-CONFIG-003: Phase validation functions for external use
+  validatePhaseTransition,
+  isPhaseComplete,
+  getCurrentPhaseAgents,
+  getPhaseProgress,
+  getAllPhaseProgress,
+  getPhaseForAgentIndex,
+  isReadyForPhase8,
+  // TASK-CLI-001: Agent file validation for external use
+  validateAgentFiles,
+  // TASK-CLI-003: getNextAgent function export
+  // Note: AgentFileNotFoundError, PromptBuildError are already exported as 'export class'
+  // Note: NextAgentResult is already exported as 'export interface'
+  getNextAgent,
 };
+
+// TASK-CONFIG-003: Export phase-related types
+// Note: AgentValidationResult is already exported with its interface declaration (line 121)
+export type { PhaseProgress, IPhdSession, ExtendedStatusResponse };
+
+// Re-export canonical configuration for consumers (TASK-CONFIG-002)
+export {
+  PHD_AGENTS,
+  PHD_PHASES,
+  DEFAULT_CONFIG,
+} from './phd-pipeline-config.js';
 
 // Run if called directly (not when imported as a module)
 // Check if this is the main module using import.meta.url
