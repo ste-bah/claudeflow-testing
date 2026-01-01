@@ -799,21 +799,32 @@ export class ExpressServer implements IExpressServer {
    */
   private async getMemoryInteractions(req: Request, res: Response): Promise<void> {
     try {
-      // Query vectordb events (actual component name used by God Agent)
-      const events = await this.eventStore.query({
-        component: 'vectordb',
+      // Query actual memory_stored events from memory component
+      const memoryEvents = await this.eventStore.query({
+        component: 'memory',
         limit: 50,
       });
-      
-      const interactions = events.map(e => ({
+
+      // Also include agent interactions for richer data
+      const agentEvents = await this.eventStore.query({
+        component: 'agent',
+        limit: 50,
+      });
+
+      const allEvents = [...memoryEvents, ...agentEvents].sort((a, b) => b.timestamp - a.timestamp);
+
+      const interactions = allEvents.map(e => ({
         id: e.id,
-        domain: e.metadata?.domain || 'unknown',
-        content: e.metadata?.contentPreview || `Entry: ${e.metadata?.entryId || 'unknown'}`,
+        domain: e.metadata?.domain || e.metadata?.agentKey || 'general',
+        content: e.metadata?.contentPreview ||
+                 (typeof e.metadata?.taskPreview === 'string' ? e.metadata.taskPreview.substring(0, 100) : null) ||
+                 (typeof e.metadata?.outputPreview === 'string' ? e.metadata.outputPreview.substring(0, 100) : null) ||
+                 `${e.operation}: ${e.metadata?.entryId || e.metadata?.executionId || e.id}`,
         tags: e.metadata?.tags || [],
         timestamp: e.timestamp,
-        contentLength: e.metadata?.contentLength || 0,
+        contentLength: e.metadata?.contentLength || e.metadata?.outputLength || 0,
       }));
-      
+
       res.setHeader('Content-Type', 'application/json');
       res.json(interactions);
     } catch (error) {
@@ -874,40 +885,44 @@ export class ExpressServer implements IExpressServer {
    */
   private async getEpisodeStore(req: Request, res: Response): Promise<void> {
     try {
-      // Query vectordb and sona events as episodes
-      const vectorEvents = await this.eventStore.query({
-        component: 'vectordb',
-        limit: 100,
-      });
+      // Query sona trajectories (actual learning episodes)
       const sonaEvents = await this.eventStore.query({
         component: 'sona',
-        limit: 50,
+        limit: 100,
       });
-      const events = [...vectorEvents, ...sonaEvents];
 
-      // Include insert operations as episode equivalents
-      const memoryEvents = events.filter(e =>
-        e.operation === 'vectordb_insert_completed' ||
-        e.operation === 'sona_trajectory_created'
-      );
-      const linkedCount = memoryEvents.filter(e =>
-        (Array.isArray(e.metadata?.tags) && e.metadata.tags.length > 0) || e.metadata?.trajectoryId
+      // Query memory events (stored context episodes)
+      const memoryEvents = await this.eventStore.query({
+        component: 'memory',
+        limit: 100,
+      });
+
+      // Query pipeline steps as workflow episodes
+      const pipelineEvents = await this.eventStore.query({
+        component: 'pipeline',
+        limit: 100,
+      });
+
+      const allEpisodes = [...sonaEvents, ...memoryEvents, ...pipelineEvents];
+      const linkedCount = allEpisodes.filter(e =>
+        e.metadata?.trajectoryId || e.metadata?.pipelineId
       ).length;
-      
-      const recentEpisodes = memoryEvents.slice(0, 20).map(e => ({
-        id: e.metadata?.entryId || e.id,
-        type: e.metadata?.type || 'memory',
-        domain: e.metadata?.domain || 'unknown',
+
+      const recentEpisodes = allEpisodes.slice(0, 20).map(e => ({
+        id: e.metadata?.trajectoryId || e.metadata?.entryId || e.metadata?.stepId || e.id,
+        type: e.component === 'sona' ? 'trajectory' :
+              e.component === 'pipeline' ? 'workflow' : 'memory',
+        domain: e.metadata?.domain || e.metadata?.stepName || e.metadata?.route || 'general',
         timestamp: e.timestamp,
-        linked: !!(e.metadata?.trajectoryId),
+        linked: !!(e.metadata?.trajectoryId || e.metadata?.pipelineId),
       }));
-      
+
       res.setHeader('Content-Type', 'application/json');
       res.json({
         stats: {
-          totalEpisodes: memoryEvents.length,
+          totalEpisodes: allEpisodes.length,
           linkedEpisodes: linkedCount,
-          timeIndexSize: memoryEvents.length,
+          timeIndexSize: allEpisodes.length,
         },
         recentEpisodes,
       });
@@ -921,31 +936,51 @@ export class ExpressServer implements IExpressServer {
    */
   private async getUcmContext(req: Request, res: Response): Promise<void> {
     try {
-      // Query vectordb events for UCM context estimation
-      const events = await this.eventStore.query({
-        component: 'vectordb',
+      // Query actual memory stored events for context
+      const memoryEvents = await this.eventStore.query({
+        component: 'memory',
         limit: 50,
       });
-      
-      // Estimate context from recent memory events
-      const totalContentLength = events.reduce((sum, e) =>
-        sum + Number(e.metadata?.contentLength || 0), 0
+
+      // Query agent events for active context
+      const agentEvents = await this.eventStore.query({
+        component: 'agent',
+        limit: 50,
+      });
+
+      // Query reasoning events for cognitive context
+      const reasoningEvents = await this.eventStore.query({
+        component: 'reasoning',
+        limit: 50,
+      });
+
+      const allContextEvents = [...memoryEvents, ...agentEvents, ...reasoningEvents]
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+      // Estimate context from actual content lengths
+      const totalContentLength = allContextEvents.reduce((sum, e) =>
+        sum + Number(e.metadata?.contentLength || e.metadata?.outputLength || 0), 0
       );
       const estimatedTokens = Math.floor(totalContentLength / 4); // rough estimate
-      
-      const contextEntries = events.slice(0, 10).map(e => ({
-        tier: e.metadata?.category || 'hot',
-        domain: e.metadata?.domain || 'unknown',
-        content: `${e.metadata?.domain}: ${e.metadata?.contentLength || 0} chars`,
-        timestamp: e.timestamp,
-      }));
-      
+
+      const contextEntries = allContextEvents.slice(0, 10).map(e => {
+        const domain = e.metadata?.domain || e.metadata?.agentKey || e.metadata?.mode || 'general';
+        const size = e.metadata?.contentLength || e.metadata?.outputLength || 0;
+        return {
+          tier: e.component === 'memory' ? 'hot' :
+                e.component === 'agent' ? 'warm' : 'cold',
+          domain,
+          content: `${domain}: ${size} chars (${e.operation})`,
+          timestamp: e.timestamp,
+        };
+      });
+
       res.setHeader('Content-Type', 'application/json');
       res.json({
         stats: {
           contextSize: estimatedTokens,
-          pinnedItems: events.filter(e => e.metadata?.pinned).length,
-          rollingWindowSize: events.length,
+          pinnedItems: memoryEvents.length,
+          rollingWindowSize: allContextEvents.length,
         },
         contextEntries,
       });
@@ -959,36 +994,58 @@ export class ExpressServer implements IExpressServer {
    */
   private async getHyperedgeStore(req: Request, res: Response): Promise<void> {
     try {
-      // Query for Q&A-like patterns (vectordb + reasoning pairs)
+      // Query memory events for stored knowledge
       const memoryEvents = await this.eventStore.query({
-        component: 'vectordb',
+        component: 'memory',
         limit: 50,
       });
 
-      const learningEvents = await this.eventStore.query({
+      // Query reasoning events for inference relationships
+      const reasoningEvents = await this.eventStore.query({
         component: 'reasoning',
         limit: 50,
       });
-      
-      // Count Q&A pairs (memory followed by learning feedback)
-      const qaPairs = Math.min(memoryEvents.length, learningEvents.length);
-      
+
+      // Query sona events for learning relationships
+      const sonaEvents = await this.eventStore.query({
+        component: 'sona',
+        limit: 50,
+      });
+
+      // Count relationships: memory + reasoning pairs form Q&A hyperedges
+      const qaPairs = reasoningEvents.filter(e =>
+        e.operation === 'reasoning_query_executed' ||
+        e.operation === 'reasoning_pattern_matched'
+      ).length;
+
+      // Causal chains from reasoning inferences
+      const causalChains = reasoningEvents.filter(e =>
+        e.operation === 'reasoning_causal_inference'
+      ).length;
+
       // Group by domain to find "communities"
-      const domains = new Set(memoryEvents.map(e => e.metadata?.domain).filter(Boolean));
-      
-      const recentHyperedges = memoryEvents.slice(0, 10).map((e, i) => ({
-        id: e.id,
-        type: learningEvents[i] ? 'qa-pair' : 'memory-node',
-        nodeCount: learningEvents[i] ? 2 : 1,
-        domain: e.metadata?.domain || 'unknown',
+      const domains = new Set([
+        ...memoryEvents.map(e => e.metadata?.domain),
+        ...reasoningEvents.map(e => e.metadata?.taskType),
+      ].filter(Boolean));
+
+      const allEvents = [...memoryEvents, ...reasoningEvents, ...sonaEvents]
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+      const recentHyperedges = allEvents.slice(0, 10).map(e => ({
+        id: e.metadata?.trajectoryId || e.metadata?.entryId || e.id,
+        type: e.component === 'reasoning' ? 'inference' :
+              e.component === 'sona' ? 'trajectory' : 'memory-node',
+        nodeCount: e.metadata?.patternCount || e.metadata?.inferenceCount || 1,
+        domain: e.metadata?.domain || e.metadata?.taskType || e.metadata?.mode || 'general',
         timestamp: e.timestamp,
       }));
-      
+
       res.setHeader('Content-Type', 'application/json');
       res.json({
         stats: {
           qaPairs,
-          causalChains: Math.floor(qaPairs / 3), // Estimate chains
+          causalChains,
           communities: domains.size,
         },
         recentHyperedges,

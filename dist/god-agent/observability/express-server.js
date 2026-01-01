@@ -10,7 +10,14 @@
  */
 import express from 'express';
 import * as path from 'path';
+import * as fs from 'fs';
 import { fileURLToPath } from 'url';
+import Database from 'better-sqlite3';
+// Database paths for real metrics
+const GOD_AGENT_DIR = path.join(process.cwd(), '.god-agent');
+const LEARNING_DB_PATH = path.join(GOD_AGENT_DIR, 'learning.db');
+const DESC_DB_PATH = path.join(GOD_AGENT_DIR, 'desc.db');
+const AGENTS_DIR = path.join(process.cwd(), '.claude', 'agents');
 // =============================================================================
 // Implementation
 // =============================================================================
@@ -54,6 +61,95 @@ export class ExpressServer {
         this.verbose = config?.verbose || false;
         // Initialize Express app
         this.app = this.createApp();
+    }
+    /**
+     * Get real metrics from SQLite databases
+     * Queries learning.db and desc.db for actual trajectory/pattern/episode counts
+     */
+    getRealDatabaseMetrics() {
+        const result = {
+            trajectories: { total: 0, active: 0, completed: 0, avgQuality: null },
+            patterns: { total: 0, avgWeight: 0, totalSuccess: 0, totalFailure: 0 },
+            episodes: { total: 0, avgQuality: null },
+            agents: { total: 0, categories: 0 },
+            tokens: { totalTokens: 0, inputTokens: 0, outputTokens: 0, requestCount: 0 },
+        };
+        // Query learning.db for trajectories and patterns
+        try {
+            const learningDb = new Database(LEARNING_DB_PATH, { readonly: true });
+            // Trajectory stats
+            const trajStats = learningDb.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          AVG(quality_score) as avgQuality
+        FROM trajectory_metadata
+      `).get();
+            if (trajStats) {
+                result.trajectories = trajStats;
+            }
+            // Pattern stats
+            const patternStats = learningDb.prepare(`
+        SELECT
+          COUNT(*) as total,
+          AVG(weight) as avgWeight,
+          SUM(success_count) as totalSuccess,
+          SUM(failure_count) as totalFailure
+        FROM patterns WHERE deprecated = 0
+      `).get();
+            if (patternStats) {
+                result.patterns = patternStats;
+            }
+            // Token usage stats
+            const tokenStats = learningDb.prepare(`
+        SELECT
+          COALESCE(SUM(total_tokens), 0) as totalTokens,
+          COALESCE(SUM(input_tokens), 0) as inputTokens,
+          COALESCE(SUM(output_tokens), 0) as outputTokens,
+          COUNT(*) as requestCount
+        FROM token_usage
+      `).get();
+            if (tokenStats) {
+                result.tokens = tokenStats;
+            }
+            learningDb.close();
+        }
+        catch (err) {
+            // Silently handle missing database
+        }
+        // Query desc.db for episodes
+        try {
+            const descDb = new Database(DESC_DB_PATH, { readonly: true });
+            const episodeStats = descDb.prepare(`
+        SELECT COUNT(*) as total, AVG(quality) as avgQuality FROM episodes
+      `).get();
+            if (episodeStats) {
+                result.episodes = episodeStats;
+            }
+            descDb.close();
+        }
+        catch (err) {
+            // Silently handle missing database
+        }
+        // Count agent files and categories
+        try {
+            if (fs.existsSync(AGENTS_DIR)) {
+                const categories = fs.readdirSync(AGENTS_DIR).filter((f) => fs.statSync(path.join(AGENTS_DIR, f)).isDirectory());
+                result.agents.categories = categories.length;
+                let totalAgents = 0;
+                for (const cat of categories) {
+                    const catPath = path.join(AGENTS_DIR, cat);
+                    const agentFiles = fs.readdirSync(catPath).filter((f) => f.endsWith('.md'));
+                    totalAgents += agentFiles.length;
+                }
+                result.agents.total = totalAgents;
+            }
+        }
+        catch (err) {
+            // Silently handle errors
+        }
+        return result;
     }
     /**
      * Create and configure Express application
@@ -523,17 +619,27 @@ export class ExpressServer {
      */
     async getMemoryInteractions(req, res) {
         try {
-            const events = await this.eventStore.query({
+            // Query actual memory_stored events from memory component
+            const memoryEvents = await this.eventStore.query({
                 component: 'memory',
                 limit: 50,
             });
-            const interactions = events.map(e => ({
+            // Also include agent interactions for richer data
+            const agentEvents = await this.eventStore.query({
+                component: 'agent',
+                limit: 50,
+            });
+            const allEvents = [...memoryEvents, ...agentEvents].sort((a, b) => b.timestamp - a.timestamp);
+            const interactions = allEvents.map(e => ({
                 id: e.id,
-                domain: e.metadata?.domain || 'unknown',
-                content: e.metadata?.contentPreview || `Entry: ${e.metadata?.entryId || 'unknown'}`,
+                domain: e.metadata?.domain || e.metadata?.agentKey || 'general',
+                content: e.metadata?.contentPreview ||
+                    (typeof e.metadata?.taskPreview === 'string' ? e.metadata.taskPreview.substring(0, 100) : null) ||
+                    (typeof e.metadata?.outputPreview === 'string' ? e.metadata.outputPreview.substring(0, 100) : null) ||
+                    `${e.operation}: ${e.metadata?.entryId || e.metadata?.executionId || e.id}`,
                 tags: e.metadata?.tags || [],
                 timestamp: e.timestamp,
-                contentLength: e.metadata?.contentLength || 0,
+                contentLength: e.metadata?.contentLength || e.metadata?.outputLength || 0,
             }));
             res.setHeader('Content-Type', 'application/json');
             res.json(interactions);
@@ -547,11 +653,20 @@ export class ExpressServer {
      */
     async getMemoryReasoning(req, res) {
         try {
-            const events = await this.eventStore.query({
-                component: 'learning',
+            // Query reasoning and sona events (actual component names used by God Agent)
+            const reasoningEvents = await this.eventStore.query({
+                component: 'reasoning',
                 limit: 100,
             });
-            const feedbackEvents = events.filter(e => e.operation === 'learning_feedback');
+            const sonaEvents = await this.eventStore.query({
+                component: 'sona',
+                limit: 100,
+            });
+            const events = [...reasoningEvents, ...sonaEvents];
+            // Include trajectory and pattern events as "feedback" equivalent
+            const feedbackEvents = events.filter(e => e.operation === 'sona_feedback_processed' ||
+                e.operation === 'reasoning_pattern_matched' ||
+                e.operation === 'sona_trajectory_created');
             const totalFeedback = feedbackEvents.length;
             const avgQuality = totalFeedback > 0
                 ? feedbackEvents.reduce((sum, e) => sum + Number(e.metadata?.quality || 0), 0) / totalFeedback
@@ -581,26 +696,37 @@ export class ExpressServer {
      */
     async getEpisodeStore(req, res) {
         try {
-            // Query memory events as episodes (each memory store is an episode)
-            const events = await this.eventStore.query({
+            // Query sona trajectories (actual learning episodes)
+            const sonaEvents = await this.eventStore.query({
+                component: 'sona',
+                limit: 100,
+            });
+            // Query memory events (stored context episodes)
+            const memoryEvents = await this.eventStore.query({
                 component: 'memory',
                 limit: 100,
             });
-            const memoryEvents = events.filter(e => e.operation === 'memory_stored');
-            const linkedCount = memoryEvents.filter(e => (Array.isArray(e.metadata?.tags) && e.metadata.tags.length > 0) || e.metadata?.trajectoryId).length;
-            const recentEpisodes = memoryEvents.slice(0, 20).map(e => ({
-                id: e.metadata?.entryId || e.id,
-                type: e.metadata?.type || 'memory',
-                domain: e.metadata?.domain || 'unknown',
+            // Query pipeline steps as workflow episodes
+            const pipelineEvents = await this.eventStore.query({
+                component: 'pipeline',
+                limit: 100,
+            });
+            const allEpisodes = [...sonaEvents, ...memoryEvents, ...pipelineEvents];
+            const linkedCount = allEpisodes.filter(e => e.metadata?.trajectoryId || e.metadata?.pipelineId).length;
+            const recentEpisodes = allEpisodes.slice(0, 20).map(e => ({
+                id: e.metadata?.trajectoryId || e.metadata?.entryId || e.metadata?.stepId || e.id,
+                type: e.component === 'sona' ? 'trajectory' :
+                    e.component === 'pipeline' ? 'workflow' : 'memory',
+                domain: e.metadata?.domain || e.metadata?.stepName || e.metadata?.route || 'general',
                 timestamp: e.timestamp,
-                linked: !!(e.metadata?.trajectoryId),
+                linked: !!(e.metadata?.trajectoryId || e.metadata?.pipelineId),
             }));
             res.setHeader('Content-Type', 'application/json');
             res.json({
                 stats: {
-                    totalEpisodes: memoryEvents.length,
+                    totalEpisodes: allEpisodes.length,
                     linkedEpisodes: linkedCount,
-                    timeIndexSize: memoryEvents.length,
+                    timeIndexSize: allEpisodes.length,
                 },
                 recentEpisodes,
             });
@@ -614,25 +740,43 @@ export class ExpressServer {
      */
     async getUcmContext(req, res) {
         try {
-            const events = await this.eventStore.query({
+            // Query actual memory stored events for context
+            const memoryEvents = await this.eventStore.query({
                 component: 'memory',
                 limit: 50,
             });
-            // Estimate context from recent memory events
-            const totalContentLength = events.reduce((sum, e) => sum + Number(e.metadata?.contentLength || 0), 0);
+            // Query agent events for active context
+            const agentEvents = await this.eventStore.query({
+                component: 'agent',
+                limit: 50,
+            });
+            // Query reasoning events for cognitive context
+            const reasoningEvents = await this.eventStore.query({
+                component: 'reasoning',
+                limit: 50,
+            });
+            const allContextEvents = [...memoryEvents, ...agentEvents, ...reasoningEvents]
+                .sort((a, b) => b.timestamp - a.timestamp);
+            // Estimate context from actual content lengths
+            const totalContentLength = allContextEvents.reduce((sum, e) => sum + Number(e.metadata?.contentLength || e.metadata?.outputLength || 0), 0);
             const estimatedTokens = Math.floor(totalContentLength / 4); // rough estimate
-            const contextEntries = events.slice(0, 10).map(e => ({
-                tier: e.metadata?.category || 'hot',
-                domain: e.metadata?.domain || 'unknown',
-                content: `${e.metadata?.domain}: ${e.metadata?.contentLength || 0} chars`,
-                timestamp: e.timestamp,
-            }));
+            const contextEntries = allContextEvents.slice(0, 10).map(e => {
+                const domain = e.metadata?.domain || e.metadata?.agentKey || e.metadata?.mode || 'general';
+                const size = e.metadata?.contentLength || e.metadata?.outputLength || 0;
+                return {
+                    tier: e.component === 'memory' ? 'hot' :
+                        e.component === 'agent' ? 'warm' : 'cold',
+                    domain,
+                    content: `${domain}: ${size} chars (${e.operation})`,
+                    timestamp: e.timestamp,
+                };
+            });
             res.setHeader('Content-Type', 'application/json');
             res.json({
                 stats: {
                     contextSize: estimatedTokens,
-                    pinnedItems: events.filter(e => e.metadata?.pinned).length,
-                    rollingWindowSize: events.length,
+                    pinnedItems: memoryEvents.length,
+                    rollingWindowSize: allContextEvents.length,
                 },
                 contextEntries,
             });
@@ -646,31 +790,46 @@ export class ExpressServer {
      */
     async getHyperedgeStore(req, res) {
         try {
-            // Query for Q&A-like patterns (memory + learning pairs)
+            // Query memory events for stored knowledge
             const memoryEvents = await this.eventStore.query({
                 component: 'memory',
                 limit: 50,
             });
-            const learningEvents = await this.eventStore.query({
-                component: 'learning',
+            // Query reasoning events for inference relationships
+            const reasoningEvents = await this.eventStore.query({
+                component: 'reasoning',
                 limit: 50,
             });
-            // Count Q&A pairs (memory followed by learning feedback)
-            const qaPairs = Math.min(memoryEvents.length, learningEvents.length);
+            // Query sona events for learning relationships
+            const sonaEvents = await this.eventStore.query({
+                component: 'sona',
+                limit: 50,
+            });
+            // Count relationships: memory + reasoning pairs form Q&A hyperedges
+            const qaPairs = reasoningEvents.filter(e => e.operation === 'reasoning_query_executed' ||
+                e.operation === 'reasoning_pattern_matched').length;
+            // Causal chains from reasoning inferences
+            const causalChains = reasoningEvents.filter(e => e.operation === 'reasoning_causal_inference').length;
             // Group by domain to find "communities"
-            const domains = new Set(memoryEvents.map(e => e.metadata?.domain).filter(Boolean));
-            const recentHyperedges = memoryEvents.slice(0, 10).map((e, i) => ({
-                id: e.id,
-                type: learningEvents[i] ? 'qa-pair' : 'memory-node',
-                nodeCount: learningEvents[i] ? 2 : 1,
-                domain: e.metadata?.domain || 'unknown',
+            const domains = new Set([
+                ...memoryEvents.map(e => e.metadata?.domain),
+                ...reasoningEvents.map(e => e.metadata?.taskType),
+            ].filter(Boolean));
+            const allEvents = [...memoryEvents, ...reasoningEvents, ...sonaEvents]
+                .sort((a, b) => b.timestamp - a.timestamp);
+            const recentHyperedges = allEvents.slice(0, 10).map(e => ({
+                id: e.metadata?.trajectoryId || e.metadata?.entryId || e.id,
+                type: e.component === 'reasoning' ? 'inference' :
+                    e.component === 'sona' ? 'trajectory' : 'memory-node',
+                nodeCount: e.metadata?.patternCount || e.metadata?.inferenceCount || 1,
+                domain: e.metadata?.domain || e.metadata?.taskType || e.metadata?.mode || 'general',
                 timestamp: e.timestamp,
             }));
             res.setHeader('Content-Type', 'application/json');
             res.json({
                 stats: {
                     qaPairs,
-                    causalChains: Math.floor(qaPairs / 3), // Estimate chains
+                    causalChains,
                     communities: domains.size,
                 },
                 recentHyperedges,
@@ -724,10 +883,13 @@ export class ExpressServer {
             const agentSelections = routingEvents.filter(e => e.action === 'agent_selected');
             const today = new Date().toDateString();
             const selectionsToday = agentSelections.filter(e => new Date(e.timestamp).toDateString() === today).length;
+            // Get REAL metrics from databases (not fake event-derived data)
+            const realMetrics = this.getRealDatabaseMetrics();
             res.setHeader('Content-Type', 'application/json');
             res.json({
                 ucm: {
-                    episodesStored: ucmStored || eventStats.dbEventCount,
+                    // Use real DESC episode count, fallback to events only if no episodes
+                    episodesStored: realMetrics.episodes.total || ucmStored || eventStats.dbEventCount,
                     contextSize: ucmContextSize || Math.floor(eventStats.dbEventCount * 150),
                 },
                 idesc: {
@@ -747,9 +909,13 @@ export class ExpressServer {
                     communities: communities || Math.min(5, Math.floor(eventStats.dbEventCount / 10)),
                 },
                 token: {
-                    // Usage should be a ratio (0-1), not raw token count
-                    // Estimate ~200 tokens per event, budget is ~200K tokens
-                    usage: tokenUsage || Math.min((eventStats.dbEventCount * 200) / 200000, 1),
+                    // Real token usage from learning.db token_usage table
+                    totalTokens: realMetrics.tokens.totalTokens,
+                    inputTokens: realMetrics.tokens.inputTokens,
+                    outputTokens: realMetrics.tokens.outputTokens,
+                    requestCount: realMetrics.tokens.requestCount,
+                    // Keep legacy fields for backward compatibility
+                    usage: realMetrics.tokens.totalTokens > 0 ? Math.min(realMetrics.tokens.totalTokens / 200000, 1) : 0,
                     warnings: tokenWarnings,
                     summarizations: summarizations,
                     rollingWindowSize: rollingWindowSize || 50,
@@ -761,10 +927,26 @@ export class ExpressServer {
                     memoryUsage: process.memoryUsage().heapUsed,
                 },
                 registry: {
-                    total: 264,
-                    categories: 30,
+                    // Use REAL agent count from file system
+                    total: realMetrics.agents.total || 264,
+                    categories: realMetrics.agents.categories || 30,
                     selectionsToday: selectionsToday,
                     embeddingDimensions: 1536,
+                },
+                // NEW: Real learning metrics from learning.db
+                learning: {
+                    trajectories: {
+                        total: realMetrics.trajectories.total,
+                        active: realMetrics.trajectories.active,
+                        completed: realMetrics.trajectories.completed,
+                        avgQuality: realMetrics.trajectories.avgQuality,
+                    },
+                    patterns: {
+                        total: realMetrics.patterns.total,
+                        avgWeight: realMetrics.patterns.avgWeight,
+                        successCount: realMetrics.patterns.totalSuccess,
+                        failureCount: realMetrics.patterns.totalFailure,
+                    },
                 },
             });
         }

@@ -92,6 +92,11 @@ export declare class ExpressServer implements IExpressServer {
      */
     constructor(dependencies: IServerDependencies, config?: IServerConfig);
     /**
+     * Get real metrics from SQLite databases
+     * Queries learning.db and desc.db for actual trajectory/pattern/episode counts
+     */
+    private getRealDatabaseMetrics;
+    /**
      * Create and configure Express application
      * @returns Configured Express app
      */
