@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { TaskExecutor } from '../../../../src/god-agent/core/agents/task-executor.js';
 import { AgentRegistry } from '../../../../src/god-agent/core/agents/agent-registry.js';
 import type { IStructuredTask, ITaskExecutionResult } from '../../../../src/god-agent/core/agents/task-executor.js';
 import type { ILoadedAgentDefinition } from '../../../../src/god-agent/core/agents/agent-types.js';
+
+// ES module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * Integration Tests for TaskExecutor (TASK-EXEC-001)
@@ -20,7 +26,7 @@ describe('TaskExecutor Integration Tests', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
-    const basePath = '/home/unixdude/projects/project1/.claude/agents';
+    const basePath = resolve(__dirname, '../../../../.claude/agents');
     agentRegistry = new AgentRegistry({
       basePath,
       verbose: false

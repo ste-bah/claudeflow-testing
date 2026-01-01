@@ -38,7 +38,8 @@ class PyrightServer(SolidLanguageServer):
             # Note 1: we can also use `pyright-langserver --stdio` but it requires pyright to be installed with npm
             # Note 2: we can also use `bpyright-langserver --stdio` if we ever are unhappy with pyright
             # Note 3: Using venv python path to ensure pyright module is found
-            ProcessLaunchInfo(cmd="/home/unixdude/.venv/bin/python -m pyright.langserver --stdio", cwd=repository_root_path),
+            # Dynamically find python with pyright - check venv first, then system python
+            ProcessLaunchInfo(cmd=PyrightServer._get_python_cmd(), cwd=repository_root_path),
             "python",
             solidlsp_settings,
         )
@@ -50,6 +51,44 @@ class PyrightServer(SolidLanguageServer):
     @override
     def is_ignored_dirname(self, dirname: str) -> bool:
         return super().is_ignored_dirname(dirname) or dirname in ["venv", "__pycache__"]
+
+    @staticmethod
+    def _get_python_cmd() -> str:
+        """
+        Dynamically find a Python executable with pyright installed.
+        Checks common venv locations, then falls back to system python.
+        """
+        import shutil
+        import subprocess
+
+        # Check common venv locations
+        home = os.path.expanduser("~")
+        venv_paths = [
+            os.path.join(home, ".venv", "bin", "python"),
+            os.path.join(home, ".venv", "bin", "python3"),
+            os.path.join(os.getcwd(), ".venv", "bin", "python"),
+            os.path.join(os.getcwd(), ".venv", "bin", "python3"),
+            os.path.join(os.getcwd(), "venv", "bin", "python"),
+            os.path.join(os.getcwd(), "venv", "bin", "python3"),
+        ]
+
+        for venv_python in venv_paths:
+            if os.path.isfile(venv_python):
+                # Check if pyright is available
+                try:
+                    result = subprocess.run(
+                        [venv_python, "-c", "import pyright"],
+                        capture_output=True,
+                        timeout=5
+                    )
+                    if result.returncode == 0:
+                        return f"{venv_python} -m pyright.langserver --stdio"
+                except Exception:
+                    continue
+
+        # Fall back to system python
+        system_python = shutil.which("python3") or shutil.which("python") or "python3"
+        return f"{system_python} -m pyright.langserver --stdio"
 
     @staticmethod
     def _get_initialize_params(repository_absolute_path: str) -> InitializeParams:

@@ -237,7 +237,7 @@ When native backend is implemented:
 
 ## References
 
-- **PRD**: `/home/unixdude/projects/project1/docs2/god-agent-prd-complete.md`
-- **Constitution**: `/home/unixdude/projects/project1/docs/constitution.md`
-- **Task Spec**: `/home/unixdude/projects/project1/docs/god-agent-specs/tasks/TASK-VDB-002.md`
-- **VectorDB Implementation**: `/home/unixdude/projects/project1/src/god-agent/core/vector-db/`
+- **PRD**: `docs2/god-agent-prd-complete.md`
+- **Constitution**: `docs/constitution.md`
+- **Task Spec**: `docs/god-agent-specs/tasks/TASK-VDB-002.md`
+- **VectorDB Implementation**: `src/god-agent/core/vector-db/`

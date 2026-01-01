@@ -5,7 +5,12 @@
 
 set -e
 
-RESEARCH_DIR="/home/unixdude/projects/project1/docs/research/online-communities-adolescent-identity"
+# Derive script directory dynamically
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Default research directory - can be overridden by first argument
+RESEARCH_DIR="${1:-$PROJECT_ROOT/docs/research/online-communities-adolescent-identity}"
 OUTPUT_DIR="${RESEARCH_DIR}/output"
 OUTPUT_FILE="${OUTPUT_DIR}/dissertation-final.pdf"
 COMBINED_MD="${OUTPUT_DIR}/dissertation-combined.md"

@@ -1,8 +1,17 @@
 import { UniversalAgent } from '../src/god-agent/universal/index.js';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Derive project root from script location
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PROJECT_ROOT = join(__dirname, '..');
 
 async function storeReviewFindings() {
   const agent = new UniversalAgent({ verbose: false });
   await agent.initialize();
+
+  const DOCS_DIR = join(PROJECT_ROOT, 'docs/god-agent-specs/hooks-integration');
 
   // Store review status and findings
   await agent.storeKnowledge({
@@ -36,12 +45,12 @@ async function storeReviewFindings() {
         testCoverage: '20 test cases covering all requirements'
       },
       documentsReviewed: [
-        '/home/unixdude/projects/project1/docs/god-agent-specs/hooks-integration/constitution.md',
-        '/home/unixdude/projects/project1/docs/god-agent-specs/hooks-integration/PRD-HKS-001.md',
-        '/home/unixdude/projects/project1/docs/god-agent-specs/hooks-integration/SPEC-HKS-001.md',
-        '/home/unixdude/projects/project1/docs/god-agent-specs/hooks-integration/TECH-HKS-001.md'
+        join(DOCS_DIR, 'constitution.md'),
+        join(DOCS_DIR, 'PRD-HKS-001.md'),
+        join(DOCS_DIR, 'SPEC-HKS-001.md'),
+        join(DOCS_DIR, 'TECH-HKS-001.md')
       ],
-      outputFile: '/home/unixdude/projects/project1/docs/god-agent-specs/hooks-integration/REVIEW-HKS-001.md'
+      outputFile: join(DOCS_DIR, 'REVIEW-HKS-001.md')
     }),
     category: 'review',
     domain: 'project/hooks-integration',

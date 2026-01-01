@@ -16,7 +16,7 @@ describe('LocalEmbeddingProvider', () => {
     isApiAvailable = await provider.isAvailable();
     if (!isApiAvailable) {
       console.warn('⚠️ Local embedding API not running. Skipping API-dependent tests.');
-      console.warn('   Start with: /home/unixdude/projects/api-embed.sh start');
+      console.warn('   Start with: ./embedding-api/api-embed.sh start');
     }
   });
 

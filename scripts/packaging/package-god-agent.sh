@@ -242,7 +242,7 @@ echo -e "${GREEN}  Done${NC}"
 #===============================================================================
 echo -e "${YELLOW}[10/16] Copying ChromaDB vector database (1536D)...${NC}"
 # Use the 1536D database directory for gte-Qwen2-1.5B-instruct embeddings
-CHROMADB_SOURCE="/home/unixdude/projects/vector_db_1536"
+CHROMADB_SOURCE="$PROJECT_DIR/vector_db_1536"
 if [ -d "$CHROMADB_SOURCE" ]; then
     mkdir -p "$OUTPUT_DIR/vector_db_1536"
     cp -r "$CHROMADB_SOURCE/"* "$OUTPUT_DIR/vector_db_1536/"

@@ -1,8 +1,16 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from 'fs';
 import { marked } from 'marked';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const dir = '/home/unixdude/projects/project1/docs/market-research/socialism-race-phd';
+// Derive project root from script location
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PROJECT_ROOT = join(__dirname, '..');
+
+// Default directory - can be overridden by first argument
+const dir = process.argv[2] || join(PROJECT_ROOT, 'docs/market-research/socialism-race-phd');
 
 // Read all chapters
 const chapters = [

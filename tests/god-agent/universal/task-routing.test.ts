@@ -240,7 +240,7 @@ describe('TASK-012: UniversalAgent Task Routing Integration', () => {
         '╔════════════════════════════════════════════════════════════════╗\n' +
         '║  EMBEDDING API UNAVAILABLE                                      ║\n' +
         '║                                                                 ║\n' +
-        '║  Start with: /home/unixdude/projects/api-embed.sh start        ║\n' +
+        '║  Start with: ./embedding-api/api-embed.sh start                ║\n' +
         '║                                                                 ║\n' +
         '║  Embedding-dependent tests will be skipped.                     ║\n' +
         '║  Tests with explicit agent override will still run.             ║\n' +

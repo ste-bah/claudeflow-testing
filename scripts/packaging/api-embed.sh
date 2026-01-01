@@ -1,11 +1,21 @@
 #!/bin/bash
 
 # --- CONFIGURATION ---
-PROJECT_DIR="/home/unixdude/projects"
-# Point this to your virtual environment bin folder
-VENV_BIN="/home/unixdude/.venv/bin"
+# Derive project directory from script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PROJECT_DIR="$PROJECT_ROOT"
 
-SCRIPT="$PROJECT_DIR/api-embedder2.py"
+# Virtual environment - check common locations
+if [ -d "$PROJECT_ROOT/.venv/bin" ]; then
+    VENV_BIN="$PROJECT_ROOT/.venv/bin"
+elif [ -d "$HOME/.venv/bin" ]; then
+    VENV_BIN="$HOME/.venv/bin"
+else
+    VENV_BIN="$(dirname "$(which python3)")"
+fi
+
+SCRIPT="$PROJECT_ROOT/embedding-api/api-embedder2.py"
 
 # UPDATE: Changed directory here to "vector_db_1536" 
 # This ensures we don't overwrite your old 768D/1024D vectors.
