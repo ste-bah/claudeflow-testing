@@ -57,6 +57,8 @@ export declare class DaemonServer extends EventEmitter {
     private startedAt;
     private totalRequests;
     private keepAliveTimers;
+    /** Message buffers per client for partial message handling - TASK-DAEMON-002 */
+    private messageBuffers;
     private episodeStore;
     private graphDb;
     /**
@@ -138,8 +140,31 @@ export declare class DaemonServer extends EventEmitter {
     private rejectConnection;
     /**
      * Handle incoming data from client
+     * Implements JSON-RPC 2.0 message parsing and routing
+     *
+     * TASK-DAEMON-002: Core RPC handler implementation
      */
     private handleData;
+    /**
+     * Process a single JSON-RPC message
+     * TASK-DAEMON-002
+     */
+    private processMessage;
+    /**
+     * Validate JSON-RPC 2.0 request format
+     * TASK-DAEMON-002
+     */
+    private isValidRequest;
+    /**
+     * Route request to appropriate service handler
+     * TASK-DAEMON-002
+     */
+    private routeRequest;
+    /**
+     * Send JSON-RPC response to client
+     * TASK-DAEMON-002
+     */
+    private sendResponse;
     /**
      * Handle client disconnect
      */

@@ -6,6 +6,7 @@
 import { Command } from 'commander';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import { StyleProfileManager } from '../universal/style-profile.js';
 import { SessionManager } from './session-manager.js';
 import { AgentMismatchError } from './cli-types.js';
@@ -2164,12 +2165,32 @@ async function commandComplete(sessionId, agentKey, options, sessionBasePath) {
         });
         // Extract slug from session (stored during init)
         const slug = session.slug || session.pipelineId;
-        // Trigger Phase 8 finalize asynchronously (don't block)
-        // The user can also run it manually if needed
-        triggerPhase8Finalize(slug, session.styleProfileId).catch((error) => {
-            console.error(`[Phase 8] Auto-finalize failed: ${error}`);
-            console.error('[Phase 8] Run manually: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + slug);
-        });
+        // Trigger Phase 8 preparation SYNCHRONOUSLY so prompts are included in response
+        // Claude Code can then immediately execute chapters with Task tool
+        try {
+            const phase8Result = await preparePhase8ForClaudeCode(slug, session.styleProfileId);
+            if (phase8Result.success) {
+                console.error('[Phase 8] READY FOR CLAUDE CODE EXECUTION');
+                console.error(`[Phase 8] Total chapters: ${phase8Result.totalChapters}`);
+                console.error('[Phase 8] Execute chapters SEQUENTIALLY using Task tool');
+                return {
+                    success: true,
+                    nextAgent: nextAgentKey,
+                    pipelineComplete,
+                    phase8Triggered: true,
+                    phase8Ready: true,
+                    phase8Prompts: phase8Result
+                };
+            }
+            else {
+                console.error(`[Phase 8] Preparation failed: ${phase8Result.errors.join(', ')}`);
+                console.error('[Phase 8] Run manually: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + slug + ' --prepare-for-claude-code');
+            }
+        }
+        catch (error) {
+            console.error(`[Phase 8] Auto-preparation failed: ${error}`);
+            console.error('[Phase 8] Run manually: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + slug + ' --prepare-for-claude-code');
+        }
     }
     return {
         success: true,
@@ -2179,14 +2200,56 @@ async function commandComplete(sessionId, agentKey, options, sessionBasePath) {
     };
 }
 /**
- * Trigger Phase 8 finalize after pipeline completion
+ * Prepare Phase 8 for Claude Code execution
+ * Returns Phase8PrepareResult with prompts for Claude Code Task tool
+ * Called SYNCHRONOUSLY so prompts are included in the pipeline response
+ *
+ * @param slug - Research session slug
+ * @param styleProfileId - Optional style profile ID
+ * @returns Phase8PrepareResult with chapter prompts for Claude Code
+ */
+async function preparePhase8ForClaudeCode(slug, styleProfileId) {
+    console.error(`[Phase 8] Preparing for Claude Code execution: ${slug}`);
+    console.error('[Phase 8] Using ClaudeFlow methodology with DYNAMIC agents per chapter');
+    const basePath = process.cwd();
+    const orchestrator = new FinalStageOrchestrator(basePath, slug);
+    // Set up progress callback
+    orchestrator.onProgress((report) => {
+        const progress = report.total > 0 ? Math.round((report.current / report.total) * 100) : 0;
+        console.error(`[Phase 8] ${report.phase}: ${report.message} (${progress}%)`);
+    });
+    // Call prepareForClaudeCode which:
+    // - Scans research outputs
+    // - Summarizes sources
+    // - Maps to chapters
+    // - Generates 4-part ClaudeFlow prompts
+    // - Uses DYNAMIC agent assignment from dissertation-architect
+    const result = await orchestrator.prepareForClaudeCode({
+        force: false,
+        verbose: false,
+        threshold: 0.30,
+        styleProfileId,
+    });
+    if (result.success) {
+        // Write prompts to file as backup
+        const promptsFilePath = path.join(basePath, 'docs', 'research', slug, 'phase8-prompts.json');
+        await fs.mkdir(path.dirname(promptsFilePath), { recursive: true });
+        await fs.writeFile(promptsFilePath, JSON.stringify(result, null, 2), 'utf-8');
+        console.error(`[Phase 8] Prompts also saved to: ${promptsFilePath}`);
+    }
+    return result;
+}
+/**
+ * Trigger Phase 8 finalize after pipeline completion (LEGACY - kept for backward compatibility)
  * [PHASE-8-AUTO] Automatic integration with main pipeline
  *
  * @param slug - Research session slug
  * @param styleProfileId - Optional style profile ID
+ * @deprecated Use preparePhase8ForClaudeCode() instead for synchronous preparation
  */
 async function triggerPhase8Finalize(slug, styleProfileId) {
-    console.error(`[Phase 8] Starting finalize for: ${slug}`);
+    console.error(`[Phase 8] Starting Claude Code preparation for: ${slug}`);
+    console.error('[Phase 8] Using ClaudeFlow methodology with DYNAMIC agents per chapter');
     const basePath = process.cwd();
     const orchestrator = new FinalStageOrchestrator(basePath, slug);
     // Set up progress callback
@@ -2195,67 +2258,93 @@ async function triggerPhase8Finalize(slug, styleProfileId) {
         console.error(`[Phase 8] ${report.phase}: ${report.message} (${progress}%)`);
     });
     try {
-        const result = await orchestrator.execute({
+        // Use prepareForClaudeCode() which:
+        // - Uses DYNAMIC agent assignment from dissertation-architect structure
+        // - Generates 4-part ClaudeFlow prompts
+        // - Returns Phase8PrepareResult for Claude Code Task tool execution
+        const result = await orchestrator.prepareForClaudeCode({
             force: false, // Don't overwrite existing final output
-            dryRun: false,
-            threshold: 0.30,
             verbose: false,
-            sequential: true, // Safer for automatic execution
+            threshold: 0.30,
             styleProfileId,
         });
         if (result.success) {
-            console.error(`[Phase 8] SUCCESS: Final paper generated`);
-            console.error(`[Phase 8] Output: ${result.outputPath}`);
-            console.error(`[Phase 8] Words: ${result.totalWords}, Citations: ${result.totalCitations}`);
-            // TASK-CLI-004: Store final completion state to memory [RULE-021]
-            const completionData = {
+            console.error('[Phase 8] SUCCESS: Preparation complete for Claude Code');
+            console.error(`[Phase 8] Total chapters: ${result.totalChapters}`);
+            console.error('[Phase 8] DYNAMIC agents assigned per chapter:');
+            result.chapterPrompts.forEach(cp => {
+                console.error(`  - Chapter ${cp.chapterNumber} (${cp.chapterTitle}): ${cp.subagentType}`);
+            });
+            // Write prepared prompts to file for Claude Code to consume
+            const promptsFilePath = path.join(basePath, 'docs', 'research', slug, 'phase8-prompts.json');
+            await fs.mkdir(path.dirname(promptsFilePath), { recursive: true });
+            await fs.writeFile(promptsFilePath, JSON.stringify(result, null, 2), 'utf-8');
+            console.error(`[Phase 8] Prompts written to: ${promptsFilePath}`);
+            // TASK-CLI-004: Store phase 8 prep state to memory [RULE-021]
+            const prepData = {
                 sessionSlug: slug,
-                status: 'completed',
-                completedAt: new Date().toISOString(),
-                outputPath: result.outputPath,
-                totalWords: result.totalWords,
-                totalCitations: result.totalCitations,
-                phase8Success: true,
+                status: 'phase8_prepared',
+                preparedAt: new Date().toISOString(),
+                promptsFilePath,
+                totalChapters: result.totalChapters,
+                agentsAssigned: result.chapterPrompts.map(cp => ({
+                    chapter: cp.chapterNumber,
+                    agent: cp.subagentType
+                })),
+                memoryNamespace: result.memoryNamespace,
+                phase8Ready: true,
             };
-            storeToMemory(`session/${slug}/completion`, completionData).then((stored) => {
+            storeToMemory(`session/${slug}/phase8prep`, prepData).then((stored) => {
                 if (stored) {
-                    console.error(`[MEMORY] Final completion state stored for: ${slug}`);
+                    console.error(`[MEMORY] Phase 8 preparation state stored for: ${slug}`);
                 }
             });
-            // TASK-CLI-004: Update session status to "completed" in memory
+            // TASK-CLI-004: Update session status to "phase8_ready" in memory
             storeToMemory(`session/${slug}`, {
-                status: 'completed',
-                completedAt: new Date().toISOString(),
-                phase8OutputPath: result.outputPath,
+                status: 'phase8_ready',
+                preparedAt: new Date().toISOString(),
+                phase8PromptsPath: promptsFilePath,
             }).then((stored) => {
                 if (stored) {
-                    console.error(`[MEMORY] Session status updated to completed: ${slug}`);
+                    console.error(`[MEMORY] Session status updated to phase8_ready: ${slug}`);
                 }
             });
-            // Emit Phase 8 completion event
+            // Emit Phase 8 preparation event
             emitPipelineEvent({
                 component: 'pipeline',
-                operation: 'phase8_auto_completed',
+                operation: 'phase8_prepared_for_claude_code',
                 status: 'success',
                 metadata: {
                     slug,
-                    outputPath: result.outputPath,
-                    totalWords: result.totalWords,
-                    totalCitations: result.totalCitations,
+                    promptsFilePath,
+                    totalChapters: result.totalChapters,
+                    dynamicAgents: true,
                 },
             });
+            console.error('');
+            console.error('====================================================================');
+            console.error('PHASE 8 READY FOR CLAUDE CODE TASK TOOL EXECUTION');
+            console.error('====================================================================');
+            console.error(`Prompts file: ${promptsFilePath}`);
+            console.error('');
+            console.error('Execute in Claude Code with SEQUENTIAL chapter processing:');
+            console.error('For each chapter in phase8-prompts.json.chapterPrompts:');
+            console.error('  1. Task(subagent_type=chapterPrompts[i].subagentType, prompt=chapterPrompts[i].prompt)');
+            console.error('  2. Wait for completion before starting next chapter');
+            console.error('  3. Verify output written to chapterPrompts[i].outputPath');
+            console.error('====================================================================');
         }
         else {
             console.error(`[Phase 8] FAILED: ${result.errors?.join(', ')}`);
             console.error(`[Phase 8] Warnings: ${result.warnings?.join(', ')}`);
             // TASK-CLI-004: Store failure state to memory
-            storeToMemory(`session/${slug}/completion`, {
+            storeToMemory(`session/${slug}/phase8prep`, {
                 sessionSlug: slug,
                 status: 'failed',
                 failedAt: new Date().toISOString(),
                 errors: result.errors,
                 warnings: result.warnings,
-                phase8Success: false,
+                phase8Ready: false,
             }).then((stored) => {
                 if (stored) {
                     console.error(`[MEMORY] Phase 8 failure state stored for: ${slug}`);
@@ -2264,7 +2353,7 @@ async function triggerPhase8Finalize(slug, styleProfileId) {
         }
     }
     catch (error) {
-        console.error(`[Phase 8] Error during finalize:`, error);
+        console.error(`[Phase 8] Error during preparation:`, error);
         throw error;
     }
 }
@@ -2654,6 +2743,7 @@ program
     .option('--sequential', 'Write chapters sequentially (safer, slower)', false)
     .option('--skip-validation', 'Skip quality validation (debug only)', false)
     .option('--generate-prompts', 'Output synthesis prompts for Claude Code agents', false)
+    .option('--prepare-for-claude-code', 'Prepare Phase 8 for Claude Code Task tool execution with dynamic agents', false)
     .option('--style-profile <id>', 'Style profile ID to use (overrides session lookup)')
     .action(async (options) => {
     try {
@@ -2677,6 +2767,15 @@ program
                 }))
             }, null, 2));
             process.exit(0);
+            return;
+        }
+        // If --prepare-for-claude-code is set, use the new ClaudeFlow-aware preparation
+        // This uses DYNAMIC agent assignment from dissertation-architect structure
+        if (options.prepareForClaudeCode) {
+            const result = await commandPrepareForClaudeCode(options);
+            // Output Phase8PrepareResult as JSON for Claude Code Task tool execution
+            console.log(JSON.stringify(result, null, 2));
+            process.exit(result.success ? 0 : 1);
             return;
         }
         const result = await commandFinalize(options);
@@ -2950,6 +3049,94 @@ async function commandGeneratePrompts(cliOptions) {
     console.error('');
     console.error('Use these prompts with Claude Code Task tool to spawn chapter-synthesizer agents.');
     return prompts;
+}
+/**
+ * Prepare Phase 8 for Claude Code Task tool execution
+ * Uses DYNAMIC agent assignment from dissertation-architect structure
+ *
+ * Per ClaudeFlow methodology from /docs2/claudeflow.md:
+ * - 4-part prompt pattern (YOUR TASK, WORKFLOW CONTEXT, MEMORY RETRIEVAL, MEMORY STORAGE)
+ * - 99.9% sequential execution (one chapter at a time)
+ * - Each chapter uses its specialized writing agent from dissertation structure
+ *
+ * @param cliOptions - CLI options including slug and threshold
+ * @returns Phase8PrepareResult with prompts for Claude Code Task tool execution
+ */
+async function commandPrepareForClaudeCode(cliOptions) {
+    const basePath = process.cwd();
+    const threshold = parseFloat(cliOptions.threshold ?? '0.30');
+    if (isNaN(threshold) || threshold < 0 || threshold > 1) {
+        return {
+            success: false,
+            slug: cliOptions.slug,
+            basePath,
+            finalOutputDir: '',
+            totalChapters: 0,
+            chapterPrompts: [],
+            scanSummary: { totalFiles: 0, foundFiles: 0, missingFiles: [] },
+            mappingSummary: { algorithm: '', threshold: 0, orphanedSources: [], coverage: 0 },
+            errors: ['Threshold must be a number between 0 and 1'],
+            warnings: [],
+            memoryNamespace: '',
+            executionInstructions: ''
+        };
+    }
+    console.error('[Phase 8 - Claude Code Prep] Initializing with DYNAMIC agent assignment...');
+    // Find session to get style profile ID
+    const sessionManager = new SessionManager();
+    const sessions = await sessionManager.listSessions();
+    const matchingSession = sessions.find((s) => s.slug === cliOptions.slug ||
+        s.query?.toLowerCase().includes(cliOptions.slug.toLowerCase().replace(/-/g, ' ')));
+    // Use explicitly passed style profile, or fall back to session lookup
+    const styleProfileId = cliOptions.styleProfile || matchingSession?.styleProfileId;
+    if (styleProfileId) {
+        const source = cliOptions.styleProfile ? 'CLI option' : 'session';
+        console.error(`[Phase 8] Using style profile: ${styleProfileId} (from ${source})`);
+    }
+    else {
+        console.error('[Phase 8] WARNING: No style profile found - using UK English defaults');
+    }
+    // Create orchestrator
+    const orchestrator = new FinalStageOrchestrator(basePath, cliOptions.slug);
+    // Set up progress callback
+    orchestrator.onProgress((report) => {
+        const progress = report.total > 0 ? Math.round((report.current / report.total) * 100) : 0;
+        console.error(`[Phase 8] ${report.phase}: ${report.message} (${progress}%)`);
+    });
+    console.error('[Phase 8] Preparing for Claude Code with DYNAMIC agents per chapter...');
+    console.error('[Phase 8] Each chapter will use its assigned specialized agent from dissertation structure');
+    // Call the new prepareForClaudeCode method which:
+    // - Scans research outputs
+    // - Summarizes sources
+    // - Maps to chapters
+    // - Generates 4-part ClaudeFlow prompts
+    // - Uses DYNAMIC agent assignment from dissertation-architect
+    const result = await orchestrator.prepareForClaudeCode({
+        force: cliOptions.force ?? false,
+        verbose: cliOptions.verbose ?? false,
+        threshold,
+        styleProfileId
+    });
+    if (result.success) {
+        console.error('[Phase 8] Preparation complete!');
+        console.error(`[Phase 8] Total chapters: ${result.totalChapters}`);
+        console.error('[Phase 8] DYNAMIC agents assigned per chapter:');
+        result.chapterPrompts.forEach(cp => {
+            console.error(`  - Chapter ${cp.chapterNumber} (${cp.chapterTitle}): ${cp.subagentType}`);
+        });
+        // Write prompts to file for Claude Code to consume
+        const promptsFilePath = path.join(basePath, 'docs', 'research', cliOptions.slug, 'phase8-prompts.json');
+        await fs.mkdir(path.dirname(promptsFilePath), { recursive: true });
+        await fs.writeFile(promptsFilePath, JSON.stringify(result, null, 2), 'utf-8');
+        console.error(`[Phase 8] Prompts written to: ${promptsFilePath}`);
+        console.error('');
+        console.error('[Phase 8] Use Claude Code Task tool to execute chapters SEQUENTIALLY');
+    }
+    else {
+        console.error('[Phase 8] Preparation FAILED');
+        result.errors.forEach(err => console.error(`  ERROR: ${err}`));
+    }
+    return result;
 }
 /**
  * Handle finalize command errors with appropriate exit codes

@@ -145,4 +145,42 @@ export declare function generateClientId(): string;
  * Check if error is a daemon error
  */
 export declare function isDaemonError(error: unknown): error is DaemonError;
+/**
+ * JSON-RPC 2.0 Request - TASK-DAEMON-002
+ */
+export interface JsonRpcRequest {
+    jsonrpc: '2.0';
+    method: string;
+    params: unknown;
+    id: string | number | null;
+}
+/**
+ * JSON-RPC 2.0 Response - TASK-DAEMON-002
+ */
+export interface JsonRpcResponse {
+    jsonrpc: '2.0';
+    result?: unknown;
+    error?: JsonRpcError;
+    id: string | number | null;
+}
+/**
+ * JSON-RPC 2.0 Error - TASK-DAEMON-002
+ */
+export interface JsonRpcError {
+    code: number;
+    message: string;
+    data?: unknown;
+}
+/**
+ * Standard JSON-RPC 2.0 Error Codes - TASK-DAEMON-002
+ */
+export declare const JSON_RPC_ERROR_CODES: {
+    readonly PARSE_ERROR: -32700;
+    readonly INVALID_REQUEST: -32600;
+    readonly METHOD_NOT_FOUND: -32601;
+    readonly INVALID_PARAMS: -32602;
+    readonly INTERNAL_ERROR: -32603;
+    readonly SERVICE_UNAVAILABLE: -32000;
+    readonly HANDLER_ERROR: -32001;
+};
 //# sourceMappingURL=daemon-types.d.ts.map

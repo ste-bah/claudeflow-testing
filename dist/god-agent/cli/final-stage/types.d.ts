@@ -509,6 +509,8 @@ export interface ChapterWriterInput {
     allChapters: ChapterDefinition[];
     /** Token budget for this chapter */
     tokenBudget: number;
+    /** Synthesis guidance from 06-chapter-synthesizer.md (optional) */
+    synthesisGuidance?: string;
 }
 /**
  * Mapping validation result
@@ -539,5 +541,62 @@ export interface StyleValidationResult {
         location: string;
         message: string;
     }>;
+}
+/**
+ * Claude Code Task tool prompt for chapter writing
+ * Follows ClaudeFlow 4-part prompt pattern
+ */
+export interface ClaudeCodeChapterPrompt {
+    /** Chapter number (1-12) */
+    chapterNumber: ChapterNumber;
+    /** Chapter title */
+    chapterTitle: string;
+    /** Full 4-part ClaudeFlow prompt */
+    prompt: string;
+    /** Suggested subagent type for Task tool */
+    subagentType: string;
+    /** Expected output file path */
+    outputPath: string;
+    /** Token budget for this chapter */
+    tokenBudget: number;
+}
+/**
+ * Result from prepareForClaudeCode() method
+ * Contains all data needed for Claude Code to execute Phase 8
+ */
+export interface Phase8PrepareResult {
+    /** Whether preparation succeeded */
+    success: boolean;
+    /** Research slug */
+    slug: string;
+    /** Base path to research directory */
+    basePath: string;
+    /** Path to final/ output directory */
+    finalOutputDir: string;
+    /** Total chapters to write */
+    totalChapters: number;
+    /** Chapter prompts ready for Task tool */
+    chapterPrompts: ClaudeCodeChapterPrompt[];
+    /** Scan results summary */
+    scanSummary: {
+        totalFiles: number;
+        foundFiles: number;
+        missingFiles: string[];
+    };
+    /** Mapping results summary */
+    mappingSummary: {
+        algorithm: string;
+        threshold: number;
+        orphanedSources: number[];
+        coverage: number;
+    };
+    /** Errors encountered during preparation */
+    errors: string[];
+    /** Warnings encountered during preparation */
+    warnings: string[];
+    /** Memory namespace for this research */
+    memoryNamespace: string;
+    /** Instructions for Claude Code execution */
+    executionInstructions: string;
 }
 //# sourceMappingURL=types.d.ts.map

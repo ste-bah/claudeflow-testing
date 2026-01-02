@@ -188,8 +188,10 @@ export class ChapterWriterAgent {
             styleReqs = this.getDefaultStyleRequirements();
             logger.warn('No style profile - using UK English academic defaults');
         }
+        // Get synthesis guidance from input if available
+        const synthesisGuidance = input.synthesisGuidance;
         // Generate the full prompt for the agent
-        const prompt = this.buildAgentPrompt(chapter, sections, researchContent, styleReqs);
+        const prompt = this.buildAgentPrompt(chapter, sections, researchContent, styleReqs, synthesisGuidance);
         const outputPath = this.researchDir
             ? join(this.researchDir, 'final', 'chapters', `chapter-${chapter.number}.md`)
             : `final/chapters/chapter-${chapter.number}.md`;
@@ -300,13 +302,22 @@ export class ChapterWriterAgent {
     /**
      * Build the full prompt for the chapter-synthesizer agent
      */
-    buildAgentPrompt(chapter, sections, researchContent, styleReqs) {
+    buildAgentPrompt(chapter, sections, researchContent, styleReqs, synthesisGuidance) {
         const lines = [];
         lines.push(`# Chapter ${chapter.number}: ${chapter.title}`);
         lines.push('');
         lines.push(`**Word Target**: ${chapter.wordTarget} words`);
         lines.push('');
         lines.push(styleReqs);
+        // Include synthesis guidance if available (from 06-chapter-synthesizer.md)
+        if (synthesisGuidance) {
+            lines.push('## Synthesis Guidance');
+            lines.push('');
+            lines.push('**Use this guidance to inform your writing approach:**');
+            lines.push('');
+            lines.push(synthesisGuidance);
+            lines.push('');
+        }
         lines.push('## Sections to Write');
         lines.push('');
         for (const section of sections) {

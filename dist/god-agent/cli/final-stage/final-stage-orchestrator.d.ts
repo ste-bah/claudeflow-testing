@@ -8,7 +8,7 @@
  * IDLE -> INITIALIZING -> SCANNING -> SUMMARIZING -> MAPPING ->
  * WRITING -> COMBINING -> VALIDATING -> COMPLETED | FAILED
  */
-import type { FinalStageState, FinalStageOptions, FinalStageResult, ProgressCallback, TokenBudget, SemanticMapperOutput, AgentOutputSummary, ChapterDefinition, StyleCharacteristics, FinalStageErrorCode } from './types.js';
+import type { FinalStageState, FinalStageOptions, FinalStageResult, ProgressCallback, TokenBudget, SemanticMapperOutput, AgentOutputSummary, ChapterDefinition, StyleCharacteristics, FinalStageErrorCode, Phase8PrepareResult } from './types.js';
 import { FinalStageError } from './types.js';
 import { ProgressLogger } from './progress-logger.js';
 /**
@@ -321,6 +321,25 @@ export declare class FinalStageOrchestrator {
      */
     private loadChapterStructure;
     /**
+     * Load synthesis guidance from 06-chapter-synthesizer.md
+     * This provides detailed writing guidance for each chapter including:
+     * - Research question mappings
+     * - Construct definitions
+     * - Anti-pattern highlighting
+     * - Synthesis approach and narrative arc
+     *
+     * @returns Synthesis guidance content or null if not available
+     */
+    private loadSynthesisGuidance;
+    /**
+     * Extract chapter-specific synthesis guidance from the full guidance document
+     *
+     * @param fullGuidance - Full synthesis guidance content
+     * @param chapterNumber - Chapter number to extract guidance for
+     * @returns Chapter-specific guidance or null
+     */
+    private extractChapterGuidance;
+    /**
      * Extract keywords from chapter definition
      */
     private extractKeywordsFromChapter;
@@ -456,6 +475,35 @@ export declare class FinalStageOrchestrator {
      * @returns Failure result
      */
     private createFailureResult;
+    /**
+     * Prepare Phase 8 for Claude Code execution
+     *
+     * This method runs phases 8.0-8.5 (Initialize, Scan, Summarize, Map)
+     * and generates synthesis prompts, but does NOT execute chapter writing.
+     *
+     * The returned data should be stored in memory and used by Claude Code
+     * to spawn chapter-writer agents via the Task tool.
+     *
+     * [PHASE-8-CLAUDECODE] Integration with ClaudeFlow methodology
+     *
+     * @param options - Execution options
+     * @returns Preparation result with synthesis prompts
+     */
+    prepareForClaudeCode(options?: FinalStageOptions): Promise<Phase8PrepareResult>;
+    /**
+     * Build a ClaudeFlow-compatible 4-part prompt for a chapter
+     *
+     * This transforms a ChapterSynthesisPrompt into a format suitable for
+     * Claude Code's Task tool with proper WORKFLOW CONTEXT, MEMORY RETRIEVAL,
+     * and MEMORY STORAGE sections per ClaudeFlow methodology.
+     *
+     * @param prompt - Original synthesis prompt
+     * @param chapterIndex - 0-based index (for workflow context)
+     * @param totalChapters - Total number of chapters
+     * @param slug - Session slug for memory namespace
+     * @returns ClaudeFlow-formatted prompt string
+     */
+    buildClaudeFlowPrompt(prompt: import('./chapter-writer-agent.js').ChapterSynthesisPrompt, chapterIndex: number, totalChapters: number, slug: string): string;
 }
 export {};
 //# sourceMappingURL=final-stage-orchestrator.d.ts.map

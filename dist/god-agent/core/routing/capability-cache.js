@@ -52,8 +52,8 @@ export class CapabilityIndexCache {
     /** REQ-CAPIDX-006: Cached hash to avoid recomputation within same operation */
     cachedContentHash = null;
     cachedHashTimestamp = 0;
-    // 50ms TTL - enough for isValid()+load() sequence, short enough for tests
-    static HASH_CACHE_TTL_MS = 50;
+    // 500ms TTL - enough for isValid()+load() sequence, short enough for tests
+    static HASH_CACHE_TTL_MS = 500;
     /**
      * Initialize cache manager
      *

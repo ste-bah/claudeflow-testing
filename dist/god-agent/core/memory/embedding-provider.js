@@ -250,7 +250,7 @@ export class EmbeddingProviderFactory {
             return this.instance;
         }
         if (forceLocal) {
-            throw new Error('Local embedding API not available. Start it with: /home/unixdude/projects/api-embed.sh start');
+            throw new Error('Local embedding API not available. Start it with: ./embedding-api/api-embed.sh start');
         }
         // Fall back to mock
         console.warn('[EmbeddingProvider] Local API unavailable, using mock provider');

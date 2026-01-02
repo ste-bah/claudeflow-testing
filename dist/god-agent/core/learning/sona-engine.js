@@ -426,12 +426,82 @@ export class SonaEngine {
     }
     /**
      * Get a trajectory by ID
+     * Implements: REQ-TRAJ-001 (SQLite fallback), REQ-TRAJ-002 (cache on load)
+     * Constitution: RULE-008 (SQLite primary storage)
      *
      * @param trajectoryId - Trajectory ID
      * @returns ITrajectory or null if not found
      */
     getTrajectory(trajectoryId) {
-        return this.trajectories.get(trajectoryId) || null;
+        // Implements [REQ-TRAJ-001]: Check memory cache first
+        const cached = this.trajectories.get(trajectoryId);
+        if (cached) {
+            return cached;
+        }
+        // Implements [REQ-TRAJ-001]: Fallback to SQLite if not in memory
+        const fromStorage = this.getTrajectoryFromStorage(trajectoryId);
+        if (fromStorage) {
+            // Implements [REQ-TRAJ-002]: Cache loaded trajectory in memory
+            this.trajectories.set(trajectoryId, fromStorage);
+        }
+        return fromStorage;
+    }
+    /**
+     * Check if trajectory exists in persistent storage (SQLite)
+     * Implements: REQ-TRAJ-006
+     * Constitution: RULE-008 (SQLite primary storage), RULE-069 (try/catch)
+     *
+     * @param trajectoryId - Trajectory ID to check
+     * @returns true if trajectory exists in database
+     */
+    hasTrajectoryInStorage(trajectoryId) {
+        // Implements [REQ-TRAJ-006]: Check SQLite for trajectory existence
+        if (!this.persistenceEnabled || !this.trajectoryMetadataDAO) {
+            return false;
+        }
+        try {
+            return this.trajectoryMetadataDAO.exists(trajectoryId);
+        }
+        catch (error) {
+            // Implements [RULE-070]: Log error with context before returning
+            console.warn(`[SonaEngine] hasTrajectoryInStorage failed for ${trajectoryId}:`, error);
+            return false;
+        }
+    }
+    /**
+     * Load trajectory from persistent storage (SQLite)
+     * Implements: REQ-TRAJ-006, REQ-TRAJ-008
+     * Constitution: RULE-008 (SQLite primary storage), RULE-069 (try/catch)
+     *
+     * @param trajectoryId - Trajectory ID to load
+     * @returns ITrajectory or null if not found
+     */
+    getTrajectoryFromStorage(trajectoryId) {
+        // Implements [REQ-TRAJ-006]: Load trajectory from SQLite
+        if (!this.persistenceEnabled || !this.trajectoryMetadataDAO) {
+            return null;
+        }
+        try {
+            const metadata = this.trajectoryMetadataDAO.findById(trajectoryId);
+            if (!metadata) {
+                return null;
+            }
+            // Implements [REQ-TRAJ-008]: Map SQLite metadata fields to ITrajectory
+            // Note: patterns and context are not stored in metadata table
+            const trajectory = {
+                id: metadata.id,
+                route: metadata.route,
+                patterns: [], // Patterns not stored in trajectory_metadata
+                context: [], // Context not stored in trajectory_metadata
+                createdAt: metadata.createdAt,
+            };
+            return trajectory;
+        }
+        catch (error) {
+            // Implements [RULE-070]: Log error with context before returning
+            console.warn(`[SonaEngine] getTrajectoryFromStorage failed for ${trajectoryId}:`, error);
+            return null;
+        }
     }
     /**
      * List all trajectories, optionally filtered by route

@@ -4,6 +4,7 @@
  */
 import type { ChapterStructure } from './chapter-structure-loader.js';
 import type { DynamicAgentDetails } from './dynamic-agent-generator.js';
+import type { Phase8PrepareResult } from './final-stage/types.js';
 /**
  * Options for the init command
  */
@@ -296,6 +297,10 @@ export interface CompleteResponse {
     pipelineComplete?: boolean;
     /** True when Phase 8 finalize was automatically triggered */
     phase8Triggered?: boolean;
+    /** True when Phase 8 prompts are ready for Claude Code Task tool */
+    phase8Ready?: boolean;
+    /** Phase 8 prompts with DYNAMIC agents per chapter for Claude Code execution */
+    phase8Prompts?: Phase8PrepareResult;
 }
 /**
  * Error when agent key doesn't match current agent

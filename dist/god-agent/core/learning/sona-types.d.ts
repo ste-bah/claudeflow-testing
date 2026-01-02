@@ -431,6 +431,24 @@ export interface ISonaEngine {
      * @returns ITrajectory or null if not found
      */
     getTrajectory(trajectoryId: TrajectoryID): ITrajectory | null;
+    /**
+     * Check if a trajectory exists in persistent storage (SQLite)
+     * Used for cross-session feedback when trajectory not in memory
+     * Implements: REQ-TRAJ-006
+     *
+     * @param trajectoryId - Trajectory ID to check
+     * @returns true if trajectory exists in database
+     */
+    hasTrajectoryInStorage(trajectoryId: TrajectoryID): boolean;
+    /**
+     * Load trajectory from persistent storage (SQLite)
+     * Used when trajectory not in memory but exists in database
+     * Implements: REQ-TRAJ-006
+     *
+     * @param trajectoryId - Trajectory ID to load
+     * @returns ITrajectory or null if not found
+     */
+    getTrajectoryFromStorage(trajectoryId: TrajectoryID): ITrajectory | null;
 }
 /**
  * A single step in a reasoning trajectory

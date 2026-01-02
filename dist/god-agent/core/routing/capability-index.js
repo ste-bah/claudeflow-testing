@@ -472,11 +472,34 @@ export class CapabilityIndex {
         const domains = new Set();
         const textLower = this.extractCapabilityText(agent).toLowerCase();
         // Domain keyword mapping
+        // TASK-WRITING-001: Expanded writing domain keywords for better routing
         const domainKeywords = {
             research: ['research', 'analyze', 'investigate', 'study', 'explore', 'find'],
             testing: ['test', 'verify', 'validate', 'check', 'qa', 'quality'],
             code: ['code', 'implement', 'build', 'develop', 'program', 'debug'],
-            writing: ['write', 'document', 'author', 'compose', 'draft'],
+            writing: [
+                // Core writing verbs
+                'write', 'document', 'author', 'compose', 'draft',
+                // Creative writing
+                'poem', 'poetry', 'story', 'fiction', 'creative', 'narrative',
+                'prose', 'verse', 'metaphor', 'fantasy', 'humor', 'funny',
+                'whimsical', 'artistic', 'lyrical', 'rhyme', 'ballad', 'sonnet',
+                'satire', 'parody', 'limerick', 'haiku',
+                // Academic writing
+                'academic', 'formal', 'dissertation', 'thesis', 'scholarly',
+                'research', 'paper', 'peer-reviewed', 'citation', 'journal',
+                'abstract', 'methodology', 'hypothesis', 'literature',
+                // Professional writing
+                'business', 'report', 'proposal', 'executive', 'corporate',
+                'professional', 'memo', 'presentation', 'briefing', 'strategy',
+                // Casual writing
+                'blog', 'social', 'informal', 'casual', 'conversational',
+                'friendly', 'approachable', 'newsletter', 'email', 'chatty',
+                // Technical writing
+                'documentation', 'guide', 'manual', 'tutorial', 'specification',
+                'readme', 'howto', 'setup', 'installation', 'configuration',
+                'troubleshooting', 'api', 'sdk', 'reference',
+            ],
             design: ['design', 'architect', 'plan', 'structure', 'model', 'observability', 'monitoring', 'telemetry', 'infrastructure'],
             review: ['review', 'audit', 'inspect', 'evaluate', 'grade'],
         };

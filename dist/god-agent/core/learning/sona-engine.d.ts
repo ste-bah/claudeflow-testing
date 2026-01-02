@@ -170,11 +170,31 @@ export declare class SonaEngine {
     setWeight(patternId: PatternID, route: Route, weight: Weight): void;
     /**
      * Get a trajectory by ID
+     * Implements: REQ-TRAJ-001 (SQLite fallback), REQ-TRAJ-002 (cache on load)
+     * Constitution: RULE-008 (SQLite primary storage)
      *
      * @param trajectoryId - Trajectory ID
      * @returns ITrajectory or null if not found
      */
     getTrajectory(trajectoryId: TrajectoryID): ITrajectory | null;
+    /**
+     * Check if trajectory exists in persistent storage (SQLite)
+     * Implements: REQ-TRAJ-006
+     * Constitution: RULE-008 (SQLite primary storage), RULE-069 (try/catch)
+     *
+     * @param trajectoryId - Trajectory ID to check
+     * @returns true if trajectory exists in database
+     */
+    hasTrajectoryInStorage(trajectoryId: TrajectoryID): boolean;
+    /**
+     * Load trajectory from persistent storage (SQLite)
+     * Implements: REQ-TRAJ-006, REQ-TRAJ-008
+     * Constitution: RULE-008 (SQLite primary storage), RULE-069 (try/catch)
+     *
+     * @param trajectoryId - Trajectory ID to load
+     * @returns ITrajectory or null if not found
+     */
+    getTrajectoryFromStorage(trajectoryId: TrajectoryID): ITrajectory | null;
     /**
      * List all trajectories, optionally filtered by route
      *

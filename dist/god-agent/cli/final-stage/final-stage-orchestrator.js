@@ -1149,15 +1149,26 @@ export class FinalStageOrchestrator {
      * @returns Parsed chapter structure
      */
     async loadChapterStructure() {
-        const structurePath = path.join(this.researchDir, '05-chapter-structure.md');
-        // Verify file exists
+        // Try primary file first, then fallback to dissertation-architect
+        const primaryPath = path.join(this.researchDir, '05-chapter-structure.md');
+        const fallbackPath = path.join(this.researchDir, '05-dissertation-architect.md');
+        // Verify file exists - try primary, then fallback
         let content;
+        let usedPath;
         try {
-            content = await fs.readFile(structurePath, 'utf-8');
+            content = await fs.readFile(primaryPath, 'utf-8');
+            usedPath = primaryPath;
         }
         catch {
-            // INTENTIONAL: Chapter structure file must exist - throw descriptive error for user
-            throw new FinalStageError(`Chapter structure not found: ${structurePath}. Run dissertation-architect first.`, 'NO_SOURCES', false, FinalStageError.getExitCode('NO_SOURCES'));
+            // Try fallback path (dissertation-architect also contains chapter structure)
+            try {
+                content = await fs.readFile(fallbackPath, 'utf-8');
+                usedPath = fallbackPath;
+            }
+            catch {
+                // INTENTIONAL: Neither file exists - throw descriptive error for user
+                throw new FinalStageError(`Chapter structure not found. Tried:\n  - ${primaryPath}\n  - ${fallbackPath}\nRun dissertation-architect first.`, 'NO_SOURCES', false, FinalStageError.getExitCode('NO_SOURCES'));
+            }
         }
         // Extract JSON from markdown code block
         const jsonMatch = content.match(/```json\s*\n([\s\S]*?)\n```/);
@@ -1169,16 +1180,17 @@ export class FinalStageOrchestrator {
                     throw new FinalStageError('Chapter structure is not locked. Lock structure before final assembly.', 'CONSTITUTION_VIOLATION', false, FinalStageError.getExitCode('CONSTITUTION_VIOLATION'));
                 }
                 // Build ChapterStructure from parsed JSON
+                // Handle both field name conventions: wordTarget/targetWords, citationTarget/targetCitations, assignedAgent/writerAgent
                 const chapters = (parsed.chapters || []).map((ch) => ({
                     number: ch.number,
                     title: ch.title || '',
                     purpose: ch.purpose || '',
                     sections: ch.sections || [],
                     sectionTitles: ch.sectionTitles || [],
-                    wordTarget: ch.wordTarget || 5000,
-                    citationTarget: ch.citationTarget || 20,
+                    wordTarget: ch.wordTarget || ch.targetWords || 5000,
+                    citationTarget: ch.citationTarget || ch.targetCitations || 20,
                     questionsAddressed: ch.questionsAddressed || [],
-                    assignedAgent: ch.assignedAgent || 'chapter-writer',
+                    assignedAgent: ch.assignedAgent || ch.writerAgent || 'chapter-writer',
                     keywords: ch.keywords || this.extractKeywordsFromChapter(ch)
                 }));
                 // Update research query from structure if available
@@ -1203,6 +1215,45 @@ export class FinalStageOrchestrator {
         }
         // Fallback: Try to extract structure from markdown headings
         return this.parseChapterStructureFromMarkdown(content);
+    }
+    /**
+     * Load synthesis guidance from 06-chapter-synthesizer.md
+     * This provides detailed writing guidance for each chapter including:
+     * - Research question mappings
+     * - Construct definitions
+     * - Anti-pattern highlighting
+     * - Synthesis approach and narrative arc
+     *
+     * @returns Synthesis guidance content or null if not available
+     */
+    async loadSynthesisGuidance() {
+        const guidancePath = path.join(this.researchDir, '06-chapter-synthesizer.md');
+        try {
+            const content = await fs.readFile(guidancePath, 'utf-8');
+            orchLogger.info('Loaded synthesis guidance from 06-chapter-synthesizer.md');
+            return content;
+        }
+        catch {
+            // Synthesis guidance is optional - log and continue
+            orchLogger.debug('No synthesis guidance found at', { path: guidancePath });
+            return null;
+        }
+    }
+    /**
+     * Extract chapter-specific synthesis guidance from the full guidance document
+     *
+     * @param fullGuidance - Full synthesis guidance content
+     * @param chapterNumber - Chapter number to extract guidance for
+     * @returns Chapter-specific guidance or null
+     */
+    extractChapterGuidance(fullGuidance, chapterNumber) {
+        // Look for chapter-specific section: ## Chapter N: or ### Chapter N
+        const chapterPattern = new RegExp(`(?:##|###)\\s*Chapter\\s+${chapterNumber}[:\\s]([\\s\\S]*?)(?=(?:##|###)\\s*Chapter\\s+\\d|$)`, 'i');
+        const match = fullGuidance.match(chapterPattern);
+        if (match && match[1]) {
+            return match[1].trim();
+        }
+        return null;
     }
     /**
      * Extract keywords from chapter definition
@@ -1519,6 +1570,11 @@ export class FinalStageOrchestrator {
         for (const summary of summaries) {
             summaryByIndex.set(summary.index, summary);
         }
+        // Load synthesis guidance from 06-chapter-synthesizer.md (optional but valuable)
+        const fullSynthesisGuidance = await this.loadSynthesisGuidance();
+        if (fullSynthesisGuidance) {
+            orchLogger.info('Loaded synthesis guidance for writing agents');
+        }
         orchLogger.info('Generating synthesis prompts', { totalChapters: structure.totalChapters, styleProfileId: this._styleProfileId || 'default' });
         for (const chapterDef of structure.chapters) {
             // Find mapping for this chapter
@@ -1533,20 +1589,28 @@ export class FinalStageOrchestrator {
                     }
                 }
             }
+            // Extract chapter-specific synthesis guidance if available
+            let chapterGuidance;
+            if (fullSynthesisGuidance) {
+                const extracted = this.extractChapterGuidance(fullSynthesisGuidance, chapterDef.number);
+                chapterGuidance = extracted || fullSynthesisGuidance; // Fall back to full guidance
+            }
             // Generate synthesis prompt using ChapterWriterAgent
             const prompt = await this.getChapterWriter().generateSynthesisPrompt({
                 chapter: chapterDef,
                 sources: chapterSources,
                 style,
                 allChapters: structure.chapters,
-                tokenBudget: this.tokenBudget.phases.chapterWriting.allocatedPerChapter
+                tokenBudget: this.tokenBudget.phases.chapterWriting.allocatedPerChapter,
+                synthesisGuidance: chapterGuidance
             });
             prompts.push(prompt);
             this.log('debug', `Generated synthesis prompt for Chapter ${chapterDef.number}`, {
                 chapter: chapterDef.number,
                 title: chapterDef.title,
                 sections: prompt.sections.length,
-                styleProfile: prompt.styleProfileId
+                styleProfile: prompt.styleProfileId,
+                hasSynthesisGuidance: !!chapterGuidance
             });
         }
         return prompts;
@@ -1704,6 +1768,277 @@ export class FinalStageOrchestrator {
             metadata: this.tokenBudget,
             exitCode: error.exitCode ?? FinalStageError.getExitCode(error.code)
         };
+    }
+    // ============================================
+    // Phase 8 Claude Code Integration
+    // [PHASE-8-CLAUDECODE] Prepare prompts for Claude Code Task tool
+    // ============================================
+    /**
+     * Prepare Phase 8 for Claude Code execution
+     *
+     * This method runs phases 8.0-8.5 (Initialize, Scan, Summarize, Map)
+     * and generates synthesis prompts, but does NOT execute chapter writing.
+     *
+     * The returned data should be stored in memory and used by Claude Code
+     * to spawn chapter-writer agents via the Task tool.
+     *
+     * [PHASE-8-CLAUDECODE] Integration with ClaudeFlow methodology
+     *
+     * @param options - Execution options
+     * @returns Preparation result with synthesis prompts
+     */
+    async prepareForClaudeCode(options = {}) {
+        this.startTime = Date.now();
+        this.verbose = options.verbose ?? false;
+        this.options = options;
+        this.warnings = [];
+        const errors = [];
+        const warnings = [];
+        this.logger = new ProgressLogger({ verbose: this.verbose, outputDir: null });
+        try {
+            // ========================================
+            // Phase 8.0: Initialize
+            // ========================================
+            this.setState('INITIALIZING');
+            this.startPhaseTimer('INITIALIZING');
+            this.emitProgress({
+                phase: 'INITIALIZING',
+                message: 'Loading chapter structure for Claude Code preparation...',
+                current: -1,
+                total: -1,
+                elapsedMs: Date.now() - this.startTime
+            });
+            await this.initialize(options);
+            // Phase 8.1: Load chapter structure
+            const structure = await this.loadChapterStructure();
+            this._chapterStructure = structure;
+            // Phase 8.2: Load style profile
+            const style = await this.loadStyleProfile();
+            this._styleProfile = style;
+            this.endPhaseTimer('INITIALIZING');
+            // ========================================
+            // Phase 8.3: Scan output files
+            // ========================================
+            this.setState('SCANNING');
+            this.startPhaseTimer('SCANNING');
+            this.emitProgress({
+                phase: 'SCANNING',
+                message: 'Scanning for output files...',
+                current: 0,
+                total: 45,
+                elapsedMs: Date.now() - this.startTime
+            });
+            const scanResult = await this.scanOutputFiles();
+            if (scanResult.scanStatus === 'failed') {
+                throw new FinalStageError(`Scan failed: only ${scanResult.foundFiles}/${scanResult.totalFiles} files found`, 'SCAN_FAILED', false, FinalStageError.getExitCode('SCAN_FAILED'));
+            }
+            if (scanResult.missingFiles.length > 0) {
+                warnings.push(`Missing files: ${scanResult.missingFiles.join(', ')}`);
+            }
+            this.endPhaseTimer('SCANNING');
+            // ========================================
+            // Phase 8.4: Summarize outputs
+            // ========================================
+            this.setState('SUMMARIZING');
+            this.startPhaseTimer('SUMMARIZING');
+            const summaries = scanResult.summaries.length > 0
+                ? scanResult.summaries
+                : await this.extractSummaries(scanResult);
+            this._summaries = summaries;
+            this.updateTokenBudget('summaryExtraction', this.calculateSummaryTokens(summaries));
+            this.endPhaseTimer('SUMMARIZING');
+            // ========================================
+            // Phase 8.5: Semantic mapping
+            // ========================================
+            this.setState('MAPPING');
+            this.startPhaseTimer('MAPPING');
+            this.emitProgress({
+                phase: 'MAPPING',
+                message: `Mapping ${summaries.length} sources to ${structure.chapters.length} chapters`,
+                current: -1,
+                total: -1,
+                elapsedMs: Date.now() - this.startTime
+            });
+            const mapping = await this.mapOutputsToChapters(structure.chapters, summaries, options.threshold ?? 0.30);
+            this._mapping = mapping;
+            this.endPhaseTimer('MAPPING');
+            // ========================================
+            // Generate synthesis prompts for Claude Code
+            // ========================================
+            this.emitProgress({
+                phase: 'MAPPING',
+                message: 'Generating synthesis prompts for Claude Code Task tool...',
+                current: structure.chapters.length,
+                total: structure.chapters.length,
+                elapsedMs: Date.now() - this.startTime
+            });
+            const synthesisPrompts = await this.generateSynthesisPrompts(structure, summaries, mapping);
+            // Transform to ClaudeCodeChapterPrompt format with 4-part ClaudeFlow prompts
+            // DYNAMIC: Each chapter uses its assigned specialized agent from dissertation-architect
+            const chapterPrompts = synthesisPrompts.map((prompt, index) => {
+                // Find the chapter definition to get its dynamically assigned agent
+                const chapter = structure.chapters.find(ch => ch.number === prompt.chapterNumber);
+                const dynamicAgent = chapter?.assignedAgent ?? 'chapter-synthesizer';
+                return {
+                    chapterNumber: prompt.chapterNumber,
+                    chapterTitle: prompt.chapterTitle,
+                    prompt: this.buildClaudeFlowPrompt(prompt, index, structure.totalChapters, this.slug),
+                    subagentType: dynamicAgent,
+                    outputPath: prompt.outputPath,
+                    tokenBudget: Math.floor(180000 / structure.totalChapters)
+                };
+            });
+            const memoryNamespace = `phd/${this.slug}/phase8`;
+            orchLogger.info('Phase 8 preparation complete for Claude Code', {
+                totalChapters: structure.totalChapters,
+                promptsGenerated: chapterPrompts.length,
+                orphanedSources: mapping.orphanedSources.length
+            });
+            return {
+                success: true,
+                slug: this.slug,
+                basePath: this.basePath,
+                finalOutputDir: this.outputDir,
+                totalChapters: structure.totalChapters,
+                chapterPrompts,
+                scanSummary: {
+                    totalFiles: scanResult.totalFiles,
+                    foundFiles: scanResult.foundFiles,
+                    missingFiles: scanResult.missingFiles
+                },
+                mappingSummary: {
+                    algorithm: mapping.algorithm,
+                    threshold: mapping.threshold,
+                    orphanedSources: mapping.orphanedSources,
+                    coverage: mapping.mappingQuality.coverage
+                },
+                errors,
+                warnings,
+                memoryNamespace,
+                executionInstructions: `
+## Phase 8 Execution Instructions for Claude Code
+
+Execute chapters SEQUENTIALLY using the Task tool with DYNAMIC specialized agents.
+Each chapter uses its own assigned writing agent from the dissertation structure.
+
+For each chapter in chapterPrompts:
+1. Use the Task tool with subagent_type=chapterPrompts[i].subagentType
+   (e.g., 'introduction-writer', 'literature-review-writer', 'methodology-writer', etc.)
+2. Pass the prompt field as the agent's instructions
+3. Wait for completion before starting the next chapter (99.9% sequential per ClaudeFlow)
+4. Verify chapter was written to outputPath
+5. Store progress to memory after each chapter completes
+
+After all chapters complete, use the Task tool to spawn a final-combiner agent
+to assemble the complete paper from all chapter outputs.
+
+Memory namespace: ${memoryNamespace}
+Total chapters: ${structure.totalChapters}
+Agents are DYNAMICALLY assigned per chapter from dissertation-architect structure.
+`.trim()
+            };
+        }
+        catch (error) {
+            orchLogger.error('Phase 8 preparation failed', { error });
+            const finalStageError = error instanceof FinalStageError
+                ? error
+                : new FinalStageError(error instanceof Error ? error.message : String(error), 'SCAN_FAILED', false);
+            return {
+                success: false,
+                slug: this.slug,
+                basePath: this.basePath,
+                finalOutputDir: this.outputDir,
+                totalChapters: 0,
+                chapterPrompts: [],
+                scanSummary: {
+                    totalFiles: 0,
+                    foundFiles: 0,
+                    missingFiles: []
+                },
+                mappingSummary: {
+                    algorithm: 'none',
+                    threshold: 0,
+                    orphanedSources: [],
+                    coverage: 0
+                },
+                errors: [finalStageError.message],
+                warnings,
+                memoryNamespace: `phd/${this.slug}/phase8`,
+                executionInstructions: 'Phase 8 preparation failed. See errors for details.'
+            };
+        }
+    }
+    /**
+     * Build a ClaudeFlow-compatible 4-part prompt for a chapter
+     *
+     * This transforms a ChapterSynthesisPrompt into a format suitable for
+     * Claude Code's Task tool with proper WORKFLOW CONTEXT, MEMORY RETRIEVAL,
+     * and MEMORY STORAGE sections per ClaudeFlow methodology.
+     *
+     * @param prompt - Original synthesis prompt
+     * @param chapterIndex - 0-based index (for workflow context)
+     * @param totalChapters - Total number of chapters
+     * @param slug - Session slug for memory namespace
+     * @returns ClaudeFlow-formatted prompt string
+     */
+    buildClaudeFlowPrompt(prompt, chapterIndex, totalChapters, slug) {
+        const agentNum = chapterIndex + 1;
+        const prevChapters = chapterIndex > 0
+            ? Array.from({ length: chapterIndex }, (_, i) => `Chapter ${i + 1} ✓`).join(', ')
+            : 'None';
+        const nextChapters = chapterIndex < totalChapters - 1
+            ? Array.from({ length: totalChapters - chapterIndex - 1 }, (_, i) => `Chapter ${chapterIndex + i + 2}`).join(', ')
+            : 'Final Combiner';
+        return `## YOUR TASK
+Write Chapter ${prompt.chapterNumber}: "${prompt.chapterTitle}"
+
+Target: ${prompt.wordTarget} words across ${prompt.sections.length} sections.
+Output to: ${prompt.outputPath}
+
+${prompt.prompt}
+
+## WORKFLOW CONTEXT
+Agent #${agentNum} of ${totalChapters + 1} | Previous: ${prevChapters} | Next: ${nextChapters}
+
+This is a SEQUENTIAL chapter writing pipeline. Each chapter must complete before the next begins.
+The final agent will combine all chapters into the complete paper.
+
+## MEMORY RETRIEVAL
+\`\`\`bash
+# Retrieve chapter structure and mapping
+npx claude-flow memory retrieve --key "phd/${slug}/phase8/structure"
+npx claude-flow memory retrieve --key "phd/${slug}/phase8/mapping"
+${chapterIndex > 0 ? `# Retrieve previous chapter for continuity
+npx claude-flow memory retrieve --key "phd/${slug}/chapters/chapter-${chapterIndex}"` : ''}
+\`\`\`
+
+Understand:
+- Chapter structure and section requirements
+- Semantic mapping of sources to this chapter
+${chapterIndex > 0 ? '- Previous chapter content for narrative flow' : ''}
+
+## MEMORY STORAGE (For Next Agents)
+After writing, store the chapter content:
+
+\`\`\`bash
+# Store chapter content for next agents and final combiner
+npx claude-flow memory store "chapter-${prompt.chapterNumber}" '{"chapterNumber": ${prompt.chapterNumber}, "title": "${prompt.chapterTitle}", "wordCount": <actual>, "outputPath": "${prompt.outputPath}"}' --namespace "phd/${slug}/chapters"
+\`\`\`
+
+## STEPS
+1. Read source files listed in the prompt
+2. Retrieve memories for context
+3. Write chapter sections following style guidelines
+4. Save chapter to ${prompt.outputPath}
+5. Store chapter metadata in memory
+6. Verify: \`npx claude-flow memory retrieve --key "phd/${slug}/chapters/chapter-${prompt.chapterNumber}"\`
+
+## SUCCESS CRITERIA
+- Chapter written to ${prompt.outputPath}
+- Word count within 70%-130% of ${prompt.wordTarget} target
+- All sections from structure included
+- Citations properly formatted
+- Chapter metadata stored in memory for next agent`;
     }
 }
 //# sourceMappingURL=final-stage-orchestrator.js.map

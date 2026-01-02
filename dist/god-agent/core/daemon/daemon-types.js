@@ -82,4 +82,16 @@ export function isDaemonError(error) {
         'code' in error &&
         Object.values(DaemonErrorCode).includes(error.code));
 }
+/**
+ * Standard JSON-RPC 2.0 Error Codes - TASK-DAEMON-002
+ */
+export const JSON_RPC_ERROR_CODES = {
+    PARSE_ERROR: -32700,
+    INVALID_REQUEST: -32600,
+    METHOD_NOT_FOUND: -32601,
+    INVALID_PARAMS: -32602,
+    INTERNAL_ERROR: -32603,
+    SERVICE_UNAVAILABLE: -32000,
+    HANDLER_ERROR: -32001,
+};
 //# sourceMappingURL=daemon-types.js.map

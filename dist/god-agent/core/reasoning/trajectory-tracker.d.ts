@@ -108,6 +108,8 @@ export declare class TrajectoryTracker {
     createTrajectory(request: IReasoningRequest, result: IReasoningResponse, embedding: Float32Array, enhancedEmbedding?: Float32Array, lScore?: number): Promise<TrajectoryRecord>;
     /**
      * Get trajectory by ID
+     * Implements: REQ-TRAJ-005 (SQLite fallback for cross-session retrieval)
+     * Constitution: RULE-008 (SQLite primary), RULE-069 (try/catch), RULE-070 (error logging)
      *
      * @param trajectoryId - Trajectory identifier
      * @returns Trajectory record or null if not found
@@ -115,6 +117,8 @@ export declare class TrajectoryTracker {
     getTrajectory(trajectoryId: TrajectoryID): Promise<TrajectoryRecord | null>;
     /**
      * Update trajectory with Sona feedback
+     * Implements: REQ-TRAJ-004 (SQLite fallback for cross-session feedback)
+     * Constitution: RULE-008 (SQLite primary), RULE-069 (try/catch), RULE-070 (error logging)
      *
      * @param trajectoryId - Trajectory to update
      * @param feedback - Learning feedback from Sona

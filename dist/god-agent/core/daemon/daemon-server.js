@@ -17,7 +17,7 @@
 import { createServer } from 'net';
 import { existsSync, unlinkSync } from 'fs';
 import { EventEmitter } from 'events';
-import { DEFAULT_DAEMON_CONFIG, GRACEFUL_SHUTDOWN_TIMEOUT_MS, ClientRejectionReason, DaemonErrorCode, createDaemonError, generateClientId, } from './daemon-types.js';
+import { DEFAULT_DAEMON_CONFIG, GRACEFUL_SHUTDOWN_TIMEOUT_MS, ClientRejectionReason, DaemonErrorCode, createDaemonError, generateClientId, JSON_RPC_ERROR_CODES, } from './daemon-types.js';
 import { VECTOR_DIM } from '../validation/constants.js';
 import { EpisodeStore } from '../episode/episode-store.js';
 import { GraphDB } from '../graph-db/graph-db.js';
@@ -66,6 +66,8 @@ export class DaemonServer extends EventEmitter {
     startedAt = 0;
     totalRequests = 0;
     keepAliveTimers = new Map();
+    /** Message buffers per client for partial message handling - TASK-DAEMON-002 */
+    messageBuffers = new Map();
     // Storage backends (initialized in start())
     episodeStore = null;
     graphDb = null;
@@ -422,17 +424,166 @@ export class DaemonServer extends EventEmitter {
     }
     /**
      * Handle incoming data from client
+     * Implements JSON-RPC 2.0 message parsing and routing
+     *
+     * TASK-DAEMON-002: Core RPC handler implementation
      */
-    handleData(clientId, _data) {
+    handleData(clientId, data) {
         const client = this.clients.get(clientId);
         if (!client)
             return;
-        // Update last activity
+        // Update activity tracking
         client.lastActivity = Date.now();
         this.totalRequests++;
-        // Reset keepalive timer
         this.resetKeepAliveTimer(clientId);
-        // Data handling will be implemented in TASK-DAEMON-002
+        // Get or create message buffer for this client
+        let buffer = this.messageBuffers.get(clientId) ?? '';
+        buffer += data.toString();
+        // Process complete messages (newline-delimited JSON)
+        const messages = buffer.split('\n');
+        this.messageBuffers.set(clientId, messages.pop() ?? '');
+        for (const message of messages) {
+            if (message.trim()) {
+                this.processMessage(client.socket, message.trim());
+            }
+        }
+    }
+    /**
+     * Process a single JSON-RPC message
+     * TASK-DAEMON-002
+     */
+    async processMessage(socket, message) {
+        let request;
+        try {
+            request = JSON.parse(message);
+        }
+        catch {
+            this.sendResponse(socket, {
+                jsonrpc: '2.0',
+                error: {
+                    code: JSON_RPC_ERROR_CODES.PARSE_ERROR,
+                    message: 'Parse error: Invalid JSON',
+                },
+                id: null,
+            });
+            return;
+        }
+        // Validate JSON-RPC 2.0 format
+        if (!this.isValidRequest(request)) {
+            this.sendResponse(socket, {
+                jsonrpc: '2.0',
+                error: {
+                    code: JSON_RPC_ERROR_CODES.INVALID_REQUEST,
+                    message: 'Invalid Request: Missing required fields',
+                },
+                id: request?.id ?? null,
+            });
+            return;
+        }
+        // Route to service handler
+        const response = await this.routeRequest(request);
+        this.sendResponse(socket, response);
+    }
+    /**
+     * Validate JSON-RPC 2.0 request format
+     * TASK-DAEMON-002
+     */
+    isValidRequest(request) {
+        const req = request;
+        return (typeof req === 'object' &&
+            req !== null &&
+            req.jsonrpc === '2.0' &&
+            typeof req.method === 'string' &&
+            req.method.length > 0);
+    }
+    /**
+     * Route request to appropriate service handler
+     * TASK-DAEMON-002
+     */
+    async routeRequest(request) {
+        const { method, params, id } = request;
+        // Handle built-in health methods
+        if (method === 'health.status') {
+            return {
+                jsonrpc: '2.0',
+                result: {
+                    status: 'healthy',
+                    state: this.state,
+                    ...this.getStats(),
+                    services: Array.from(this.services.keys()),
+                },
+                id,
+            };
+        }
+        if (method === 'health.ping') {
+            return {
+                jsonrpc: '2.0',
+                result: { pong: true, timestamp: Date.now() },
+                id,
+            };
+        }
+        // Extract service name from method (format: "service.method")
+        const parts = method.split('.');
+        if (parts.length < 2) {
+            return {
+                jsonrpc: '2.0',
+                error: {
+                    code: JSON_RPC_ERROR_CODES.METHOD_NOT_FOUND,
+                    message: `Invalid method format: ${method}. Expected "service.method"`,
+                },
+                id,
+            };
+        }
+        const serviceName = parts[0];
+        const serviceMethod = parts.slice(1).join('.');
+        // Find service handler
+        const service = this.services.get(serviceName);
+        if (!service) {
+            return {
+                jsonrpc: '2.0',
+                error: {
+                    code: JSON_RPC_ERROR_CODES.METHOD_NOT_FOUND,
+                    message: `Service not found: ${serviceName}`,
+                },
+                id,
+            };
+        }
+        // Execute handler
+        try {
+            const result = await service.handler(serviceMethod, params);
+            return {
+                jsonrpc: '2.0',
+                result,
+                id,
+            };
+        }
+        catch (error) {
+            return {
+                jsonrpc: '2.0',
+                error: {
+                    code: JSON_RPC_ERROR_CODES.HANDLER_ERROR,
+                    message: `Handler error: ${error instanceof Error ? error.message : String(error)}`,
+                    data: { service: serviceName, method: serviceMethod },
+                },
+                id,
+            };
+        }
+    }
+    /**
+     * Send JSON-RPC response to client
+     * TASK-DAEMON-002
+     */
+    sendResponse(socket, response) {
+        try {
+            const message = JSON.stringify(response) + '\n';
+            socket.write(message);
+        }
+        catch (error) {
+            // Log but don't throw - socket may be closed
+            if (this.storageConfig.verbose) {
+                console.error('[DaemonServer] Failed to send response:', error);
+            }
+        }
     }
     /**
      * Handle client disconnect
@@ -477,6 +628,8 @@ export class DaemonServer extends EventEmitter {
             clearTimeout(timer);
             this.keepAliveTimers.delete(clientId);
         }
+        // Clean up message buffer - TASK-DAEMON-002
+        this.messageBuffers.delete(clientId);
         // Close socket if still open
         if (!client.socket.destroyed) {
             client.socket.destroy();

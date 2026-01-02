@@ -168,6 +168,7 @@ export declare class ReasoningBank {
     /**
      * Create causal hyperedge from high-quality trajectory
      * Called when feedback.quality >= 0.8
+     * Implements [REQ-TRAJ-009]: Null-safe response access
      */
     private createCausalHyperedge;
     /**
