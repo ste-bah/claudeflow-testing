@@ -456,6 +456,38 @@ Agent 3 ← DESC Inject (Episodes 1-2 summaries) → Episode 3 → UCM Store
 - **Outcome Learning**: System learns from successes and failures
 - **Automatic Summarization**: Long outputs compressed intelligently
 
+### Final Paper Generation (Phase 8)
+
+After all agents complete, the pipeline combines individual chapter outputs into a final paper:
+
+```bash
+# Automatic: Phase 8 triggers when all agents complete
+npx tsx src/god-agent/cli/phd-cli.ts complete <session-id> <final-agent>
+
+# Manual: Use the chapter combiner script
+npx tsx scripts/combine-chapters.ts docs/research/<your-topic>
+```
+
+The **PaperCombiner** component:
+- Generates title page with metadata (word count, date, citations)
+- Creates table of contents with anchor links
+- Combines all chapters with proper separators
+- Validates cross-references between chapters
+- Outputs `final-paper.md` and `metadata.json`
+
+### PDF Export
+
+Convert the final markdown to PDF:
+
+```bash
+# Install md-to-pdf (one time)
+npm install -g md-to-pdf
+
+# Generate PDF
+cd docs/research/<your-topic>/final
+md-to-pdf final-paper.md --pdf-options '{"format": "A4", "margin": {"top": "20mm", "bottom": "20mm", "left": "25mm", "right": "25mm"}}'
+```
+
 ## Observability Dashboard
 
 The dashboard at **http://localhost:3847** provides real-time monitoring of the God Agent system.

@@ -2718,31 +2718,38 @@ async function commandComplete(
     // Extract slug from session (stored during init)
     const slug = session.slug || session.pipelineId;
 
-    // Trigger Phase 8 preparation SYNCHRONOUSLY so prompts are included in response
-    // Claude Code can then immediately execute chapters with Task tool
+    // [PHASE-8-AUTO-FIX] Execute Phase 8 FULLY AUTOMATICALLY
+    // RULE-022: Phase 7 → Phase 8 automatic with full execution
+    // Calls execute() which runs: MAPPING → WRITING → COMBINING → VALIDATING → COMPLETED
     try {
-      const phase8Result = await preparePhase8ForClaudeCode(slug, session.styleProfileId);
+      const phase8Result = await executePhase8Automatically(slug, session.styleProfileId);
 
       if (phase8Result.success) {
-        console.error('[Phase 8] READY FOR CLAUDE CODE EXECUTION');
-        console.error(`[Phase 8] Total chapters: ${phase8Result.totalChapters}`);
-        console.error('[Phase 8] Execute chapters SEQUENTIALLY using Task tool');
+        console.error('[Phase 8] COMPLETED AUTOMATICALLY');
+        console.error(`[Phase 8] Chapters generated: ${phase8Result.chaptersGenerated}`);
+        console.error(`[Phase 8] Total words: ${phase8Result.totalWords}`);
+        console.error(`[Phase 8] Final paper: ${phase8Result.outputPath}`);
 
         return {
           success: true,
           nextAgent: nextAgentKey,
           pipelineComplete,
           phase8Triggered: true,
-          phase8Ready: true,
-          phase8Prompts: phase8Result
+          phase8Completed: true,
+          phase8Result: {
+            outputPath: phase8Result.outputPath,
+            chaptersGenerated: phase8Result.chaptersGenerated,
+            totalWords: phase8Result.totalWords,
+            totalCitations: phase8Result.totalCitations
+          }
         };
       } else {
-        console.error(`[Phase 8] Preparation failed: ${phase8Result.errors.join(', ')}`);
-        console.error('[Phase 8] Run manually: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + slug + ' --prepare-for-claude-code');
+        console.error(`[Phase 8] Automatic execution failed. Warnings: ${phase8Result.warnings.join(', ')}`);
+        console.error('[Phase 8] Run manually: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + slug);
       }
     } catch (error) {
-      console.error(`[Phase 8] Auto-preparation failed: ${error}`);
-      console.error('[Phase 8] Run manually: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + slug + ' --prepare-for-claude-code');
+      console.error(`[Phase 8] Automatic execution failed: ${error}`);
+      console.error('[Phase 8] Run manually: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + slug);
     }
   }
 
@@ -2804,12 +2811,66 @@ async function preparePhase8ForClaudeCode(
 }
 
 /**
+ * Execute Phase 8 FULLY AUTOMATICALLY without manual Task tool intervention
+ * [PHASE-8-AUTO-FIX] Implements RULE-022: Phase 7 → Phase 8 automatic
+ *
+ * This function calls the full execute() pipeline which:
+ * - INITIALIZING: Loads chapter structure and style profile
+ * - SCANNING: Scans for research output files from phases 1-7
+ * - SUMMARIZING: Extracts summaries from all agent outputs
+ * - MAPPING: Maps sources to chapters semantically
+ * - WRITING: Writes all chapters using the ChapterWriterAgent
+ * - COMBINING: Combines chapters into final paper via PaperCombiner
+ * - VALIDATING: Validates the combined output
+ * - COMPLETED: Final paper written to output path
+ *
+ * @param slug - Research session slug
+ * @param styleProfileId - Optional style profile ID
+ * @returns FinalStageResult with outputPath to final combined paper
+ */
+async function executePhase8Automatically(
+  slug: string,
+  styleProfileId?: string
+): Promise<import('./final-stage/types.js').FinalStageResult> {
+  console.error(`[Phase 8] AUTOMATIC EXECUTION starting for: ${slug}`);
+  console.error('[Phase 8] State machine: MAPPING → WRITING → COMBINING → VALIDATING → COMPLETED');
+
+  const basePath = process.cwd();
+  const orchestrator = new FinalStageOrchestrator(basePath, slug);
+
+  // Set up progress callback for real-time updates
+  orchestrator.onProgress((report: ProgressReport) => {
+    const progress = report.total > 0 ? Math.round((report.current / report.total) * 100) : 0;
+    console.error(`[Phase 8] ${report.phase}: ${report.message} (${progress}%)`);
+  });
+
+  // Call execute() which runs the FULL pipeline including WRITING and COMBINING
+  // This produces the final combined paper automatically
+  const result = await orchestrator.execute({
+    force: false,
+    verbose: process.env.PHD_CLI_DEBUG === 'true',
+    threshold: 0.30,
+    sequential: true, // RULE-015: Sequential execution
+    styleProfileId,
+  });
+
+  if (result.success && result.outputPath) {
+    console.error(`[Phase 8] AUTOMATIC EXECUTION COMPLETE`);
+    console.error(`[Phase 8] Final paper: ${result.outputPath}`);
+    console.error(`[Phase 8] Total words: ${result.totalWords}`);
+    console.error(`[Phase 8] Chapters: ${result.chaptersGenerated}`);
+  }
+
+  return result;
+}
+
+/**
  * Trigger Phase 8 finalize after pipeline completion (LEGACY - kept for backward compatibility)
  * [PHASE-8-AUTO] Automatic integration with main pipeline
  *
  * @param slug - Research session slug
  * @param styleProfileId - Optional style profile ID
- * @deprecated Use preparePhase8ForClaudeCode() instead for synchronous preparation
+ * @deprecated Use executePhase8Automatically() for full auto execution
  */
 async function triggerPhase8Finalize(slug: string, styleProfileId?: string): Promise<void> {
   console.error(`[Phase 8] Starting Claude Code preparation for: ${slug}`);

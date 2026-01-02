@@ -301,6 +301,15 @@ export interface CompleteResponse {
     phase8Ready?: boolean;
     /** Phase 8 prompts with DYNAMIC agents per chapter for Claude Code execution */
     phase8Prompts?: Phase8PrepareResult;
+    /** [PHASE-8-AUTO-FIX] True when Phase 8 completed automatically with final paper */
+    phase8Completed?: boolean;
+    /** [PHASE-8-AUTO-FIX] Phase 8 execution result with final paper path */
+    phase8Result?: {
+        outputPath: string | null;
+        chaptersGenerated: number;
+        totalWords: number;
+        totalCitations: number;
+    };
 }
 /**
  * Error when agent key doesn't match current agent
