@@ -22,3 +22,4 @@ claude-flow
 
 # Keep documentation directories
 # docs/ and docs2/ are NOT ignored and will be tracked
+docs/
