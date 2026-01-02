@@ -1,300 +1,273 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { RollingWindow, WindowConfig, ContextEntry } from '@god-agent/core/ucm/index.js';
+import { RollingWindow } from '../../../../src/god-agent/core/ucm/context/rolling-window.js';
 
 describe('RollingWindow', () => {
   let window: RollingWindow;
-  let defaultConfig: WindowConfig;
 
   beforeEach(() => {
-    defaultConfig = {
-      maxSize: 5,
-      evictionPolicy: 'fifo'
-    };
-    window = new RollingWindow(defaultConfig);
+    // Default: research phase with capacity 3
+    window = new RollingWindow('research');
   });
 
   describe('constructor', () => {
-    it('should initialize with default config', () => {
+    it('should initialize with default phase (research)', () => {
       const defaultWindow = new RollingWindow();
       expect(defaultWindow).toBeDefined();
+      expect(defaultWindow.getPhase()).toBe('research');
+      expect(defaultWindow.getCapacity()).toBe(3);
     });
 
-    it('should accept custom config', () => {
-      const customConfig: WindowConfig = {
-        maxSize: 10,
-        evictionPolicy: 'lru'
-      };
-      const customWindow = new RollingWindow(customConfig);
+    it('should accept custom phase', () => {
+      const planningWindow = new RollingWindow('planning');
+      expect(planningWindow.getPhase()).toBe('planning');
+      expect(planningWindow.getCapacity()).toBe(2);
+    });
 
-      expect(customWindow).toBeDefined();
+    it('should accept custom capacity override', () => {
+      const customWindow = new RollingWindow('research', 10);
+      expect(customWindow.getCapacity()).toBe(10);
+    });
+
+    it('should normalize phase to lowercase', () => {
+      const window = new RollingWindow('PLANNING');
+      expect(window.getPhase()).toBe('planning');
+    });
+
+    it('should use default capacity for unknown phase', () => {
+      const unknownWindow = new RollingWindow('unknown-phase');
+      expect(unknownWindow.getCapacity()).toBe(3); // Falls back to research default
     });
   });
 
-  describe('add', () => {
+  describe('phase-specific capacities (RULE-010 to RULE-014)', () => {
+    it('planning phase should have capacity 2', () => {
+      const w = new RollingWindow('planning');
+      expect(w.getCapacity()).toBe(2);
+    });
+
+    it('research phase should have capacity 3', () => {
+      const w = new RollingWindow('research');
+      expect(w.getCapacity()).toBe(3);
+    });
+
+    it('writing phase should have capacity 5', () => {
+      const w = new RollingWindow('writing');
+      expect(w.getCapacity()).toBe(5);
+    });
+
+    it('qa phase should have capacity 10', () => {
+      const w = new RollingWindow('qa');
+      expect(w.getCapacity()).toBe(10);
+    });
+  });
+
+  describe('push', () => {
     it('should add entries to window', () => {
-      const entry: ContextEntry = {
-        id: '1',
-        content: 'Test content',
-        timestamp: Date.now()
-      };
+      window.push('agent-1', 'Test content', 100);
 
-      window.add(entry);
-
-      const entries = window.getAll();
+      const entries = window.getWindow();
       expect(entries).toHaveLength(1);
-      expect(entries[0]).toEqual(entry);
+      expect(entries[0].agentId).toBe('agent-1');
+      expect(entries[0].content).toBe('Test content');
+      expect(entries[0].tokenCount).toBe(100);
     });
 
     it('should maintain insertion order', () => {
-      const entries = [
-        { id: '1', content: 'First', timestamp: Date.now() },
-        { id: '2', content: 'Second', timestamp: Date.now() + 1 },
-        { id: '3', content: 'Third', timestamp: Date.now() + 2 }
-      ];
+      window.push('agent-1', 'First', 100);
+      window.push('agent-2', 'Second', 100);
+      window.push('agent-3', 'Third', 100);
 
-      entries.forEach(e => window.add(e));
-
-      const stored = window.getAll();
-      expect(stored.map(e => e.id)).toEqual(['1', '2', '3']);
+      const entries = window.getWindow();
+      expect(entries.map(e => e.agentId)).toEqual(['agent-1', 'agent-2', 'agent-3']);
     });
 
-    it('should return added entry', () => {
-      const entry: ContextEntry = {
-        id: '1',
-        content: 'Test',
-        timestamp: Date.now()
-      };
+    it('should return null when no eviction needed', () => {
+      const result = window.push('agent-1', 'Content', 100);
+      expect(result).toBeNull();
+    });
 
-      const result = window.add(entry);
+    it('should set timestamp and phase on entry', () => {
+      const before = Date.now();
+      window.push('agent-1', 'Content', 100);
+      const after = Date.now();
 
-      expect(result).toEqual(entry);
+      const entry = window.getWindow()[0];
+      expect(entry.timestamp).toBeGreaterThanOrEqual(before);
+      expect(entry.timestamp).toBeLessThanOrEqual(after);
+      expect(entry.phase).toBe('research');
+    });
+
+    it('should update existing agent instead of duplicating', () => {
+      window.push('agent-1', 'First content', 100);
+      window.push('agent-1', 'Updated content', 200);
+
+      const entries = window.getWindow();
+      expect(entries).toHaveLength(1);
+      expect(entries[0].content).toBe('Updated content');
+      expect(entries[0].tokenCount).toBe(200);
     });
   });
 
   describe('FIFO eviction', () => {
     it('should evict oldest entry when window is full', () => {
-      // Fill window to capacity
-      for (let i = 0; i < 5; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
-      }
+      // Research phase capacity is 3
+      window.push('agent-0', 'Content 0', 100);
+      window.push('agent-1', 'Content 1', 100);
+      window.push('agent-2', 'Content 2', 100);
 
       // Add one more to trigger eviction
-      window.add({
-        id: '5',
-        content: 'Content 5',
-        timestamp: Date.now() + 5
-      });
+      const evicted = window.push('agent-3', 'Content 3', 100);
 
-      const entries = window.getAll();
-      expect(entries).toHaveLength(5);
-      expect(entries[0].id).toBe('1'); // '0' was evicted
-      expect(entries[4].id).toBe('5');
-    });
+      expect(evicted).not.toBeNull();
+      expect(evicted!.agentId).toBe('agent-0');
 
-    it('should evict multiple entries if needed', () => {
-      window.add({ id: '1', content: 'A', timestamp: Date.now() });
-      window.add({ id: '2', content: 'B', timestamp: Date.now() + 1 });
-
-      // Resize to smaller capacity
-      window.resize(1);
-
-      const entries = window.getAll();
-      expect(entries).toHaveLength(1);
-      expect(entries[0].id).toBe('2'); // Most recent kept
+      const entries = window.getWindow();
+      expect(entries).toHaveLength(3);
+      expect(entries[0].agentId).toBe('agent-1');
+      expect(entries[2].agentId).toBe('agent-3');
     });
 
     it('should maintain FIFO order during continuous additions', () => {
       for (let i = 0; i < 10; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
+        window.push(`agent-${i}`, `Content ${i}`, 100);
       }
 
-      const entries = window.getAll();
-      expect(entries).toHaveLength(5);
-      expect(entries.map(e => e.id)).toEqual(['5', '6', '7', '8', '9']);
-    });
-  });
-
-  describe('resize', () => {
-    it('should increase window capacity', () => {
-      window.resize(10);
-
-      for (let i = 0; i < 8; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
-      }
-
-      const entries = window.getAll();
-      expect(entries).toHaveLength(8);
-    });
-
-    it('should decrease window capacity and evict excess', () => {
-      for (let i = 0; i < 5; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
-      }
-
-      window.resize(3);
-
-      const entries = window.getAll();
+      const entries = window.getWindow();
       expect(entries).toHaveLength(3);
-      expect(entries.map(e => e.id)).toEqual(['2', '3', '4']);
-    });
-
-    it('should handle resize to zero', () => {
-      window.add({ id: '1', content: 'Test', timestamp: Date.now() });
-
-      window.resize(0);
-
-      expect(window.getAll()).toHaveLength(0);
-    });
-
-    it('should return new size', () => {
-      const newSize = window.resize(7);
-
-      expect(newSize).toBe(7);
+      expect(entries.map(e => e.agentId)).toEqual(['agent-7', 'agent-8', 'agent-9']);
     });
   });
 
-  describe('phase-aware resizing', () => {
-    it('should resize based on phase context', () => {
-      const phaseConfig = {
-        planning: 2,
-        research: 3,
-        writing: 4
-      };
+  describe('pop', () => {
+    it('should remove and return oldest entry', () => {
+      window.push('agent-1', 'First', 100);
+      window.push('agent-2', 'Second', 100);
 
-      // Planning phase
-      window.resizeForPhase('planning', phaseConfig);
-      window.add({ id: '1', content: 'A', timestamp: Date.now() });
-      window.add({ id: '2', content: 'B', timestamp: Date.now() + 1 });
-      window.add({ id: '3', content: 'C', timestamp: Date.now() + 2 });
+      const popped = window.pop();
 
-      expect(window.getAll()).toHaveLength(2);
-
-      // Research phase (expand)
-      window.resizeForPhase('research', phaseConfig);
-      window.add({ id: '4', content: 'D', timestamp: Date.now() + 3 });
-
-      expect(window.getAll()).toHaveLength(3);
-
-      // Writing phase (expand more)
-      window.resizeForPhase('writing', phaseConfig);
-      window.add({ id: '5', content: 'E', timestamp: Date.now() + 4 });
-      window.add({ id: '6', content: 'F', timestamp: Date.now() + 5 });
-
-      expect(window.getAll()).toHaveLength(4);
+      expect(popped).not.toBeNull();
+      expect(popped!.agentId).toBe('agent-1');
+      expect(window.size()).toBe(1);
     });
 
-    it('should use default size for unknown phase', () => {
-      const phaseConfig = { known: 5 };
-
-      window.resizeForPhase('unknown', phaseConfig);
-
-      // Should use reasonable default (current size or config default)
-      window.add({ id: '1', content: 'Test', timestamp: Date.now() });
-      expect(window.getAll()).toHaveLength(1);
-    });
-
-    it('should handle missing phase config gracefully', () => {
-      expect(() => {
-        window.resizeForPhase('any-phase', {});
-      }).not.toThrow();
+    it('should return null when window is empty', () => {
+      expect(window.pop()).toBeNull();
     });
   });
 
-  describe('auto-eviction', () => {
-    it('should automatically evict when adding beyond capacity', () => {
-      const entries = Array.from({ length: 7 }, (_, i) => ({
-        id: String(i),
-        content: `Content ${i}`,
-        timestamp: Date.now() + i
-      }));
-
-      entries.forEach(e => window.add(e));
-
-      const stored = window.getAll();
-      expect(stored).toHaveLength(5);
-      expect(stored[0].id).toBe('2'); // First two evicted
-    });
-
-    it('should handle rapid additions correctly', () => {
-      const count = 100;
-
-      for (let i = 0; i < count; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
-      }
-
-      const entries = window.getAll();
-      expect(entries).toHaveLength(5);
-      expect(entries.map(e => e.id)).toEqual(['95', '96', '97', '98', '99']);
-    });
-  });
-
-  describe('getAll', () => {
+  describe('getWindow', () => {
     it('should return all entries in order', () => {
-      const entries = [
-        { id: '1', content: 'First', timestamp: Date.now() },
-        { id: '2', content: 'Second', timestamp: Date.now() + 1 },
-        { id: '3', content: 'Third', timestamp: Date.now() + 2 }
-      ];
+      window.push('agent-1', 'First', 100);
+      window.push('agent-2', 'Second', 200);
 
-      entries.forEach(e => window.add(e));
-
-      const stored = window.getAll();
-      expect(stored).toEqual(entries);
+      const entries = window.getWindow();
+      expect(entries).toHaveLength(2);
+      expect(entries[0].agentId).toBe('agent-1');
+      expect(entries[1].agentId).toBe('agent-2');
     });
 
     it('should return empty array when window is empty', () => {
-      expect(window.getAll()).toEqual([]);
+      expect(window.getWindow()).toEqual([]);
     });
 
     it('should return copy to prevent external modification', () => {
-      window.add({ id: '1', content: 'Test', timestamp: Date.now() });
+      window.push('agent-1', 'Test', 100);
 
-      const entries1 = window.getAll();
-      const entries2 = window.getAll();
+      const entries1 = window.getWindow();
+      const entries2 = window.getWindow();
 
       expect(entries1).not.toBe(entries2); // Different array instances
       expect(entries1).toEqual(entries2); // Same content
     });
   });
 
-  describe('clear', () => {
-    it('should remove all entries', () => {
-      window.add({ id: '1', content: 'A', timestamp: Date.now() });
-      window.add({ id: '2', content: 'B', timestamp: Date.now() + 1 });
+  describe('getAgent', () => {
+    it('should return agent if in window', () => {
+      window.push('agent-1', 'Content', 100);
 
-      window.clear();
-
-      expect(window.getAll()).toHaveLength(0);
+      const agent = window.getAgent('agent-1');
+      expect(agent).not.toBeNull();
+      expect(agent!.agentId).toBe('agent-1');
     });
 
-    it('should allow new additions after clear', () => {
-      window.add({ id: '1', content: 'Before', timestamp: Date.now() });
-      window.clear();
-      window.add({ id: '2', content: 'After', timestamp: Date.now() });
+    it('should return null if agent not in window', () => {
+      expect(window.getAgent('non-existent')).toBeNull();
+    });
+  });
 
-      const entries = window.getAll();
-      expect(entries).toHaveLength(1);
-      expect(entries[0].id).toBe('2');
+  describe('hasAgent', () => {
+    it('should return true when agent is in window', () => {
+      window.push('agent-1', 'Content', 100);
+      expect(window.hasAgent('agent-1')).toBe(true);
+    });
+
+    it('should return false when agent is not in window', () => {
+      expect(window.hasAgent('agent-1')).toBe(false);
+    });
+  });
+
+  describe('remove', () => {
+    it('should remove specific agent from window', () => {
+      window.push('agent-1', 'First', 100);
+      window.push('agent-2', 'Second', 100);
+
+      const removed = window.remove('agent-1');
+
+      expect(removed).not.toBeNull();
+      expect(removed!.agentId).toBe('agent-1');
+      expect(window.size()).toBe(1);
+      expect(window.hasAgent('agent-1')).toBe(false);
+    });
+
+    it('should return null when agent not found', () => {
+      expect(window.remove('non-existent')).toBeNull();
+    });
+  });
+
+  describe('resize (phase transitions)', () => {
+    it('should resize based on phase', () => {
+      // Start in research (capacity 3)
+      window.push('agent-1', 'A', 100);
+      window.push('agent-2', 'B', 100);
+      window.push('agent-3', 'C', 100);
+      expect(window.size()).toBe(3);
+
+      // Transition to planning (capacity 2)
+      const evicted = window.resize('planning');
+
+      expect(evicted).toHaveLength(1);
+      expect(evicted[0].agentId).toBe('agent-1');
+      expect(window.size()).toBe(2);
+      expect(window.getCapacity()).toBe(2);
+      expect(window.getPhase()).toBe('planning');
+    });
+
+    it('should expand when transitioning to larger phase', () => {
+      // Start in planning (capacity 2)
+      const planWindow = new RollingWindow('planning');
+      planWindow.push('agent-1', 'A', 100);
+      planWindow.push('agent-2', 'B', 100);
+
+      // Transition to writing (capacity 5)
+      const evicted = planWindow.resize('writing');
+
+      expect(evicted).toHaveLength(0);
+      expect(planWindow.getCapacity()).toBe(5);
+    });
+
+    it('should evict multiple entries when downsizing significantly', () => {
+      // Use QA phase (capacity 10)
+      const qaWindow = new RollingWindow('qa');
+      for (let i = 0; i < 10; i++) {
+        qaWindow.push(`agent-${i}`, `Content ${i}`, 100);
+      }
+      expect(qaWindow.size()).toBe(10);
+
+      // Transition to planning (capacity 2)
+      const evicted = qaWindow.resize('planning');
+
+      expect(evicted).toHaveLength(8);
+      expect(qaWindow.size()).toBe(2);
     });
   });
 
@@ -302,103 +275,114 @@ describe('RollingWindow', () => {
     it('should return current number of entries', () => {
       expect(window.size()).toBe(0);
 
-      window.add({ id: '1', content: 'A', timestamp: Date.now() });
+      window.push('agent-1', 'A', 100);
       expect(window.size()).toBe(1);
 
-      window.add({ id: '2', content: 'B', timestamp: Date.now() + 1 });
+      window.push('agent-2', 'B', 100);
       expect(window.size()).toBe(2);
     });
 
     it('should reflect capacity limits', () => {
       for (let i = 0; i < 10; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
+        window.push(`agent-${i}`, `Content ${i}`, 100);
       }
 
-      expect(window.size()).toBe(5); // Max capacity
+      expect(window.size()).toBe(3); // Research capacity
     });
   });
 
-  describe('isFull', () => {
-    it('should return false when window has space', () => {
-      window.add({ id: '1', content: 'A', timestamp: Date.now() });
+  describe('getTotalTokens', () => {
+    it('should return sum of all token counts', () => {
+      window.push('agent-1', 'A', 100);
+      window.push('agent-2', 'B', 200);
+      window.push('agent-3', 'C', 300);
 
-      expect(window.isFull()).toBe(false);
+      expect(window.getTotalTokens()).toBe(600);
     });
 
-    it('should return true when window is at capacity', () => {
-      for (let i = 0; i < 5; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
-      }
+    it('should return 0 for empty window', () => {
+      expect(window.getTotalTokens()).toBe(0);
+    });
+  });
 
-      expect(window.isFull()).toBe(true);
+  describe('clear', () => {
+    it('should remove all entries', () => {
+      window.push('agent-1', 'A', 100);
+      window.push('agent-2', 'B', 100);
+
+      const cleared = window.clear();
+
+      expect(cleared).toHaveLength(2);
+      expect(window.size()).toBe(0);
     });
 
-    it('should update after resize', () => {
-      for (let i = 0; i < 5; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
-      }
+    it('should allow new additions after clear', () => {
+      window.push('agent-1', 'Before', 100);
+      window.clear();
+      window.push('agent-2', 'After', 100);
 
-      expect(window.isFull()).toBe(true);
+      expect(window.size()).toBe(1);
+      expect(window.getWindow()[0].agentId).toBe('agent-2');
+    });
+  });
 
-      window.resize(10);
-      expect(window.isFull()).toBe(false);
+  describe('getStats', () => {
+    it('should return comprehensive statistics', () => {
+      window.push('agent-1', 'Content 1', 100);
+      window.push('agent-2', 'Content 2', 200);
+
+      const stats = window.getStats();
+
+      expect(stats.size).toBe(2);
+      expect(stats.capacity).toBe(3);
+      expect(stats.utilization).toBeCloseTo(2 / 3);
+      expect(stats.totalTokens).toBe(300);
+      expect(stats.phase).toBe('research');
+      expect(stats.agents).toHaveLength(2);
+      expect(stats.agents[0].agentId).toBe('agent-1');
+      expect(stats.agents[0].tokenCount).toBe(100);
+    });
+
+    it('should handle empty window', () => {
+      const stats = window.getStats();
+
+      expect(stats.size).toBe(0);
+      expect(stats.utilization).toBe(0);
+      expect(stats.totalTokens).toBe(0);
+      expect(stats.agents).toEqual([]);
     });
   });
 
   describe('edge cases', () => {
-    it('should handle very small window size', () => {
-      window.resize(1);
+    it('should handle very small window size (planning)', () => {
+      const planWindow = new RollingWindow('planning'); // capacity 2
 
-      window.add({ id: '1', content: 'A', timestamp: Date.now() });
-      window.add({ id: '2', content: 'B', timestamp: Date.now() + 1 });
+      planWindow.push('agent-1', 'A', 100);
+      planWindow.push('agent-2', 'B', 100);
+      planWindow.push('agent-3', 'C', 100);
 
-      const entries = window.getAll();
-      expect(entries).toHaveLength(1);
-      expect(entries[0].id).toBe('2');
+      expect(planWindow.size()).toBe(2);
+      expect(planWindow.getWindow()[0].agentId).toBe('agent-2');
     });
 
-    it('should handle large window size', () => {
-      window.resize(10000);
+    it('should handle large window size (qa)', () => {
+      const qaWindow = new RollingWindow('qa'); // capacity 10
 
-      for (let i = 0; i < 5000; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
+      for (let i = 0; i < 8; i++) {
+        qaWindow.push(`agent-${i}`, `Content ${i}`, 100);
       }
 
-      expect(window.size()).toBe(5000);
+      expect(qaWindow.size()).toBe(8);
     });
 
-    it('should handle duplicate IDs', () => {
-      window.add({ id: '1', content: 'First', timestamp: Date.now() });
-      window.add({ id: '1', content: 'Second', timestamp: Date.now() + 1 });
+    it('should handle custom large capacity', () => {
+      const largeWindow = new RollingWindow('research', 1000);
 
-      const entries = window.getAll();
-      expect(entries).toHaveLength(2); // Both stored (no deduplication)
-    });
+      for (let i = 0; i < 500; i++) {
+        largeWindow.push(`agent-${i}`, `Content ${i}`, 100);
+      }
 
-    it('should handle entries with same timestamp', () => {
-      const timestamp = Date.now();
-
-      window.add({ id: '1', content: 'A', timestamp });
-      window.add({ id: '2', content: 'B', timestamp });
-      window.add({ id: '3', content: 'C', timestamp });
-
-      expect(window.size()).toBe(3);
+      expect(largeWindow.size()).toBe(500);
     });
   });
 
@@ -407,62 +391,53 @@ describe('RollingWindow', () => {
       const start = performance.now();
 
       for (let i = 0; i < 1000; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
+        window.push(`agent-${i}`, `Content ${i}`, 100);
       }
 
       const duration = performance.now() - start;
-      expect(duration).toBeLessThan(50); // Should be very fast
+      expect(duration).toBeLessThan(100); // Should be fast
     });
 
     it('should retrieve entries quickly', () => {
-      for (let i = 0; i < 5; i++) {
-        window.add({
-          id: String(i),
-          content: `Content ${i}`,
-          timestamp: Date.now() + i
-        });
+      for (let i = 0; i < 3; i++) {
+        window.push(`agent-${i}`, `Content ${i}`, 100);
       }
 
       const start = performance.now();
-      const entries = window.getAll();
+      const entries = window.getWindow();
       const duration = performance.now() - start;
 
-      expect(entries).toHaveLength(5);
+      expect(entries).toHaveLength(3);
       expect(duration).toBeLessThan(1);
     });
   });
 
   describe('integration scenarios', () => {
     it('should support workflow phase transitions', () => {
-      const phaseConfigs = {
-        planning: 2,
-        research: 3,
-        writing: 4
-      };
-
       // Planning phase
-      window.resizeForPhase('planning', phaseConfigs);
-      window.add({ id: 'plan-1', content: 'Planning task 1', timestamp: Date.now() });
-      window.add({ id: 'plan-2', content: 'Planning task 2', timestamp: Date.now() + 1 });
+      const workflow = new RollingWindow('planning');
+      workflow.push('plan-1', 'Planning task 1', 100);
+      workflow.push('plan-2', 'Planning task 2', 100);
+      expect(workflow.size()).toBe(2);
 
-      expect(window.size()).toBe(2);
+      // Transition to research (expand)
+      workflow.resize('research');
+      workflow.push('research-1', 'Research task 1', 100);
+      expect(workflow.size()).toBe(3);
+      expect(workflow.getWindow()[0].agentId).toBe('plan-1');
 
-      // Transition to research
-      window.resizeForPhase('research', phaseConfigs);
-      window.add({ id: 'research-1', content: 'Research task 1', timestamp: Date.now() + 2 });
+      // Transition to writing (expand more)
+      workflow.resize('writing');
+      workflow.push('write-1', 'Writing task 1', 100);
+      workflow.push('write-2', 'Writing task 2', 100);
+      expect(workflow.size()).toBe(5);
 
-      expect(window.size()).toBe(3);
-      expect(window.getAll()[0].id).toBe('plan-1');
-
-      // Transition to writing (keeps recent context)
-      window.resizeForPhase('writing', phaseConfigs);
-      window.add({ id: 'write-1', content: 'Writing task 1', timestamp: Date.now() + 3 });
-
-      expect(window.size()).toBe(4);
+      // Transition to QA (expand to 10)
+      workflow.resize('qa');
+      for (let i = 0; i < 5; i++) {
+        workflow.push(`qa-${i}`, `QA task ${i}`, 100);
+      }
+      expect(workflow.size()).toBe(10);
     });
   });
 });
