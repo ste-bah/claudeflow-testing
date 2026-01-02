@@ -48,9 +48,10 @@ async function parseChapterFile(filePath: string, chapterNumber: number): Promis
     sectionIndex++;
   }
 
-  // Extract citations (basic APA pattern)
+  // Extract citations (APA pattern including organization acronyms)
+  // Matches: (Author, 2024), (AWS, 2024), (MITRE, 2024), (Smith et al., 2024)
   const citations: CitationRef[] = [];
-  const citationMatches = content.matchAll(/\(([A-Z][a-z]+(?:\s+(?:et\s+al\.|&\s+[A-Z][a-z]+))?),?\s*(\d{4})\)/g);
+  const citationMatches = content.matchAll(/\(([A-Z][A-Za-z]+(?:\s+(?:et\s+al\.|&\s+[A-Z][a-z]+|re:Inforce|[A-Z]+))?),?\s*(\d{4}[a-z]?)\)/g);
   const seenCitations = new Set<string>();
   for (const match of citationMatches) {
     const raw = match[0];

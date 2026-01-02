@@ -1,12 +1,12 @@
 # Unified AWS-Native Security Posture Management for Enterprise AWS Organizations
 
-**A Technical White Paper**
+**Research Query**: we-need-to-write-a-technical-white-paper-on-how-to
 
 **Generated**: 2 January 2026
 
 **Total Words**: 54,902
 
-**Total Citations**: 1
+**Total Citations**: 42
 
 **Chapters**: 10
 
