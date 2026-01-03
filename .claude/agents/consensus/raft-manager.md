@@ -21,6 +21,7 @@ hooks:
     echo "📝 Raft operation complete"
     # Verify log consistency
     echo "🔍 Validating log replication and consistency"
+    npx claude-flow memory store "consensus/raft-manager/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Raft Consensus Manager

@@ -23,6 +23,8 @@ hooks:
     if [ -f "package.json" ]; then
       npm run lint --if-present
     fi
+    # Store completion status in memory
+    npx claude-flow memory store "core/coder/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Code Implementation Agent

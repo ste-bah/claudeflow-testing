@@ -21,6 +21,8 @@ hooks:
     echo "✅ Byzantine consensus complete"
     # Validate consensus results
     echo "🔐 Verifying message signatures and ordering"
+    # Store completion status in memory
+    npx claude-flow memory store "consensus/byzantine-coordinator/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Byzantine Consensus Coordinator

@@ -19,6 +19,7 @@ hooks:
     echo "✅ Documentation structure complete"
     echo "📊 Files organized and formatted"
     find docs/research -name "*.md" | wc -l | xargs echo "Total files created:"
+    npx claude-flow memory store "business-research/documentation-specialist/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Documentation Management Specialist

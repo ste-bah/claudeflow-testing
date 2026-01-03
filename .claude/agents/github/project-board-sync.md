@@ -24,16 +24,17 @@ tools:
   - mcp__claude-flow__workflow_create
   - mcp__claude-flow__workflow_execute
 hooks:
-  pre:
-    - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
-    - "gh project list --owner @me --limit 1 >/dev/null || echo 'No projects accessible'"
-    - "git status --porcelain || echo 'Not in git repository'"
-    - "gh api user | jq -r '.login' || echo 'API access check'"
-  post:
-    - "gh project list --owner @me --limit 3 | head -5"
-    - "gh issue list --limit 3 --json number,title,state"
-    - "git branch --show-current || echo 'Not on a branch'"
-    - "gh repo view --json name,description"
+  pre: |
+    gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)
+    gh project list --owner @me --limit 1 >/dev/null || echo 'No projects accessible'
+    git status --porcelain || echo 'Not in git repository'
+    gh api user | jq -r '.login' || echo 'API access check'
+  post: |
+    gh project list --owner @me --limit 3 | head -5
+    gh issue list --limit 3 --json number,title,state
+    git branch --show-current || echo 'Not on a branch'
+    gh repo view --json name,description
+    npx claude-flow memory store "github/project-board-sync/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Project Board Sync - GitHub Projects Integration

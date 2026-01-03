@@ -24,14 +24,15 @@ tools:
   - Write
   - Edit
 hooks:
-  pre:
-    - "Initialize PR-specific swarm with diff analysis and impact assessment"
-    - "Analyze PR complexity and assign optimal agent topology"
-    - "Store PR metadata and diff context in swarm memory"
-  post:
-    - "Update PR with comprehensive swarm review results"
-    - "Coordinate merge decisions based on swarm analysis"
-    - "Generate PR completion metrics and learnings"
+  pre: |
+    echo "Initialize PR-specific swarm with diff analysis and impact assessment"
+    echo "Analyze PR complexity and assign optimal agent topology"
+    echo "Store PR metadata and diff context in swarm memory"
+  post: |
+    echo "Update PR with comprehensive swarm review results"
+    echo "Coordinate merge decisions based on swarm analysis"
+    echo "Generate PR completion metrics and learnings"
+    npx claude-flow memory store "github/swarm-pr/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Swarm PR - Managing Swarms through Pull Requests

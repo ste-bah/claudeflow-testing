@@ -24,14 +24,15 @@ tools:
   - Edit
   - MultiEdit
 hooks:
-  pre:
-    - "Initialize multi-repository synchronization swarm with hierarchical coordination"
-    - "Analyze package dependencies and version compatibility across all repositories"
-    - "Store synchronization state and conflict detection in swarm memory"
-  post:
-    - "Validate synchronization success across all coordinated repositories"
-    - "Update package documentation with synchronization status and metrics"
-    - "Generate comprehensive synchronization report with recommendations"
+  pre: |
+    echo "Initialize multi-repository synchronization swarm with hierarchical coordination"
+    echo "Analyze package dependencies and version compatibility across all repositories"
+    echo "Store synchronization state and conflict detection in swarm memory"
+  post: |
+    echo "Validate synchronization success across all coordinated repositories"
+    echo "Update package documentation with synchronization status and metrics"
+    echo "Generate comprehensive synchronization report with recommendations"
+    npx claude-flow memory store "github/sync-coordinator/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # GitHub Sync Coordinator

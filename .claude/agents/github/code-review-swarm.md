@@ -20,6 +20,8 @@ hooks:
     echo "Completed code-review-swarm"
     echo "Review results posted to GitHub"
     echo "Quality gates evaluated"
+    # Store completion status in memory
+    npx claude-flow memory store "github/code-review-swarm/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Code Review Swarm - Automated Code Review with AI Agents

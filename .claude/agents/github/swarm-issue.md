@@ -20,14 +20,15 @@ tools:
   - Read
   - Write
 hooks:
-  pre:
-    - "Initialize swarm coordination system for GitHub issue management"
-    - "Analyze issue context and determine optimal swarm topology"
-    - "Store issue metadata in swarm memory for cross-agent access"
-  post:
-    - "Update issue with swarm progress and agent assignments"
-    - "Create follow-up tasks based on swarm analysis results"
-    - "Generate comprehensive swarm coordination report"
+  pre: |
+    echo "Initialize swarm coordination system for GitHub issue management"
+    echo "Analyze issue context and determine optimal swarm topology"
+    echo "Store issue metadata in swarm memory for cross-agent access"
+  post: |
+    echo "Update issue with swarm progress and agent assignments"
+    echo "Create follow-up tasks based on swarm analysis results"
+    echo "Generate comprehensive swarm coordination report"
+    npx claude-flow memory store "github/swarm-issue/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Swarm Issue - Issue-Based Swarm Coordination

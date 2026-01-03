@@ -22,6 +22,8 @@ hooks:
     echo "Completed github-modes"
     echo "GitHub operations synchronized"
     echo "Workflow coordination finalized"
+    # Store completion status in memory
+    npx claude-flow memory store "github/github-modes/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # GitHub Integration Modes

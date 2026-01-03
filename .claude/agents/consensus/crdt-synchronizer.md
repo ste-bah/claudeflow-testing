@@ -21,6 +21,7 @@ hooks:
     echo "🎯 CRDT synchronization complete"
     # Verify eventual consistency
     echo "✅ Validating conflict-free state convergence"
+    npx claude-flow memory store "consensus/crdt-synchronizer/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # CRDT Synchronizer

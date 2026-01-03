@@ -21,6 +21,7 @@ hooks:
     echo "📈 Performance analysis complete"
     # Generate performance report
     echo "📋 Compiling benchmarking results and recommendations"
+    npx claude-flow memory store "consensus/performance-benchmarker/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Performance Benchmarker

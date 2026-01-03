@@ -21,16 +21,17 @@ tools:
   - mcp__claude-flow__github_code_review
   - mcp__claude-flow__github_metrics
 hooks:
-  pre:
-    - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
-    - "git status --porcelain"
-    - "gh pr list --state open --limit 1 >/dev/null || echo 'No open PRs'"
-    - "npm test --silent || echo 'Tests may need attention'"
-  post:
-    - "gh pr status || echo 'No active PR in current branch'"
-    - "git branch --show-current"
-    - "gh pr checks || echo 'No PR checks available'"
-    - "git log --oneline -3"
+  pre: |
+    gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)
+    git status --porcelain
+    gh pr list --state open --limit 1 >/dev/null || echo 'No open PRs'
+    npm test --silent || echo 'Tests may need attention'
+  post: |
+    gh pr status || echo 'No active PR in current branch'
+    git branch --show-current
+    gh pr checks || echo 'No PR checks available'
+    git log --oneline -3
+    npx claude-flow memory store "github/pr-manager/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # GitHub PR Manager

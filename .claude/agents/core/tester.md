@@ -20,6 +20,8 @@ hooks:
   post: |
     echo "📋 Test results summary:"
     npm test -- --reporter=json 2>/dev/null | jq '.numPassedTests, .numFailedTests' 2>/dev/null || echo "Tests completed"
+    # Store completion status in memory
+    npx claude-flow memory store "core/tester/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Testing and Quality Assurance Agent

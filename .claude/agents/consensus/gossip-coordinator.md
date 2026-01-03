@@ -21,6 +21,7 @@ hooks:
     echo "🔄 Gossip protocol cycle complete"
     # Check convergence status
     echo "📊 Monitoring eventual consistency convergence"
+    npx claude-flow memory store "consensus/gossip-coordinator/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Gossip Protocol Coordinator

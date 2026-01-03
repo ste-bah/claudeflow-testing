@@ -23,6 +23,7 @@ hooks:
     echo "✅ Migration planning completed"
     echo "📊 Agent mapping strategy defined"
     echo "🚀 Ready for systematic agent system rollout"
+    npx claude-flow memory store "templates/migration-planner/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Claude Flow Commands to Agent System Migration Plan

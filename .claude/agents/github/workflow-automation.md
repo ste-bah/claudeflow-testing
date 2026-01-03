@@ -25,14 +25,15 @@ tools:
   - Edit
   - Grep
 hooks:
-  pre:
-    - "Initialize workflow automation swarm with adaptive pipeline intelligence"
-    - "Analyze repository structure and determine optimal CI/CD strategies"
-    - "Store workflow templates and automation rules in swarm memory"
-  post:
-    - "Deploy optimized workflows with continuous performance monitoring"
-    - "Generate workflow automation metrics and optimization recommendations"
-    - "Update automation rules based on swarm learning and performance data"
+  pre: |
+    echo "Initialize workflow automation swarm with adaptive pipeline intelligence"
+    echo "Analyze repository structure and determine optimal CI/CD strategies"
+    echo "Store workflow templates and automation rules in swarm memory"
+  post: |
+    echo "Deploy optimized workflows with continuous performance monitoring"
+    echo "Generate workflow automation metrics and optimization recommendations"
+    echo "Update automation rules based on swarm learning and performance data"
+    npx claude-flow memory store "github/workflow-automation/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Workflow Automation - GitHub Actions Integration

@@ -22,14 +22,15 @@ tools:
   - mcp__claude-flow__github_sync_coord
   - mcp__claude-flow__github_metrics
 hooks:
-  pre:
-    - "gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)"
-    - "git status --porcelain || echo 'Not in git repository'"
-    - "gh repo list --limit 1 >/dev/null || (echo 'No repo access' && exit 1)"
-  post:
-    - "gh pr list --state open --limit 5 | grep -q . && echo 'Active PRs found'"
-    - "git log --oneline -5 | head -3"
-    - "gh repo view --json name,description,topics"
+  pre: |
+    gh auth status || (echo 'GitHub CLI not authenticated' && exit 1)
+    git status --porcelain || echo 'Not in git repository'
+    gh repo list --limit 1 >/dev/null || (echo 'No repo access' && exit 1)
+  post: |
+    gh pr list --state open --limit 5 | grep -q . && echo 'Active PRs found'
+    git log --oneline -5 | head -3
+    gh repo view --json name,description,topics
+    npx claude-flow memory store "github/multi-repo-swarm/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Multi-Repo Swarm - Cross-Repository Swarm Orchestration

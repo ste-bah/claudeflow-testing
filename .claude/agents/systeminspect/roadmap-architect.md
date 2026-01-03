@@ -19,6 +19,7 @@ hooks:
     echo "✅ Implementation roadmap complete"
     echo "🚀 Ready for subagent deployment"
     find docs/05_roadmap -name "*.md" 2>/dev/null | wc -l | xargs echo "Roadmap documents created:"
+    npx claude-flow memory store "systeminspect/roadmap-architect/output" '{"status":"complete","timestamp":"'$(date -Iseconds)'"}' --namespace "agents"
 ---
 
 # Implementation Roadmap & Execution Planning Specialist
