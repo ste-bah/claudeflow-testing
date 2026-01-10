@@ -13,6 +13,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Configuration](#configuration)
 - [Daemon Services](#daemon-services)
 - [PhD Research Pipeline (45 Agents)](#phd-research-pipeline-45-agents)
+- [Coding Pipeline (47 Agents)](#coding-pipeline-47-agents)
 - [Observability Dashboard](#observability-dashboard)
 - [Learning System](#learning-system)
 - [Quick Start](#quick-start)
@@ -486,6 +487,125 @@ npm install -g md-to-pdf
 # Generate PDF
 cd docs/research/<your-topic>/final
 md-to-pdf final-paper.md --pdf-options '{"format": "A4", "margin": {"top": "20mm", "bottom": "20mm", "left": "25mm", "right": "25mm"}}'
+```
+
+## Coding Pipeline (47 Agents)
+
+The God Agent includes a comprehensive 47-agent coding pipeline for software development tasks. The pipeline uses a 7-phase DAG-based architecture with forensic review agents that gate phase progression.
+
+### Running the Pipeline
+
+```bash
+# Via slash command in Claude Code
+/god-code "Implement a user authentication system"
+
+# The pipeline automatically triggers for coding tasks via hooks
+```
+
+### Pipeline Architecture
+
+The pipeline consists of **40 core development agents** plus **7 Sherlock forensic reviewers** (47 total):
+
+| Phase | Core Agents | Description |
+|-------|-------------|-------------|
+| **Phase 1: Understanding (5)** | task-analyzer*, requirement-extractor, scope-definer, context-gatherer, constraint-analyzer | Task parsing, requirements extraction, scope definition |
+| **Phase 2: Exploration (5)** | solution-explorer, pattern-matcher, analogy-finder, prior-art-searcher, feasibility-assessor | Solution space exploration, pattern matching |
+| **Phase 3: Architecture (6)** | architecture-designer, component-specifier, interface-designer, dependency-mapper, consistency-checker*, type-system-designer | System design, interface contracts |
+| **Phase 4: Implementation (8)** | type-generator, algorithm-implementer, data-structure-builder, api-implementer, integration-coder, error-handler, config-generator, utility-generator | Code generation, API implementation |
+| **Phase 5: Testing (8)** | test-planner, unit-test-writer, integration-test-writer, edge-case-tester, mock-generator, test-runner, bug-fixer, coverage-analyzer | Test creation, execution, coverage |
+| **Phase 6: Optimization (4)** | performance-optimizer, refactoring-agent, security-auditor, code-quality-checker | Performance tuning, security audit |
+| **Phase 7: Delivery (4)** | documentation-writer, code-reviewer, release-preparer, sign-off-approver* | Documentation, review, release |
+
+*\* = Critical agents that halt pipeline on failure*
+
+### Sherlock Forensic Reviewers
+
+Each phase is gated by a Sherlock forensic reviewer that performs quality verification:
+
+| Agent # | Agent | Phase Reviewed | Verdict Types |
+|---------|-------|----------------|---------------|
+| #41 | phase-1-reviewer | Understanding | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #42 | phase-2-reviewer | Exploration | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #43 | phase-3-reviewer | Architecture | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #44 | phase-4-reviewer | Implementation | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #45 | phase-5-reviewer | Testing | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #46 | phase-6-reviewer | Optimization | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #47 | recovery-agent | Delivery + Recovery | Orchestrates remediation on failures |
+
+All forensic reviewers are **CRITICAL** - they gate pipeline progression to ensure quality.
+
+### USACF Algorithms
+
+Each agent uses specialized algorithms from the USACF (Universal Search Algorithm for Claude Flow) framework:
+
+| Algorithm | Use Case |
+|-----------|----------|
+| **LATS** | Language Agent Tree Search - Complex algorithmic tasks |
+| **ReAct** | Reasoning + Acting - Tool-heavy tasks |
+| **Self-Debug** | Self-debugging - Test-driven tasks |
+| **Reflexion** | Pattern learning - Error recovery |
+| **PoT** | Program of Thought - Mathematical tasks |
+| **ToT** | Tree of Thought - Design decisions |
+
+### Hook Integration
+
+The pipeline integrates with Claude Code via hooks in `.claude/hooks/`:
+
+```json
+{
+  "hooks": [
+    {
+      "name": "coding-pipeline-pre",
+      "event": "PreToolUse",
+      "matcher": { "tool": "Skill", "args": { "skill": "god-code" } },
+      "command": ".claude/hooks/coding-pipeline-pre.sh"
+    },
+    {
+      "name": "coding-pipeline-post",
+      "event": "PostToolUse",
+      "matcher": { "tool": "Skill", "args": { "skill": "god-code" } },
+      "command": ".claude/hooks/coding-pipeline-post.sh"
+    }
+  ]
+}
+```
+
+### Memory Coordination
+
+The pipeline uses namespaced memory for agent coordination:
+
+```
+coding/
+├── understanding/  # Phase 1 artifacts
+├── exploration/    # Phase 2 artifacts
+├── architecture/   # Phase 3 artifacts
+├── implementation/ # Phase 4 artifacts
+├── testing/        # Phase 5 artifacts
+├── optimization/   # Phase 6 artifacts
+├── delivery/       # Phase 7 artifacts
+└── pipeline/       # Pipeline state and XP tracking
+```
+
+### Pipeline Execution Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    47-AGENT CODING PIPELINE                      │
+├─────────────────────────────────────────────────────────────────┤
+│  Phase 1 (5 agents) → Sherlock #41 → Phase 2 (5 agents)        │
+│           ↓                                    ↓                │
+│  Sherlock #42 → Phase 3 (6 agents) → Sherlock #43              │
+│           ↓                                    ↓                │
+│  Phase 4 (8 agents) → Sherlock #44 → Phase 5 (8 agents)        │
+│           ↓                                    ↓                │
+│  Sherlock #45 → Phase 6 (4 agents) → Sherlock #46              │
+│           ↓                                    ↓                │
+│  Phase 7 (4 agents) → Sherlock #47 (Recovery) → COMPLETE       │
+└─────────────────────────────────────────────────────────────────┘
+
+On GUILTY verdict: Recovery Agent (#47) orchestrates remediation
+Checkpoints created at: Understanding, Exploration, Architecture,
+                        Implementation, Testing (for rollback support)
 ```
 
 ## Observability Dashboard
