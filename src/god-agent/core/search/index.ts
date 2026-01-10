@@ -76,3 +76,15 @@ export { FusionScorer } from './fusion-scorer.js';
 
 // Unified Search (PRD-GOD-AGENT-001 / TASK-SEARCH-001)
 export { UnifiedSearch } from './unified-search.js';
+
+// Dual Code Embedding (PRD-GOD-AGENT-001 / TASK-LEANN-003)
+export {
+  DualCodeEmbeddingProvider,
+  createDualCodeEmbeddingProvider,
+  createLEANNEmbedder,
+  type ContentType,
+  type DualCodeEmbeddingConfig,
+  type CacheStats,
+  type EmbeddingResult,
+  DEFAULT_DUAL_CODE_CONFIG,
+} from './dual-code-embedding.js';

@@ -49,3 +49,12 @@ export {
   getMetricFunction,
   isSimilarityMetric
 } from './distance-metrics.js';
+
+// LEANN Backend (value export)
+export { LEANNBackend } from './leann-backend.js';
+
+// LEANN types and constants (value exports)
+export { DEFAULT_LEANN_CONFIG, LEANN_STORAGE_VERSION } from './leann-types.js';
+
+// LEANN Backend types (type-only exports for ESM compatibility)
+export type { LEANNConfig, LEANNStats, HubCacheEntry, GraphNode } from './leann-types.js';
