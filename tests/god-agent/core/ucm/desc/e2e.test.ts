@@ -79,18 +79,63 @@ function createMockDb(): IDatabaseConnection & {
         return { lastInsertRowid: 1 };
       }
 
+      // Handle UPDATE episodes SET trajectory_id (from TrajectoryLinker.linkEpisodeToTrajectory)
+      if (sql.includes('UPDATE episodes') && sql.includes('trajectory_id')) {
+        const [trajectoryId, reasoningTrace, linkedAt, episodeId] = params as [string, string | null, string, string];
+        trajectoryLinks.set(episodeId, {
+          episode_id: episodeId,
+          trajectory_id: trajectoryId,
+          reasoning_trace: reasoningTrace || '',
+          linked_at: linkedAt
+        });
+        return { lastInsertRowid: 1 };
+      }
+
       return { lastInsertRowid: 1 };
     },
 
     async get(sql: string, params?: unknown[]): Promise<unknown | undefined> {
       // Episode existence check - auto-register new episodes
-      if (sql.includes('SELECT episode_id FROM episodes')) {
+      if (sql.includes('SELECT episode_id FROM episodes WHERE episode_id')) {
         const episodeId = params?.[0] as string;
         // Auto-register episode if not exists
         if (!episodes.has(episodeId)) {
           episodes.add(episodeId);
         }
         return { episode_id: episodeId };
+      }
+
+      // Handle trajectory link queries (for getTrajectoryLink)
+      if (sql.includes('trajectory_id') && sql.includes('reasoning_trace') && sql.includes('trajectory_linked_at')) {
+        const episodeId = params?.[0] as string;
+        const link = trajectoryLinks.get(episodeId) as { trajectory_id?: string; reasoning_trace?: string; linked_at?: string } | undefined;
+        if (link && link.trajectory_id) {
+          return {
+            episode_id: episodeId,
+            trajectory_id: link.trajectory_id,
+            reasoning_trace: link.reasoning_trace || '',
+            trajectory_linked_at: link.linked_at || new Date().toISOString()
+          };
+        }
+        return { episode_id: episodeId, trajectory_id: null, reasoning_trace: null, trajectory_linked_at: null };
+      }
+
+      // Handle episode_stats queries (used by getEpisodeStats and getSuccessRate)
+      if (sql.includes('FROM episode_stats') || sql.includes('episode_stats WHERE')) {
+        const episodeId = params?.[0] as string;
+        const outcomeList = outcomes.get(episodeId) || [];
+        const successCount = outcomeList.filter((o: any) => o.success === 1 || o.success === true).length;
+        const failureCount = outcomeList.length - successCount;
+        const successRate = outcomeList.length >= 3 ? successCount / outcomeList.length : null;
+
+        return {
+          episode_id: episodeId,
+          outcome_count: outcomeList.length,
+          success_count: successCount,
+          failure_count: failureCount,
+          success_rate: successRate,
+          last_outcome_at: outcomeList.length > 0 ? new Date().toISOString() : null
+        };
       }
 
       if (sql.includes('SELECT * FROM episode_outcomes')) {
@@ -102,7 +147,7 @@ function createMockDb(): IDatabaseConnection & {
       if (sql.includes('COUNT(*) as outcome_count')) {
         const episodeId = params?.[0] as string;
         const outcomeList = outcomes.get(episodeId) || [];
-        const successCount = outcomeList.filter((o: any) => o.success).length;
+        const successCount = outcomeList.filter((o: any) => o.success === 1 || o.success === true).length;
         const failureCount = outcomeList.length - successCount;
 
         return {
@@ -122,13 +167,27 @@ function createMockDb(): IDatabaseConnection & {
       if (sql.includes('SELECT success')) {
         const episodeId = params?.[0] as string;
         const outcomeList = outcomes.get(episodeId) || [];
-        const successCount = outcomeList.filter((o: any) => o.success).length;
+        const successCount = outcomeList.filter((o: any) => o.success === 1 || o.success === true).length;
         const failureCount = outcomeList.length - successCount;
 
         return {
           true_positives: successCount,
           false_positives: failureCount
         };
+      }
+
+      // Handle MetricsAggregator.getFalsePositiveRate query
+      if (sql.includes('false_positive_rate') && sql.includes('episode_outcomes')) {
+        // Aggregate false positive rate across all outcomes
+        const allOutcomes: unknown[] = [];
+        outcomes.forEach((list) => allOutcomes.push(...list));
+
+        if (allOutcomes.length === 0) {
+          return { false_positive_rate: 0 };
+        }
+
+        const failureCount = allOutcomes.filter((o: any) => o.success === 0 || o.success === false).length;
+        return { false_positive_rate: failureCount / allOutcomes.length };
       }
 
       return undefined;
@@ -180,6 +239,27 @@ function createMockDb(): IDatabaseConnection & {
         ];
       }
 
+      // Handle MetricsAggregator.getMetrics query (GROUP BY category)
+      if (sql.includes('FROM episode_outcomes') && sql.includes('GROUP BY category')) {
+        const allOutcomes: unknown[] = [];
+        outcomes.forEach((list) => allOutcomes.push(...list));
+
+        if (allOutcomes.length === 0) return [];
+
+        const successCount = allOutcomes.filter((o: any) => o.success === 1 || o.success === true).length;
+        const failureCount = allOutcomes.length - successCount;
+
+        return [
+          {
+            category: 'general',
+            injection_count: allOutcomes.length,
+            success_rate: allOutcomes.length > 0 ? successCount / allOutcomes.length : 0,
+            false_positive_rate: allOutcomes.length > 0 ? failureCount / allOutcomes.length : 0,
+            avg_confidence: 0.5
+          }
+        ];
+      }
+
       return [];
     },
 
@@ -226,7 +306,7 @@ describe('IDESC v2 End-to-End Tests', () => {
       confidenceCalculator,
       negativeProvider
     );
-    metricsAggregator = new MetricsAggregator(outcomeTracker, mockDb);
+    metricsAggregator = new MetricsAggregator(mockDb);
     trajectoryLinker = new TrajectoryLinker(mockDb);
   });
 
@@ -424,29 +504,33 @@ describe('IDESC v2 End-to-End Tests', () => {
       // Verify warning generated
       const warning = await negativeProvider.getWarning(episodeId);
       expect(warning).not.toBeNull();
-      expect(warning?.warningText).toContain('CAUTION');
-      expect(warning?.severity).toBe('HIGH');
-      expect(warning?.failureRate).toBeGreaterThanOrEqual(0.8);
+      expect(warning?.warningText).toContain('<caution>');
+      // IWarningMessage has successRate, not severity/failureRate
+      // 4 failures out of 4 = 0% success rate
+      expect(warning?.successRate).toBeLessThanOrEqual(0.2);
+      expect(warning?.failureCount).toBeGreaterThanOrEqual(4);
     });
 
     it('records outcomes automatically', async () => {
       const episodeId = 'auto-record-test';
 
-      // Simulate outcome recording hook
-      await outcomeRecorderHook({
-        toolName: 'Task',
-        result: { success: true },
-        metadata: {
-          injectedEpisodeIds: [episodeId],
-          taskId: 'auto-test'
-        }
-      });
+      // Simulate outcome recording hook (3 times to get a success rate)
+      for (let i = 0; i < 3; i++) {
+        await outcomeRecorderHook({
+          toolName: 'Task',
+          result: { success: true },
+          metadata: {
+            injectedEpisodeIds: [episodeId],
+            taskId: `auto-test-${i}`
+          }
+        });
+      }
 
-      // Verify outcome recorded
+      // Verify outcomes recorded
       const stats = await outcomeTracker.getEpisodeStats(episodeId);
-      expect(stats.outcomeCount).toBe(1);
-      expect(stats.successCount).toBe(1);
-      expect(stats.successRate).toBe(1.0);
+      expect(stats.outcomeCount).toBe(3);
+      expect(stats.successCount).toBe(3);
+      expect(stats.successRate).toBe(1.0); // 3+ outcomes allows success rate calculation
     });
 
     it('aggregates metrics correctly', async () => {
@@ -467,11 +551,13 @@ describe('IDESC v2 End-to-End Tests', () => {
       expect(metrics).toBeDefined();
       expect(Array.isArray(metrics)).toBe(true);
 
-      // Should have data points
+      // Should have data points matching IInjectionMetrics interface
       if (metrics.length > 0) {
-        expect(metrics[0]).toHaveProperty('timestamp');
-        expect(metrics[0]).toHaveProperty('totalOutcomes');
+        expect(metrics[0]).toHaveProperty('category');
+        expect(metrics[0]).toHaveProperty('injectionCount');
         expect(metrics[0]).toHaveProperty('successRate');
+        expect(metrics[0]).toHaveProperty('falsePositiveRate');
+        expect(metrics[0]).toHaveProperty('timeWindow');
       }
     });
 
@@ -529,12 +615,13 @@ describe('IDESC v2 End-to-End Tests', () => {
       // Get warning
       const warning = await negativeProvider.getWarning(episodeId);
 
-      // Validate warning structure
+      // Validate warning structure (IWarningMessage interface)
       expect(warning).not.toBeNull();
       expect(warning?.warningText).toBeDefined();
-      expect(warning?.severity).toBeOneOf(['LOW', 'MEDIUM', 'HIGH']);
-      expect(warning?.failureRate).toBeGreaterThanOrEqual(0.8);
+      // IWarningMessage has successRate, not severity/failureRate
+      expect(warning?.successRate).toBeLessThanOrEqual(0.2); // 5 failures = 0% success
       expect(warning?.failureCount).toBeGreaterThanOrEqual(5);
+      expect(warning?.totalOutcomes).toBeGreaterThanOrEqual(5);
     });
 
     it('US-IDESC-002: High confidence for proven solutions', async () => {

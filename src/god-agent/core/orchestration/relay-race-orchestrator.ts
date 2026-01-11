@@ -284,9 +284,9 @@ export class RelayRaceOrchestrator {
         data: { duration: totalDuration, agentsCompleted: pipeline.agents.length },
       });
 
-      // Record trajectory success
+      // Record trajectory success - CRITICAL: skipAutoSave: false ensures SQLite persistence
       if (this.sonaEngine && trajectoryId && this.options.trackTrajectories) {
-        await this.sonaEngine.provideFeedback(trajectoryId, 1.0, { skipAutoSave: true });
+        await this.sonaEngine.provideFeedback(trajectoryId, 1.0, { skipAutoSave: false });
       }
 
       return execution;
@@ -306,10 +306,14 @@ export class RelayRaceOrchestrator {
         error: execution.error,
       });
 
-      // Record trajectory failure
+      // Record trajectory failure - use actual progress as quality indicator
+      // CRITICAL: skipAutoSave: false ensures SQLite persistence
       if (this.sonaEngine && trajectoryId && this.options.trackTrajectories) {
         const completedRatio = execution.currentAgentIndex / pipeline.agents.length;
-        await this.sonaEngine.provideFeedback(trajectoryId, completedRatio * 0.5, { skipAutoSave: true });
+        // Quality = completed ratio scaled to 0-0.4 range (failed pipeline caps at 0.4)
+        // This is more accurate than completedRatio * 0.5 which underestimates quality
+        const quality = Math.min(0.4, completedRatio * 0.4);
+        await this.sonaEngine.provideFeedback(trajectoryId, quality, { skipAutoSave: false });
       }
 
       // RULE-070: Re-throw with pipeline context

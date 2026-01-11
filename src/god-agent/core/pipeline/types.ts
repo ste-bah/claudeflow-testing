@@ -331,16 +331,17 @@ export const CHECKPOINT_PHASES: CodingPipelinePhase[] = [
 ];
 
 /**
- * Number of agents per phase
+ * Number of agents per phase (core + Sherlock forensic reviewer)
+ * Each phase includes its Sherlock reviewer for forensic analysis
  */
 export const PHASE_AGENT_COUNTS: Record<CodingPipelinePhase, number> = {
-  understanding: 5,
-  exploration: 5,
-  architecture: 6,
-  implementation: 8,
-  testing: 8,
-  optimization: 4,
-  delivery: 4,
+  understanding: 6,    // 5 core + phase-1-reviewer
+  exploration: 6,      // 5 core + phase-2-reviewer
+  architecture: 7,     // 6 core + phase-3-reviewer
+  implementation: 9,   // 8 core + phase-4-reviewer
+  testing: 9,          // 8 core + phase-5-reviewer
+  optimization: 5,     // 4 core + phase-6-reviewer
+  delivery: 5,         // 4 core + recovery-agent
 };
 
 /**

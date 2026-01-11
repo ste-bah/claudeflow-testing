@@ -11,6 +11,7 @@
 
 import type { InteractionStore } from '../universal/interaction-store.js';
 import type { ReasoningBank } from '../core/reasoning/reasoning-bank.js';
+import type { SonaEngine } from '../core/learning/sona-engine.js';
 import type {
   IWorkflowState,
   IStorageResult,
@@ -104,6 +105,7 @@ export class OrchestrationMemoryManager {
   private config: IOrchestrationMemoryConfig;
   private interactionStore: InteractionStore;
   private reasoningBank: ReasoningBank;
+  private sonaEngine: SonaEngine | null;
   private metrics: IOrchestrationMetrics;
   private extractorService: ExtractorService;
   private contextInjector: ContextInjector;
@@ -117,12 +119,14 @@ export class OrchestrationMemoryManager {
    * @param config - Configuration options
    * @param interactionStore - InteractionStore instance
    * @param reasoningBank - ReasoningBank instance
+   * @param sonaEngine - SonaEngine instance (optional, for direct feedback persistence)
    * @throws Error if dependencies are invalid
    */
   constructor(
     config: IOrchestrationMemoryConfig,
     interactionStore: InteractionStore,
-    reasoningBank: ReasoningBank
+    reasoningBank: ReasoningBank,
+    sonaEngine?: SonaEngine
   ) {
     // Validate dependencies
     if (!interactionStore) {
@@ -135,6 +139,7 @@ export class OrchestrationMemoryManager {
     this.config = config;
     this.interactionStore = interactionStore;
     this.reasoningBank = reasoningBank;
+    this.sonaEngine = sonaEngine || null;
 
     // Initialize services
     this.extractorService = new ExtractorService();
@@ -569,14 +574,22 @@ export class OrchestrationMemoryManager {
       error: metadata.error
     });
 
-    // 2. Try submitting to ReasoningBank
+    // 2. Try submitting feedback - prefer SonaEngine for direct SQLite persistence
     try {
-      await this.reasoningBank.provideFeedback({
-        trajectoryId: metadata.trajectoryId,
-        quality: estimate.quality,
-        feedback: estimate.reasoning,
-        verdict: estimate.outcome === 'positive' ? 'correct' : estimate.outcome === 'negative' ? 'incorrect' : 'neutral'
-      });
+      if (this.sonaEngine) {
+        // Direct path to SonaEngine for guaranteed SQLite persistence
+        await this.sonaEngine.provideFeedback(metadata.trajectoryId, estimate.quality, {
+          skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+        });
+      } else {
+        // Fallback to ReasoningBank (indirect path)
+        await this.reasoningBank.provideFeedback({
+          trajectoryId: metadata.trajectoryId,
+          quality: estimate.quality,
+          feedback: estimate.reasoning,
+          verdict: estimate.outcome === 'positive' ? 'correct' : estimate.outcome === 'negative' ? 'incorrect' : 'neutral'
+        });
+      }
 
       // 3. Success - update metrics
       this.metrics.feedbackCount++;
@@ -650,12 +663,19 @@ export class OrchestrationMemoryManager {
 
     for (const entry of batch) {
       try {
-        await this.reasoningBank.provideFeedback({
-          trajectoryId: entry.trajectoryId,
-          quality: entry.quality,
-          feedback: entry.metadata.reasoning,
-          verdict: entry.outcome === 'positive' ? 'correct' : entry.outcome === 'negative' ? 'incorrect' : 'neutral'
-        });
+        // Prefer SonaEngine for direct SQLite persistence
+        if (this.sonaEngine) {
+          await this.sonaEngine.provideFeedback(entry.trajectoryId, entry.quality, {
+            skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+          });
+        } else {
+          await this.reasoningBank.provideFeedback({
+            trajectoryId: entry.trajectoryId,
+            quality: entry.quality,
+            feedback: entry.metadata.reasoning,
+            verdict: entry.outcome === 'positive' ? 'correct' : entry.outcome === 'negative' ? 'incorrect' : 'neutral'
+          });
+        }
 
         // Success - remove from queue
         this.feedbackQueue = this.feedbackQueue.filter(e => e.trajectoryId !== entry.trajectoryId);

@@ -22,6 +22,7 @@ import type { AgentRegistry } from '../agents/agent-registry.js';
 import type { AgentSelector, IAgentSelectionResult } from '../agents/agent-selector.js';
 import type { InteractionStore } from '../../universal/interaction-store.js';
 import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
+import type { SonaEngine } from '../learning/sona-engine.js';
 import type {
   IPipelineDefinition,
   IPipelineStep,
@@ -127,6 +128,7 @@ export class PipelineExecutor {
       agentSelector: AgentSelector;
       interactionStore: InteractionStore;
       reasoningBank?: ReasoningBank;
+      sonaEngine?: SonaEngine;
     },
     config: IPipelineExecutorConfig = {}
   ) {
@@ -724,7 +726,8 @@ export class PipelineExecutor {
   }
 
   /**
-   * Provide feedback to ReasoningBank for a step.
+   * Provide feedback to SonaEngine for a step (direct SQLite persistence).
+   * Falls back to ReasoningBank if SonaEngine is not available.
    */
   private async provideStepFeedback(
     trajectoryId: string,
@@ -732,6 +735,32 @@ export class PipelineExecutor {
     agentKey: string,
     stepIndex: number
   ): Promise<void> {
+    // Prefer SonaEngine for direct SQLite persistence
+    if (this.dependencies.sonaEngine) {
+      try {
+        await this.dependencies.sonaEngine.provideFeedback(trajectoryId, quality, {
+          skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+        });
+
+        this.emitEvent({
+          type: PipelineEventType.FEEDBACK_PROVIDED,
+          pipelineId: trajectoryId.split('_')[2] || 'unknown',
+          timestamp: Date.now(),
+          data: {
+            trajectoryId,
+            quality,
+            agentKey,
+            stepIndex,
+            outcome: quality >= 0.7 ? 'positive' : 'negative',
+          },
+        });
+        return;
+      } catch (error) {
+        this.log(`[Feedback] Warning: SonaEngine feedback failed, trying ReasoningBank: ${(error as Error).message}`);
+      }
+    }
+
+    // Fallback to ReasoningBank
     if (!this.dependencies.reasoningBank) return;
 
     try {
@@ -761,7 +790,8 @@ export class PipelineExecutor {
   }
 
   /**
-   * Provide feedback to ReasoningBank for the entire pipeline.
+   * Provide feedback to SonaEngine for the entire pipeline (direct SQLite persistence).
+   * Falls back to ReasoningBank if SonaEngine is not available.
    */
   private async providePipelineFeedback(
     trajectoryId: string,
@@ -770,6 +800,19 @@ export class PipelineExecutor {
     pipelineName: string,
     errorMessage?: string
   ): Promise<void> {
+    // Prefer SonaEngine for direct SQLite persistence
+    if (this.dependencies.sonaEngine) {
+      try {
+        await this.dependencies.sonaEngine.provideFeedback(trajectoryId, quality, {
+          skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+        });
+        return;
+      } catch (error) {
+        this.log(`[Feedback] Warning: SonaEngine pipeline feedback failed, trying ReasoningBank: ${(error as Error).message}`);
+      }
+    }
+
+    // Fallback to ReasoningBank
     if (!this.dependencies.reasoningBank) return;
 
     try {
