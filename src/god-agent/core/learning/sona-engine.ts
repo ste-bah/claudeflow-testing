@@ -852,8 +852,8 @@ export class SonaEngine {
     // 1. Validate quality
     validateFeedbackQuality(quality);
 
-    // 2. Retrieve trajectory
-    const trajectory = this.trajectories.get(trajectoryId);
+    // 2. Retrieve trajectory (with SQLite fallback per FIX-PLAN.md)
+    const trajectory = this.getTrajectory(trajectoryId);
     if (!trajectory) {
       throw new FeedbackValidationError(`Trajectory ${trajectoryId} not found`);
     }
@@ -1046,6 +1046,27 @@ export class SonaEngine {
         } catch (error) {
           // Log but don't fail - in-memory operations still complete
           console.warn(`[SonaEngine] Failed to persist feedback for ${trajectoryId}:`, error);
+        }
+      }
+
+      // ============================================================
+      // BUG-1 FIX: Wire PatternDAO incrementSuccess/incrementFailure
+      // Update pattern success/failure counts based on feedback quality
+      // Success threshold: quality >= 0.7
+      // ============================================================
+      if (this.persistenceEnabled && this.patternDAO) {
+        const SUCCESS_THRESHOLD = 0.7;
+        for (const patternId of trajectory.patterns) {
+          try {
+            if (quality >= SUCCESS_THRESHOLD) {
+              this.patternDAO.incrementSuccess(patternId);
+            } else {
+              this.patternDAO.incrementFailure(patternId);
+            }
+          } catch (error) {
+            // Log but don't fail - pattern may not exist in DB yet
+            console.warn(`[SonaEngine] Failed to update pattern ${patternId} counts:`, error);
+          }
         }
       }
 
