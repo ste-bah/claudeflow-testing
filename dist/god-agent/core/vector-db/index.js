@@ -18,4 +18,8 @@ export { FallbackHNSW } from './fallback-hnsw.js';
 export { BackendSelector } from './backend-selector.js';
 // Distance metrics (exported for direct use if needed)
 export { cosineSimilarity, euclideanDistance, dotProduct, manhattanDistance, getMetricFunction, isSimilarityMetric } from './distance-metrics.js';
+// LEANN Backend (value export)
+export { LEANNBackend } from './leann-backend.js';
+// LEANN types and constants (value exports)
+export { DEFAULT_LEANN_CONFIG, LEANN_STORAGE_VERSION } from './leann-types.js';
 //# sourceMappingURL=index.js.map

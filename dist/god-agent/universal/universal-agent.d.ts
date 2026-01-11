@@ -20,6 +20,7 @@ import { AgentRegistry, AgentSelector, TaskExecutor, type IAgentSelectionResult 
 import { PipelineExecutor, type IPipelineDefinition, type DAI002PipelineResult, type DAI002PipelineOptions } from '../core/pipeline/index.js';
 import { type IRoutingResult, type IGeneratedPipeline } from '../core/routing/index.js';
 import { MemoryClient } from '../core/memory-server/index.js';
+import { type IPipelineExecutionConfig } from '../core/pipeline/types.js';
 import { type KnowledgeChunk } from './knowledge-chunker.js';
 export type AgentMode = 'code' | 'research' | 'write' | 'general';
 export interface UniversalConfig {
@@ -204,13 +205,28 @@ export interface ICodeTaskPreparation {
     trajectoryId: string | null;
     /** Whether this is a multi-agent pipeline task */
     isPipeline: boolean;
-    /** Pipeline definition if isPipeline is true */
+    /**
+     * Pipeline definition if isPipeline is true
+     * TASK-PREP-003: Extended with full DAG configuration
+     */
     pipeline?: {
+        /** Phase names for backward compatibility */
         steps: string[];
+        /** Agent keys for backward compatibility */
         agents: string[];
+        /**
+         * Full pipeline configuration with DAG, phases, and agent mappings
+         * Implements [REQ-PREP-003]: Dynamic 40-agent DAG generation
+         */
+        config?: IPipelineExecutionConfig;
     };
     /** Detected or specified programming language */
     language?: string;
+    /**
+     * TASK-PREP-003: Whether pipeline was triggered by hook context
+     * Implements [REQ-PREP-002]: Hook context detection at coding/context/task
+     */
+    triggeredByHook?: boolean;
 }
 /**
  * TASK-GODWRITE-001: Write task preparation result for two-phase execution
@@ -563,6 +579,10 @@ export declare class UniversalAgent {
     prepareCodeTask(task: string, options?: {
         language?: string;
         context?: string;
+        /** TASK-PREP-003: Start phase for partial execution (0-6) */
+        startPhase?: number;
+        /** TASK-PREP-003: End phase for partial execution (0-6) */
+        endPhase?: number;
     }): Promise<ICodeTaskPreparation>;
     /**
      * TASK-GODWRITE-001: Prepare write task for two-phase execution
@@ -623,8 +643,19 @@ export declare class UniversalAgent {
     private isPipelineWritingTask;
     /**
      * Check if a task requires multi-agent pipeline execution
+     * Uses sophisticated CommandTaskBridge complexity analysis with scoring system:
+     * - Phase keywords: +0.15 each (implement, test, design, etc.)
+     * - Document keywords: +0.2 each (api, database, authentication, etc.)
+     * - Multi-step patterns: +0.25 (create...and...test, build...with...validation)
+     * - Connector words: +0.1 each (and, with, including, then)
+     * - Action verbs (>=2): +(verbCount-1) * 0.1
+     * - Word count >15: +0.1
+     *
+     * TASK-PIPELINE-FIX: Replaces weak regex patterns that missed complex tasks
+     * like "REST API with Auth" and "snake game with scoreboard"
+     *
      * @param task - The task description
-     * @returns true if task benefits from pipeline execution
+     * @returns true if complexity score >= DEFAULT_PIPELINE_THRESHOLD (0.6)
      */
     private isPipelineTask;
     /**

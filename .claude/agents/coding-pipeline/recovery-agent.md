@@ -25,17 +25,15 @@ qualityGates:
   maxRecoveryAttempts: 3
   requiresEscalation: true
 hooks:
-  pre:
-    - action: retrieve
-      keys:
-        - coding/sherlock/phase-*-review
-        - coding/pipeline/state
-        - coding/failures/history
-  post:
-    - action: store
-      key: coding/sherlock/recovery-report
-    - action: notify
-      channel: pipeline-alerts
+  pre: |
+    echo "[recovery-agent] Starting Sherlock Recovery Agent..."
+    npx claude-flow memory retrieve --key "coding/sherlock/phase-*-review"
+    npx claude-flow memory retrieve --key "coding/pipeline/state"
+    npx claude-flow memory retrieve --key "coding/failures/history"
+  post: |
+    npx claude-flow memory store "coding/sherlock/recovery-report" '{"agent": "recovery-agent", "timestamp": "'$(date -Iseconds)'", "status": "complete"}' --namespace "coding-pipeline"
+    echo "[recovery-agent] Notifying pipeline-alerts channel..."
+    echo "[recovery-agent] Recovery Agent complete..."
 ---
 
 # Agent 047: Recovery Agent (Sherlock)

@@ -111,7 +111,13 @@ export declare class PipelineExecutor {
     private executeWithTimeout;
     /**
      * Default execution implementation.
-     * In production, this would use Claude Code's Task() tool.
+     * PRODUCTION-READY: Throws error requiring stepExecutor injection.
+     *
+     * This method is called when no stepExecutor is provided via config.
+     * In production, you MUST provide a stepExecutor that integrates with
+     * Claude Code's Task() tool or another agent execution mechanism.
+     *
+     * @throws PipelineExecutionError - Always throws, requiring explicit executor injection
      */
     private defaultExecute;
     /**

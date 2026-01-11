@@ -34,6 +34,29 @@ interface AppendixResult {
     inlined: boolean;
 }
 /**
+ * Options for PDF generation in writeOutputFiles
+ */
+export interface PdfGenerationOptions {
+    /** Generate PDF alongside markdown output */
+    generatePdf?: boolean;
+    /** Authors for the PDF title page */
+    authors?: Array<{
+        name: string;
+        affiliationIds?: number[];
+        orcid?: string;
+    }>;
+    /** Affiliations for the PDF title page */
+    affiliations?: Array<{
+        id: number;
+        name: string;
+        department?: string;
+    }>;
+    /** Abstract text (extracted from Chapter 1 if not provided) */
+    abstract?: string;
+    /** Keywords for the abstract */
+    keywords?: string[];
+}
+/**
  * PaperCombiner - Combines all chapter outputs into a final paper
  *
  * @example
@@ -78,8 +101,25 @@ export declare class PaperCombiner {
      *
      * @param paper - Combined FinalPaper object
      * @param outputDir - Path to final/ output directory
+     * @param pdfOptions - Optional PDF generation options
      */
-    writeOutputFiles(paper: FinalPaper, outputDir: string): Promise<void>;
+    writeOutputFiles(paper: FinalPaper, outputDir: string, pdfOptions?: PdfGenerationOptions): Promise<void>;
+    /**
+     * Transform FinalPaper to PaperInputForGeneration format for PDF generation
+     *
+     * @param paper - The combined FinalPaper object
+     * @param options - PDF generation options
+     * @returns PaperInputForGeneration compatible object
+     */
+    private transformToPaperInput;
+    /**
+     * Extract abstract text from chapter content
+     * Looks for the first substantial paragraph after the title
+     *
+     * @param content - Chapter markdown content
+     * @returns Extracted abstract text or undefined
+     */
+    private extractAbstractFromContent;
     /**
      * Generate paper metadata from slug and chapters
      *

@@ -14,4 +14,5 @@ export { TimeoutError, withTimeout, computeContentHash, measureTime, generateRes
 export { VectorSourceAdapter, GraphSourceAdapter, MemorySourceAdapter, PatternSourceAdapter, } from './adapters/index.js';
 export { FusionScorer } from './fusion-scorer.js';
 export { UnifiedSearch } from './unified-search.js';
+export { DualCodeEmbeddingProvider, createDualCodeEmbeddingProvider, createLEANNEmbedder, type ContentType, type DualCodeEmbeddingConfig, type CacheStats, type EmbeddingResult, DEFAULT_DUAL_CODE_CONFIG, } from './dual-code-embedding.js';
 //# sourceMappingURL=index.d.ts.map

@@ -447,25 +447,26 @@ export class PipelineExecutor {
     }
     /**
      * Default execution implementation.
-     * In production, this would use Claude Code's Task() tool.
+     * PRODUCTION-READY: Throws error requiring stepExecutor injection.
+     *
+     * This method is called when no stepExecutor is provided via config.
+     * In production, you MUST provide a stepExecutor that integrates with
+     * Claude Code's Task() tool or another agent execution mechanism.
+     *
+     * @throws PipelineExecutionError - Always throws, requiring explicit executor injection
      */
-    async defaultExecute(agentKey, prompt) {
-        // This is a stub - actual implementation would call Task() subagent
-        // For now, return a placeholder result
-        // The actual executor will be injected via stepExecutor config
-        const startTime = Date.now();
-        // Simulate some processing time
-        await new Promise(resolve => setTimeout(resolve, 10));
-        return {
-            output: {
-                agentKey,
-                promptLength: prompt.length,
-                executed: true,
-                timestamp: Date.now(),
-            },
-            quality: 0.85, // Default quality
-            duration: Date.now() - startTime,
-        };
+    async defaultExecute(agentKey, _prompt) {
+        // PRODUCTION GUARD: Do not allow silent fake execution
+        // The stepExecutor MUST be injected via config for real agent execution
+        throw new PipelineExecutionError(`No stepExecutor provided for agent "${agentKey}". ` +
+            `You must inject a stepExecutor via IPipelineExecutorConfig.stepExecutor ` +
+            `that implements IStepExecutor.execute() to run real agents. ` +
+            `See tests/god-agent/core/integration/agent-execution.test.ts for examples.`, {
+            pipelineId: 'configuration-error',
+            pipelineName: 'configuration-error',
+            agentKey,
+            stepIndex: -1,
+        });
     }
     /**
      * Create a timeout promise that rejects with PipelineTimeoutError.

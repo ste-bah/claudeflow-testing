@@ -63,6 +63,15 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; SKILL=$(cat | jq -r \".tool_input.skill // empty\"); if [ \"$SKILL\" = \"god-code\" ] && [ -x \"$ROOT/.claude/hooks/coding-pipeline-pre.sh\" ]; then \"$ROOT/.claude/hooks/coding-pipeline-pre.sh\"; fi || true'"
+          }
+        ]
+      },
+      {
         "matcher": "Task",
         "hooks": [
           {
@@ -95,6 +104,15 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; SKILL=$(cat | jq -r \".tool_input.skill // empty\"); if [ \"$SKILL\" = \"god-code\" ] && [ -x \"$ROOT/.claude/hooks/coding-pipeline-post.sh\" ]; then \"$ROOT/.claude/hooks/coding-pipeline-post.sh\"; fi || true'"
+          }
+        ]
+      },
       {
         "matcher": "Task",
         "hooks": [
@@ -168,6 +186,10 @@
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npm run god-agent:start 2>/dev/null || true'"
+          },
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-session-start.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\" || true'"

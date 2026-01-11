@@ -16,6 +16,8 @@
 import { UniversalAgent } from './universal-agent.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+// Import CommandTaskBridge for sophisticated pipeline detection (fixes isPipeline: false bug)
+import { CommandTaskBridge, DEFAULT_PIPELINE_THRESHOLD, } from '../core/pipeline/command-task-bridge.js';
 // Import hook registry for standalone mode initialization (TASK-HOOK-008)
 import { getHookRegistry, registerRequiredHooks, setDescServiceGetter, setSonaEngineGetter } from '../core/hooks/index.js';
 /**
@@ -75,21 +77,31 @@ function outputJson(output) {
     console.log(JSON.stringify(output, null, 2));
 }
 /**
- * Detect if task requires multi-agent pipeline (heuristic)
+ * Detect if task requires multi-agent pipeline using CommandTaskBridge scoring
+ *
+ * Uses sophisticated complexity analysis with weighted scoring:
+ * - Phase keywords (understand, design, implement, test): +0.15 each
+ * - Document keywords (paper, thesis, dissertation): +0.2 each
+ * - Multi-step patterns (then, after, finally): +0.25
+ * - Connector words (and, with, also): +0.1 each
+ * - Multiple action verbs (>=2): +(verbCount-1) * 0.1
+ * - Word count >15: +0.1
+ *
+ * Pipeline triggers when score >= DEFAULT_PIPELINE_THRESHOLD (0.6)
  */
 function isPipelineTask(input) {
-    // Heuristics for multi-step tasks that benefit from pipeline execution
-    const pipelineIndicators = [
-        /implement.*and.*test/i,
-        /create.*with.*validation/i,
-        /build.*complete/i,
-        /full.*implementation/i,
-        /end.to.end/i,
-        /multi.step/i,
-        /comprehensive/i,
-        /including.*tests/i,
-    ];
-    return pipelineIndicators.some(pattern => pattern.test(input));
+    const bridge = new CommandTaskBridge();
+    const analysis = bridge.analyzeTaskComplexity(input);
+    const isPipeline = analysis.score >= DEFAULT_PIPELINE_THRESHOLD;
+    // Log decision for debugging (visible in CLI output)
+    if (isPipeline) {
+        console.error(`[Pipeline] TRIGGERED: score=${analysis.score.toFixed(2)} >= threshold=${DEFAULT_PIPELINE_THRESHOLD}`);
+        console.error(`[Pipeline] Reason: ${analysis.reasoning}`);
+    }
+    else {
+        console.error(`[Pipeline] Single agent: score=${analysis.score.toFixed(2)} < threshold=${DEFAULT_PIPELINE_THRESHOLD}`);
+    }
+    return isPipeline;
 }
 /**
  * Get selected agent based on command type (DAI-001 integration)

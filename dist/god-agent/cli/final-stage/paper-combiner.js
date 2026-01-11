@@ -16,6 +16,7 @@
  */
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { generatePdf } from '../../../pdf-generator/index.js';
 /**
  * PaperCombiner - Combines all chapter outputs into a final paper
  *
@@ -108,8 +109,9 @@ export class PaperCombiner {
      *
      * @param paper - Combined FinalPaper object
      * @param outputDir - Path to final/ output directory
+     * @param pdfOptions - Optional PDF generation options
      */
-    async writeOutputFiles(paper, outputDir) {
+    async writeOutputFiles(paper, outputDir, pdfOptions) {
         // Ensure directories exist
         const chaptersDir = path.join(outputDir, 'chapters');
         await fs.mkdir(chaptersDir, { recursive: true });
@@ -128,6 +130,137 @@ export class PaperCombiner {
         const metadataPath = path.join(outputDir, 'metadata.json');
         const fullMetadata = this.buildFullMetadata(paper);
         await fs.writeFile(metadataPath, JSON.stringify(fullMetadata, null, 2), 'utf-8');
+        // Generate PDF if requested
+        if (pdfOptions?.generatePdf !== false) {
+            try {
+                const pdfOutputPath = path.join(outputDir, 'final-paper');
+                const paperInput = this.transformToPaperInput(paper, pdfOptions);
+                const result = await generatePdf({
+                    paper: paperInput,
+                    outputPath: pdfOutputPath,
+                    onLog: (level, message) => {
+                        if (level === 'error') {
+                            console.warn(`[PDF Generation] ${message}`);
+                        }
+                    }
+                });
+                if (result.success) {
+                    console.log(`[PaperCombiner] PDF generated successfully: ${result.outputPath}`);
+                    if (result.warnings.length > 0) {
+                        result.warnings.forEach(w => console.warn(`[PDF Warning] ${w}`));
+                    }
+                }
+                else {
+                    console.warn(`[PaperCombiner] PDF generation failed: ${result.error}`);
+                    console.warn('[PaperCombiner] Markdown output was successful, continuing without PDF.');
+                }
+            }
+            catch (pdfError) {
+                // Log error but don't fail the entire operation
+                const errorMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+                console.warn(`[PaperCombiner] PDF generation error: ${errorMessage}`);
+                console.warn('[PaperCombiner] Markdown output was successful, continuing without PDF.');
+            }
+        }
+    }
+    /**
+     * Transform FinalPaper to PaperInputForGeneration format for PDF generation
+     *
+     * @param paper - The combined FinalPaper object
+     * @param options - PDF generation options
+     * @returns PaperInputForGeneration compatible object
+     */
+    transformToPaperInput(paper, options) {
+        // Extract unique references from all chapters
+        const references = [];
+        const seenRefs = new Set();
+        for (const chapter of paper.chapters) {
+            for (const citation of chapter.citations) {
+                if (!seenRefs.has(citation.raw)) {
+                    seenRefs.add(citation.raw);
+                    references.push(citation.raw);
+                }
+            }
+        }
+        // Extract abstract from Chapter 1 first paragraph if not provided
+        let abstract = options?.abstract;
+        if (!abstract && paper.chapters.length > 0) {
+            const firstChapter = paper.chapters.find(c => c.chapterNumber === 1);
+            if (firstChapter) {
+                abstract = this.extractAbstractFromContent(firstChapter.content);
+            }
+        }
+        // Fallback abstract if still not available
+        if (!abstract) {
+            abstract = `This paper presents research on ${paper.title}. ` +
+                `The study encompasses ${paper.chapters.length} chapters with ` +
+                `${this.countUniqueCitations(paper.chapters)} unique citations.`;
+        }
+        // Use provided authors or default
+        const authors = options?.authors || [
+            { name: 'Unknown Author', affiliationIds: [] }
+        ];
+        // Generate running head from title (max 50 chars)
+        const runningHead = paper.metadata.title
+            .toUpperCase()
+            .substring(0, 50);
+        return {
+            title: paper.title,
+            runningHead,
+            authors,
+            affiliations: options?.affiliations,
+            abstract,
+            keywords: options?.keywords,
+            body: paper.combinedContent,
+            references: references.length > 0 ? references : undefined
+        };
+    }
+    /**
+     * Extract abstract text from chapter content
+     * Looks for the first substantial paragraph after the title
+     *
+     * @param content - Chapter markdown content
+     * @returns Extracted abstract text or undefined
+     */
+    extractAbstractFromContent(content) {
+        const lines = content.split('\n');
+        let foundHeading = false;
+        const paragraphLines = [];
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // Skip empty lines before finding content
+            if (!trimmed) {
+                if (paragraphLines.length > 0) {
+                    // End of first paragraph
+                    break;
+                }
+                continue;
+            }
+            // Skip headings
+            if (trimmed.startsWith('#')) {
+                foundHeading = true;
+                continue;
+            }
+            // Skip metadata lines (starting with **)
+            if (trimmed.startsWith('**')) {
+                continue;
+            }
+            // Collect paragraph text after first heading
+            if (foundHeading) {
+                paragraphLines.push(trimmed);
+            }
+        }
+        const paragraph = paragraphLines.join(' ').trim();
+        // Return if we have a reasonable abstract (at least 50 chars)
+        if (paragraph.length >= 50) {
+            // Limit to ~250 words (APA abstract limit)
+            const words = paragraph.split(/\s+/);
+            if (words.length > 250) {
+                return words.slice(0, 250).join(' ') + '...';
+            }
+            return paragraph;
+        }
+        return undefined;
     }
     /**
      * Generate paper metadata from slug and chapters

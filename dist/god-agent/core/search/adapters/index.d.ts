@@ -12,4 +12,5 @@ export { GraphSourceAdapter } from './graph-adapter.js';
 export { MemorySourceAdapter } from './memory-adapter.js';
 export { PatternSourceAdapter } from './pattern-adapter.js';
 export { GNNSearchAdapter, type GNNEnhancementOptions, type GNNEnhancementPoint, type GNNEnhancementStats, DEFAULT_GNN_OPTIONS, } from './gnn-adapter.js';
+export { LEANNSourceAdapter, createLEANNAdapter, type LEANNAdapterConfig, type LEANNSearchOptions, type LEANNResultMetadata, DEFAULT_LEANN_ADAPTER_CONFIG, } from './leann-adapter.js';
 //# sourceMappingURL=index.d.ts.map

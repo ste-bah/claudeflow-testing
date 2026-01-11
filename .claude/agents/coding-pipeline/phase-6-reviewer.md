@@ -24,17 +24,16 @@ qualityGates:
   maxReworkCycles: 2
   requiresApproval: true
 hooks:
-  pre:
-    - action: retrieve
-      keys:
-        - coding/optimization/performance-improvements
-        - coding/optimization/quality-improvements
-        - coding/optimization/refactoring-changes
-        - coding/testing/coverage-report
-        - coding/testing/results
-  post:
-    - action: store
-      key: coding/sherlock/phase-6-review
+  pre: |
+    echo "[phase-6-reviewer] Starting Sherlock Phase 6 Review..."
+    npx claude-flow memory retrieve --key "coding/optimization/performance-improvements"
+    npx claude-flow memory retrieve --key "coding/optimization/quality-improvements"
+    npx claude-flow memory retrieve --key "coding/optimization/refactoring-changes"
+    npx claude-flow memory retrieve --key "coding/testing/coverage-report"
+    npx claude-flow memory retrieve --key "coding/testing/results"
+  post: |
+    npx claude-flow memory store "coding/sherlock/phase-6-review" '{"agent": "phase-6-reviewer", "timestamp": "'$(date -Iseconds)'", "status": "complete"}' --namespace "coding-pipeline"
+    echo "[phase-6-reviewer] Phase 6 Review complete..."
 ---
 
 # Agent 046: Phase 6 Reviewer (Sherlock)

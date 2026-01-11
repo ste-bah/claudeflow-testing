@@ -14,6 +14,7 @@
  * FR-019: Multi-Step Task Detection
  */
 import { type IPipelineDefinition } from './dai-002-types.js';
+import type { IAgentMapping as ICodingAgentMapping, CodingPipelinePhase, CodingPipelineAgent, IPipelineDAG } from './types.js';
 /**
  * Result of task complexity analysis.
  */
@@ -102,6 +103,68 @@ export declare const DEFAULT_PHASE_MAPPINGS: IAgentMapping[];
  * Document type to agent mapping.
  */
 export declare const DOCUMENT_AGENT_MAPPING: Record<string, string>;
+/**
+ * Complete mapping of all 40 agents in the coding pipeline.
+ *
+ * Phase Distribution (40 Core + 7 Sherlock Forensic = 47 Total):
+ * - Phase 1 (Understanding): 5 agents  - XP: 215 + Sherlock #41
+ * - Phase 2 (Exploration): 5 agents    - XP: 210 + Sherlock #42
+ * - Phase 3 (Architecture): 6 agents   - XP: 305 + Sherlock #43
+ * - Phase 4 (Implementation): 8 agents - XP: 430 + Sherlock #44
+ * - Phase 5 (Testing): 8 agents        - XP: 420 + Sherlock #45
+ * - Phase 6 (Optimization): 4 agents   - XP: 225 + Sherlock #46
+ * - Phase 7 (Delivery): 4 agents       - XP: 230 + Sherlock #47 (Recovery)
+ *
+ * Total: 47 agents (40 core + 7 Sherlock), ~2685 XP
+ *
+ * @see SPEC-001-architecture.md
+ * @see TASK-WIRING-002-agent-mappings.md
+ */
+export declare const CODING_PIPELINE_MAPPINGS: ICodingAgentMapping[];
+/**
+ * Get all agents for a specific phase.
+ *
+ * @param phase - The pipeline phase to get agents for
+ * @returns Array of agent mappings for the phase, sorted by priority
+ */
+export declare function getAgentsForPhase(phase: CodingPipelinePhase): ICodingAgentMapping[];
+/**
+ * Build the complete pipeline DAG from agent mappings.
+ *
+ * @returns Complete DAG structure for pipeline execution
+ */
+export declare function buildPipelineDAG(): IPipelineDAG;
+/**
+ * Get all critical agents that halt the pipeline on failure.
+ *
+ * @returns Array of critical agent mappings
+ */
+export declare function getCriticalAgents(): ICodingAgentMapping[];
+/**
+ * Get a specific agent mapping by key.
+ *
+ * @param key - The agent key to find
+ * @returns The agent mapping or undefined if not found
+ */
+export declare function getAgentByKey(key: CodingPipelineAgent): ICodingAgentMapping | undefined;
+/**
+ * Get the total XP available in the pipeline.
+ *
+ * @returns Total XP reward sum across all agents
+ */
+export declare function getTotalPipelineXP(): number;
+/**
+ * Get XP totals grouped by phase.
+ *
+ * @returns Map of phase to total XP for that phase
+ */
+export declare function getPhaseXPTotals(): Map<CodingPipelinePhase, number>;
+/**
+ * Validate that all dependencies are valid.
+ *
+ * @returns Array of validation errors (empty if valid)
+ */
+export declare function validatePipelineDependencies(): string[];
 /**
  * Bridges Claude Code commands to Task() subagent spawning.
  *

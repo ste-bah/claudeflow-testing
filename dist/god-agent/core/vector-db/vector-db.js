@@ -40,7 +40,7 @@ export class VectorDB {
         const { dimension = VECTOR_DIM, metric = DistanceMetric.COSINE, 
         // HNSW params (hnswM, hnswEfConstruction, hnswEfSearch) will be used
         // when native backend is implemented - see HNSW_PARAMS in validation/constants
-        persistencePath = '.agentdb/vectors.bin', autoSave = false, backend = 'auto', verbose = false } = options;
+        persistencePath = '.agentdb/vectors.bin', autoSave = false, backend = 'auto', verbose = false, leannConfig } = options;
         this.dimension = dimension;
         this.metric = metric;
         this.persistencePath = persistencePath;
@@ -48,7 +48,8 @@ export class VectorDB {
         // Store backend configuration for lazy initialization
         this.backendConfig = {
             type: backend === 'auto' ? undefined : backend,
-            verbose
+            verbose,
+            leannConfig
         };
     }
     /**
@@ -62,7 +63,11 @@ export class VectorDB {
         if (this.initialized) {
             return this.backendSelection;
         }
-        const { backend, selection } = await BackendSelector.loadBackend(this.dimension, this.metric, { forceBackend: this.backendConfig.type, verbose: this.backendConfig.verbose });
+        const { backend, selection } = await BackendSelector.loadBackend(this.dimension, this.metric, {
+            forceBackend: this.backendConfig.type,
+            verbose: this.backendConfig.verbose,
+            leannConfig: this.backendConfig.leannConfig
+        });
         this.backend = backend;
         this.backendSelection = selection;
         this.initialized = true;
