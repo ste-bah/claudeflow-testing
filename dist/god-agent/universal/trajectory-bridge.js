@@ -113,12 +113,15 @@ export class TrajectoryBridge {
                 lScore,
             },
         };
-        // Submit to ReasoningBank (which calls SonaEngine internally)
+        // Submit directly to SonaEngine for guaranteed SQLite persistence
+        // (bypasses ReasoningBank indirection that may not reach database)
         try {
-            await this.reasoningBank.provideFeedback(feedback);
+            await this.sonaEngine.provideFeedback(trajectoryId, quality, {
+                skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+            });
         }
         catch (error) {
-            console.warn('[TrajectoryBridge] Feedback submission failed:', error);
+            console.warn('[TrajectoryBridge] SonaEngine feedback failed:', error);
             return {
                 weightUpdates: 0,
                 patternCreated: false,

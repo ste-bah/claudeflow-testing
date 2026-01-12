@@ -515,6 +515,48 @@ export declare class SonaEngine {
      * 2. New checkpoint is created (indicates progress worth saving)
      */
     private resetRollbackStateIfProgressed;
+    /**
+     * Sync quality scores from learning_feedback table to trajectory_metadata
+     *
+     * This method bridges the gap between feedback events (which contain quality scores)
+     * and trajectory metadata (which stores quality for pattern creation eligibility).
+     *
+     * Implements: TASK-QUALITY-SYNC
+     * - Queries learning_feedback for records with trajectory_id and quality
+     * - Updates corresponding trajectory_metadata.quality_score via DAO
+     * - Handles errors gracefully, continuing on individual failures
+     *
+     * @returns Object with count of synced records and any errors encountered
+     */
+    syncQualityFromEvents(): Promise<{
+        synced: number;
+        errors: string[];
+    }>;
+    /**
+     * Convert high-quality trajectories to reusable patterns
+     *
+     * Queries trajectory_metadata for trajectories with quality >= threshold,
+     * then calls createPatternFromTrajectory for each eligible trajectory.
+     *
+     * Implements: TASK-PATTERN-CONVERT
+     * - Default threshold is AUTO_PATTERN_QUALITY_THRESHOLD (0.8)
+     * - Supports dry-run mode for previewing without creating
+     * - Skips trajectories that already have patterns
+     * - Limits conversions per batch to prevent overwhelming the system
+     *
+     * @param options - Configuration options for conversion
+     * @returns Statistics about the conversion process
+     */
+    convertHighQualityTrajectoriesToPatterns(options?: {
+        qualityThreshold?: number;
+        dryRun?: boolean;
+        maxConversions?: number;
+    }): Promise<{
+        totalTrajectories: number;
+        eligibleTrajectories: number;
+        patternsCreated: number;
+        errors: string[];
+    }>;
 }
 /**
  * Create a SonaEngine with database persistence REQUIRED
