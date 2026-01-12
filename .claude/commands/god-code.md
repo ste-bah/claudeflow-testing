@@ -13,7 +13,7 @@ Generate code using the Universal Self-Learning God Agent with DAI-001 dynamic a
 Run the God Agent CLI to get the dynamically selected agent and built prompt:
 
 ```bash
-npx tsx src/god-agent/universal/cli.ts code "$ARGUMENTS" --json 2>/dev/null | grep -E '^\{' | head -1
+npx tsx src/god-agent/universal/cli.ts code "$ARGUMENTS" --json 2>/dev/null | awk '/__GODAGENT_JSON_START__/{found=1;next} /__GODAGENT_JSON_END__/{found=0} found'
 ```
 
 The CLI returns JSON with the selected agent and complete prompt:

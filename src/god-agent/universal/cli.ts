@@ -134,7 +134,9 @@ function getFlag(flags: Record<string, string | boolean>, ...names: string[]): s
  * Output result as JSON (DAI-002: FR-016)
  */
 function outputJson(output: ICLIJsonOutput): void {
+  console.log('__GODAGENT_JSON_START__');
   console.log(JSON.stringify(output, null, 2));
+  console.log('__GODAGENT_JSON_END__');
 }
 
 /**

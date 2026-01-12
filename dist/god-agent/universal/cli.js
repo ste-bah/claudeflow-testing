@@ -74,7 +74,9 @@ function getFlag(flags, ...names) {
  * Output result as JSON (DAI-002: FR-016)
  */
 function outputJson(output) {
+    console.log('__GODAGENT_JSON_START__');
     console.log(JSON.stringify(output, null, 2));
+    console.log('__GODAGENT_JSON_END__');
 }
 /**
  * Detect if task requires multi-agent pipeline using CommandTaskBridge scoring
