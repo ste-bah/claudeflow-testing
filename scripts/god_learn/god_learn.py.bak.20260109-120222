@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+"""
+Unified god-learn compiler front-end.
+
+Goal (Phase 9, part 1): consolidate the existing Phase 1–8 scripts behind one CLI
+WITHOUT re-architecting the locked pipeline.
+
+Design principles:
+- Shell out to the already-verified scripts (minimize risk).
+- Make runs reproducible by capturing logs and copying legacy /tmp artifacts (optional).
+- Keep downstream rebuilds (Phase 7/8) opt-in (compile is stubbed for now).
+
+Commands:
+  god-learn status
+  god-learn update --query "..." [--hits-json ...] [--skip-phase5] [--run-dir ...] [--no-run-dir]
+  god-learn verify [--verify-assemble] [--assemble-out ...] [--log ...]
+  god-learn compile [--reason] [--assemble]   # placeholder wiring for Phase 7/8 entrypoints
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
+
+
+# ----------------------------
+# Paths / helpers
+# ----------------------------
+
+def repo_root() -> Path:
+    # scripts/god_learn/god_learn.py -> scripts/god_learn -> scripts -> repo
+    return Path(__file__).resolve().parents[2]
+
+
+def make_run_dir(base: Optional[Path] = None) -> Path:
+    rr = repo_root()
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    runs_base = base or (rr / "god-learn" / "runs")
+    run_dir = runs_base / ts
+    run_dir.mkdir(parents=True, exist_ok=False)
+    return run_dir
+
+
+def assembly_exists(out_dir: str) -> bool:
+    rr = repo_root()
+    draft = rr / out_dir / "draft.md"
+    trace = rr / out_dir / "trace.jsonl"
+    return draft.exists() and trace.exists()
+
+
+def tee_run(cmd: List[str], *, cwd: Optional[Path], log_path: Optional[Path]) -> None:
+    """
+    Run a command, printing it first.
+    If log_path is provided, stream stdout/stderr to terminal AND append to that log file.
+    If log_path is None, just run normally (no logging).
+    """
+    line = f"[god-learn] $ {' '.join(cmd)}"
+    print(line, flush=True)
+
+    if log_path is None:
+        subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)
+        return
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+        f.flush()
+
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(cwd) if cwd else None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
+        )
+        assert proc.stdout is not None
+        for out_line in proc.stdout:
+            print(out_line, end="")
+            f.write(out_line)
+        rc = proc.wait()
+        if rc != 0:
+            raise subprocess.CalledProcessError(rc, cmd)
+
+
+def copy_if_exists(src: Path, dst: Path) -> None:
+    try:
+        if src.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+    except Exception:
+        # Never fail the pipeline because a convenience copy failed
+        pass
+
+
+def main() -> int:
+    rr = repo_root()
+    p = argparse.ArgumentParser(prog="god-learn", add_help=True)
+    p.add_argument("--root", default=str(rr / "corpus"), help="Corpus root directory")
+
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    # status
+    ps = sub.add_parser("status", help="Show artifact state")
+    ps.set_defaults(func=cmd_status)
+
+    # update
+    pu = sub.add_parser("update", help="Ingest + verify + extend knowledge units (Phase 1–6 wrapper)")
+    pu.add_argument("--query", required=True, help="Query string used to drive retrieval/promotion")
+    pu.add_argument("--hits-json", dest="hits_json", help="Path to hits JSON (default: /tmp/phase4_hits.json)")
+    pu.add_argument("--skip-phase5", action="store_true", help="Skip phase5check.sh diagnostic step")
+    pu.add_argument("--run-dir", help="Base directory for run logs (default: <repo>/god-learn/runs/)")
+    pu.add_argument(
+        "--no-run-dir",
+        action="store_true",
+        help="Do not create a run folder or log; stream output only (no tmp snapshot).",
+    )
+    pu.set_defaults(func=cmd_update)
+
+    # verify
+    pv = sub.add_parser("verify", help="Run verification gates (Phase 3/6/8)")
+    pv.add_argument(
+        "--verify-assemble",
+        action="store_true",
+        help="Fail if Phase 8 assembly outputs are missing; otherwise auto-skip.",
+    )
+    pv.add_argument(
+        "--assemble-out",
+        default="god-assemble-",
+        help="Assembly output folder name (default: god-assemble-)",
+    )
+    pv.add_argument("--log", help="Optional log file path for verify output (otherwise prints only)")
+    pv.set_defaults(func=cmd_verify)
+
+    # compile (placeholder)
+    pc = sub.add_parser("compile", help="Optional downstream rebuilds (placeholder wiring)")
+    pc.add_argument("--reason", action="store_true")
+    pc.add_argument("--assemble", action="store_true")
+    pc.set_defaults(func=cmd_compile)
+
+    args = p.parse_args()
+    args.func(args)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+    
+def snapshot_tmp_artifacts(run_dir: Path) -> None:
+    """
+    Legacy scripts write artifacts to /tmp. Copy the common ones into the run dir
+    so each god-learn update has a self-contained record.
+    """
+    tmp = Path("/tmp")
+    out = run_dir / "tmp_snapshot"
+    out.mkdir(parents=True, exist_ok=True)
+
+    candidates = [
+        "retrieval_phase4_verify.json",
+        "phase4_hits.json",
+        "no_hl.txt",
+        "with_hl.txt",
+    ]
+    for name in candidates:
+        copy_if_exists(tmp / name, out / name)
+
+def infer_query_from_hits(hits_path: Path) -> Optional[str]:
+    """
+    Best-effort extraction of query from a hits JSON.
+    Supports either:
+      {"query": "...", ...}
+    or:
+      {"meta": {"query": "..."}, ...}
+    Returns None if not found or unreadable.
+    """
+    try:
+        obj = json.loads(hits_path.read_text(encoding="utf-8"))
+        if isinstance(obj, dict):
+            q = obj.get("query")
+            if isinstance(q, str) and q.strip():
+                return q.strip()
+            meta = obj.get("meta")
+            if isinstance(meta, dict):
+                q2 = meta.get("query")
+                if isinstance(q2, str) and q2.strip():
+                    return q2.strip()
+    except Exception:
+        return None
+    return None
+
+# ----------------------------
+# Commands
+# ----------------------------
+
+def cmd_status(args: argparse.Namespace) -> None:
+    root = Path(args.root).resolve()
+    rr = repo_root()
+
+    print("[god-learn:status] repo_root =", rr)
+    print("[god-learn:status] corpus_root =", root)
+
+    paths = [
+        ("corpus", root),
+        ("vector_db_1536", rr / "vector_db_1536"),
+        ("god-learn/knowledge.jsonl", rr / "god-learn" / "knowledge.jsonl"),
+        ("god-learn/index.json", rr / "god-learn" / "index.json"),
+        ("god-reason/reasoning.jsonl", rr / "god-reason" / "reasoning.jsonl"),
+    ]
+    for name, p in paths:
+        exists = "OK" if p.exists() else "MISSING"
+        print(f"[god-learn:status] {name}: {exists} ({p})")
+
+    ku_path = rr / "god-learn" / "knowledge.jsonl"
+    if ku_path.exists():
+        n = sum(1 for _ in ku_path.open("r", encoding="utf-8"))
+        print(f"[god-learn:status] knowledge_units = {n}")
+
+    rg_path = rr / "god-reason" / "reasoning.jsonl"
+    if rg_path.exists():
+        n = sum(1 for _ in rg_path.open("r", encoding="utf-8"))
+        print(f"[god-learn:status] reasoning_edges = {n}")
+
+
+def cmd_update(args: argparse.Namespace) -> None:
+    rr = repo_root()
+    root = Path(args.root).resolve()
+
+    # Resolve hits path early (so we can infer query if needed)
+    hits_json = Path(args.hits_json).resolve() if args.hits_json else Path("/tmp/phase4_hits.json")
+
+    # Improvement 3: allow --query to be omitted if hits-json contains it
+    query = (args.query or "").strip()
+    if not query:
+        inferred = infer_query_from_hits(hits_json) if hits_json.exists() else None
+        if inferred:
+            query = inferred
+            print(f"[god-learn:update] inferred query from hits-json: {query}")
+        else:
+            print("[god-learn:update] ERROR: provide --query or a --hits-json that contains a query.", file=sys.stderr)
+            raise SystemExit(2)
+
+    # -----------------------------
+    # Improvement 2: --no-run-dir
+    # -----------------------------
+    run_dir: Optional[Path] = None
+    log_path: Optional[Path] = None
+
+    if args.no_run_dir:
+        # No run folder, no log file, no tmp snapshot
+        print("[god-learn:update] no-run-dir enabled (no run folder/log/tmp snapshot).")
+    else:
+        base = Path(args.run_dir).resolve() if args.run_dir else None
+        run_dir = make_run_dir(base=base)
+        log_path = run_dir / "run.log"
+        (run_dir / "meta").mkdir(parents=True, exist_ok=True)
+
+        # Record a minimal run manifest
+        (run_dir / "meta" / "query.txt").write_text(query + "\n", encoding="utf-8")
+        (run_dir / "meta" / "corpus_root.txt").write_text(str(root) + "\n", encoding="utf-8")
+
+        print("[god-learn:update] run_dir =", run_dir)
+
+    # Phase 1–3: ingest + ingest verification
+    tee_run(["python3", "scripts/ingest/run_ingest_phase2.py", "--root", str(root)], cwd=rr, log_path=log_path)
+    tee_run(["python3", "scripts/ingest/audit_ingest.py", "--root", str(root)], cwd=rr, log_path=log_path)
+    tee_run(["python3", "scripts/ingest/verify_ingest.py", "--root", str(root)], cwd=rr, log_path=log_path)
+
+    # Phase 4: retrieval validation (also produces /tmp artifacts you already rely on)
+    tee_run(["python3", "scripts/retrieval/verify_phase4.py", query], cwd=rr, log_path=log_path)
+
+    # Phase 5: highlight/rerank audit (optional diagnostic step)
+    if not args.skip_phase5:
+        sh = rr / "scripts" / "highlights" / "phase5check.sh"
+        if sh.exists():
+            tee_run(["bash", "scripts/highlights/phase5check.sh"], cwd=rr, log_path=log_path)
+
+    # Phase 6: promote hits -> extend knowledge units
+    tee_run(
+        ["python3", "scripts/learn/promote_hits.py", "--hits_json", str(hits_json), "--query", query],
+        cwd=rr,
+        log_path=log_path,
+    )
+    tee_run(["python3", "scripts/learn/verify_knowledge.py", "--strict_order"], cwd=rr, log_path=log_path)
+
+    # Snapshot common /tmp artifacts into this run folder (only if run_dir exists)
+    if run_dir is not None:
+        snapshot_tmp_artifacts(run_dir)
+
+    print("[god-learn:update] OK")
+
+
+
+def cmd_verify(args: argparse.Namespace) -> None:
+    rr = repo_root()
+    root = Path(args.root).resolve()
+
+    log_path: Optional[Path] = Path(args.log).resolve() if args.log else None
+
+    # Keep verify pure: only verification gates, no mutation.
+    tee_run(["python3", "scripts/ingest/audit_ingest.py", "--root", str(root)], cwd=rr, log_path=log_path)
+    tee_run(["python3", "scripts/ingest/verify_ingest.py", "--root", str(root)], cwd=rr, log_path=log_path)
+    tee_run(["python3", "scripts/learn/verify_knowledge.py", "--strict_order"], cwd=rr, log_path=log_path)
+
+    # Phase 8 verification is conditional
+    out_dir = args.assemble_out
+    verify_script = rr / "scripts" / "assemble" / "verify_phase8.py"
+    if verify_script.exists():
+        if args.verify_assemble:
+            tee_run(["python3", "scripts/assemble/verify_phase8.py", "--out", out_dir], cwd=rr, log_path=log_path)
+        else:
+            if assembly_exists(out_dir):
+                tee_run(["python3", "scripts/assemble/verify_phase8.py", "--out", out_dir], cwd=rr, log_path=log_path)
+            else:
+                print(f"[god-learn:verify] Phase8 assembly not found at {rr/out_dir} (skipping).")
+
+
+def cmd_compile(args: argparse.Namespace) -> None:
+    # Placeholder wiring. Keep downstream rebuilds explicit and opt-in.
+    if args.reason:
+        print("[god-learn:compile] compile reasoning graph requested (wire Phase 7 entrypoints here).")
+    if args.assemble:
+        print("[god-learn:compile] compile assembly requested (wire Phase 8 entrypoints here).")
+    if not args.reason and not args.assemble:
+        print("[god-learn:compile] nothing to do (use --reason and/or --assemble).")
+
+
+def main() -> int:
+    rr = repo_root()
+    p = argparse.ArgumentParser(prog="god-learn", add_help=True)
+    p.add_argument("--root", default=str(rr / "corpus"), help="Corpus root directory")
+
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    # status
+    ps = sub.add_parser("status", help="Show artifact state")
+    ps.set_defaults(func=cmd_status)
+
+    # update
+    pu = sub.add_parser("update", help="Ingest + verify + extend knowledge units (Phase 1–6 wrapper)")
+    pu.add_argument("--query", help="Query string used to drive retrieval/promotion")
+    pu.add_argument("--hits-json", dest="hits_json", help="Path to hits JSON (default: /tmp/phase4_hits.json)")
+    pu.add_argument("--skip-phase5", action="store_true", help="Skip phase5check.sh diagnostic step")
+    pu.add_argument("--run-dir", help="Base directory for run logs (default: <repo>/god-learn/runs/)")
+    pu.add_argument(
+        "--no-run-dir",
+        action="store_true",
+        help="Do not create a run folder or log; stream output only (no tmp snapshot).",
+    )
+    pu.set_defaults(func=cmd_update)
+
+    # verify
+    pv = sub.add_parser("verify", help="Run verification gates (Phase 3/6/8)")
+    pv.add_argument(
+        "--verify-assemble",
+        action="store_true",
+        help="Fail if Phase 8 assembly outputs are missing; otherwise auto-skip.",
+    )
+    pv.add_argument(
+        "--assemble-out",
+        default="god-assemble-",
+        help="Assembly output folder name (default: god-assemble-)",
+    )
+    pv.add_argument("--log", help="Optional log file path for verify output (otherwise prints only)")
+    pv.set_defaults(func=cmd_verify)
+
+    # compile (placeholder)
+    pc = sub.add_parser("compile", help="Optional downstream rebuilds (placeholder wiring)")
+    pc.add_argument("--reason", action="store_true")
+    pc.add_argument("--assemble", action="store_true")
+    pc.set_defaults(func=cmd_compile)
+
+    args = p.parse_args()
+    args.func(args)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

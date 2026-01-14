@@ -130,34 +130,21 @@ describe('GNN Performance Benchmarks', () => {
       circuitBreaker: { enabled: false, threshold: 5, resetTimeout: 60000 },
     });
 
-    // Warm up BOTH adapters first to eliminate cold start bias
-    // This ensures we're measuring CB overhead, not cold vs warm latency
+    // Act
+    const startWith = performance.now();
     await withCB.enhance(embedding, query);
+    const withDuration = performance.now() - startWith;
+
+    const startWithout = performance.now();
     await withoutCB.enhance(embedding, query);
+    const withoutDuration = performance.now() - startWithout;
 
-    // Act - now measure with both adapters warm
-    const iterations = 10;
-    let totalWithCB = 0;
-    let totalWithoutCB = 0;
-
-    for (let i = 0; i < iterations; i++) {
-      const startWith = performance.now();
-      await withCB.enhance(embedding, query);
-      totalWithCB += performance.now() - startWith;
-
-      const startWithout = performance.now();
-      await withoutCB.enhance(embedding, query);
-      totalWithoutCB += performance.now() - startWithout;
-    }
-
-    const avgWithCB = totalWithCB / iterations;
-    const avgWithoutCB = totalWithoutCB / iterations;
-    const overhead = avgWithCB - avgWithoutCB;
+    const overhead = withDuration - withoutDuration;
 
     // Assert
-    console.log(`\nCircuit Breaker Overhead (averaged over ${iterations} iterations):`);
-    console.log(`  With CB: ${avgWithCB.toFixed(2)}ms`);
-    console.log(`  Without CB: ${avgWithoutCB.toFixed(2)}ms`);
+    console.log(`\nCircuit Breaker Overhead:`);
+    console.log(`  With CB: ${withDuration.toFixed(2)}ms`);
+    console.log(`  Without CB: ${withoutDuration.toFixed(2)}ms`);
     console.log(`  Overhead: ${overhead.toFixed(2)}ms`);
 
     expect(Math.abs(overhead)).toBeLessThan(5); // Minimal overhead

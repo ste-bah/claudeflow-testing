@@ -1,0 +1,18 @@
+Project: claudeflow-testing
+Archive Type: Pre-change archival snapshot
+Includes:
+- All scripts
+- All docs
+- All READMEs
+- All pipeline logic
+
+Excludes:
+- vector_db_1536 (regenerable)
+- node_modules
+- runtime databases
+- ephemeral artifacts
+
+Phase Status:
+Phases 1–10 COMPLETE and LOCKED
+
+Created: $(date -u)

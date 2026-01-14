@@ -9,30 +9,53 @@
   },
   "permissions": {
     "allow": [
+      "Bash(python3 scripts/*)",
+      "Bash(python3 -m *)",
+      "Bash(./scripts/*)",
+      "Bash(bash scripts/*)",
+      "Bash(god *)",
+      "Bash(god-learn *)",
       "Bash(npx claude-flow:*)",
-      "Bash(npm run lint)",
-      "Bash(npm run test:*)",
+      "Bash(npm run *)",
       "Bash(npm test:*)",
-      "Bash(npm run memory:*)",
-      "Bash(npm run daemon:*)",
-      "Bash(npm run ucm:*)",
-      "Bash(npm run observe:*)",
-      "Bash(git status)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push)",
-      "Bash(git config:*)",
-      "Bash(git tag:*)",
-      "Bash(git branch:*)",
-      "Bash(git checkout:*)",
-      "Bash(git stash:*)",
-      "Bash(jq:*)",
-      "Bash(node:*)",
-      "Bash(which:*)",
+      "Bash(npm install*)",
+      "Bash(npx tsc*)",
+      "Bash(npx tsx *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git pull*)",
+      "Bash(git config*)",
+      "Bash(git tag*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(git stash*)",
+      "Bash(git show*)",
+      "Bash(jq *)",
+      "Bash(node *)",
+      "Bash(which *)",
       "Bash(pwd)",
-      "Bash(ls:*)",
+      "Bash(ls *)",
+      "Bash(ls)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(mkdir *)",
+      "Bash(touch *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(chmod *)",
+      "Bash(echo *)",
+      "Bash(cd *)",
+      "Bash(source *)",
+      "Bash(pip install*)",
+      "Bash(pip3 install*)",
       "Bash(npx tsx src/god-agent/universal/cli.ts status)",
       "Bash(npx tsx src/god-agent/universal/cli.ts ask:*)",
       "Bash(npx tsx src/god-agent/universal/cli.ts code:*)",
@@ -67,15 +90,6 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; SKILL=$(cat | jq -r \".tool_input.skill // empty\"); if [ \"$SKILL\" = \"god-code\" ] && [ -x \"$ROOT/.claude/hooks/coding-pipeline-pre.sh\" ]; then \"$ROOT/.claude/hooks/coding-pipeline-pre.sh\"; fi || true'"
-          }
-        ]
-      },
-      {
         "matcher": "Task",
         "hooks": [
           {
@@ -93,7 +107,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-command --command \"{}\" --validate-safety true --prepare-resources true || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@latest hooks pre-command --command \"{}\" --validate-safety true --prepare-resources true || true'"
           }
         ]
       },
@@ -102,21 +116,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-edit --file \"{}\" --auto-assign-agents true --load-context true || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@latest hooks pre-edit --file \"{}\" --auto-assign-agents true --load-context true || true'"
           }
         ]
       }
     ],
     "PostToolUse": [
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; SKILL=$(cat | jq -r \".tool_input.skill // empty\"); if [ \"$SKILL\" = \"god-code\" ] && [ -x \"$ROOT/.claude/hooks/coding-pipeline-post.sh\" ]; then \"$ROOT/.claude/hooks/coding-pipeline-post.sh\"; fi || true'"
-          }
-        ]
-      },
       {
         "matcher": "Task",
         "hooks": [
@@ -135,7 +140,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks post-command --command \"{}\" --track-metrics true --store-results true || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@latest hooks post-command --command \"{}\" --track-metrics true --store-results true || true'"
           }
         ]
       },
@@ -144,7 +149,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks post-edit --file \"{}\" --format true --update-memory true || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@latest hooks post-edit --file \"{}\" --format true --update-memory true || true'"
           }
         ]
       }
@@ -174,7 +179,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx claude-flow@alpha hooks session-end --generate-summary true --persist-state true --export-metrics true || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx claude-flow@latest hooks session-end --generate-summary true --persist-state true --export-metrics true || true'"
           },
           {
             "type": "command",
@@ -192,18 +197,14 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npm run god-agent:start 2>/dev/null || true'"
-          },
-          {
-            "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-session-start.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\" 2>/dev/null || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-session-start.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\" || true'"
           }
         ]
       }
     ]
   },
   "includeCoAuthoredBy": true,
-  "enabledMcpjsonServers": ["claude-flow@alpha", "ruv-swarm", "serena"],
+  "enabledMcpjsonServers": ["claude-flow@latest", "ruv-swarm", "serena"],
   "statusLine": {
     "type": "command",
     "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/statusline-command.sh\" ] && \"$ROOT/.claude/statusline-command.sh\" || echo \"\"'"

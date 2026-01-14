@@ -151,9 +151,9 @@ export class AgentExecutionService {
         await this.memoryEngine.store(memoryKey, output, { namespace: opts.namespace });
       }
 
-      // Provide trajectory feedback - ensure trajectoryId is valid string
-      if (trajectoryId && typeof trajectoryId === 'string' && trajectoryId.trim() !== '' && this.sonaEngine) {
-        await this.sonaEngine.provideFeedback(trajectoryId, 1.0, { skipAutoSave: false });
+      // Provide trajectory feedback
+      if (trajectoryId && this.sonaEngine) {
+        await this.sonaEngine.provideFeedback(trajectoryId, 1.0);
       }
 
       this.log(`Agent '${agentKey}' completed in ${duration}ms`, opts.verbose);
@@ -172,9 +172,9 @@ export class AgentExecutionService {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // Provide negative trajectory feedback - ensure trajectoryId is valid string
-      if (trajectoryId && typeof trajectoryId === 'string' && trajectoryId.trim() !== '' && this.sonaEngine) {
-        await this.sonaEngine.provideFeedback(trajectoryId, 0.0, { skipAutoSave: false });
+      // Provide negative trajectory feedback
+      if (trajectoryId && this.sonaEngine) {
+        await this.sonaEngine.provideFeedback(trajectoryId, 0.0);
       }
 
       this.log(`Agent '${agentKey}' failed: ${errorMessage}`, opts.verbose);

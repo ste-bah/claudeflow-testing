@@ -63,14 +63,6 @@ import {
   type DAI002PipelineOptions,
 } from '../core/pipeline/index.js';
 
-// TASK-PIPELINE-FIX: Import CommandTaskBridge for sophisticated task complexity analysis
-// Replaces weak regex-based isPipelineTask() with scoring-based analysis
-import {
-  CommandTaskBridge,
-  DEFAULT_PIPELINE_THRESHOLD,
-  type IComplexityAnalysis,
-} from '../core/pipeline/command-task-bridge.js';
-
 // DAI-003: Intelligent Task Routing
 import {
   TaskAnalyzer,
@@ -100,23 +92,6 @@ import {
   type IPostToolUseContext,
   type IHookChainResult,
 } from '../core/hooks/index.js';
-
-// TASK-PREP-003: Coding Pipeline DAG generation imports
-// Implements [REQ-PREP-003]: Dynamic import from command-task-bridge.ts
-import {
-  CODING_PIPELINE_MAPPINGS,
-  getAgentsForPhase,
-  buildPipelineDAG,
-} from '../core/pipeline/command-task-bridge.js';
-
-import {
-  PHASE_ORDER,
-  CHECKPOINT_PHASES,
-  CODING_MEMORY_NAMESPACE,
-  type CodingPipelinePhase,
-  type IPipelineExecutionConfig,
-  type IAgentMapping,
-} from '../core/pipeline/types.js';
 
 // TASK-CHUNK-003: Knowledge chunking for OpenAI token limit compliance
 // CONSTITUTION COMPLIANCE: RULE-064 (symmetric chunking), RULE-008 (SQLite persistence)
@@ -334,28 +309,10 @@ export interface ICodeTaskPreparation {
   trajectoryId: string | null;
   /** Whether this is a multi-agent pipeline task */
   isPipeline: boolean;
-  /**
-   * Pipeline definition if isPipeline is true
-   * TASK-PREP-003: Extended with full DAG configuration
-   */
-  pipeline?: {
-    /** Phase names for backward compatibility */
-    steps: string[];
-    /** Agent keys for backward compatibility */
-    agents: string[];
-    /**
-     * Full pipeline configuration with DAG, phases, and agent mappings
-     * Implements [REQ-PREP-003]: Dynamic 40-agent DAG generation
-     */
-    config?: IPipelineExecutionConfig;
-  };
+  /** Pipeline definition if isPipeline is true */
+  pipeline?: { steps: string[]; agents: string[] };
   /** Detected or specified programming language */
   language?: string;
-  /**
-   * TASK-PREP-003: Whether pipeline was triggered by hook context
-   * Implements [REQ-PREP-002]: Hook context detection at coding/context/task
-   */
-  triggeredByHook?: boolean;
 }
 
 /**
@@ -1862,29 +1819,9 @@ export class UniversalAgent {
   async prepareCodeTask(task: string, options: {
     language?: string;
     context?: string;
-    /** TASK-PREP-003: Start phase for partial execution (0-6) */
-    startPhase?: number;
-    /** TASK-PREP-003: End phase for partial execution (0-6) */
-    endPhase?: number;
   } = {}): Promise<ICodeTaskPreparation> {
     // Implements [REQ-GODCODE-006]: Ensure initialized before processing
     await this.ensureInitialized();
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // TASK-PREP-003: Check for hook context at coding/context/task
-    // Implements [REQ-PREP-002]: Hook context detection
-    // ═══════════════════════════════════════════════════════════════════════════
-    let triggeredByHook = false;
-    try {
-      const hookContext = await this.memoryClient?.getKnowledgeByDomain('coding/context', 1);
-      if (hookContext && hookContext.length > 0) {
-        triggeredByHook = true;
-        this.log(`TASK-PREP-003: Hook context detected at coding/context`);
-      }
-    } catch {
-      // No hook context found, continue with normal flow
-      this.log(`TASK-PREP-003: No hook context found, using standard pipeline detection`);
-    }
 
     // Implements [REQ-GODCODE-005]: DESC episode injection (RULE-010: window size 3)
     let descContext: string | null = null;
@@ -1936,81 +1873,14 @@ export class UniversalAgent {
     );
 
     // Check if this is a pipeline task (multi-agent)
-    const isPipeline = triggeredByHook || this.isPipelineTask(task);
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // TASK-PREP-003: Dynamic 40-agent DAG generation
-    // Implements [REQ-PREP-003]: Replace hardcoded pipeline with full DAG
-    // ═══════════════════════════════════════════════════════════════════════════
-    let pipeline: { steps: string[]; agents: string[]; config?: IPipelineExecutionConfig } | undefined;
+    const isPipeline = this.isPipelineTask(task);
+    let pipeline: { steps: string[]; agents: string[] } | undefined;
     if (isPipeline) {
-      // Determine active phases based on startPhase and endPhase options
-      const startIdx = options.startPhase ?? 0;
-      const endIdx = options.endPhase ?? (PHASE_ORDER.length - 1);
-      const activePhases = PHASE_ORDER.slice(startIdx, endIdx + 1);
-
-      // Build agentsByPhase map for active phases
-      const agentsByPhase = new Map<CodingPipelinePhase, IAgentMapping[]>();
-      for (const phase of activePhases) {
-        agentsByPhase.set(phase, getAgentsForPhase(phase));
-      }
-
-      // Collect all agent keys and steps for backward compatibility
-      const allAgentKeys: string[] = [];
-      for (const phase of activePhases) {
-        const phaseAgents = agentsByPhase.get(phase) ?? [];
-        for (const agentMapping of phaseAgents) {
-          allAgentKeys.push(agentMapping.agentKey);
-        }
-      }
-
-      // Build full DAG using buildPipelineDAG()
-      const dag = buildPipelineDAG();
-
-      // Build complete pipeline configuration
-      const pipelineConfig: IPipelineExecutionConfig = {
-        phases: activePhases,
-        agentsByPhase,
-        dag,
-        memoryNamespace: CODING_MEMORY_NAMESPACE,
-        checkpoints: CHECKPOINT_PHASES.filter(cp => activePhases.includes(cp)),
-        startPhase: startIdx,
-        endPhase: endIdx,
-      };
-
-      // Create pipeline object with backward compatibility
+      // Extract pipeline info if available
       pipeline = {
-        steps: activePhases,
-        agents: allAgentKeys,
-        config: pipelineConfig,
+        steps: ['analyze', 'implement', 'test'],
+        agents: [agent.key],
       };
-
-      this.log(`TASK-PREP-003: Built pipeline with ${allAgentKeys.length} agents across ${activePhases.length} phases`);
-
-      // Store pipeline config in memory for orchestrator
-      if (this.memoryClient) {
-        try {
-          await this.memoryClient.storeKnowledge({
-            content: JSON.stringify({
-              phases: activePhases,
-              agentCount: allAgentKeys.length,
-              checkpoints: pipelineConfig.checkpoints,
-              startPhase: startIdx,
-              endPhase: endIdx,
-              triggeredByHook,
-              timestamp: new Date().toISOString(),
-              source: 'prepareCodeTask',
-              task: 'TASK-PREP-003',
-            }),
-            category: 'pipeline-config',
-            domain: 'coding/pipeline',
-            tags: ['pipeline', 'config', 'coding'],
-          });
-          this.log(`TASK-PREP-003: Stored pipeline config at coding/pipeline`);
-        } catch (error) {
-          this.log(`TASK-PREP-003: Failed to store pipeline config: ${error}`);
-        }
-      }
     }
 
     // Implements [REQ-GODCODE-001]: Return preparation result (NO execution)
@@ -2026,7 +1896,6 @@ export class UniversalAgent {
       isPipeline,
       pipeline,
       language: options.language,
-      triggeredByHook,
     };
   }
 
@@ -2275,34 +2144,21 @@ export class UniversalAgent {
 
   /**
    * Check if a task requires multi-agent pipeline execution
-   * Uses sophisticated CommandTaskBridge complexity analysis with scoring system:
-   * - Phase keywords: +0.15 each (implement, test, design, etc.)
-   * - Document keywords: +0.2 each (api, database, authentication, etc.)
-   * - Multi-step patterns: +0.25 (create...and...test, build...with...validation)
-   * - Connector words: +0.1 each (and, with, including, then)
-   * - Action verbs (>=2): +(verbCount-1) * 0.1
-   * - Word count >15: +0.1
-   *
-   * TASK-PIPELINE-FIX: Replaces weak regex patterns that missed complex tasks
-   * like "REST API with Auth" and "snake game with scoreboard"
-   *
    * @param task - The task description
-   * @returns true if complexity score >= DEFAULT_PIPELINE_THRESHOLD (0.6)
+   * @returns true if task benefits from pipeline execution
    */
   private isPipelineTask(task: string): boolean {
-    // TASK-PIPELINE-FIX: Use sophisticated CommandTaskBridge analysis
-    // instead of weak regex patterns that miss complex tasks
-    const bridge = new CommandTaskBridge();
-    const analysis = bridge.analyzeTaskComplexity(task);
-    const isPipeline = analysis.score >= DEFAULT_PIPELINE_THRESHOLD;
-
-    if (isPipeline) {
-      this.log(`Pipeline triggered: score=${analysis.score.toFixed(2)}, threshold=${DEFAULT_PIPELINE_THRESHOLD}, reason: ${analysis.reasoning}`);
-    } else {
-      this.log(`Single agent: score=${analysis.score.toFixed(2)} < threshold=${DEFAULT_PIPELINE_THRESHOLD}`);
-    }
-
-    return isPipeline;
+    const pipelineIndicators = [
+      /implement.*and.*test/i,
+      /create.*with.*validation/i,
+      /build.*complete/i,
+      /full.*implementation/i,
+      /end.to.end/i,
+      /multi.step/i,
+      /comprehensive/i,
+      /including.*tests/i,
+    ];
+    return pipelineIndicators.some(pattern => pattern.test(task));
   }
 
   /**

@@ -5,8 +5,6 @@
  * Referenced by: God Agent core system
  */
 
-import type { LEANNConfig } from './leann-types.js';
-
 /**
  * Unique identifier for vectors in the database
  * Generated using crypto.randomUUID()
@@ -42,7 +40,7 @@ export interface SearchResult {
 /**
  * Backend type for HNSW implementation
  */
-export type BackendType = 'auto' | 'native' | 'leann' | 'javascript';
+export type BackendType = 'auto' | 'native' | 'javascript';
 
 /**
  * Configuration options for VectorDB
@@ -62,10 +60,8 @@ export interface VectorDBOptions {
   persistencePath?: string;
   /** Enable auto-save on modifications (default: false) */
   autoSave?: boolean;
-  /** Backend selection: 'auto' (default), 'native', 'leann', or 'javascript' */
+  /** Backend selection: 'auto' (default), 'native', or 'javascript' */
   backend?: BackendType;
   /** Enable verbose logging for backend selection (default: false) */
   verbose?: boolean;
-  /** LEANN configuration options (only used when backend is 'leann') */
-  leannConfig?: Partial<LEANNConfig>;
 }

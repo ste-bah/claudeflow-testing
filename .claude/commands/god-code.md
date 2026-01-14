@@ -13,7 +13,7 @@ Generate code using the Universal Self-Learning God Agent with DAI-001 dynamic a
 Run the God Agent CLI to get the dynamically selected agent and built prompt:
 
 ```bash
-npx tsx src/god-agent/universal/cli.ts code "$ARGUMENTS" --json 2>/dev/null | awk '/__GODAGENT_JSON_START__/{found=1;next} /__GODAGENT_JSON_END__/{found=0} found'
+npx tsx src/god-agent/universal/cli.ts code "$ARGUMENTS" --json 2>/dev/null | grep -E '^\{' | head -1
 ```
 
 The CLI returns JSON with the selected agent and complete prompt:
@@ -56,101 +56,9 @@ Task(result.agentType, result.builtPrompt)
 Task("backend-dev", "[full builtPrompt from result]")
 ```
 
-### Pipeline Mode (47-Agent Coding Pipeline)
+### Pipeline Mode
 
-If `isPipeline` is `true`, the task requires the **47-Agent Coding Pipeline** with 7 phases. You MUST execute this pipeline sequentially using ClaudeFlow methodology.
-
-**Pipeline Structure:**
-- **Phase 1 - Understanding** (5 agents + forensic reviewer): task-analyzer, requirement-extractor, scope-definer, context-gatherer, constraint-analyzer → phase-1-reviewer
-- **Phase 2 - Exploration** (5 agents + forensic reviewer): solution-explorer, pattern-matcher, analogy-finder, prior-art-searcher, feasibility-assessor → phase-2-reviewer
-- **Phase 3 - Architecture** (6 agents + forensic reviewer): architecture-designer, component-specifier, interface-designer, dependency-mapper, consistency-checker, type-system-designer → phase-3-reviewer
-- **Phase 4 - Implementation** (8 agents + forensic reviewer): type-generator, algorithm-implementer, data-structure-builder, api-implementer, integration-coder, error-handler, config-generator, utility-generator → phase-4-reviewer
-- **Phase 5 - Testing** (8 agents + forensic reviewer): test-planner, unit-test-writer, integration-test-writer, edge-case-tester, mock-generator, test-runner, bug-fixer, coverage-analyzer → phase-5-reviewer
-- **Phase 6 - Optimization** (4 agents + forensic reviewer): performance-optimizer, refactoring-agent, security-auditor, code-quality-checker → phase-6-reviewer
-- **Phase 7 - Delivery** (4 agents + recovery): documentation-writer, code-reviewer, release-preparer, sign-off-approver → recovery-agent
-
-**Pipeline Execution Protocol:**
-
-1. **Initialize Memory Namespace:**
-```bash
-npx claude-flow@alpha memory store "coding/pipeline/task" '{"task": "$ARGUMENTS", "trajectoryId": "[trajectoryId]", "startTime": "[timestamp]"}' --namespace "coding"
-```
-
-2. **Execute Each Phase SEQUENTIALLY** (ClaudeFlow 99.9% sequential rule):
-
-For each phase, spawn agents in dependency order using Task():
-
-```
-## Phase N Execution
-
-Task("[agent-key]", `
-  ## YOUR TASK
-  [Agent-specific task from pipeline definition]
-
-  ## WORKFLOW CONTEXT
-  Phase N | Agent [X] of [Y] in phase | Pipeline Stage: [phase-name]
-  Previous: [completed agents/phases] | Next: [remaining agents]
-
-  ## MEMORY RETRIEVAL
-  npx claude-flow memory retrieve --key "coding/[previous-phase]/output"
-  Understand: [schemas/decisions/artifacts from previous agents]
-
-  ## MEMORY STORAGE (For Next Agents)
-  Store your output: key "coding/[phase]/[agent-key]/output"
-  Include: [artifacts, decisions, code, documentation]
-
-  ## STEPS
-  1. Retrieve memories from previous agents
-  2. Execute your specialized task
-  3. Store output to memory for next agents
-  4. Verify: npx claude-flow memory retrieve --key "coding/[phase]/[agent-key]/output"
-
-  ## SUCCESS CRITERIA
-  - Task complete per agent specification
-  - Memories stored and verified
-  - Ready for next agent in sequence
-`)
-```
-
-3. **After Each Phase - Forensic Review (CRITICAL GATE):**
-
-```
-Task("[phase-N-reviewer]", `
-  ## YOUR TASK
-  FORENSIC REVIEW of Phase N output. Issue verdict: INNOCENT, GUILTY, or INSUFFICIENT_EVIDENCE.
-
-  ## WORKFLOW CONTEXT
-  Sherlock Forensic Reviewer | Phase N Gate | ALL CODE IS GUILTY UNTIL PROVEN INNOCENT
-
-  ## MEMORY RETRIEVAL
-  Retrieve ALL phase N agent outputs from memory namespace "coding/[phase-name]/"
-
-  ## VERDICT CRITERIA
-  - INNOCENT: Phase passed all quality gates, proceed to next phase
-  - GUILTY: Phase failed, requires remediation - trigger recovery-agent
-  - INSUFFICIENT_EVIDENCE: Need more data before verdict
-
-  ## MEMORY STORAGE
-  Store verdict: key "coding/[phase]/forensic-verdict"
-  Include: {verdict, evidence, issues_found, remediation_needed}
-
-  ## ON GUILTY VERDICT
-  DO NOT proceed to next phase. Store detailed issues and await recovery-agent intervention.
-`)
-```
-
-4. **On Pipeline Completion:**
-```bash
-npx claude-flow@alpha memory store "coding/pipeline/result" '{"success": true, "phases_completed": 7, "totalAgents": 47, "trajectoryId": "[trajectoryId]"}' --namespace "coding"
-```
-
-5. **Critical Agents (Pipeline HALTS on failure):**
-- #1 task-analyzer (Phase 1 entry)
-- #15 consistency-checker (Phase 3 design validation)
-- #40 sign-off-approver (Phase 7 final approval)
-- #41-47 ALL forensic reviewers (phase gates)
-
-**IMPORTANT**: You MUST wait for each agent to complete before spawning the next. This is the ClaudeFlow 99.9% sequential execution rule. Pipeline agents have dependencies that require outputs from previous agents.
+If `isPipeline` is `true`, the task requires multiple sequential agents. The `result` will contain pipeline configuration - execute agents sequentially as specified.
 
 ---
 

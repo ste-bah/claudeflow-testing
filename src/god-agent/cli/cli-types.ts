@@ -7,15 +7,97 @@ import type { ChapterStructure } from './chapter-structure-loader.js';
 import type { DynamicAgentDetails } from './dynamic-agent-generator.js';
 import type { Phase8PrepareResult } from './final-stage/types.js';
 
+export type DataSourceMode = "external" | "local" | "hybrid";
+
+// ============================================================================
+// GAP-H01: TOOL PERMISSIONS (Programmatic Tool Gate)
+// ============================================================================
+
+/**
+ * Tool permission settings for a session.
+ * Enforces local/hybrid mode tool restrictions programmatically.
+ *
+ * GAP-H01: Implement programmatic external tool gate
+ */
+export interface ToolPermissions {
+  /** Allow WebSearch tool usage */
+  readonly webSearch: boolean;
+  /** Allow WebFetch tool usage */
+  readonly webFetch: boolean;
+  /** Allow Perplexity MCP tools */
+  readonly perplexity: boolean;
+}
+
+/**
+ * Query intent analysis result for hybrid mode decisions.
+ *
+ * GAP-H03: Query intent analyzer
+ */
+export interface QueryIntent {
+  /** Query requires recent/current information */
+  readonly recencyRequired: boolean;
+  /** Domains mentioned that may not be in corpus */
+  readonly outsideCorpusDomains: string[];
+  /** Whether external supplementation is justified */
+  readonly externalSupplementationJustified: boolean;
+  /** Detected temporal markers (e.g., "2025", "recent", "latest") */
+  readonly temporalMarkers: string[];
+}
+
+// ============================================================================
+// GAP-H04: TOOL USAGE LOGGING
+// ============================================================================
+
+/**
+ * Entry recording external tool usage in a session.
+ *
+ * GAP-H04: Add tool usage logging to session
+ */
+export interface ToolUsageEntry {
+  /** ISO timestamp of tool usage */
+  readonly timestamp: string;
+  /** Agent key that used the tool */
+  readonly agentKey: string;
+  /** Tool that was used (webSearch, webFetch, perplexity) */
+  readonly tool: string;
+  /** Justification for using external tool */
+  readonly justification: string;
+  /** Coverage grade at the time of tool usage */
+  readonly coverageGradeAtTime: string;
+}
+
 /**
  * Options for the init command
  */
 export interface InitOptions {
   styleProfile?: string;
   config?: string;
+
+  /** Research mode policy: defaults to "external" in CLI if omitted */
+  dataSourceMode?: DataSourceMode;
+
+  // ============================================================================
+  // GAP-L02: Local KU Promotion
+  // ============================================================================
+
+  /**
+   * Enable local Knowledge Unit (KU) promotion during local/hybrid modes.
+   * When enabled, high-confidence KUs from Phase 9 REPORT are promoted
+   * to the session context for enhanced agent grounding.
+   */
+  promoteLocalKUs?: boolean;
+
+  /**
+   * Minimum confidence threshold for KU promotion (0.0 - 1.0).
+   * Only KUs with confidence >= this threshold are promoted.
+   * Default: 0.7
+   */
+  kuPromotionThreshold?: number;
+
   verbose?: boolean;
   json?: boolean;
 }
+
 
 /**
  * Options for the next command
@@ -100,10 +182,15 @@ export interface InitResponse {
   sessionId: string;
   pipelineId: string;
   query: string;
+
+  /** Echo chosen mode (external/local/hybrid) */
+  dataSourceMode: DataSourceMode;
+
   styleProfile: StyleProfileSummary;
   totalAgents: number;
   agent: AgentDetails;
 }
+
 
 // Note: NextResponse and CompleteResponse are defined later in TASK-PIPE-004/005 sections
 
@@ -202,6 +289,8 @@ export interface PipelineSession {
   pipelineId: string;
   query: string;
   styleProfileId: string;
+    /** Research mode policy persisted across pipeline steps */
+  dataSourceMode?: DataSourceMode;
   status: SessionStatus;
   currentPhase: number;
   currentAgentIndex: number;
@@ -225,6 +314,146 @@ export interface PipelineSession {
 
   /** Recalculated total agents: 30 + N + 1 + 9 where N = chapters */
   dynamicTotalAgents?: number;
+
+  // ============================================================================
+  // GAP-H01: Tool Permissions (Programmatic Tool Gate)
+  // ============================================================================
+
+  /** Current tool permissions for the session (resolved from dataSourceMode) */
+  toolPermissions?: ToolPermissions;
+
+  /** Analyzed query intent for hybrid mode decisions */
+  queryIntent?: QueryIntent;
+
+  /** Coverage grade from Phase 9 REPORT (used in hybrid decisions) */
+  coverageGrade?: 'NONE' | 'LOW' | 'MED' | 'HIGH';
+
+  // ============================================================================
+  // GAP-H04: Tool Usage Logging
+  // ============================================================================
+
+  /** Audit log of external tool usage in this session */
+  toolUsageLog?: ToolUsageEntry[];
+
+  // ============================================================================
+  // GAP-A03: Phase 9 Report Injection
+  // ============================================================================
+
+  /** Phase 9 REPORT JSON (stored for agent prompt injection) */
+  phase9Report?: Record<string, unknown>;
+
+  // ============================================================================
+  // GAP-L02: Local KU Promotion
+  // ============================================================================
+
+  /** Whether local KU promotion is enabled for this session */
+  promoteLocalKUs?: boolean;
+
+  /** Minimum confidence threshold for KU promotion */
+  kuPromotionThreshold?: number;
+
+  /** Promoted Knowledge Units from Phase 9 REPORT */
+  promotedKUs?: PromotedKU[];
+
+  // ============================================================================
+  // GAP-LLM02: LLM Call Logging
+  // ============================================================================
+
+  /** Audit log of LLM API calls in this session */
+  llmCallLog?: LLMCallEntry[];
+
+  /** LLM usage statistics (updated after each call) */
+  llmUsageStats?: LLMUsageStats;
+}
+
+// ============================================================================
+// GAP-L02: Knowledge Unit Promotion Types
+// ============================================================================
+
+/**
+ * A promoted Knowledge Unit from local corpus.
+ * High-confidence KUs are promoted to session context for agent grounding.
+ *
+ * GAP-L02: Local KU promotion implementation
+ */
+export interface PromotedKU {
+  /** Knowledge Unit ID (e.g., ku_001) */
+  readonly id: string;
+  /** The extracted knowledge/fact */
+  readonly content: string;
+  /** Source document reference */
+  readonly source: string;
+  /** Confidence score (0.0 - 1.0) */
+  readonly confidence: number;
+  /** Category/type of knowledge */
+  readonly category?: string;
+  /** Related concepts */
+  readonly relatedConcepts?: string[];
+}
+
+// ============================================================================
+// GAP-LLM02: LLM Call Logging
+// ============================================================================
+
+/**
+ * Entry recording an LLM API call for audit purposes.
+ *
+ * GAP-LLM02: LLM call logging implementation
+ */
+export interface LLMCallEntry {
+  /** Unique call ID */
+  readonly callId: string;
+  /** ISO timestamp of call */
+  readonly timestamp: string;
+  /** Agent that made the call */
+  readonly agentKey: string;
+  /** Model used (e.g., claude-3-opus, gpt-4) */
+  readonly model: string;
+  /** Purpose of the call */
+  readonly purpose: LLMCallPurpose;
+  /** Input token count */
+  readonly inputTokens: number;
+  /** Output token count */
+  readonly outputTokens: number;
+  /** Total token count */
+  readonly totalTokens: number;
+  /** Duration in milliseconds */
+  readonly durationMs: number;
+  /** Whether the call succeeded */
+  readonly success: boolean;
+  /** Error message if failed */
+  readonly error?: string;
+}
+
+/**
+ * Purpose categories for LLM calls (enforces LLM boundaries)
+ *
+ * GAP-LLM02: LLM call purpose classification
+ */
+export type LLMCallPurpose =
+  | 'rhetorical_style'      // Style, tone, voice refinement
+  | 'reasoning'             // Logical reasoning, argumentation
+  | 'synthesis'             // Combining information
+  | 'summarization'         // Condensing content
+  | 'structure'             // Organizing, outlining
+  | 'validation'            // Checking quality, consistency
+  | 'translation'           // Language translation
+  | 'knowledge_retrieval';  // FLAGGED: Should use local corpus instead
+
+/**
+ * LLM usage statistics for a session
+ */
+export interface LLMUsageStats {
+  /** Total LLM calls */
+  totalCalls: number;
+  /** Total tokens used */
+  totalTokens: number;
+  /** Calls by purpose */
+  callsByPurpose: Record<LLMCallPurpose, number>;
+  /** Calls flagged as knowledge_retrieval (should be minimized) */
+  knowledgeRetrievalCalls: number;
+  /** Total duration of all calls */
+  totalDurationMs: number;
 }
 
 /**

@@ -1,0 +1,934 @@
+{
+  "query": "What are the latest scholarly interpretations of Aristotle's phantasia",
+  "timestamp_utc": "2026-01-14T04:44:25+00:00",
+  "inputs": {
+    "repo_root": "/home/dalton/projects/claudeflow-testing",
+    "phase4_entrypoint": "/home/dalton/projects/claudeflow-testing/scripts/retrieval/query_chunks.py",
+    "requested": {
+      "k": 8,
+      "overfetch": 8,
+      "where": {
+        "collection": "rhetorical_ontology"
+      },
+      "include_docs": true,
+      "use_highlights": false,
+      "knowledge_path": "/home/dalton/projects/claudeflow-testing/god-learn/knowledge.jsonl",
+      "top_ku": 20,
+      "reasoning_path": "/home/dalton/projects/claudeflow-testing/god-reason/reasoning.jsonl",
+      "top_edges": 30
+    }
+  },
+  "retrieval": {
+    "phase4_payload": {
+      "query": "What are the latest scholarly interpretations of Aristotle's phantasia",
+      "config": {
+        "chroma_dir": "vector_db_1536",
+        "collection": "knowledge_chunks",
+        "k": 8,
+        "overfetch": 8,
+        "where": {
+          "collection": "rhetorical_ontology"
+        },
+        "filters": {
+          "require_my_copy": false,
+          "collection_filter": null,
+          "keep_biblio": false
+        },
+        "include_docs": true,
+        "use_highlights": false,
+        "highlights_index": "scripts/highlights/highlight_index.json",
+        "highlight_alpha": 0.02,
+        "highlight_cap": 5
+      },
+      "results": [
+        {
+          "raw_rank": 2,
+          "chunk_id": "35a838f4ae19753a:00003",
+          "distance": 0.8885438442230225,
+          "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "page_start": 6,
+          "page_end": 7,
+          "text": "B O O K I                                              1555\nother advantage; but as the man is free, we say, who exists for himself and not for\nanother, so we pursue this as the only free science, for it alone exists for itself.\n       Hence the possession of it might be justly regarded as beyond human power;\nfor in many ways human nature is in bondage, so that according to Simonides ‘God                            30\nalone can have this privilege’, and it is unfitting that man should not be content to\nseek the knowledge that is suited to him. If, then, there is something in what the\npoets say, and jealousy is natural to the divine power, it would probably occur in this                     983*1\ncase above all, and all who excelled in this knowledge would be unfortunate. But the\ndivine power cannot be jealous (indeed, according to the proverb, ‘bards tell many a\nlie’), nor should any science be thought more honourable than one of this sort. For\nthe most divine science is also most honourable; and this science alone is, in two                          5\nways, most divine. For the science which it would be most meet for God to have is a\ndivine science, and so is any science that deals with divine objects; and this science\nalone has both these qualities; for God is thought to be among the causes of all\nthings and to be a first principle, and such a science either God alone can have, or\nGod above all others. All the sciences, indeed, are more necessary than this, but                           10\nnone is better.\n       Yet the acquisition of it must in a sense end in something which is the opposite\nof our original inquiries. For all men begin, as we said, by wondering that the matter\nis so (as in the case of automatic marionettes or the solstices or the incommensura­                        15\nbility of the diagonal of a square with the side; for it seems wonderful to all men who\nhave not yet perceived the explanation that there is a thing which cannot be\nmeasured even by the smallest unit). But we must end in the contrary and,\naccording to the proverb, the better state, as is the case in these instances when men\nlearn the cause; for there is nothing which would surprise a geometer so much as if                         20\nthe diagonal turned out to be commensurable.\n      We have stated, then, what is the nature of the science we are searching for,\nand what is the mark which our search and our whole investigation must reach.\n\n3 • Evidently we have to acquire knowledge of the original causes (for we say\nwe know each thing only when we think we recognize its first cause), and causes are                         25\nspoken of in four senses. In one of these we mean the substance, i.e. the essence (for\nthe ‘why’ is referred finally to the formula,1 and the ultimate ‘why’ is a cause and\nprinciple); in another the matter or substratum, in a third the source of the change,                       30\nand in a fourth the cause opposed to this, that for the sake of which and the good\n(for this is the end of all generation and change). We have studied these causes\nsufficiently in our work on nature, but yet let us call to our aid those who have                           983bl\nattacked the investigation of being and philosophized about reality before us. For\nobviously they too speak of certain principles and causes; to go over their views,\nthen, will be of profit to the present inquiry, for we shall either find another kind of\ncause, or be more convinced of the correctness of those which we now maintain.                              5\n      Of the first philosophers, most thought the principles which were of the nature\n\n‘In the translation of the Metaphysics ‘formula* (or ‘definitory formula*) renders ‘\\oyos’.\n\n1556                          metaphysics",
+          "meta": {
+            "author_raw": "Aristotle",
+            "is_my_copy": false,
+            "page_end": 7,
+            "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "doc_id": "35a838f4ae19753a",
+            "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "collection": "rhetorical_ontology",
+            "chunk_index": 3,
+            "title_raw": "Metaphysics_(2014)_ [My Copy]",
+            "is_clean_copy": false,
+            "mtime": 1675962441,
+            "page_start": 6
+          },
+          "rank": 1
+        },
+        {
+          "raw_rank": 3,
+          "chunk_id": "35a838f4ae19753a:00007",
+          "distance": 0.914894700050354,
+          "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "page_start": 10,
+          "page_end": 11,
+          "text": "5 • Contemporaneously with these philosophers and before them, the Pytha­\ngoreans, as they are called, devoted themselves to mathematics; they were the first\nto advance this study, and having been brought up in it they thought its                 25\nprinciples were the principles of all things. Since of these principles numbers are by\nnature the first, and in numbers they seemed to see many resemblances to the things\nthat exist and come into being—more than in fire and earth and water (such and\nsuch a modification of numbers being justice, another being soul and reason,\nanother being opportunity—and similarly almost all other things being numerically        30\nexpressible); since, again, they saw that the attributes and the ratios of the musical\nscales were expressible in numbers; since, then, all other things seemed in their\nwhole nature to be modelled after numbers, and numbers seemed to be the first\nthings in the whole of nature, they supposed the elements of numbers to be the           986'i\nelements of all things, and the whole heaven to be a musical scale and a number.\nAnd all the properties of numbers and scales which they could show to agree with\nthe attributes and parts and the whole arrangement of the heavens, they collected        5\nand fitted into their scheme; and if there was a gap anywhere, they readily made\nadditions so as to make their whole theory coherent. E.g. as the number 10 is\nthought to be perfect and to comprise the whole nature of numbers, they say that\nthe bodies which move through the heavens are ten, but as the visible bodies are only    io\nnine, to meet this they invent a tenth—the ‘counter-earth’. We have discussed these\nmatters more exactly elsewhere.\n      But the object of our discussion is that we may learn from these philosophers\nalso what they suppose to be the principles and how these fall under the causes we       15\nhave named. Evidently, then, these thinkers also consider that number is the\nprinciple both as matter for things and as forming their modifications and states,\nand hold that the elements of number are the even and the odd, and of these the\nformer is unlimited, and the latter limited; and the 1 proceeds from both of these\n(for it is both even and odd), and number from the 1; and the whole heaven, as has       20\nbeen said, is numbers.\n      Other members of this same school say there are ten principles, which they\narrange in two columns of cognates—limit and unlimited, odd and even, one and\nplurality, right and left, male and female, resting and moving, straight and curved,     25\nlight and darkness, good and bad, square and oblong. In this way Alcmaeon of\nCroton seems also to have conceived the matter,2 and either he got this view from\nthem or they got it from him; for he expressed himself similarly to them. For he says    30\nmost human affairs go in pairs, meaning not definite contrarieties such as the\nPythagoreans speak of, but any chance contrarieties, e.g. white and black, sweet\nand bitter, good and bad, great and small. He threw out indefinite suggestions about\n\nISomc aulhorities read; ‘For Alcmaeon lived during the old age\n                         of Pythagoras, and he expressed himself...’.\n\n1560                          metaphysics",
+          "meta": {
+            "doc_id": "35a838f4ae19753a",
+            "chunk_index": 7,
+            "collection": "rhetorical_ontology",
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+            "is_my_copy": false,
+            "page_start": 10,
+            "title_raw": "Metaphysics_(2014)_ [My Copy]",
+            "author_raw": "Aristotle",
+            "mtime": 1675962441,
+            "page_end": 11,
+            "is_clean_copy": false
+          },
+          "rank": 2
+        },
+        {
+          "raw_rank": 5,
+          "chunk_id": "35a838f4ae19753a:00001",
+          "distance": 0.9303763508796692,
+          "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "page_start": 4,
+          "page_end": 5,
+          "text": "BOOK I                                      1553\nthe physician does not cure a man, except in an incidental way, but Callias or\nSocrates or some other called by some such individual name, who happens to be a            20\nman. If, then, a man has theory without experience, and knows the universal but\ndoes not know the individual included in this, he will often fail to cure; for it is the\nindividual that is to be cured. But yet we think that knowledge and understanding                  i\nbelong to art rather than to experience, and we suppose artists to be wiser than men       25      :\nof experience (which implies that wisdom depends in all cases rather on knowl­\nedge); and this because the former know the cause, but the latter do not. For men of\nexperience know that the thing is so, but do not know why, while the others know the\n‘why’ and the cause. Hence we think that the master-workers in each craft are more         30\nhonourable and know in a truer sense and are wiser than the manual workers,\nbecause they know the causes of the things that are done (we think the manual              981*1\nworkers are like certain lifeless things which act indeed, but act without knowing\nwhat they do, as fire burns,—but while the lifeless things perform each of their\nfunctions by a natural tendency, the labourers perform them through habit); thus\nwe view them as being wiser not in virtue of being able to act, but of having the          5\ntheory for themselves and knowing the causes. And in general it is a sign of the man\nwho knows, that he can teach, and therefore we think art more truly knowledge than\nexperience is; for artists can teach, and men of mere experience cannot.                               ;\n      Again, we do not regard any of the senses as wisdom; yet surely these give the       10\nmost authoritative knowledge of particulars. But they do not tell us the ‘why’ of\nanything—e.g. why fire is hot; they only say that it is hot.\n                                                                                                       !\n      At first he who invented any art that went beyond the common perceptions of\nman was naturally admired by men, not only because there was something useful in           15\nthe inventions, but because he was thought wise and superior to the rest. But as\nmore arts were invented, and some were directed to the necessities of life, others to                  •:\nits recreation, the inventors of the latter were always regarded as wiser than the\ninventors of the former, because their branches of knowledge did not aim at utility.       20\nHence when all such inventions were already established, the sciences which do not\naim at giving pleasure or at the necessities of life were discovered, and first in the\nplaces where men first began to have leisure. This is why the mathematical arts\nwere founded in Egypt; for there the priestly caste was allowed to be at leisure.\n      We have said in the Ethics what the difference is between art and science and        25\nthe other kindred faculties; but the point of our present discussion is this, that all\nmen suppose what is called wisdom to deal with the first causes and the principles of\nthings. This is why, as has been said before, the man of experience is thought to be       30\nwiser than the possessors of any perception whatever, the artist wiser than the men\nof experience, the master-worker than the mechanic, and the theoretical kinds of\nknowledge to be more of the nature of wisdom than the productive. Clearly then             982*1\nwisdom is knowledge about certain causes and principles.\n\n2 • Since we are seeking this knowledge, we must inquire of what kind are\nthe causes and the principles, the knowledge of which is wisdom. If we were to take        5\nthe notions we have about the wise man, this might perhaps make the answer more\n\n1554                           metaphysics",
+          "meta": {
+            "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+            "is_my_copy": false,
+            "page_end": 5,
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "doc_id": "35a838f4ae19753a",
+            "title_raw": "Metaphysics_(2014)_ [My Copy]",
+            "collection": "rhetorical_ontology",
+            "mtime": 1675962441,
+            "chunk_index": 1,
+            "page_start": 4,
+            "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "is_clean_copy": false,
+            "author_raw": "Aristotle"
+          },
+          "rank": 3
+        },
+        {
+          "raw_rank": 6,
+          "chunk_id": "35a838f4ae19753a:00038",
+          "distance": 0.9435850381851196,
+          "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "page_start": 44,
+          "page_end": 45,
+          "text": "5 • Again, from the same opinion proceeds the doctrine of Protagoras, and\nboth doctrines must be alike true or alike untrue. For on the one hand, if all opinions\nand appearances are true, all statements must be at the same time true and false.\nFor many men hold beliefs in which they conflict with one another, and all think             10\nthose mistaken who have not the same opinions as themselves; so that the same\nthing must be and not be. And on the other hand, if this is so, all opinions must be\ntrue; for those who are mistaken and those who are right are opposed to one another\nin their opinions; if, then, reality is such as the view in question supposes, all will be\nright in their beliefs. Evidently, then, both doctrines proceed from the same way of         15\nthinking.\n      But the same method of discussion must not be used with all opponents; for\nsome need persuasion, and others compulsion. Those who have been driven to this\nposition by difficulties in their thinking can easily be cured of their ignorance; for it\nis not their expressed argument but their thought that one has to meet. But those            20\nwho argue for the sake of argument can be convinced only by emending the\nargument as expressed in words.\n     Those who really feel the difficulties have been led to this opinion by\nobservation of the sensible world. They think that contradictions or contraries are\ntrue at the same time, because they see contraries coming into existence out of the\nsame thing. If, then, that which is not cannot come to be, the thing must have               25\nexisted before as both contraries alike, as Anaxagoras says all is mixed in all, and\nDemocritus too; for he says the void and the full exist alike in every part, and yet one\nof these is being, and the other non-being. To those, then, whose belief rests on these      30\ngrounds, we shall say that in a sense they speak rightly and in a sense they err. For\n‘that which is’ has two meanings, so that in some sense a thing can come to be out of\nthat which is not, while in some sense it cannot, and the same thing can at the same\ntime be and not be—but not in the same respect. For the same thing can be\npotentially at the same time two contraries, but it cannot actually. And again we            35\nshall ask them to believe that among existing things there is another kind of\nsubstance to which neither movement nor destruction nor generation at all\nbelongs.\n      And similarly some have inferred from the sensible world the truth of                  I009b!\nappearances. For they think that the truth should not be determined by the large or\nsmall number of those who hold a belief, and that the same thing is thought sweet by\nsome who taste it, and bitter by others, so that if all were ill or all were mad, and\nonly two or three were well or sane, these would be thought ill and mad, and not the         5\nothers. And again, many of the other animals receive impressions contrary to ours;\nand even to the senses of each individual, things do not always seem the same.\nWhich, then, of these impressions are true and which are false is not obvious; for the\none set is no more true than the other, but both are alike. And this is why                  10\n\n1594                          metaphysics",
+          "meta": {
+            "is_clean_copy": false,
+            "author_raw": "Aristotle",
+            "is_my_copy": false,
+            "chunk_index": 38,
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "mtime": 1675962441,
+            "page_start": 44,
+            "collection": "rhetorical_ontology",
+            "title_raw": "Metaphysics_(2014)_ [My Copy]",
+            "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+            "doc_id": "35a838f4ae19753a",
+            "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "page_end": 45
+          },
+          "rank": 4
+        },
+        {
+          "raw_rank": 8,
+          "chunk_id": "35a838f4ae19753a:00060",
+          "distance": 0.9497058391571045,
+          "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "page_start": 70,
+          "page_end": 71,
+          "text": "I\n\nBOOK VI                                       1619\n      30 ■ We call an accident that which attaches to something and can be truly\nasserted, but neither of necessity nor usually, e.g. if one in digging a hole for a plant   15\nfound treasure. This—the finding of treasure—happens by accident to the man who\ndigs the hole; for neither does the one come of necessity from the other or after the\nother, nor, if a man plants, does he usually find treasure. And a musical man might\nbe white; but since this does not happen of necessity nor usually, we call it an            20\naccident. Therefore since there are attributes and they attach to a subject, and some\nof them attach in a particular place and at a particular time, whatever attaches to a\nsubject, but not because it is this subject, at this time or in this place, will be an\naccident. Therefore there is no definite cause for an accident, but a chance cause,         25\ni.e. an indefinite one. Going to Aegina was an accident, if the man went not in order\nto get there, but because he was carried out of his way by a storm or captured by\npirates. The accident has happened or exists,—not in virtue of itself, however, but of\nsomething else; for the storm was the cause of his coming to a place for which he\nwas not sailing, and this was Aegina.\n      ‘Accident’ has also another meaning, i.e. what attaches to each thing in virtue       30\nof itself but is not in its substance, as having its angles equal to two right angles\nattaches to the triangle. And accidents of this sort may be eternal, but no accident\nof the other sort is. This is explained elsewhere.\n\nBOOK VI (E)\n\n1 • We are seeking the principles and the causes of the things that are, and\nobviously of things qua being. For there is a cause of health and of good condition,\nand the objects of mathematics have principles and elements and causes, and in              5\ngeneral every science which is ratiocinative or at all involves reasoning deals with\ncauses and principles, exact or indeterminate; but all these sciences mark off some\nparticular being—some genus, and inquire into this, but not into being simply nor\nqua being, nor do they offer any discussion of the essence of the things of which they      10\ntreat; but starting from the essence—some making it plain to the senses, others\nassuming it as a hypothesis—they then demonstrate, more or less cogently, the\nessential attributes of the genus with which they deal. It is obvious, therefore, from\nsuch a review of the sciences, that there is no demonstration of substance or of the\nessence, but some other way of revealing it. And similarly the sciences omit the            15\nquestion whether the genus with which they deal exists or does not exist, because it\nbelongs to the same line of thought to show what it is and that it is.\n      And since natural science, like other sciences, confines itself to one class of\nbeings, i.e. to that sort of substance which has the principle of its movement and rest     20\npresent in itself, evidently it is neither practical nor productive. For the principle of\nproduction is in the producer—it is either reason or art or some capacity, while the\nprinciple of action is in the doer—viz. choice, for that which is done and that which\nis chosen are the same. Therefore, if all thought is either practical or productive or      25\ntheoretical, natural science must be theoretical, but it will theorize about such being\n\n1620                           metaphysics",
+          "meta": {
+            "author_raw": "Aristotle",
+            "collection": "rhetorical_ontology",
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "is_clean_copy": false,
+            "title_raw": "Metaphysics_(2014)_ [My Copy]",
+            "mtime": 1675962441,
+            "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "chunk_index": 60,
+            "page_start": 70,
+            "is_my_copy": false,
+            "doc_id": "35a838f4ae19753a",
+            "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+            "page_end": 71
+          },
+          "rank": 5
+        },
+        {
+          "raw_rank": 9,
+          "chunk_id": "35a838f4ae19753a:00115",
+          "distance": 0.9546923041343689,
+          "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "page_start": 130,
+          "page_end": 131,
+          "text": "BOOK XI                                  1679\n not the same views about the same things, but a particular thing appears pleasant to\nsome and the contrary of pleasant to others.\n      That nothing comes to be out of that which is not, but everything out of that\nwhich is, is a doctrine common to nearly all the natural philosophers. Since, then, a 25\nthing can become not-white, having been perfectly white and in no respect\nnot-whitc, that which becomes white must come from that which is not-white; so\nthat a thing must come to be out of that which is not (so they argue), unless the\nsame thing was at the beginning both not-white and white. But it is not hard to solve 30\nthis difficulty; for we have said in the Physics' in what sense things that come to be\ncome to be from that which is not, and in what sense from that which is.\n      But to lend oneself equally to the opinions and the fancies of disputing parties\nis foolish; for clearly one of them must be mistaken. And this is evident from what\nhappens in sensation; for the same thing never appears sweet to some and bitter to 1063M\nothers, unless in the one case the sense-organ which discriminates the aforesaid\nflavours has been perverted and injured. And if this is so the one party must be\ntaken to be the measure, and the other must not. And I say the same of good and 5\nbad, and beautiful and ugly, and all other such qualities. For to maintain the view\nwe are opposing is just like maintaining the truth of what appears to people who put\ntheir finger under their eye and make the object appear two instead of one, i.e. like\nsaying that it is two (because it appears to be of that number) and again one (for to\nthose who do not interfere with their eye the one object appears one).                  10\n      In general, it is absurd to make the fact that the things of this earth are\nobserved to change and never to remain in the same state, the basis of our\njudgements about the truth. For in pursuing the truth one must start from the\nthings that are always in the same state and suffer no change. Such are the heavenly 15\nbodies; for these do not appear to be now of one nature and again of another, but are\nmanifestly always the same and share in no change.\n      Further, if there is movement, and something moved, and everything is moved\nout of something and into something, it follows that that which is moved must first\nbe in that out of which it is to be moved, and then not be in it, and move into the 20\nother and come to be in it, and that the contradictory statements are not true at the\nsame time, as our opponents assert they are.\n      And if the things of this earth continuously flow and move in respect of\nquantity—if one were to suppose this, although it is not true—why should they not\nendure in respect of quality? For the assertion of contradictory statements about\nthe same thing seems to have arisen largely from the belief that the quantity of 25\nbodies does not endure, so that the same thing both is and is not four cubits long. But\nthe substance depends on quality, and this is of determinate nature, though quantity\nis indeterminate.\n      Further, when the doctor orders people to take some particular food, why do\nthey take it? For why is this bread rather than not bread?—so that it would make 30\nno difference whether one ate or not. But as a matter of fact they take it, assuming\n\n1 Physics I 8.\n\n1680                           metaphysics",
+          "meta": {
+            "page_end": 131,
+            "author_raw": "Aristotle",
+            "chunk_index": 115,
+            "mtime": 1675962441,
+            "page_start": 130,
+            "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+            "is_clean_copy": false,
+            "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "is_my_copy": false,
+            "doc_id": "35a838f4ae19753a",
+            "collection": "rhetorical_ontology",
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "title_raw": "Metaphysics_(2014)_ [My Copy]"
+          },
+          "rank": 6
+        },
+        {
+          "raw_rank": 10,
+          "chunk_id": "35a838f4ae19753a:00015",
+          "distance": 0.9575168490409851,
+          "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "page_start": 18,
+          "page_end": 19,
+          "text": "BOOK I                                     1567\n it, so that whether Socrates exists or not a man might come to be like Socrates; and      25\n evidently this might be so even if Socrates were eternal. And there will be several\n patterns of the same thing, and therefore several Forms, e.g. animal and two-footed\n and also man himself will be Forms of man. Again, the Forms are patterns not only\nof sensible things, but of themselves too, e.g. the Form of genus will be a genus of       30\n Forms; therefore the same thing will be pattern and copy.\n       Again it must be held to be impossible that the substance and that of which it is   99i*i\nthe substance should exist apart; how, therefore, can the Ideas, being the substances\nof things, exist apart?\n       In the Phaedo the case is stated in this way—that the Forms are causes both of\n being and of becoming; yet when the Forms exist, still the things that share in them\ndo not come into being, unless there is some efficient cause; and many other things        5\ncome into being (e.g. a house or a ring), of which we say there are no Forms.\nClearly, therefore, even the other things can both be and come into being owing to\nsuch causes as produce the things just mentioned.\n       Again, if the forms are numbers, how can they be causes? Is it because existing\nthings are other numbers, e.g. one number is man, another is Socrates, another             io\nCallias? Why then are the one set of numbers causes of the other set? It will not\nmake any difference even if the former are eternal and the latter are not. But if it is\nbecause things in this sensible world (e.g. harmony) are ratios of numbers, evidently\nthere is some one class of things of which they are ratios. If, then, this—the\nmatter—is some definite thing, evidently the numbers themselves too will be ratios         15\nof something to something else. E.g. if Callias is a numerical ratio between fire and\nearth and water and air, his Idea also will be a number of certain other underlying\nthings; and the Idea of man, whether it is a number in a sense or not, will still be a\nnumerical ratio of certain things and not a number proper, nor will it be a number\nmerely because it is a numerical ratio.                                                    20\n       Again, from many numbers one number is produced, but how can one Form\ncome from many Forms? And if the number comes not from the many numbers\nthemselves but from the units in them, e.g. in 10,000, how is it with the units? If\nthey are specifically alike, numerous absurdities will follow, and also if they are not\nalike (neither the units in the same number being like one another nor those in            25\ndifferent numbers being all like to all); for in what will they differ, as they are\nwithout quality? This is not a plausible view, nor can it be consistently thought out.\nFurther, they must set up a second kind of number (with which arithmetic deals),\nand all the objects which are called intermediate by some thinkers; and how do\nthese exist or from what principles do they proceed? Or why must they be\nintermediate between the things in this sensible world and the things-in-                  30\nthemselves? Further, the units in 2 must each come from a prior 2; but this is\nimpossible. Further, why is a number, when taken all together, one? Again, besides         992M\nwhat has been said, if the units are diverse they should have spoken like those who\nsay there are four, or two, elements; for each of these thinkers gives the name of\nelement not to that which is common, e.g. to body, but to fire and earth, whether          5\nthere is something common to them, viz. body, or not. But in fact they speak as if the\nOne were homogeneous like fire or water; and if this is so, the numbers will not be\n\n1568                           metaphysics",
+          "meta": {
+            "title_raw": "Metaphysics_(2014)_ [My Copy]",
+            "is_clean_copy": false,
+            "page_start": 18,
+            "author_raw": "Aristotle",
+            "page_end": 19,
+            "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "doc_id": "35a838f4ae19753a",
+            "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+            "mtime": 1675962441,
+            "chunk_index": 15,
+            "collection": "rhetorical_ontology",
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "is_my_copy": false
+          },
+          "rank": 7
+        },
+        {
+          "raw_rank": 11,
+          "chunk_id": "35a838f4ae19753a:00093",
+          "distance": 0.9614909887313843,
+          "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "page_start": 105,
+          "page_end": 105,
+          "text": "1654                          metaphysics\n\nthings, though they do assign some other predicates. E.g. they say that non-existent\n        things are objects of thought and desire, but not that they are moved; and this\n        because, while they do not actually exist, they would have to exist actually if they\n1047M   were moved. For of non-existent things some exist potentially; but they do not exist,\n        because they do not exist in fulfillment.\n\n4 • If what we have described is the possible or a consequence of the possible,\n      evidently it cannot be true to say ‘this is capable of being but will not be’,—a view\n    5 which leads to the conclusion that there is nothing incapable of being. Suppose, for\n      instance, that a man (one who did not understand the meaning of ‘incapable of\n      being’) were to say that the diagonal of the square is capable of being measured but\n      will not be measured, because a thing may be capable of being or coming to be, and\n      yet not be or be about to be. But from the premises this necessarily follows, that if\n   10 we actually suppose that which is not, but is capable of being, to be or to have come\n      to be, there will be nothing impossible in this; but the result will be impossible, for\n      the actual measuring of the diagonal is impossible. For the false and the impossible\n      are not the same; that you are standing now is false, but not impossible.\n   15       At the same time it is clear that if, when A is, B must be, then, when A is\n      possible, B also must be possible. For if B need not be possible, there is nothing to\n      prevent its not being possible. Now let A be supposed possible. Then, when A is\n      possible, nothing impossible would follow if A were supposed to be; and then B must\n   20 of course be. But we supposed B to be impossible. Let it be impossible, then. If, then,\n      B is impossible, A also must be so. But A was supposed possible; therefore B also is\n      possible. If, then, A is possible, B also will be possible, if they were so related that if\n   25 A is, B must be. If, then, A and B being thus related, B is not possible on this\n      condition, A and B will not be related as was supposed. And if when A is possible, B\n      must be possible, then if A is, B must also be. For to say that B must be possible, if A\n      is possible, means that if A is both at the time when and in the way in which it was\n   30 supposed capable of being, B also must then and in that way be.\n\n5 ■ As all potentialities are either innate, like the senses, or come by practice,\n       like the power of playing the flute, or by learning, like that of the arts, those which\n       come by practice or by rational formula we must acquire by previous exercise, but\n    35 this is not necessary with those which are not of this nature and which imply\n       passivity.\n1048*1       Since that which is capable is capable of something and at some time and in\n       some way—with all the other qualifications which must be present in the\n       definition—, and since some things can work according to a rational formula and\n       their potentialities involve a formula, while other things are non-rational and their\n       potentialities are non-rational, and the former potentialities must be in a living\n     5 thing, while the latter can be both in the living and in the lifeless; as regards\n       potentialities of the latter kind, when the agent and the patient meet in the way\n       appropriate to the potentiality in question, the one must act and the other be acted\n       on, but with the former kind this is not necessary. For the non-rational potentialities",
+          "meta": {
+            "collection": "rhetorical_ontology",
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "page_end": 105,
+            "doc_id": "35a838f4ae19753a",
+            "title_raw": "Metaphysics_(2014)_ [My Copy]",
+            "mtime": 1675962441,
+            "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "page_start": 105,
+            "author_raw": "Aristotle",
+            "is_my_copy": false,
+            "is_clean_copy": false,
+            "chunk_index": 93,
+            "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1"
+          },
+          "rank": 8
+        }
+      ]
+    },
+    "stats": {
+      "n_returned": 8,
+      "distinct_docs": 1,
+      "distinct_doc_paths": [
+        "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf"
+      ],
+      "distance_min": 0.8885438442230225,
+      "distance_max": 0.9614909887313843
+    }
+  },
+  "knowledge_units": {
+    "hits": [
+      {
+        "knowledge_id": "ku_1e64d2f640a2ab60",
+        "score": 3,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "Hett summarizes, both in the presence of sen- tionship to the latter, Consistent with this causal relationship; phantasia is sible objects, interpreting them to the mind, and in their absence, bringing the faculty by which sense perceptions are retained; Frede calls the mental absent objects to the mind in what we would call variously memory, con- images retained by phantasia '.'after-iE!,lg,'_~ (I 992, 280), However, phan- templation, and imagination (1935, xiii), Thus, as Dorothea Frede argues, tasia's retention of sense perceptions does not make it equivalent to memory.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_2b4c34cb0bf14efb",
+        "score": 3,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "The boundaries of Aristotle's sire\" (bouleutik€ orexis) (I 113a), 22 Phantasia, Aristotle argues in De Anima, epideictic are perforated; epideictic stands in various relationships to other is indispensable to desire, in that images of a good or desirable object move even the most brute animals.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_60b36fc6e619383c",
+        "score": 3,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "One might grant that the notion of \"seeing as\" is basic to Aristotle's interest in phantasia and still claim that, as he devel- ops a theory based on this notion to explain various epistemo- logical problems, he immediately imports images, so that there •o Owen, \"Tithenai.\" 41 He seems to be animated by many of the same concerns as, for exam- ple, Dennett (Content) in his talk of the way in which a creature is aware of an object-cf.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_6ef85c8cdf12ede9",
+        "score": 3,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "The English word “appearance” connotes an interesting polarity, since an appearance is always both of something and for someone, and itself seems to be engendered in a unique coming-together of something and someone: an appearance of one thing is not like that of another, while, on the other hand, the appearance of something to one person may differ from its appearance to another.12 This duality parallels a similar polarity in the word phantasia which is reflected in two basic uses which Aristotle makes of the word, uses described by Bonitz as speciem rei obiectae ...",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_83eec0c4e3a69677",
+        "score": 3,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "Aristotle describes phantasia as (;-~~ement) present~ and when it makes a statement, as in sensation it asserts that an ob- ject is pleasant or unpleasant, in this case it avoids or pursues; and so gener- ally in action.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_8e061aef9b67a44b",
+        "score": 3,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "Phantasia is integral to each of these psychic mans visions [visiones], whereby things absent are presented to our imagina- ,::.,) , ..<t- , t processes and to Aristotle's understanding of the function of appearance tion with such extreme vividness that they seem actually to be before our very eyes ....",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_9e65f39a12a5a006",
+        "score": 3,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "tions of the mind, Although phantasia may be \"lower\" or \"primal,\" it is De Anima, phantasia, though an integral component of human perception and cognition, is nevertheless portrayed as quite vulnerable to distortion nevertheless the basis for the full range of functions of the psyche, not the and error, due to any number of factors internal or external to the knowing least deliberation (bouleutike), In this section, I show how the notion of and perceiving subject-for example, too little sleep, emotional immatu- phantasia as \"primal\" suggests a corresponding rhetorical order, where rity, or insufficient visual stimuli, Similarly, the psychological condition epideictic rhetoric, the most overtly lexical of rhetoric practices, occupies of an audience, as the Rhetoric makes startlingly clear,",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_ed17021013dd6bfa",
+        "score": 3,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "It is perhaps the mistaken notion that epistemology and the explanation of action arc, for Aristotle, two different branches of inquiry, that has led many critics to mark off some phantasia-contexts from others and to fed no qualms about offering an interpreta- tion for one set that could not fit the other.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_0a005cf37632a36d",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "Since we can distinguish between a magnitude and what it is to be a 10 magnitude, and between water and what it is to be water, and so in many other cases (though not in all; for in certain cases the thing and its form are identical), flesh and what it is to be flesh are discriminated either by different faculties, or by the same faculty in two different states; for flesh necessarily involves matter and is like what is snub-nosed, a this in a this.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_1c990c3ec10a973d",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "Consequently, while waking is actuality in a sense corresponding to the cutting and the seeing, the soul is actuality in the sense corresponding to sight and the power in the tool; the body corresponds to what is in 413*1 potentiality; as the pupil plus the power of sight constitutes the eye, so the soul plus the body constitutes the animal.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_247baa8ab683c5b5",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "Therefore since there are attributes and they attach to a subject, and some of them attach in a particular place and at a particular time, whatever attaches to a subject, but not because it is this subject, at this time or in this place, will be an accident.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_34ed4533ef9ae613",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "It must be all the same whether we speak of units or corpuscles; for if the spherical atoms of Democritus became points, nothing being retained but their being a quantum, there must remain in each a moving and a moved part, just as there is in what is continuous; what happens has nothing to do with the size of the 15 atoms, it depends solely upon their being a quantum.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_48109dd8283335d7",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "Similarly, Walker (2000) argues that epideictic discourse would assume an epideictic character when it leads jurors into was for the ancients the rhetoric of belief and desire that formed the basis emotional excess through phantasia; phantasia can corrupt the emotional of all rhetorics of practical decision making.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_5f9217f97da62245",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "Now some thinkers assert that like is affected only by like; in what sense this is possible and in 417*1 what sense impossible, we have explained in our general discussion of acting and being acted upon.13 Here arises a problem: why do we not perceive the senses themselves, or why without the stimulation of external objects do they not produce sensation, seeing that they contain in themselves fire, earth, and all the other elements, of which—either in themselves or in respect of their incidental attributes—there is 5 perception?",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_a41084b149c8fba9",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "This is why, as has been said before, the man of experience is thought to be 30 wiser than the possessors of any perception whatever, the artist wiser than the men of experience, the master-worker than the mechanic, and the theoretical kinds of knowledge to be more of the nature of wisdom than the productive.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_aa9dbc768aac06a3",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "In the case of what is to possess sense, the first transition is due to the action of the male parent and takes place before birth so that at birth the living thing is, in respect of sensation, at the stage which corresponds to the possession of knowledge.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_ea9bde54b2bd8b59",
+        "score": 2,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "But if the essence of soul be to move itself, its being moved cannot be incidental to it, as it is to what is white or three cubits long; they too can be moved, but only incidentally—what is moved is that of which white and three cubits long are the attributes, the body in which they inhere; hence they have no 20 place: but if the soul naturally partakes in movement, it follows that it must have a place.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_00ddb2542e3d3dfa",
+        "score": 1,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "(Though I suspect that the identities would be token- and not type-, so we would in practice have a hard time doing this.) Thus phautasiai are not logically dependent on the resulting action and can be used to explain it.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_00e5259a79c0e5d0",
+        "score": 1,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "For the power of perception is never found apart from the power of self-nutrition, while—in plants—the latter is found isolated from the former.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      },
+      {
+        "knowledge_id": "ku_02c520c9abc1d486",
+        "score": 1,
+        "overlap": {
+          "chunk": false,
+          "doc": false
+        },
+        "claim": "For it is enough if they are this, even if there are no Forms; and perhaps all the more if there are Forms.—At 15 the same time it is clear that if there are Ideas such as some people say there are, the substratum of them will not be substance; for these must be substances, and not predicable of a substratum; for if they were they would exist only by being participated in.—Each thing then and its essence are one and the same in no merely accidental way, as is evident both from the preceding arguments and because to know each thing, at least, is to know its essence, so that even by the exhibition of 20 instances it becomes clear that both must be one.",
+        "source": {
+          "chunk_id": null,
+          "doc_id": null
+        }
+      }
+    ],
+    "stats": {
+      "n_total": 52,
+      "n_scored_positive": 52,
+      "n_overlap_chunk": 0,
+      "n_overlap_doc": 0,
+      "knowledge_path": "/home/dalton/projects/claudeflow-testing/god-learn/knowledge.jsonl"
+    }
+  },
+  "reasoning_edges": {
+    "edges": [
+      {
+        "reason_id": "ru_01cbadbb32c16a63",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_aa9dbc768aac06a3"
+        ],
+        "overlap_ku_ids": [
+          "ku_aa9dbc768aac06a3"
+        ]
+      },
+      {
+        "reason_id": "ru_06754d72663bac62",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_dc922348955b4c89"
+        ],
+        "overlap_ku_ids": [
+          "ku_34ed4533ef9ae613"
+        ]
+      },
+      {
+        "reason_id": "ru_0f6b8caf4372bc71",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_b67cd8adb72a329e"
+        ],
+        "overlap_ku_ids": [
+          "ku_1e64d2f640a2ab60"
+        ]
+      },
+      {
+        "reason_id": "ru_532388312b980017",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_bc9d7cccf45e7835"
+        ],
+        "overlap_ku_ids": [
+          "ku_34ed4533ef9ae613"
+        ]
+      },
+      {
+        "reason_id": "ru_5e9b94797ee626e4",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_00ddb2542e3d3dfa",
+          "ku_ea9bde54b2bd8b59"
+        ],
+        "overlap_ku_ids": [
+          "ku_00ddb2542e3d3dfa",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "reason_id": "ru_601896b52fb23cd8",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_0a005cf37632a36d"
+        ],
+        "overlap_ku_ids": [
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "reason_id": "ru_7b5a1ed0744795aa",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_00ddb2542e3d3dfa",
+          "ku_6b5c01dc2cfc2b5c"
+        ],
+        "overlap_ku_ids": [
+          "ku_00ddb2542e3d3dfa"
+        ]
+      },
+      {
+        "reason_id": "ru_7ed1d2560091eca7",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_3a2258dfe0abecd1"
+        ],
+        "overlap_ku_ids": [
+          "ku_34ed4533ef9ae613"
+        ]
+      },
+      {
+        "reason_id": "ru_8fe0bbf10de6127d",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_0325efb7d46dc743",
+          "ku_0a005cf37632a36d"
+        ],
+        "overlap_ku_ids": [
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "reason_id": "ru_91a7b1ca2297b208",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_550e45dd9aa351a9"
+        ],
+        "overlap_ku_ids": [
+          "ku_34ed4533ef9ae613"
+        ]
+      },
+      {
+        "reason_id": "ru_a17a832889fc3f43",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_ea9bde54b2bd8b59"
+        ],
+        "overlap_ku_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "reason_id": "ru_a205bb84f51e93db",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_6b5c01dc2cfc2b5c"
+        ],
+        "overlap_ku_ids": [
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "reason_id": "ru_a30950ca6fa091bc",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_3a2258dfe0abecd1"
+        ],
+        "overlap_ku_ids": [
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "reason_id": "ru_a567a297bd2cfa13",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_6b5c01dc2cfc2b5c",
+          "ku_aa9dbc768aac06a3"
+        ],
+        "overlap_ku_ids": [
+          "ku_aa9dbc768aac06a3"
+        ]
+      },
+      {
+        "reason_id": "ru_afe65eec54b546f7",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_73dbde3a6ebc7b85",
+          "ku_ea9bde54b2bd8b59"
+        ],
+        "overlap_ku_ids": [
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "reason_id": "ru_b3d14632a89593fa",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_3a2258dfe0abecd1"
+        ],
+        "overlap_ku_ids": [
+          "ku_1e64d2f640a2ab60"
+        ]
+      },
+      {
+        "reason_id": "ru_b4aad1596177ab58",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_1c990c3ec10a973d",
+          "ku_73dbde3a6ebc7b85"
+        ],
+        "overlap_ku_ids": [
+          "ku_1c990c3ec10a973d"
+        ]
+      },
+      {
+        "reason_id": "ru_b9b6d4189543206e",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_ea9bde54b2bd8b59"
+        ],
+        "overlap_ku_ids": [
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "reason_id": "ru_baac417752e63c30",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_73dbde3a6ebc7b85"
+        ],
+        "overlap_ku_ids": [
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "reason_id": "ru_c40f04efa01530c9",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_6b5c01dc2cfc2b5c",
+          "ku_8e061aef9b67a44b"
+        ],
+        "overlap_ku_ids": [
+          "ku_8e061aef9b67a44b"
+        ]
+      },
+      {
+        "reason_id": "ru_cf85bf37377967cf",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_6b5c01dc2cfc2b5c",
+          "ku_ea9bde54b2bd8b59"
+        ],
+        "overlap_ku_ids": [
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "reason_id": "ru_d4e36a0ef98752f1",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_3a2258dfe0abecd1",
+          "ku_5f9217f97da62245"
+        ],
+        "overlap_ku_ids": [
+          "ku_5f9217f97da62245"
+        ]
+      },
+      {
+        "reason_id": "ru_e5471d396df697fb",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_6d00217828c03873"
+        ],
+        "overlap_ku_ids": [
+          "ku_34ed4533ef9ae613"
+        ]
+      },
+      {
+        "reason_id": "ru_f25256d438845b59",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_550e45dd9aa351a9",
+          "ku_5f9217f97da62245"
+        ],
+        "overlap_ku_ids": [
+          "ku_5f9217f97da62245"
+        ]
+      },
+      {
+        "reason_id": "ru_ff07fc6284b9a51d",
+        "relation": "contrast",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_1c990c3ec10a973d",
+          "ku_6b5c01dc2cfc2b5c"
+        ],
+        "overlap_ku_ids": [
+          "ku_1c990c3ec10a973d"
+        ]
+      },
+      {
+        "reason_id": "ru_07b7bb8348e2b747",
+        "relation": "elaboration",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_5f9217f97da62245",
+          "ku_aa9dbc768aac06a3"
+        ],
+        "overlap_ku_ids": [
+          "ku_5f9217f97da62245",
+          "ku_aa9dbc768aac06a3"
+        ]
+      },
+      {
+        "reason_id": "ru_11a303ee3faea362",
+        "relation": "elaboration",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_aa9dbc768aac06a3"
+        ],
+        "overlap_ku_ids": [
+          "ku_aa9dbc768aac06a3"
+        ]
+      },
+      {
+        "reason_id": "ru_16015eb5a28d9aee",
+        "relation": "elaboration",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_9e65f39a12a5a006",
+          "ku_bc9d7cccf45e7835"
+        ],
+        "overlap_ku_ids": [
+          "ku_9e65f39a12a5a006"
+        ]
+      },
+      {
+        "reason_id": "ru_1ac81c1ac2ba39ac",
+        "relation": "elaboration",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_6b5c01dc2cfc2b5c"
+        ],
+        "overlap_ku_ids": [
+          "ku_34ed4533ef9ae613"
+        ]
+      },
+      {
+        "reason_id": "ru_232bd1fddcb9f500",
+        "relation": "elaboration",
+        "topic": "all",
+        "knowledge_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_9e65f39a12a5a006"
+        ],
+        "overlap_ku_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_9e65f39a12a5a006"
+        ]
+      }
+    ],
+    "stats": {
+      "n_total": 138,
+      "n_hits": 102,
+      "by_relation": {
+        "contrast": 25,
+        "elaboration": 43,
+        "support": 34
+      },
+      "reasoning_path": "/home/dalton/projects/claudeflow-testing/god-reason/reasoning.jsonl"
+    }
+  },
+  "vocab_bridge": {
+    "query_terms": [],
+    "mapped_terms": [],
+    "unmapped_terms": [],
+    "method": "not_implemented_yet"
+  },
+  "coverage_summary": {
+    "coverage_grade": "LOW",
+    "coverage_rationale": [
+      "retrieved_chunks=8",
+      "distinct_docs=1",
+      "ku_hits=20",
+      "reason_edges=102",
+      "distance_min=0.889",
+      "semantic_relevant=False"
+    ],
+    "gaps": [
+      "Low document diversity in retrieved evidence (<=1 source)."
+    ],
+    "explicit_limitations": [
+      "Vector similarity indicates proximity, not entailment.",
+      "Report mode is diagnostic only; no synthesis is performed."
+    ]
+  },
+  "limitations": [
+    "Report does not modify corpus/embeddings/knowledge store.",
+    "Report does not perform generative interpretation.",
+    "Phase 9A: Knowledge Units are surfaced via overlap + lexical scoring; reasoning edges are filtered by surfaced KU ids."
+  ]
+}

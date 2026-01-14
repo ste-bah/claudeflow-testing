@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>God-Learn Dashboard</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #0f3460;
+            --text-primary: #eee;
+            --text-secondary: #aaa;
+            --accent: #e94560;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --error: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header h1::before {
+            content: "🔮";
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h2 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .health-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-indicator {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .status-healthy { background: var(--success); }
+        .status-warning { background: var(--warning); }
+        .status-critical { background: var(--error); }
+
+        .status-text h3 {
+            font-size: 1.2rem;
+            text-transform: capitalize;
+        }
+
+        .status-text p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .alert-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }
+
+        .alert-critical {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: var(--error);
+        }
+
+        .alert-warning {
+            background: rgba(251, 191, 36, 0.2);
+            border-color: var(--warning);
+        }
+
+        .alert-info {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: var(--success);
+        }
+
+        .alert-category {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .alert-message {
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        .search-box:focus {
+            outline: 2px solid var(--accent);
+        }
+
+        .search-results {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result-item {
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-source {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .result-text {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .result-distance {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .domain-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .domain-name {
+            width: 120px;
+            font-size: 0.85rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .domain-progress {
+            flex: 1;
+            height: 20px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 1rem;
+        }
+
+        .domain-fill {
+            height: 100%;
+            background: var(--accent);
+            transition: width 0.3s;
+        }
+
+        .domain-count {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            width: 50px;
+            text-align: right;
+        }
+
+        .history-item {
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .history-query {
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .history-meta {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: var(--accent);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .version-badge {
+            font-size: 0.8rem;
+            background: var(--bg-card);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            margin-left: 1rem;
+        }
+
+        .loading {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>God-Learn Dashboard <span class="version-badge" id="version">v?.?.?</span></h1>
+    </header>
+
+    <div class="container">
+        <!-- Stats Row -->
+        <div class="grid">
+            <div class="card">
+                <h2>Documents</h2>
+                <div class="stat-value" id="doc-count">-</div>
+                <div class="stat-label">PDF files in corpus</div>
+            </div>
+            <div class="card">
+                <h2>Knowledge Units</h2>
+                <div class="stat-value" id="ku-count">-</div>
+                <div class="stat-label">Promoted facts</div>
+            </div>
+            <div class="card">
+                <h2>Chunks</h2>
+                <div class="stat-value" id="chunk-count">-</div>
+                <div class="stat-label">Text segments</div>
+            </div>
+            <div class="card">
+                <h2>System Health</h2>
+                <div class="health-status">
+                    <div class="status-indicator status-healthy" id="health-indicator">✓</div>
+                    <div class="status-text">
+                        <h3 id="health-status">Loading...</h3>
+                        <p id="health-message">Checking system status</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid">
+            <!-- Search -->
+            <div class="card" style="grid-column: span 2;">
+                <h2>Quick Search</h2>
+                <input type="text" class="search-box" id="search-input" placeholder="Search the corpus..." />
+                <div class="search-results" id="search-results">
+                    <div class="empty-state">Enter a query to search</div>
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div class="card">
+                <h2>Active Alerts</h2>
+                <div class="alert-list" id="alert-list">
+                    <div class="loading">Loading alerts...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Domain Distribution -->
+            <div class="card">
+                <h2>Domain Distribution</h2>
+                <div id="domain-dist">
+                    <div class="loading">Loading domains...</div>
+                </div>
+            </div>
+
+            <!-- Query History -->
+            <div class="card">
+                <h2>Recent Queries</h2>
+                <div id="history-list">
+                    <div class="loading">Loading history...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="refreshAll()" title="Refresh">⟳</button>
+
+    <script>
+        // Fetch utilities
+        async function fetchJSON(url) {
+            try {
+                const resp = await fetch(url);
+                return await resp.json();
+            } catch (e) {
+                console.error(`Error fetching ${url}:`, e);
+                return null;
+            }
+        }
+
+        // Update stats
+        async function updateStats() {
+            const stats = await fetchJSON('/api/stats');
+            if (stats) {
+                document.getElementById('doc-count').textContent = stats.documents || 0;
+                document.getElementById('ku-count').textContent = stats.knowledge_units || 0;
+                document.getElementById('chunk-count').textContent = stats.chunks || 0;
+
+                // Domain distribution
+                const domainDiv = document.getElementById('domain-dist');
+                if (stats.domains && Object.keys(stats.domains).length > 0) {
+                    const total = Object.values(stats.domains).reduce((a, b) => a + b, 0);
+                    let html = '';
+                    for (const [domain, count] of Object.entries(stats.domains)) {
+                        const pct = (count / total * 100).toFixed(0);
+                        html += `
+                            <div class="domain-bar">
+                                <span class="domain-name">${domain}</span>
+                                <div class="domain-progress">
+                                    <div class="domain-fill" style="width: ${pct}%"></div>
+                                </div>
+                                <span class="domain-count">${count}</span>
+                            </div>
+                        `;
+                    }
+                    domainDiv.innerHTML = html;
+                } else {
+                    domainDiv.innerHTML = '<div class="empty-state">No domains found</div>';
+                }
+            }
+        }
+
+        // Update health
+        async function updateHealth() {
+            const health = await fetchJSON('/api/health');
+            if (health) {
+                const indicator = document.getElementById('health-indicator');
+                const status = document.getElementById('health-status');
+                const message = document.getElementById('health-message');
+
+                indicator.className = `status-indicator status-${health.status}`;
+                indicator.textContent = health.status === 'healthy' ? '✓' :
+                                       health.status === 'warning' ? '!' : '✕';
+                status.textContent = health.status;
+                message.textContent = health.message;
+            }
+        }
+
+        // Update alerts
+        async function updateAlerts() {
+            const data = await fetchJSON('/api/alerts');
+            const alertList = document.getElementById('alert-list');
+
+            if (data && data.alerts && data.alerts.length > 0) {
+                let html = '';
+                for (const alert of data.alerts) {
+                    html += `
+                        <div class="alert-item alert-${alert.severity}">
+                            <div class="alert-category">${alert.category}</div>
+                            <div class="alert-message">${alert.message}</div>
+                        </div>
+                    `;
+                }
+                alertList.innerHTML = html;
+            } else {
+                alertList.innerHTML = '<div class="empty-state">No active alerts</div>';
+            }
+        }
+
+        // Update history
+        async function updateHistory() {
+            const data = await fetchJSON('/api/history?limit=10');
+            const historyList = document.getElementById('history-list');
+
+            if (data && data.queries && data.queries.length > 0) {
+                let html = '';
+                for (const q of data.queries) {
+                    const dt = new Date(q.timestamp * 1000).toLocaleString();
+                    html += `
+                        <div class="history-item">
+                            <div class="history-query">${q.query}</div>
+                            <div class="history-meta">${dt} • ${q.result_count || 0} results</div>
+                        </div>
+                    `;
+                }
+                historyList.innerHTML = html;
+            } else {
+                historyList.innerHTML = '<div class="empty-state">No query history</div>';
+            }
+        }
+
+        // Update version
+        async function updateVersion() {
+            const data = await fetchJSON('/api/version');
+            if (data) {
+                document.getElementById('version').textContent = data.version || 'v?.?.?';
+            }
+        }
+
+        // Search
+        let searchTimeout = null;
+        async function doSearch(query) {
+            const resultsDiv = document.getElementById('search-results');
+
+            if (!query.trim()) {
+                resultsDiv.innerHTML = '<div class="empty-state">Enter a query to search</div>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
+
+            const data = await fetchJSON(`/api/search?q=${encodeURIComponent(query)}&limit=5`);
+
+            if (data && data.results && data.results.length > 0) {
+                let html = '';
+                for (const r of data.results) {
+                    const source = r.source_path || r.path_rel || 'Unknown source';
+                    const text = r.text || r.content || 'No content';
+                    const dist = r.distance ? `Distance: ${r.distance.toFixed(3)}` : '';
+                    html += `
+                        <div class="result-item">
+                            <div class="result-source">${source}</div>
+                            <div class="result-text">${text.substring(0, 300)}${text.length > 300 ? '...' : ''}</div>
+                            <div class="result-distance">${dist}</div>
+                        </div>
+                    `;
+                }
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = '<div class="empty-state">No results found</div>';
+            }
+        }
+
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => doSearch(e.target.value), 500);
+        });
+
+        // Refresh all
+        async function refreshAll() {
+            await Promise.all([
+                updateStats(),
+                updateHealth(),
+                updateAlerts(),
+                updateHistory(),
+                updateVersion()
+            ]);
+        }
+
+        // Initial load
+        refreshAll();
+
+        // Auto-refresh every 30 seconds
+        setInterval(refreshAll, 30000);
+    </script>
+</body>
+</html>

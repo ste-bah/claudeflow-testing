@@ -1,0 +1,341 @@
+name: God-Audit Provenance Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'god-learn/**'
+      - 'god-reason/**'
+      - 'corpus/**'
+      - 'scripts/audit/**'
+      - 'scripts/ingest/**'
+      - 'vector_db_1536/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'god-learn/**'
+      - 'god-reason/**'
+      - 'corpus/**'
+      - 'scripts/audit/**'
+      - 'scripts/ingest/**'
+      - 'vector_db_1536/**'
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      full_audit:
+        description: 'Run full audit suite'
+        required: false
+        default: 'true'
+
+env:
+  PYTHONPATH: scripts
+
+jobs:
+  # ===========================
+  # Job 1: Link Integrity Check
+  # ===========================
+  link-integrity:
+    runs-on: ubuntu-latest
+    outputs:
+      integrity_score: ${{ steps.check.outputs.integrity_score }}
+      broken_links: ${{ steps.check.outputs.broken_links }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install chromadb numpy sentence-transformers scikit-learn pymupdf
+
+      - name: Check Link Integrity
+        id: check
+        run: |
+          cd ${{ github.workspace }}
+          result=$(python3 scripts/audit/core/missing_link_detector.py --all --json)
+
+          # Extract metrics
+          integrity=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('integrity_score', 0))")
+          broken=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('total_broken_links', 0))")
+
+          echo "integrity_score=$integrity" >> $GITHUB_OUTPUT
+          echo "broken_links=$broken" >> $GITHUB_OUTPUT
+
+          # Fail if integrity below 95%
+          if (( $(echo "$integrity < 95" | bc -l) )); then
+            echo "::error::Link integrity below 95%: $integrity%"
+            exit 1
+          fi
+
+          echo "Link integrity: $integrity%"
+
+  # ===========================
+  # Job 2: Orphan Detection
+  # ===========================
+  orphan-detection:
+    runs-on: ubuntu-latest
+    outputs:
+      orphan_chunks: ${{ steps.check.outputs.orphan_chunks }}
+      orphan_kus: ${{ steps.check.outputs.orphan_kus }}
+      orphan_pdfs: ${{ steps.check.outputs.orphan_pdfs }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install chromadb numpy sentence-transformers scikit-learn pymupdf
+
+      - name: Check Orphan Entities
+        id: check
+        run: |
+          cd ${{ github.workspace }}
+          result=$(python3 scripts/audit/core/orphan_identifier.py --all --json)
+
+          # Extract metrics
+          chunks=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('by_type', {}).get('orphan_chunk', 0))")
+          kus=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('by_type', {}).get('orphan_ku', 0))")
+          pdfs=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('by_type', {}).get('orphan_pdf', 0))")
+
+          echo "orphan_chunks=$chunks" >> $GITHUB_OUTPUT
+          echo "orphan_kus=$kus" >> $GITHUB_OUTPUT
+          echo "orphan_pdfs=$pdfs" >> $GITHUB_OUTPUT
+
+          # Fail if unindexed PDFs exist (critical)
+          if [ "$pdfs" -gt 0 ]; then
+            echo "::error::Found $pdfs unindexed PDF documents"
+            exit 1
+          fi
+
+          # Warn on orphan KUs (medium)
+          if [ "$kus" -gt 20 ]; then
+            echo "::warning::Found $kus orphan KUs without reasoning connections"
+          fi
+
+          echo "Orphans: Chunks=$chunks, KUs=$kus, PDFs=$pdfs"
+
+  # ===========================
+  # Job 3: Coverage Analysis
+  # ===========================
+  coverage-analysis:
+    runs-on: ubuntu-latest
+    outputs:
+      page_coverage: ${{ steps.check.outputs.page_coverage }}
+      ku_coverage: ${{ steps.check.outputs.ku_coverage }}
+      coverage_grade: ${{ steps.check.outputs.coverage_grade }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install chromadb numpy sentence-transformers scikit-learn pymupdf
+
+      - name: Analyze Coverage
+        id: check
+        run: |
+          cd ${{ github.workspace }}
+          result=$(python3 scripts/audit/core/coverage_analyzer.py --all --json)
+
+          # Extract metrics
+          page_cov=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('page_coverage_pct', 0))")
+          ku_cov=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ku_coverage_pct', 0))")
+          grade=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('coverage_grade', '?'))")
+
+          echo "page_coverage=$page_cov" >> $GITHUB_OUTPUT
+          echo "ku_coverage=$ku_cov" >> $GITHUB_OUTPUT
+          echo "coverage_grade=$grade" >> $GITHUB_OUTPUT
+
+          # Fail if coverage grade is D or F
+          if [[ "$grade" == "D" || "$grade" == "F" ]]; then
+            echo "::error::Coverage grade too low: $grade"
+            exit 1
+          fi
+
+          # Warn if KU coverage below 60%
+          if (( $(echo "$ku_cov < 60" | bc -l) )); then
+            echo "::warning::KU→RU coverage below 60%: $ku_cov%"
+          fi
+
+          echo "Coverage: Pages=$page_cov%, KUs=$ku_cov%, Grade=$grade"
+
+  # ===========================
+  # Job 4: Gap Report
+  # ===========================
+  gap-report:
+    runs-on: ubuntu-latest
+    needs: [link-integrity, orphan-detection, coverage-analysis]
+    outputs:
+      health_score: ${{ steps.check.outputs.health_score }}
+      health_grade: ${{ steps.check.outputs.health_grade }}
+      critical_gaps: ${{ steps.check.outputs.critical_gaps }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install chromadb numpy sentence-transformers scikit-learn pymupdf
+
+      - name: Generate Gap Report
+        id: check
+        run: |
+          cd ${{ github.workspace }}
+          result=$(python3 scripts/audit/core/gap_reporter.py --full --json)
+
+          # Extract metrics
+          score=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('health_score', 0))")
+          grade=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('health_grade', '?'))")
+          critical=$(echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('by_severity', {}).get('critical', 0))")
+
+          echo "health_score=$score" >> $GITHUB_OUTPUT
+          echo "health_grade=$grade" >> $GITHUB_OUTPUT
+          echo "critical_gaps=$critical" >> $GITHUB_OUTPUT
+
+          # Fail on critical gaps
+          if [ "$critical" -gt 0 ]; then
+            echo "::error::Found $critical critical gaps"
+            exit 1
+          fi
+
+          # Fail if health grade is F
+          if [[ "$grade" == "F" ]]; then
+            echo "::error::Provenance health grade is F (score: $score)"
+            exit 1
+          fi
+
+          echo "Health: Score=$score, Grade=$grade, Critical=$critical"
+
+  # ===========================
+  # Job 5: Full Audit Report
+  # ===========================
+  full-audit:
+    runs-on: ubuntu-latest
+    needs: [link-integrity, orphan-detection, coverage-analysis, gap-report]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install chromadb numpy sentence-transformers scikit-learn pymupdf
+
+      - name: Generate Full Audit Report
+        run: |
+          cd ${{ github.workspace }}
+          mkdir -p audit/reports
+
+          # Generate comprehensive audit report
+          python3 scripts/audit/cli/audit_cli.py full --json \
+            > audit/reports/audit_$(date +%Y%m%d_%H%M%S).json
+
+      - name: Generate Dashboard Status
+        run: |
+          cd ${{ github.workspace }}
+          python3 scripts/audit/cli/dashboard_integration.py --json \
+            > audit/reports/dashboard_latest.json
+
+      - name: Create Audit Summary
+        run: |
+          echo "## Provenance Audit Summary" > $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Link Integrity | ${{ needs.link-integrity.outputs.integrity_score }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Broken Links | ${{ needs.link-integrity.outputs.broken_links }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Orphan Chunks | ${{ needs.orphan-detection.outputs.orphan_chunks }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Orphan KUs | ${{ needs.orphan-detection.outputs.orphan_kus }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Page Coverage | ${{ needs.coverage-analysis.outputs.page_coverage }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| KU Coverage | ${{ needs.coverage-analysis.outputs.ku_coverage }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage Grade | ${{ needs.coverage-analysis.outputs.coverage_grade }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health Score | ${{ needs.gap-report.outputs.health_score }}/100 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health Grade | ${{ needs.gap-report.outputs.health_grade }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Commit Audit Reports
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore(audit): Update provenance audit report"
+          file_pattern: "audit/reports/**"
+
+  # ===========================
+  # Job 6: PR Review Comment
+  # ===========================
+  pr-comment:
+    runs-on: ubuntu-latest
+    needs: [link-integrity, orphan-detection, coverage-analysis, gap-report]
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const integrity = '${{ needs.link-integrity.outputs.integrity_score }}';
+            const broken = '${{ needs.link-integrity.outputs.broken_links }}';
+            const chunks = '${{ needs.orphan-detection.outputs.orphan_chunks }}';
+            const kus = '${{ needs.orphan-detection.outputs.orphan_kus }}';
+            const pageCov = '${{ needs.coverage-analysis.outputs.page_coverage }}';
+            const kuCov = '${{ needs.coverage-analysis.outputs.ku_coverage }}';
+            const covGrade = '${{ needs.coverage-analysis.outputs.coverage_grade }}';
+            const score = '${{ needs.gap-report.outputs.health_score }}';
+            const grade = '${{ needs.gap-report.outputs.health_grade }}';
+
+            const gradeEmoji = {
+              'A': '🟢',
+              'B': '🟢',
+              'C': '🟡',
+              'D': '🟠',
+              'F': '🔴'
+            };
+
+            const emoji = gradeEmoji[grade] || '⚪';
+
+            const body = `## Provenance Audit Results ${emoji}
+
+            | Metric | Value | Status |
+            |--------|-------|--------|
+            | Link Integrity | ${integrity}% | ${parseFloat(integrity) >= 95 ? '✅' : '⚠️'} |
+            | Broken Links | ${broken} | ${parseInt(broken) === 0 ? '✅' : '⚠️'} |
+            | Orphan Chunks | ${chunks} | ${parseInt(chunks) < 100 ? '✅' : '⚠️'} |
+            | Orphan KUs | ${kus} | ${parseInt(kus) < 20 ? '✅' : '⚠️'} |
+            | Page Coverage | ${pageCov}% | ${parseFloat(pageCov) >= 80 ? '✅' : '⚠️'} |
+            | KU→RU Coverage | ${kuCov}% | ${parseFloat(kuCov) >= 60 ? '✅' : '⚠️'} |
+            | Coverage Grade | ${covGrade} | ${['A', 'B', 'C'].includes(covGrade) ? '✅' : '⚠️'} |
+
+            **Overall Health: ${emoji} ${score}/100 (${grade})**
+
+            ---
+            *Generated by God-Audit Provenance Pipeline*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

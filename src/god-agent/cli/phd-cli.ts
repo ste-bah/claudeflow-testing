@@ -62,7 +62,7 @@ import {
   type PhaseDefinition,
 } from './phd-pipeline-config.js';
 import { StyleInjector } from './style-injector.js';
-import { SessionNotFoundError, SessionCorruptedError, SessionExpiredError } from './session-manager.js';
+import { SessionNotFoundError, SessionCorruptedError, SessionExpiredError, updateCoverageGrade, initializeToolPermissions, analyzeQueryIntent, QueryIntent } from './session-manager.js';
 import { DynamicAgentGenerator } from './dynamic-agent-generator.js';
 import { ChapterStructureLoader } from './chapter-structure-loader.js';
 import { getUCMClient } from './ucm-daemon-client.js';
@@ -219,10 +219,13 @@ function buildSessionStateForMemory(session: {
   startTime: number;
   lastActivityTime: number;
   status: string;
+  dataSourceMode?: 'external' | 'local' | 'hybrid';
+
 }): PhdSessionState {
   return {
     sessionId: session.sessionId,
     topic: session.query,
+    dataSourceMode: session.dataSourceMode,
     currentPhase: session.currentPhase,
     currentAgentIndex: session.currentAgentIndex,
     completedAgents: [...session.completedAgents],
@@ -278,6 +281,136 @@ export interface AgentValidationResult {
  *   process.exit(1);
  * }
  */
+
+// ============================================================================
+// PHASE 9 (REPORT / ANSWER) INTEGRATION HELPERS
+// ============================================================================
+// Local mode: always run REPORT + ANSWER (single-shot)
+// Hybrid mode: run REPORT first; ANSWER optional depending on coverage
+// External mode: no Phase 9 execution here (preserve legacy behavior)
+
+type Phase9CoverageGrade = "NONE" | "LOW" | "MED" | "HIGH";
+
+function safeJsonParse<T = unknown>(s: string, context: string): T {
+  try {
+    return JSON.parse(s) as T;
+  } catch (e) {
+    throw new Error(`[PHASE9] Failed to parse JSON from ${context}: ${(e as Error).message}`);
+  }
+}
+
+async function execFileJson(
+  executable: string,
+  args: string[],
+  opts: { cwd: string; timeoutMs: number }
+): Promise<unknown> {
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const execFileAsync = promisify(execFile);
+
+  const { stdout } = await execFileAsync(executable, args, {
+    cwd: opts.cwd,
+    timeout: opts.timeoutMs,
+    maxBuffer: 50 * 1024 * 1024, // guard for large JSON
+  });
+
+  if (!stdout || stdout.trim() === "") {
+    throw new Error(`[PHASE9] No stdout returned from ${executable} ${args.join(" ")}`);
+  }
+  return safeJsonParse(stdout.trim(), `${path.basename(args[0] || "")}`);
+}
+
+function phase9DirForSession(session: { researchDir?: string; slug?: string; query: string }): string {
+  const slug = session.slug || generateSlug(session.query);
+  const researchDir = session.researchDir || path.join(process.cwd(), "docs/research", slug);
+  return path.join(researchDir, "phase9");
+}
+
+async function writeJsonArtifact(filePath: string, obj: unknown): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(obj, null, 2), "utf-8");
+}
+
+function getCoverageGrade(reportJson: any): Phase9CoverageGrade {
+  const g = reportJson?.coverage_summary?.coverage_grade;
+  if (g === "NONE" || g === "LOW" || g === "MED" || g === "HIGH") return g;
+  // Safe fallback if schema changes
+  return "LOW";
+}
+
+async function runPhase9Report(query: string): Promise<unknown> {
+  const repoRoot = process.cwd();
+  const script = path.join(repoRoot, "scripts", "interaction", "report.py");
+  return execFileJson("python3", [script, "--query", query, "--format", "json"], { cwd: repoRoot, timeoutMs: 120_000 });
+}
+
+async function runPhase9Answer(query: string): Promise<unknown> {
+  const repoRoot = process.cwd();
+  const script = path.join(repoRoot, "scripts", "interaction", "answer.py");
+  return execFileJson("python3", [script, "--query", query, "--format", "json"], { cwd: repoRoot, timeoutMs: 180_000 });
+}
+
+function buildHybridPolicyBlock(args: {
+  sessionId: string;
+  slug: string;
+  reportPath: string;
+  answerPath?: string;
+  coverage: Phase9CoverageGrade;
+  queryIntent?: QueryIntent;
+}): string {
+  const { sessionId, slug, reportPath, answerPath, coverage, queryIntent } = args;
+
+  // GAP-H03: Determine if external tools are allowed based on coverage OR query intent
+  const lowCoverage = (coverage === "LOW" || coverage === "NONE");
+  const intentTriggered = queryIntent?.recencyRequired ||
+    (queryIntent?.outsideCorpusDomains && queryIntent.outsideCorpusDomains.length > 0);
+  const allowExternal = lowCoverage || intentTriggered;
+
+  // Build explanation text
+  let allowExternalText: string;
+  if (lowCoverage) {
+    allowExternalText = "External tools are permitted because local coverage is LOW/NONE.";
+  } else if (intentTriggered) {
+    const reasons: string[] = [];
+    if (queryIntent?.recencyRequired) {
+      const markers = queryIntent.temporalMarkers?.length
+        ? `(detected: ${queryIntent.temporalMarkers.join(', ')})`
+        : '';
+      reasons.push(`recency requirement ${markers}`);
+    }
+    if (queryIntent?.outsideCorpusDomains?.length) {
+      reasons.push(`outside-corpus domains (${queryIntent.outsideCorpusDomains.join(', ')})`);
+    }
+    allowExternalText = `External tools are permitted despite HIGH coverage due to: ${reasons.join('; ')}.`;
+  } else {
+    allowExternalText = "External tools are NOT permitted unless you can justify recency/outside-corpus needs.";
+  }
+
+  return [
+    "",
+    "## MODE POLICY (hybrid: local-first)",
+    `- Session: ${sessionId}`,
+    `- Topic slug: ${slug}`,
+    `- Phase 9 local REPORT coverage: ${coverage}`,
+    `- Local artifacts:`,
+    `  - report: ${reportPath}`,
+    answerPath ? `  - answer: ${answerPath}` : `  - answer: (not generated; coverage too low or deferred)`,
+    "",
+    "### Hard rules",
+    "- You MUST consult the local REPORT first and treat it as authoritative for what exists in the corpus.",
+    `- ${allowExternalText}`,
+    "- If you use any external material, you MUST label it as external provenance (URL/source) and separate it from local provenance.",
+    "",
+    "### Fallback trigger (external)",
+    "- Only use external sources if:",
+    "  - coverage is LOW or NONE, OR",
+    "  - the query requires recency/current events, OR",
+    "  - the user explicitly requests outside-corpus material.",
+    "",
+  ].join("\n");
+}
+
+
 async function validateAgentFiles(): Promise<AgentValidationResult> {
   const fs = await import('fs/promises');
   const pathModule = await import('path');
@@ -427,12 +560,40 @@ interface IPromptBuildSession {
 }
 
 /**
+ * Phase 9 report data structure for injection into agent prompts.
+ * GAP-A03: Enables agents to make informed decisions about local vs external sources.
+ */
+interface Phase9ReportData {
+  coverage_summary?: {
+    coverage_grade?: string;
+    gaps?: string[];
+  };
+  retrieval?: {
+    stats?: {
+      n_returned?: number;
+      distinct_docs?: number;
+    };
+  };
+  knowledge_units?: {
+    hits?: unknown[];
+  };
+  reasoning_edges?: {
+    stats?: {
+      n_hits?: number;
+    };
+  };
+}
+
+/**
  * Build the YOUR TASK section of the 5-part prompt.
  * Contains agent-specific task from the .md file with research context.
+ *
+ * GAP-A03: Now includes Phase 9 report injection for local/hybrid modes.
  *
  * @param agent - Agent configuration from PHD_AGENTS
  * @param session - Current pipeline session
  * @param agentFileContent - Content read from the agent's .md file
+ * @param phase9Report - Optional Phase 9 report data for coverage context
  * @returns Formatted YOUR TASK section string
  *
  * Implements RULE-020: Section 1 of 5-part prompt
@@ -440,9 +601,10 @@ interface IPromptBuildSession {
 function buildYourTaskSection(
   agent: PhdAgentConfig,
   session: IPromptBuildSession,
-  agentFileContent: string
+  agentFileContent: string,
+  phase9Report?: Phase9ReportData
 ): string {
-  const taskSection = `## YOUR TASK
+  let taskSection = `## YOUR TASK
 
 ${agentFileContent.trim()}
 
@@ -450,6 +612,34 @@ ${agentFileContent.trim()}
 **Research Topic**: ${session.query}
 **Session ID**: ${session.sessionId}
 `;
+
+  // GAP-A03: Inject Phase 9 coverage data for local/hybrid modes
+  const dataSourceMode = (session as { dataSourceMode?: string }).dataSourceMode;
+  if (phase9Report && dataSourceMode && dataSourceMode !== 'external') {
+    const coverage = phase9Report.coverage_summary || {};
+    const retrieval = phase9Report.retrieval?.stats || {};
+    const kuHits = phase9Report.knowledge_units?.hits?.length || 0;
+    const edgeHits = phase9Report.reasoning_edges?.stats?.n_hits || 0;
+    const gaps = coverage.gaps || [];
+
+    taskSection += `
+---
+## LOCAL CORPUS COVERAGE (Phase 9 REPORT)
+
+| Metric | Value |
+|--------|-------|
+| Coverage Grade | **${coverage.coverage_grade || 'UNKNOWN'}** |
+| Retrieved Chunks | ${retrieval.n_returned || 0} |
+| Distinct Documents | ${retrieval.distinct_docs || 0} |
+| Knowledge Units | ${kuHits} |
+| Reasoning Edges | ${edgeHits} |
+
+**Identified Gaps**:
+${gaps.length > 0 ? gaps.map((g: string) => `- ${g}`).join('\n') : '- None identified'}
+
+**Mode Policy**: ${dataSourceMode === 'local' ? 'LOCAL ONLY - No external tools permitted. Work exclusively with corpus data.' : 'HYBRID - External tools permitted with justification. Prefer local sources.'}
+`;
+  }
 
   return taskSection;
 }
@@ -624,7 +814,8 @@ Session: ${session.sessionId}
 async function buildAgentPrompt(
   agent: PhdAgentConfig,
   session: IPromptBuildSession,
-  agentFileContent: string
+  agentFileContent: string,
+  phase9Report?: Phase9ReportData
 ): Promise<PromptBuildResult> {
   // Get agent index for workflow context
   const agentIndex = getConfigAgentIndex(agent.key);
@@ -639,8 +830,8 @@ async function buildAgentPrompt(
     }
   }
 
-  // Build all 5 sections per RULE-020
-  const yourTaskSection = buildYourTaskSection(agent, session, agentFileContent);
+  // GAP-A03: Build all 5 sections per RULE-020, passing phase9Report for coverage injection
+  const yourTaskSection = buildYourTaskSection(agent, session, agentFileContent, phase9Report);
   const workflowContextSection = buildWorkflowContextSection(agent, session, agentIndex);
   const memoryRetrievalSection = buildMemoryRetrievalSection(agent);
   const memoryStorageSection = buildMemoryStorageSection(agent);
@@ -883,7 +1074,7 @@ async function getNextAgent(
   }
 
   // Build prompt session context
-  const promptSession: IPromptBuildSession = {
+  const promptSession: IPromptBuildSession & { dataSourceMode?: string } = {
     sessionId: session.sessionId,
     query: (session as unknown as { query: string }).query || '',
     currentPhase: session.currentPhase,
@@ -891,12 +1082,17 @@ async function getNextAgent(
     completedAgents: [...session.completedAgents],
     dynamicPhase6Agents: session.dynamicPhase6Agents,
     dynamicTotalAgents: session.dynamicTotalAgents,
+    dataSourceMode: (session as unknown as { dataSourceMode?: string }).dataSourceMode,
   };
+
+  // GAP-A03: Extract Phase 9 report data if available for local/hybrid modes
+  const sessionWithPhase9 = session as unknown as { __phase9?: { report?: Phase9ReportData } };
+  const phase9Report = sessionWithPhase9.__phase9?.report;
 
   // Build complete 5-part prompt using buildAgentPrompt
   let promptResult: PromptBuildResult;
   try {
-    promptResult = await buildAgentPrompt(agent, promptSession, agentFileContent);
+    promptResult = await buildAgentPrompt(agent, promptSession, agentFileContent, phase9Report);
 
     if (options.verbose) {
       console.error(`[getNextAgent] Built prompt: ${promptResult.wordCount} words`);
@@ -1609,6 +1805,10 @@ program
   .description('Initialize new pipeline session')
   .option('--style-profile <id>', 'Style profile ID to use')
   .option('--config <path>', 'Custom pipeline config path')
+  .option(
+    '--data-source <mode>',
+    'Research mode: external|local|hybrid (default: external)'
+  )
   .option('--verbose', 'Enable verbose logging')
   .option('--json', 'Output as JSON (default: true)', true)
   .action(async (query: string, options: InitOptions) => {
@@ -1631,27 +1831,41 @@ async function commandInit(
   options: InitOptions,
   sessionBasePath?: string
 ): Promise<InitResponse> {
-  // [RULE-018] Validate agent files before proceeding
-  // This ensures all 46 agent .md files exist before creating a session
-  const agentValidation = await validateAgentFiles();
-  if (!agentValidation.valid) {
-    const missingCount = agentValidation.missingAgents.length;
-    const invalidCount = agentValidation.invalidAgents.length;
-    const errorDetail = agentValidation.errors.slice(0, 5).join('\n'); // Show first 5 errors
+  // Normalize and validate data source mode (default external)
+  const rawMode = (options as unknown as { dataSource?: string }).dataSource;
+  const dataSourceMode = (rawMode ?? 'external') as 'external' | 'local' | 'hybrid';
 
-    throw new Error(
-      `[RULE-018] Agent file validation failed: ${missingCount} missing, ${invalidCount} invalid.\n` +
-      `Agents directory: ${agentValidation.agentsDirectory}\n` +
-      `Missing agents: ${agentValidation.missingAgents.slice(0, 10).join(', ')}${missingCount > 10 ? ` ... and ${missingCount - 10} more` : ''}\n` +
-      `Invalid agents: ${agentValidation.invalidAgents.slice(0, 10).join(', ')}${invalidCount > 10 ? ` ... and ${invalidCount - 10} more` : ''}\n` +
-      `First errors:\n${errorDetail}\n` +
-      `Run 'phd-cli validate-agents' for full details.\n` +
-      `Fix: Ensure all agent .md files exist in ${agentValidation.agentsDirectory}/`
-    );
+  if (!['external', 'local', 'hybrid'].includes(dataSourceMode)) {
+    throw new Error(`Invalid --data-source value: ${rawMode}. Must be external|local|hybrid`);
   }
 
-  if (options.verbose) {
-    console.error(`[PHD-CLI] Agent file validation passed: ${agentValidation.foundAgents}/${agentValidation.totalAgents} agents verified`);
+  // [RULE-018] Validate agent files before proceeding (EXCEPT local mode)
+  // Local mode is Phase 9 only and must not require the 46-agent pipeline to exist.
+  let agentValidation: { valid: boolean; foundAgents: number; totalAgents: number; agentsDirectory: string; missingAgents: string[]; invalidAgents: string[]; errors: string[] } | null = null;
+
+  if (dataSourceMode !== "local") {
+    agentValidation = await validateAgentFiles();
+    if (!agentValidation.valid) {
+      const missingCount = agentValidation.missingAgents.length;
+      const invalidCount = agentValidation.invalidAgents.length;
+      const errorDetail = agentValidation.errors.slice(0, 5).join('\n'); // Show first 5 errors
+
+      throw new Error(
+        `[RULE-018] Agent file validation failed: ${missingCount} missing, ${invalidCount} invalid.\n` +
+        `Agents directory: ${agentValidation.agentsDirectory}\n` +
+        `Missing agents: ${agentValidation.missingAgents.slice(0, 10).join(', ')}${missingCount > 10 ? ` ... and ${missingCount - 10} more` : ''}\n` +
+        `Invalid agents: ${agentValidation.invalidAgents.slice(0, 10).join(', ')}${invalidCount > 10 ? ` ... and ${invalidCount - 10} more` : ''}\n` +
+        `First errors:\n${errorDetail}\n` +
+        `Run 'phd-cli validate-agents' for full details.\n` +
+        `Fix: Ensure all agent .md files exist in ${agentValidation.agentsDirectory}/`
+      );
+    }
+
+    if (options.verbose) {
+      console.error(`[PHD-CLI] Agent file validation passed: ${agentValidation.foundAgents}/${agentValidation.totalAgents} agents verified`);
+    }
+  } else if (options.verbose) {
+    console.error(`[PHD-CLI] Local mode: skipping 46-agent validation (Phase 9 only)`);
   }
 
   // [REQ-PIPE-001] Validate query
@@ -1678,13 +1892,105 @@ async function commandInit(
     sessionId,
     query,
     styleProfile.metadata.id,
-    pipelineId
+    pipelineId,
+    dataSourceMode
   );
   session.slug = slug;
   session.researchDir = path.join(process.cwd(), 'docs/research', slug);
 
   // Persist to disk with atomic write pattern [RULE-021]
   await sessionManager.saveSession(session);
+
+    // =========================================================================
+  // PHASE 9 INTEGRATION (local + hybrid)
+  // =========================================================================
+  // local: REPORT + ANSWER, then return a "virtual agent" (single-shot)
+  // hybrid: REPORT first (always), ANSWER optional, then continue normal pipeline
+
+  const slugForPhase9 = session.slug || generateSlug(query);
+  const phase9Dir = phase9DirForSession({ researchDir: session.researchDir, slug: slugForPhase9, query });
+
+  if (dataSourceMode === "local" || dataSourceMode === "hybrid") {
+    const reportJson = await runPhase9Report(query);
+    const reportPath = path.join(phase9Dir, "report.json");
+    await writeJsonArtifact(reportPath, reportJson);
+
+    // Store local report snapshot to memory (non-blocking)
+    storeToMemory(`session/${sessionId}/phase9/report`, reportJson).catch(() => {});
+
+    const coverage = getCoverageGrade(reportJson as any);
+
+    // GAP-H01: Update session with coverage grade and resolve tool permissions
+    updateCoverageGrade(session, coverage);
+    initializeToolPermissions(session);
+
+    // Save session with updated coverage and permissions
+    await sessionManager.saveSession(session);
+
+    let answerJson: unknown | null = null;
+    let answerPath: string | undefined;
+
+    if (dataSourceMode === "local" || coverage === "HIGH" || coverage === "MED") {
+      answerJson = await runPhase9Answer(query);
+      answerPath = path.join(phase9Dir, "answer.json");
+      await writeJsonArtifact(answerPath, answerJson);
+
+      storeToMemory(`session/${sessionId}/phase9/answer`, answerJson).catch(() => {});
+    }
+
+    // LOCAL MODE: stop here (single-shot) and return a virtual agent response
+    if (dataSourceMode === "local") {
+      const virtualPrompt = [
+        "# Phase 9 (local) — ANSWER (local-only)",
+        "",
+        "This session is running in **local** mode. External tools are prohibited.",
+        "Phase 9 artifacts have been generated (read-only):",
+        `- report: ${reportPath}`,
+        answerPath ? `- answer: ${answerPath}` : "- answer: (missing)",
+        "",
+        "Next steps:",
+        "- Read the JSON artifacts on disk (or retrieve via claude-flow memory keys).",
+        "- If coverage is LOW/NONE and you need external research, re-run in hybrid or external mode.",
+        "",
+        "Memory keys:",
+        `- session/${sessionId}/phase9/report`,
+        `- session/${sessionId}/phase9/answer`,
+        "",
+      ].join("\n");
+
+      const phase9Agent: AgentDetails = {
+        index: 0,
+        key: "phase9-local-answer",
+        name: "Phase 9 Local Answer",
+        phase: 0,
+        phaseName: "Phase 9 (local)",
+        prompt: virtualPrompt,
+        dependencies: [],
+        timeout: 120000,
+        critical: true,
+        expectedOutputs: ["phase9/report.json", "phase9/answer.json"],
+      };
+
+      return {
+        sessionId,
+        pipelineId,
+        query,
+        dataSourceMode,
+        styleProfile: {
+          id: styleProfile.metadata.id,
+          name: styleProfile.metadata.name,
+          languageVariant: "default",
+        },
+        totalAgents: 1,
+        agent: phase9Agent,
+      };
+    }
+
+    // HYBRID MODE: continue normal pipeline, but inject strict policy + coverage into prompt later
+    // We stash these values for prompt augmentation below.
+    (session as any).__phase9 = { reportPath, answerPath, coverage, slug: slugForPhase9 };
+  }
+
 
   // TASK-CLI-004: Log pipeline initialization with 46 agent count
   console.error(`[PHD-CLI] Pipeline initialized with ${PHD_PIPELINE_AGENT_COUNT} agents across ${PHD_PHASES.length} phases`);
@@ -1712,6 +2018,7 @@ async function commandInit(
   storeToMemory(sessionIndexKey, {
     sessionId,
     topic: query,
+    dataSourceMode,
     createdAt: new Date().toISOString(),
     status: 'running',
   }).catch(() => {
@@ -1728,12 +2035,30 @@ async function commandInit(
   const totalAgentCount = pipelineConfig.agents.length;
 
   // Build prompt with style injection (Phase 6 only), query injection, and output context
-  const prompt = await styleInjector.buildAgentPrompt(
+  let prompt = await styleInjector.buildAgentPrompt(
     firstAgentConfig,
     styleProfile.metadata.id,
     query,
-    { researchDir: session.researchDir!, agentIndex: 0, agentKey: firstAgentConfig.key }
+    { researchDir: session.researchDir!, agentIndex: 0, agentKey: firstAgentConfig.key },
+    dataSourceMode
   );
+
+  // If hybrid mode ran Phase 9 REPORT already, inject strict local-first policy + artifact pointers
+  if (dataSourceMode === "hybrid" && (session as any).__phase9) {
+    const p9 = (session as any).__phase9 as { reportPath: string; answerPath?: string; coverage: Phase9CoverageGrade; slug: string };
+    // GAP-H03: Pass query intent to prompt builder for recency/outside-corpus detection
+    const queryIntent = session.queryIntent || analyzeQueryIntent(query);
+    prompt += buildHybridPolicyBlock({
+      sessionId,
+      slug: p9.slug,
+      reportPath: p9.reportPath,
+      answerPath: p9.answerPath,
+      coverage: p9.coverage,
+      queryIntent,
+    });
+  }
+
+
 
   // Build first agent details using pipeline loader (not hardcoded)
   const firstAgent: AgentDetails = {
@@ -1753,15 +2078,17 @@ async function commandInit(
     sessionId,
     pipelineId,
     query,
+    dataSourceMode,
     styleProfile: {
       id: styleProfile.metadata.id,
       name: styleProfile.metadata.name,
-      languageVariant: styleProfile.characteristics.regional?.languageVariant || 'en-GB'
+      languageVariant: "default",
     },
     totalAgents: totalAgentCount,
-    agent: firstAgent
+    agent: firstAgent,
   };
 }
+
 
 /**
  * Determine which style profile to use
@@ -2003,6 +2330,31 @@ async function commandNext(
 
   // [REQ-PIPE-002] Load session from disk
   const session = await sessionManager.loadSession(sessionId);
+
+    // LOCAL MODE: Phase 9 is single-shot; no pipeline advancement
+  if (session.dataSourceMode === "local") {
+    const duration = Date.now() - session.startTime;
+
+    const summary: CompletionSummary = {
+      duration,
+      agentsCompleted: session.completedAgents.length,
+      errors: session.errors.length,
+    };
+
+    return {
+      sessionId: session.sessionId,
+      status: "complete",
+      progress: {
+        completed: 1,
+        total: 1,
+        percentage: 100,
+        currentPhase: 0,
+        phaseName: "Phase 9 (local)",
+      },
+      summary,
+    };
+  }
+
 
   // Check session not expired
   if (sessionManager.isSessionExpired(session)) {
@@ -3351,12 +3703,16 @@ async function commandResume(
     path.join(process.cwd(), 'docs/research', session.slug || generateSlug(session.query));
 
   // Build prompt with style injection, query injection, and output context
+// Build prompt with style injection, query injection, and output context
   const prompt = await styleInjector.buildAgentPrompt(
     agentConfig,
     session.styleProfileId,
     session.query,
-    { researchDir, agentIndex: session.currentAgentIndex, agentKey: agentConfig.key }
+    { researchDir, agentIndex: session.currentAgentIndex, agentKey: agentConfig.key },
+    session.dataSourceMode ?? "external"
   );
+
+
 
   // Build agent details
   const agentDetails: AgentDetails = {

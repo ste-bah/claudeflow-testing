@@ -1,0 +1,128 @@
+You will be given a JSON payload. It is the ONLY allowed source of truth.
+
+Your task is to produce a Phase 10 UI JSON object with the EXACT schema below.
+Do NOT include any extra keys. Do NOT include commentary.
+
+SCHEMA (EXACT — NO ADDITIONS):
+
+{
+  "schema_version": "10.0.0",
+  "artifact": "answer.ui",
+  "timestamp_utc": string,
+  "query": string,
+  "data_source_mode": string,
+  "derived_from": object,
+  "generation": object,
+  "ui": {
+    "short_answer_md": string,
+    "key_points": [
+      {
+        "text": string,
+        "support": [
+          { "kind": "chunk" | "knowledge_unit" | "edge", "id": string }
+        ]
+      }
+    ],
+    "what_we_know": string[],
+    "what_we_cannot_claim": string[],
+    "next_queries": string[]
+  }
+}
+
+────────────────────────────────
+ABSOLUTE CONSTRAINTS (CRITICAL)
+────────────────────────────────
+
+SOURCE OF TRUTH:
+- Use ONLY the provided payload JSON.
+- DO NOT invent content, facts, citations, or IDs.
+- DO NOT use examples, templates, or placeholder text.
+
+QUERY:
+- "query" MUST equal payload.answer_full.query
+  (or payload.report.query ONLY if answer_full.query is missing).
+
+ID WHITELIST (MANDATORY):
+You MUST NOT invent IDs.
+
+Allowed IDs may ONLY come from these payload locations:
+
+- chunk IDs:
+  payload.answer_full.layers.evidence[].chunk_id
+
+- knowledge unit IDs:
+  payload.answer_full.layers.knowledge_units[].knowledge_id
+  OR .ku_id
+  OR .id
+
+- reasoning edge IDs:
+  payload.answer_full.layers.reasoning_edges[].edge_id
+  OR .id
+
+FORBIDDEN:
+- NEVER output synthetic IDs such as:
+  "chunk_1", "chunk_2", "ku_1", "edge_1", or similar.
+- NEVER guess an ID.
+- If you cannot find a valid ID in the payload, OMIT that support item.
+- If no valid support IDs exist, OMIT the entire key point.
+
+SUPPORT RULES:
+- Each key_point MUST have a support[] array.
+- support[] MUST contain 1–2 items only.
+- Prefer kind="knowledge_unit".
+- Use kind="chunk" only if no knowledge_unit IDs apply.
+- Use kind="edge" ONLY if you are certain the edge ID exists in the payload.
+
+OUTPUT SIZE LIMITS (ANTI-TRUNCATION):
+- key_points: 4–7 total
+- short_answer_md: MAX 600 characters, single paragraph
+- what_we_know: MAX 6 items
+- what_we_cannot_claim: MAX 6 items
+- next_queries: MAX 6 items
+
+STRING SAFETY:
+- All strings MUST be single-line.
+- Do NOT include literal newlines.
+- Avoid double quotes inside prose. Use plain language.
+
+────────────────────────────────
+CONTENT GUIDANCE
+────────────────────────────────
+
+COVERAGE AWARENESS:
+- If payload.report.coverage or payload.answer_full.coverage is HIGH or MEDIUM:
+  - Summarize only what is directly supported.
+- If coverage is LOW or NONE:
+  - short_answer_md MUST state that the local corpus lacks sufficient evidence.
+  - Emphasize limits in what_we_cannot_claim.
+  - Use next_queries to suggest corpus expansion.
+
+FIELD RULES:
+- schema_version MUST be "10.0.0".
+- artifact MUST be "answer.ui".
+- timestamp_utc:
+  - Use payload.answer_full.timestamp_utc if present.
+  - Otherwise emit a valid ISO-8601 UTC timestamp.
+- data_source_mode:
+  - payload.answer_full.data_source_mode
+  - else payload.report.data_source_mode
+  - else "local".
+- derived_from MUST be an empty object {}.
+- generation MUST be an empty object {}.
+  (These will be populated by the caller.)
+
+────────────────────────────────
+INTERNAL STEPS (SILENT — DO NOT OUTPUT)
+────────────────────────────────
+
+1. Extract allowed IDs from the payload.
+2. Draft candidate key points.
+3. Attach ONLY real IDs copied verbatim from the payload.
+4. If unsure about an ID, remove the support or the entire key point.
+5. Verify the final JSON parses and ends with "}".
+
+────────────────────────────────
+PAYLOAD JSON (VERBATIM — USE ONLY THIS)
+────────────────────────────────
+
+{{PHASE9_PAYLOAD_JSON}}

@@ -1,0 +1,1367 @@
+{
+  "query": "Aristotle's De Anima on phantasia: contemporary interpretation",
+  "timestamp_utc": "2026-01-14T04:45:32.975278+00:00",
+  "report_snapshot": {
+    "query": "Aristotle's De Anima on phantasia: contemporary interpretation",
+    "timestamp_utc": "2026-01-14T04:45:32+00:00",
+    "inputs": {
+      "repo_root": "/home/dalton/projects/claudeflow-testing",
+      "phase4_entrypoint": "/home/dalton/projects/claudeflow-testing/scripts/retrieval/query_chunks.py",
+      "requested": {
+        "k": 8,
+        "overfetch": 8,
+        "where": {
+          "collection": "rhetorical_ontology"
+        },
+        "include_docs": true,
+        "use_highlights": false,
+        "knowledge_path": "/home/dalton/projects/claudeflow-testing/god-learn/knowledge.jsonl",
+        "top_ku": 20,
+        "reasoning_path": "/home/dalton/projects/claudeflow-testing/god-reason/reasoning.jsonl",
+        "top_edges": 30
+      }
+    },
+    "retrieval": {
+      "phase4_payload": {
+        "query": "Aristotle's De Anima on phantasia: contemporary interpretation",
+        "config": {
+          "chroma_dir": "vector_db_1536",
+          "collection": "knowledge_chunks",
+          "k": 8,
+          "overfetch": 8,
+          "where": {
+            "collection": "rhetorical_ontology"
+          },
+          "filters": {
+            "require_my_copy": false,
+            "collection_filter": null,
+            "keep_biblio": false
+          },
+          "include_docs": true,
+          "use_highlights": false,
+          "highlights_index": "scripts/highlights/highlight_index.json",
+          "highlight_alpha": 0.02,
+          "highlight_cap": 5
+        },
+        "results": [
+          {
+            "raw_rank": 1,
+            "chunk_id": "11fdf613d40f9939:00002",
+            "distance": 0.8115166425704956,
+            "path_rel": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+            "page_start": 4,
+            "page_end": 5,
+            "text": "The English word “appearance” connotes an interesting polarity,\nsince an appearance is always both of something and for someone, and\nitself seems to be engendered in a unique coming-together of something\nand someone: an appearance of one thing is not like that of another,\nwhile, on the other hand, the appearance of something to one person\nmay differ from its appearance to another.12 This duality parallels a\nsimilar polarity in the word phantasia which is reflected in two basic\nuses which Aristotle makes of the word, uses described by Bonitz as\nspeciem rei obiectae ... sive veram sive fallacem and as earn actionem\nqua rerum imagines animo informamus and by J. Freudenthal as\nAussehen or Erscheinung and as Vorstellung or Einbildung14 respec¬\ntively. While this sharp distinction of meaning may conceal an important\nambiguity of the word, it seems clear that Aristotle uses the term both in\nan “objective” sense, to describe the species or “look” of something,\nand in a “subjective’’ sense, to describe the action of the soul in grasping\nsuch a “look”.15 The first sense occurs mostly in his physical writings,\n usually as naming the “look” of one of the heavenly bodies or of a\ncolour; the second usage is found in the psychological treatises, and\n describes a certain action by which the soul presents something to itself.\nSince our interest is in the human activity of phantasia , we shall all but\n exclusively be concerned with the “psychological” or “subjective”\n meaning of the word. This concern leads us to consider the special\n nature of certain kinds of “appearances” or “presentations”, namely,\n those Aristotle calls phantasmata .\n   Setting aside the transferred {kata metaphoran) meanings of the\n      —\n word perhaps referring to the “objective” sense just mentioned16\n   history of German philosophy seems to reverse this progression, beginning with Kant’s\n                                                                                           —\n   distinction between the phenomena and the noumena, and ending with phenomen¬\n   ology’s exclusive attention to the appearances. This latter development also coincides\n   with the growth of “historicism”, a modern version of the Protagorean doctrine that\n   “man is the measure of all things”.\n12 The continual engendering of unique and unrepeatable appearances by the ever-\n   renewed union of sense and sensible things is a central point in the discussion of the first\n   definition of knowledge in Plato’s Theaetetus (151d3-186e12). The fascination to which\n   this perpetual novelty gives rise is, of course, an important Platonic theme.\n13 H. Bonitz, Index Aristotelians (2nd ed.; Graz: Akademische Druck—U. Verlagsan-\n   stalt, 1955), \"phantasia” .\n14 J. Freudenthal, Ueberden Begriff des Wortes PHANTASIA bei Aristoteles (Gottingen:\n                            —\n   Druck der Universitats Buchdruckerei von E. A. Huth, 1863), 15-16.\n15 It should be mentioned that “look” is the English word chosen by Jacob Klein to\n   translate Plato’s terms eidos and idea ; see Plato’s Trilogy (Chicago, IL: University of\n   Chicago Press, 1977), 3. The visual terminology of species, Erscheinung and “look”,\n   reflects the root meaning of phantasia , but is somewhat misleading, since Aristotle will\n   relate the action of phantasia to sensation in general. The double sense of phantasia is\n   paralleled in the related term doxa , which, in the writings of Plato, also shows both an\n   “objective” and a “subjective” meaning. See Yvon Lafrance, La Theorie Platoni-\n   cienne de la Doxa (Montreal: Bellarmin; and Paris: Les Belles Lettres, 1981), 22.\n16 For other suggestions of what Aristotle has in mind here, see Freudenthal, Ueber den\n   Begriff, 30, and Martha Craven Nussbaum, Aristotle’s De motu animalium: Text with\n   Translation, Commentary and Interpretative Essays (Princeton, NJ: Princeton Uni¬\n    versity Press, 1978), 252-255.\n\nPhantasia 487",
+            "meta": {
+              "path_rel": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+              "doc_id": "11fdf613d40f9939",
+              "mtime": 1739237933,
+              "qualifier": "My Copy",
+              "author_raw": "White, Kevin",
+              "page_start": 4,
+              "is_my_copy": true,
+              "sha256": "0f1951a017f878ac25117d1b03ff51d4d41ec695a253c10057d5e2b0031afbe1",
+              "collection": "rhetorical_ontology",
+              "chunk_index": 2,
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+              "year": 1985,
+              "is_clean_copy": false,
+              "page_end": 5,
+              "title_raw": "The Meaning of Phantasia in Aristotle's De Anime, III, 3-8"
+            },
+            "rank": 1
+          },
+          {
+            "raw_rank": 3,
+            "chunk_id": "f03980fa5d95360d:00000",
+            "distance": 0.8566112518310547,
+            "path_rel": "rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf",
+            "page_start": 1,
+            "page_end": 2,
+            "text": "I5\n            THE COGNITIVE ROLE OF\n            PHANTASIA IN ARISTOTLE\n\nDOROTHEA FREDE\n\nI. Problems with a Unified Concept of Phantasia\n\nThe difficulties with the concept of phantasia start with the translation. One\nproblem is that phantasia does triple duty. It designates the capacity, the activity’\nor process, and the product or result. It is, of course, not alone in having so many\nchores. ‘Sight’, for example, in English has as many functions: it signifies the\ncapacity to see, the seeing, and what is seen. This multiplicity need not by itself\ncreate any confusions. We usually know quite well whether we mean the capacity\nof sight or the seeing or the thing seen. Even grammatically it is usually clear\nwhat we mean: ‘you are a terrible sight’ is quite unequivocal, as is ‘my sight is\ngetting worse and worse’.\n   What makes phantasia more troublesome than ‘vision’ is partly that we have no\nsingle word in English that would do all three jobs. But, unfortunately, that is not\nthe major problem in Aristotle. We are also unsure what capacity, what process,\nand what product the word denotes in each case. In order to provide a prelim¬\ninary clarification I want, as other commentators have done before me, to refer to\nthe etymological derivation of phantasia from phainesthai or phantazesthai' and\nclaim that ‘appearance’ in a wider sense should be regarded as the central mean¬\ning to which all functions of the term are related. It would then be (i) the capacity\nto experience an appearance, (ii) the on-going appearance itself, and (iii) what\nappears.\n   Sometimes, however, this does not seem appropriate; rather something like\nour ‘imagination’ would be more adequate. The latter sense is not unrelated to\n‘appearance’, since it means something like the creation of an appearance, so that\nit is related to the former like active to passive (or medium).2 Unfortunately this\nis still not all, there is yet another distinction to be observed. Just as we do in\n\n© Dorothea Frede, 1992.\n   1\n     Cf. Schofield (1979), 105 n. it. Aristotle often treats phantasia as the noun corresponding to\nphainesthai (cf. DA, 428ÿ7, 14; 428bt, 3; 433’28). Where there is no question of simple appearance but\nintentional imagining is meant he uses phantasthÿnai (433bi 2).\n   2 In its active sense it also has those three functions, and ‘imagination’\n                                                                              covers all three meanings:\nthe capacity to create appearances, the creating itself (‘imagining’) and the created appearance itself,\nwhat is imagined. Aristotle does not use phantasia for poetic creativity but calls the poet an eikÿnopoios\n(Pa. I46ob9). For an interesting overview of the history of the ‘creative’ sense of phantasia cf.\nRosenmeyer (1986).\n\n28o                                        Dorothea Frede                                                                                      The Cognitive Role of Phantasia                                      281\nEnglish, so one distinguishes in Greek between a ‘mere appearance’, a phantom,                                 syndrome to an unusual degree. Repetitions and inconsistencies abound. The\nand a ‘real appearance’, a phenomenon.                                                                         definition of phantasia itself is postponed till the last section of the chapter\n   Aristotle uses phantasia in all those meanings, although he most frequently                                 (428bio ff); criteria that are at first introduced to distinguish between sense¬\nseems to presuppose the passive or medial meaning of ‘having an appearance’;                                   perception, thought, and phantasia are circumstantial, and most of them are soon\nbut the active use in the sense of eidolopoiein (DA 427bi8-2o) also occurs.1                                   modified, if not contradicted. Sense-perception, for instance, is at first differ¬\nAristotle’s often displayed insouciance about the different meanings does not                                  entiated from phantasia because it is always true while the latter is usually false\nimply any confusion, however. Throughout his psychological writings he not                                     (428’11). Later on it turns out that only ‘specific’ perceptions are almost (!) always\nonly distinguishes very carefully between capacity, activity, and product, but in                              true while the perceptions of common and accidental objects may be false (428bi8\nthe case of phantasia he also often switches to phantasma to designate the prod¬                               ff.). Phantasia is initially separated from both sense-perception and thought\nuct, and occasionally uses phantastikon for the capacity (432\"3i).4                                            (427bi4), but then it is subsumed under noein and regarded as the counterpart of\n    But even granted that Aristotle himself does not suffer from confusion about                               hupolepsis or supposition (427b27). Furthermore, at first phantasia is said to be ‘up\nthe many meanings, the crucial question remains: what kinds of ‘appearances’                                   to us’, since we can imagine what we please while suppositions depend on the\ndoes Aristotle have in mind and why should there be a special capacity for them?                               external circumstances since they are true or false (427bi8). Soon afterwards it is\nThe treatment of phantasia in 3. 3, the only place where it is discussed exten¬                                clear that not all phantasiai are up to us (dreams clearly are not) and that\nsively, is confusing, at least at first sight. On the one hand, phantasia is regarded                          phantasiai can also be true or false, otherwise they would not mislead us. Finally,\nas a necessary condition of thought (‘there is no supposition without it’, 427bi5);                            not all animals are said to have phantasiai but all have perception (428’9—1 1): this\non the other hand its definition suggests that phantasiai are mere after-images                                claim is also modified later.7\nof sense-perception, often false ones (428’11-16), which guide animals since they                                  What surprises one more than these inconsistencies (which can partly be\n do not have reason, and human beings when they are disturbed by passion or                                    resolved and partly brushed aside as mere negligence)8 is the fact that Aristotle\n disease, or are asleep (429’4-8).                                                                             uses so many arguments from indirect evidence: that is to say, that he spends so\n    Because of such seeming inconsistencies there has been quite some discussion                               much time to point out what sense-perception, phantasia, and thought do not\n of this subject in the last years, especially about the cognitive value that Aristotle                        have in common rather than distinguishing them by their specific objects. That is\n attributes to phantasia.ÿ It is not possible to do justice to all these attempts here,                        what one would have expected after his careful description of the senses and his\n let alone to go into the philosophical intricacies of the different interpretations                           insistence that the object defines the faculty in book 2.ÿ\n that have been suggested. I will confine myself here to a ‘minimal account’ of the                                A closer look at the final definition of phantasia itself explains, however,\n role that Aristotle ascribes to phantasia in 3. 3 and then try to show how this is                            why Aristotle is so roundabout in his procedure. He seems to want to prepare\n borne out in the rest of the book and in other relevant texts. I call my account                              the ground beforehand and to lead us into agreeing that phantasia and sense¬\n minimal since I do not pretend to deal adequately with all the problems the                                   perception must be different, precisely because according to his final definition\n compressed text contains.                                                                                     there is no separate capacity in the soul and there are no separate objects for\n    Let us first take a brief look at the problems with 3. 3 itself. Although the over¬                        phantasia'. 'Phantasia is a motion that does not happen without sense-perception\n all intention of the chapter is clear, namely to distinguish phantasia from the                               but comes to be as the result of the activity of sense-perception and is like the\n other capacities of the soul,6 Aristotle seems here to display the untidy-genius                              perception’ (428ÿII—15; 429’1; Somn. Vig. 459’17 f.). Phantasia, thus, does not\n                                                                                                               have a faculty of its own but is ‘parasitic’ on sense-perception.\n   3 Without wanting to be over-confident on this much debated question, my suspicion is that this\n                                                                                                                   The truth or falsity of phantasia depends likewise on the character of the\nactive use of imagination, the eidolopoiein in 427ÿ20(that is up to us and is neither true nor false) is the\nsense of phantasia that is ruled out in 428*2 as kata metaphorany since it never recurs in De Anima and        corresponding sense-perception: the phantasia that follows the perception of the\ndoes not suit the cognitive use which Aristotle wants to ascribe to phantasia-. i.e. as a capacity according   special object (idion) of the sense (like colour of vision) is true while the percep¬\nto which we judge and are right or wrong (kath' has krinomen kai aletheuomen e pseudometha, 428’3),\nand which does affect us emotionally (cf. 432ÿ8 as against 427h24). Most importantly, free\n                                                                                                               tion lasts, but it can become false once the perception is over. The phantasiai\nphantasizing does not fit the definition of phantasia that is soon to follow: a motion in the soul caused      following the perception of common objects (as that something is in motion) and\nby sense-perception.\n                                                                                                                 7\n   4 At that point Aristotle expresses doubt whether it is a separate faculty of the soul or whether only           On the ‘indefinite’ possession of phantasia in 3. 11 by animals that have only tactile perception cf.\n                                    —\nits being is different (tÿi men einai panton heteron). When discussing the soul’s capacities themselves\nAristotle never includes a phantastikon (413’23- 5; bi2-t3, 4i4b3i-2). In Somn. Vig. 459’16, 458ÿ30,\n                                                                                                               further below.\n                                                                                                                 8 It will, for instance, become dear\n                                                                                                                                                        that phantasia is here subsumed under noein because it fulfils\n462ÿ8  it is clear that it is the same faculty as aisthesis, only the activity is different.                   some cognitive function for animals that do not have reason (10, 433’10). Watson defends the coher¬\n   5 Cf. Nussbaum (1978),\n                                 221-69; Schofield (1979); Watson (1982); Modrak (1986, 1987a).                ence of the chapter by pointing out its anti-Platonic stance but does not straighten out all wrinkles.\n                                                                                                                 9 Cf.\n   6 Leaving aside the criticism of the pre-Socra tics’ identification of thinking and perceiving                       415’20; 418’7 ff.; cf. EN 1139’8-11. For a discussion of the ‘physiology’ of phantasia cf.\n (427‘i9-b6)                                                                                                   Watson (1982), 103-4. Cf. also Sorabji (1974), 76-92.",
+            "meta": {
+              "is_my_copy": false,
+              "doc_id": "f03980fa5d95360d",
+              "mtime": 1768324331,
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf",
+              "page_start": 1,
+              "qualifier": "Clean Copy",
+              "path_rel": "rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf",
+              "title_raw": "The Cognitive Role of Phantasia in Aristotle",
+              "page_end": 2,
+              "sha256": "f3bb04e52f705ce92cfa9ee909411f289d0179ebebca4288952134030c18b4ed",
+              "is_clean_copy": true,
+              "author_raw": "Frede, Dorothea",
+              "chunk_index": 0,
+              "year": 1992,
+              "collection": "rhetorical_ontology"
+            },
+            "rank": 2
+          },
+          {
+            "raw_rank": 4,
+            "chunk_id": "11fdf613d40f9939:00013",
+            "distance": 0.860407829284668,
+            "path_rel": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+            "page_start": 22,
+            "page_end": 23,
+            "text": "504 Dialogue\n\nConclusion\nThe role of phantasia in human life, according to Aristotle, goes far\nbeyond its contribution to the activity of noein, and is, in fact, perva¬\nsive. That the discussion of the noetic soul occurs in the De anima just\nafter the treatment of phantasia , on which it depends, seems to under¬\nline the human importance of this activity, which is apparently both\nincessant in man and at the heart of his deepest concerns. As we have\njust seen, the activity of thought, man’s highest endeavour, is impossible\nwithout the concurrent activity of phantasia', moreover, when the\npower of thought is eclipsed in man, as it easily is, he, like the other\nanimals, acts in accordance with phantasia,61 which, in its hidden in¬\nteraction with the passions,8788 thus plays a significant part in his moral\nand political life. Finally, the operation of man’s phantasia is not re¬\nstricted to his waking life, but continues, perhaps even more intensely,\nin his dreams . Whether awake or asleep, then, and whether thoughtful or\nthoughtless, man never ceases to take his bearings in the world by means\nof phantasia.\n   Just as the roots of the word phantasia connote light, visibility, and\nthe heavenly phenomena, so phantasia in its “objective” sense, as has\nbeen said, is often used by Aristotle when speaking of the heavenly\nbodies and of colours. The milky way, comets, shooting stars, planets,\n                              —\nlightning, and rainbows all the celestial occurrences which orient man\n                 —\nin the cosmos each have their phantasia or “appearance”, which may\ninclude their brightness, figure, swiftness, and presumably any aspect\n which they present to the earthly observer.89 Colours too, which for\n Aristotle are a primary source of our knowledge of the differences\n among things,90 each have their own unique “look” or phantasia.91\n These visible phenomena, both in their usefulness and in their charm,\n perhaps lend resonances to the word phantasia which carry over into its\n “subjective” meaning. As it occurs in Aristotle’s discussions of mem¬\n ory, dreaming, thinking, and desire, the term may suggest that the inner\n appearances which accompany such experiences have all the diverting\n prominence in human life which the more striking features of the visible\n87 De anima, HI, 3, 429a4-8.\n88 Aristotle offers some interesting examples of this interaction: the passions of anger,\n   fear, confidence, and shame involve the activity of phantasia (Rhetoric, II, 2,\n   1378a30-bl0; 5, 1382a21ff„ 1383al7; 6, 1383bl2-1384a22); the cowardly, the erotic, and\n   the angry are easily deceived by slight resemblances between the inner appearances\n   and the objects of their passions (De insomniis, 2, 460b4-l 1); phantasia is operative in\n   the “self-image” which is a spur to victory, honour, and excellence (Rhetoric, I, 11,\n   1 370b33; 1371a9, 19); the melancholy are particularly susceptible to the influence of the\n   inner appearances (De memoria et reminiscentia , 2, 453al9).\n89 Meteorologica, I, 3, 339a35; 5, 342b23; 6, 342b32; II, 9, 370al5; III, 4, 374b8; De\n   mundo, 4, 395b6; Problemata, XV, 4, 91 la!3; XXVI, 12, 941b22.\n90 De sensit et sensato, i, 437a5-7.\n91 De coIoribus, 1, 791b 17; 2, 792a6, 8, b!5; 3, 793a25; Meteorologica, III, 2, 372b8; De\n   sensu et sensato, 3 , 439b6.\n\nPhantasia 505",
+            "meta": {
+              "path_rel": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+              "page_start": 22,
+              "qualifier": "My Copy",
+              "doc_id": "11fdf613d40f9939",
+              "mtime": 1739237933,
+              "chunk_index": 13,
+              "collection": "rhetorical_ontology",
+              "is_my_copy": true,
+              "author_raw": "White, Kevin",
+              "is_clean_copy": false,
+              "page_end": 23,
+              "sha256": "0f1951a017f878ac25117d1b03ff51d4d41ec695a253c10057d5e2b0031afbe1",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+              "year": 1985,
+              "title_raw": "The Meaning of Phantasia in Aristotle's De Anime, III, 3-8"
+            },
+            "rank": 3
+          },
+          {
+            "raw_rank": 6,
+            "chunk_id": "9ae14153cdb6ed0e:00015",
+            "distance": 0.8731421828269958,
+            "path_rel": "rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+            "page_start": 35,
+            "page_end": 37,
+            "text": "All these passages discuss the various ways something may ap-\npear to, or be interpreted by, a living creature. The second and\nthird make an additional contrast between the way the thing\nappears to the agent and the belief he has about it. A phantasia\nwould seem to be a single, isolated impression, in contrast to\ndoxa, which is based on experience and reflection. Thus E.N VII\n (II 47b4 ff.) draws a contrast between following the phantasia\nof particulars and following a general belief. The Inso11111. pas-\nsage, though characteristically interpreted with reference to\nimages, is quite comprehensible without them; it seems very\nsimilar to the EE statement. In both cases something in the\nworld may appear a certain way to a creature, even while he\nholds an opposing belief about its nature.\n   Once again, at the opening of the DA, Aristotle uses phantasi,1\nin an unmistakeably broad sense:\n\n39   Cf. Bonitz Index, sx. ph,mt,uiit for a number of similar passages.\n\n245\n\n_J\n\nARISTOTLE'S DE i'HOTV ANIMAL/UM\n\nWhen we are able to give an account of the incidental\n    attributes as they appear to us (kata ten phantasian), . . .\n    then we will also be best qualified to speak about the ousia\n    (4Q2h22-24).\n\nThere is no obvious reason to separate such passages from\n  others, as does Bonitz, finding different \"senses\" in question.\n  Phantasia for Aristotle seems to be as wide-ranging a notion\n  as the notion of the phainomena-which, as Owen has argued,\n embraces far more than the data of perception. 40 His interest\n is in how an object or state of affairs registers with the creature,\n what content it has for him. 41 If this is so, we will expect that\n for Aristotle to talk of a sensory phantasia would be to ascribe\n some (potentially motivating) content to the animal's percep-\n tion, and that the animal who \"phantasizes\" will not just per-\n ceive an object, but perceive it as a thing of a certain sort, a\n thing that could become for him an object either of pursuit or\n of avoidance. Like Wittgenstein, he would be interested in the\n experience of \"seeing as,\" though, unlike Wittgenstein, who\n speaks of an \"echo of thought in sight,\" 42 Aristotle seems to be\n concerned with the way in which all moving creatures, most\nof whom lack thought and experience, become a ware of objects\nin such a way as to be moved. The role of pha11tasia in the AJA\nand in DA 111.9-11 could, it seems, be explained with refer-\nence only to this very general interest in appearing, without\nimporting images. To decide whether this sort of interpretation\nis correct will require the scrutiny of further evidence. But\nfirst we must assess the image theory itself.\n    One might grant that the notion of \"seeing as\" is basic to\nAristotle's interest in phantasia and still claim that, as he devel-\nops a theory based on this notion to explain various epistemo-\nlogical problems, he immediately imports images, so that there\n\n•o Owen, \"Tithenai.\"\n  41 He seems to be animated by many of the same concerns as,    for exam-\nple, Dennett (Content) in his talk of the way in which a creature is aware\nof an object-cf. especially chapter IV.\n   OWittgenstein, Pl, II.xi.\n\n246\n\nINTERPRETIVE ESSAYS\nare no passages in which he works out his basic insight about\nawareness in an equally flexible and interesting way. His\nanalysis of the problems of delusion, dreaming, and memory\ncannot be analyzed here in any detail, but a few examples will\nshow that in some of these contexts it requires distortion to\nfind images at all, while in obvious image-contexts phantasia\nand its cognates arc not the words most commonly used. Aris-\ntotle's interest in the \"truth\" and \"falsehood\" of appearances,\noften said to be linked to a dogmatic image theory, is evident\nin passages where images arc not in question, in general talk\nabout the way a state of affairs or a person is typically seen by\nothers:\n   Atfetapli. V .29, JOHhH-26: Things are called false either\n   because they themselves arc not or because the plza11tasia\n   that results from them is of what is not.\n Shadow-pictures (skiagmphia) and dream-images (e11up11ia)-\n thc examples that follow-arc distinguished from the plza11tasia\n that results from them. Phwtasia me 011!0s should be taken not\nas \"a dream image of what is not\" (he is speaking of all dreams,\n not just dreams about non-existent things or situations), but as\nthe false impression that results from the dream. '''hatever\nthese enupnia arc-images, physical states, etc.-the point is\nthat they give us a false impression of reality. \"They are some-\nthing,\" says Aristotle (10241>23), \"but not what they give the\nimpression of being (lion empoiei ten phmtasian),\" not what we\nsec them as. \\Ve take the shadow picture for an animal, a\ndream situation for a real one.\n   Even clearer is 1025 11 5 ff. A man, Aristotle observes, can be\ncalled \"false\" if he often gives others a false impression, \"just\nas we call states of affairs false if they create a false pha11tasia.\"\nTo read mental pictures into this passage we would have to\nsay that what a hypocrite docs (for the context indicates that\nhypocrisy, and not susceptibility to being misunderstood, is in\nquestion) is to paint in others' minds a picture of a smiling\nDorian Gray, while all the while he is really terribly ugly\nfrom vice. Certainly Aristotle could not have believed that the\n                                  247",
+            "meta": {
+              "chunk_index": 15,
+              "qualifier": "My Copy",
+              "collection": "rhetorical_ontology",
+              "author_raw": "Nussbaum, Martha",
+              "page_start": 35,
+              "is_clean_copy": false,
+              "path_rel": "rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+              "mtime": 1675963214,
+              "title_raw": "The Role of Phantasia in Aristotle's Explanation of Action",
+              "doc_id": "9ae14153cdb6ed0e",
+              "is_my_copy": true,
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+              "year": 1985,
+              "page_end": 37,
+              "sha256": "297d9f313976eeb60fa334673df3e2ce904606edb9ca6448293431f2ab9e1417"
+            },
+            "rank": 4
+          },
+          {
+            "raw_rank": 9,
+            "chunk_id": "35a838f4ae19753a:00007",
+            "distance": 0.8903186917304993,
+            "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+            "page_start": 10,
+            "page_end": 11,
+            "text": "5 • Contemporaneously with these philosophers and before them, the Pytha­\ngoreans, as they are called, devoted themselves to mathematics; they were the first\nto advance this study, and having been brought up in it they thought its                 25\nprinciples were the principles of all things. Since of these principles numbers are by\nnature the first, and in numbers they seemed to see many resemblances to the things\nthat exist and come into being—more than in fire and earth and water (such and\nsuch a modification of numbers being justice, another being soul and reason,\nanother being opportunity—and similarly almost all other things being numerically        30\nexpressible); since, again, they saw that the attributes and the ratios of the musical\nscales were expressible in numbers; since, then, all other things seemed in their\nwhole nature to be modelled after numbers, and numbers seemed to be the first\nthings in the whole of nature, they supposed the elements of numbers to be the           986'i\nelements of all things, and the whole heaven to be a musical scale and a number.\nAnd all the properties of numbers and scales which they could show to agree with\nthe attributes and parts and the whole arrangement of the heavens, they collected        5\nand fitted into their scheme; and if there was a gap anywhere, they readily made\nadditions so as to make their whole theory coherent. E.g. as the number 10 is\nthought to be perfect and to comprise the whole nature of numbers, they say that\nthe bodies which move through the heavens are ten, but as the visible bodies are only    io\nnine, to meet this they invent a tenth—the ‘counter-earth’. We have discussed these\nmatters more exactly elsewhere.\n      But the object of our discussion is that we may learn from these philosophers\nalso what they suppose to be the principles and how these fall under the causes we       15\nhave named. Evidently, then, these thinkers also consider that number is the\nprinciple both as matter for things and as forming their modifications and states,\nand hold that the elements of number are the even and the odd, and of these the\nformer is unlimited, and the latter limited; and the 1 proceeds from both of these\n(for it is both even and odd), and number from the 1; and the whole heaven, as has       20\nbeen said, is numbers.\n      Other members of this same school say there are ten principles, which they\narrange in two columns of cognates—limit and unlimited, odd and even, one and\nplurality, right and left, male and female, resting and moving, straight and curved,     25\nlight and darkness, good and bad, square and oblong. In this way Alcmaeon of\nCroton seems also to have conceived the matter,2 and either he got this view from\nthem or they got it from him; for he expressed himself similarly to them. For he says    30\nmost human affairs go in pairs, meaning not definite contrarieties such as the\nPythagoreans speak of, but any chance contrarieties, e.g. white and black, sweet\nand bitter, good and bad, great and small. He threw out indefinite suggestions about\n\nISomc aulhorities read; ‘For Alcmaeon lived during the old age\n                         of Pythagoras, and he expressed himself...’.\n\n1560                          metaphysics",
+            "meta": {
+              "is_clean_copy": false,
+              "collection": "rhetorical_ontology",
+              "title_raw": "Metaphysics_(2014)_ [My Copy]",
+              "page_start": 10,
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+              "doc_id": "35a838f4ae19753a",
+              "page_end": 11,
+              "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+              "path_rel": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+              "is_my_copy": false,
+              "author_raw": "Aristotle",
+              "mtime": 1675962441,
+              "chunk_index": 7
+            },
+            "rank": 5
+          },
+          {
+            "raw_rank": 10,
+            "chunk_id": "9ae14153cdb6ed0e:00027",
+            "distance": 0.8919749855995178,
+            "path_rel": "rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+            "page_start": 59,
+            "page_end": 59,
+            "text": "theory that is sometimes ascribed to him. And he is also right\nto make it the job of the same theory to explain both practical\nand non-practical cases; for these differ not cognitively, but\nonly with reference to the role played by desire. It is perhaps\nthe mistaken notion that epistemology and the explanation of\naction arc, for Aristotle, two different branches of inquiry,\nthat has led many critics to mark off some phantasia-contexts\nfrom others and to fed no qualms about offering an interpreta-\ntion for one set that could not fit the other. To move a creature\nto action, an object must appear to him: he must select it,\nmark it off, organize it, interpret it. But this is, desire aside,\nwhat it is to St't' it. Learning to perceive, as Aristotle cells us,\nis learning to make distinctions.7° The passive infant may re-\nceive some stimuli, but perception, thought, and action all pre-\nsuppose the exercise of ph111t,1si,1.il\n   70\n      On seeing .ind making distinctions, cf. .\\lrt.iph. I. I, 980 11 26-27 Sms.\n432 11 2ff., also l'h. 184-\"2--¼. where cogniti,·c de,·clopmcnt is again a\nmatter of progressi\\\"cly sophisticated sorting and interpreting. Note that\nAristotle's blanket name for the cogniti,·c faculties is the kritik.1-thosc\nthat \"sort\" or \"discriminate.·•\n   71 This paper den:lopcd side by side with a forthcoming one on the same\n\ngeneral topic by .\\ blcolm Schofield. which addresses itself to different\npassages and reaches r;1thcr ditfcrcnt conclusions. I am indebted to him for\nhis criticisms and for some helpful com·ersations about the c,·idcnce.\n\n269",
+            "meta": {
+              "chunk_index": 27,
+              "mtime": 1675963214,
+              "path_rel": "rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+              "qualifier": "My Copy",
+              "collection": "rhetorical_ontology",
+              "page_start": 59,
+              "author_raw": "Nussbaum, Martha",
+              "is_clean_copy": false,
+              "sha256": "297d9f313976eeb60fa334673df3e2ce904606edb9ca6448293431f2ab9e1417",
+              "year": 1985,
+              "is_my_copy": true,
+              "title_raw": "The Role of Phantasia in Aristotle's Explanation of Action",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+              "page_end": 59,
+              "doc_id": "9ae14153cdb6ed0e"
+            },
+            "rank": 6
+          },
+          {
+            "raw_rank": 11,
+            "chunk_id": "11fdf613d40f9939:00009",
+            "distance": 0.8920031189918518,
+            "path_rel": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+            "page_start": 15,
+            "page_end": 17,
+            "text": "It is difficult to know what to make of the remark that sensation and\nphantasia are the same but different in einai.63 If the suggestion is that\nthe two are different activities of the same subject, both having the same\norganic foundation, the “secondary movement” of phantasia requires\nfurther physiological explanation.64 From the point of view of the De\nanima, however, the account of phantasia now seems to be complete.\nIts qualified identity with sensation explains why it is not a separate\npower and does not determine a distinct kind of soul. As the inevitable\n60 459a28-b23.\n61 De insomniis, 3, 460b28-461a8.\n62 1, 459al5-22.\n63 For discussion of this formulation, see Nussbaum, Aristotle’s De motu animalium,\n   234-236.\n64 Aristotle’s account of the physiology of phantasia in terms of reflected sensations\n   which are borne inward toward a central organ, and sometimes distorted or obscured,\n   by the currents of the blood (461a8-462a8) may be scientifically naive, but is meta¬\n   phorically precise, since the paradigmatic instance of a phantasma seems to be the\n   visible, inevitably altered reflection of the outer appearances in the fluctuating element\n   of water (cf. Republic, VI, 510al). See De prophetia in somno, 2, 464b9: the inner\n   appearances (phantasmata) are much like the “images” (eiddla) found in water.\n\n498 Dialogue\n\nafter-effect of sensation, phantasia is a dimension of the life of all animal\nsouls.65\n   Apart from the concept of kinesis, there is one other feature from\nAristotle’s account of sensation which is carried over into his discussion\nof phantasia, namely, the remark that sensation involves the reception\nof form without matter. It is because this is so, he suggests, that sensa¬\ntions and phantasiai remain in the sense organs even when the sensible\nobjects have gone.66 This lingering, resonating, echoing presence of\nsensible forms freed from their original matter appears to be the essence\nof phantasia for Aristotle. The movement in the sense-power caused by\nthe sensible object itself sets up a second movement which continues\nafter the sensation has ceased and the object has gone. The animal soul,\ntherefore, is not merely one which is in touch with its environment\nthrough the cognition of sensation, but one which carries the reverberat¬\ning effects of its past encounters with sensible objects; it is not only a\nreceiver, but also a preserver and a storehouse, of the sensible forms of\nthings.67\n\n4. Phantasia and Nous\nIt remains to show how Aristotle’s discussion of phantasia subserves\nthe analysis of noein which it introduces. What is the role of the persist¬\ning inner appearances in the activity of thinking?\n   Taking up the delicate task of explaining the origin of thinking (noein)\nin De anima, III, 4, Aristotle once again, as he had at the beginning of\nchapter three, initiates the discussion with a comparison between think¬\ning and sensation. However, having been freed of the danger of confus¬\ning thinking with sensing, or with its offspring phantasia , the compari¬\nson can now proceed more instructively. Like sensation, then, thinking\nis a certain “being acted upon” (paschein) which is possible because\nthought is receptive of (dektikon) and potentially (dunamei) identical\nwith the forms (eide) of beings. In thinking, as in sensing, cognition is\nnot to be understood by means of any a priori structure other than a\nspecific emptiness, openness, and susceptibility to the forms of things.\nAs the sense-power (aisthetikon) is to its objects, the aistheta, so, by\nstrict analogy, is nous to the noeta, with the crucial difference that,\nunlike sensation, the operation of thought is free of any admixture\n(amige), whether in the power or in its object, with matter and the\n body.68\n65 Aristotle suggests a division between animals which have phantasia and those which\n   do not (De anima, II, 3, 415al0-ll; III, 3, 428al0-l 1), but finally allows that even the\n   imperfect animals possess an indeterminate phantasia (ibid., Ill, 11, 433b31-434a4).\n66 De anima, III, 2, 425b23-25.\n67 Thus Aristotle’ s phantasia resembles very much the memoria eloquently described by\n   St. Augustine ( Confessions , X, 8-26): venio in campos et lata praetoria memoriae, ubi\n   stmt thesauri inntimerabilitim imaainum de cuiusce modi rebus sensis invectarum . .\n68 429al3-18.\n\nPhantasia 499",
+            "meta": {
+              "year": 1985,
+              "chunk_index": 9,
+              "collection": "rhetorical_ontology",
+              "page_start": 15,
+              "is_my_copy": true,
+              "doc_id": "11fdf613d40f9939",
+              "mtime": 1739237933,
+              "author_raw": "White, Kevin",
+              "page_end": 17,
+              "qualifier": "My Copy",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+              "sha256": "0f1951a017f878ac25117d1b03ff51d4d41ec695a253c10057d5e2b0031afbe1",
+              "title_raw": "The Meaning of Phantasia in Aristotle's De Anime, III, 3-8",
+              "is_clean_copy": false,
+              "path_rel": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf"
+            },
+            "rank": 7
+          },
+          {
+            "raw_rank": 13,
+            "chunk_id": "7fec712a90869ab6:00014",
+            "distance": 0.902880072593689,
+            "path_rel": "rhetorical_ontology/O'Gorman, Ned - Aristotle's Phantasia in the Rhetoric- Lexis, Appearance, and the Epideictic Function of Discourse_(2005)_[My Copy].pdf",
+            "page_start": 11,
+            "page_end": 12,
+            "text": "Notes                                                                                            f         lar hierarchy of experiences and faculties reflected in De Anima. Hence, my argument does\n                                                                                                            hinge on a natural order, or the order of the soul, but not exclusively so. Any claims for the\n                                                                                                            priority of epideictic necessarily assume the cultural practice of epideictic and hence are\n                                                                                                            rooted, as Farrell puts it, \"in the conventions of culture, where the traction of rhetoric and\n\n-~-u=~~~,                                                                      .\n I want to thank the anonymous reviewers for their very helpful suggestions Jam indebted to\n                                                                                                  !\n                                                                                                  '·•·.·    civic life take their ground of meaning\" (188).\n                                                                                                               13. In the Nicomachean Ethics (1123b), Aristotle uses notions of big and small to show\n                                                                                                            the nature of the person possessing the attribute of megalopsychia.\n   dl • Fortenbaugh notes that Plato also addresses voice and gesture under the heading le •                   14. Walter Ong argues that oral cultures were concrete rather than abstract: \"Oral cultures\nan skug~ests that Thrasymachus may have too. Delivery and style both have to do with~~;                     tended to use concepts in situational, operational frames of reference that are minimally\nspea er s manner (1986, 242-52).\n                                                                                                            abstract in the sense that they remain close to the living human lifeworld\" (1982, 49). Ong\n    2. Kennedy states that book~ 1-2 of the Rhetoric were probably written separate! from                   cites Anne Amory Parry, who argued that the Homeric epithet amymbn, usually translated\nbook 3, and only later made a smgle work by Aristotle (1991 302) K           d     ·  y                     \"blameless,\" is best translated \"beautiful-in-the-way-a-warrior-ready-to-fight-is-beautiful\"\nthe early         f th Rh     •                                ,     · enne Y estimates that\n           core o     e   etonc (1.3-15) was written before 350 BCE wh           b                          (49). Similarly, Eric Havelock connects mnemonic techniques of the ancient world to \"words\nhave been written as late as 338 (303-4). Fortenbaugh (1986) l d' ,        ere:s oak 3 -~ay\nand editorial history of book 3 .                              a so tscusses t e compos1t10n                 ... recallable by the use of the eye\" (1963, 189), words that created images or highlighted\n                                                                                                            action (188-190).\ntio~~ i!h~~;1!:~~ti~f t~stotle's co~cept of phantas_ia for p~ilosophy is seen in its reformula-                15. Keuls traces the rhetorical stress on visual imagery to the Pythagoreans. The\n                                          1                                0\nception. See Annas (~8~~~:~1eh~~~s8oi)~ t::::~~~l~l~~~c)~raena~ ;~fk!~ /~ t:iries of per-                   Pythagoreans used \"pictures\" (eikones) to communicate \"divine things\" (see Keuls 1978,\n                                                                         9                                   125).\n\n,   38                                   NED O'GORMAN                                                                                    ARISTOTLE'S PHANTASIA                                      39",
+            "meta": {
+              "author_raw": "O'Gorman, Ned",
+              "sha256": "e7498ba552420440f1bbb3edf2940e08b1bb2fa8f2fa0d3b38faea99bee570b8",
+              "page_start": 11,
+              "mtime": 1676054316,
+              "chunk_index": 14,
+              "is_my_copy": true,
+              "title_raw": "Aristotle's Phantasia in the Rhetoric- Lexis, Appearance, and the Epideictic Function of Discourse",
+              "qualifier": "My Copy",
+              "collection": "rhetorical_ontology",
+              "doc_id": "7fec712a90869ab6",
+              "year": 2005,
+              "page_end": 12,
+              "path_rel": "rhetorical_ontology/O'Gorman, Ned - Aristotle's Phantasia in the Rhetoric- Lexis, Appearance, and the Epideictic Function of Discourse_(2005)_[My Copy].pdf",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/O'Gorman, Ned - Aristotle's Phantasia in the Rhetoric- Lexis, Appearance, and the Epideictic Function of Discourse_(2005)_[My Copy].pdf",
+              "is_clean_copy": false
+            },
+            "rank": 8
+          }
+        ]
+      },
+      "stats": {
+        "n_returned": 8,
+        "distinct_docs": 5,
+        "distinct_doc_paths": [
+          "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+          "rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf",
+          "rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+          "rhetorical_ontology/O'Gorman, Ned - Aristotle's Phantasia in the Rhetoric- Lexis, Appearance, and the Epideictic Function of Discourse_(2005)_[My Copy].pdf",
+          "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf"
+        ],
+        "distance_min": 0.8115166425704956,
+        "distance_max": 0.902880072593689
+      }
+    },
+    "knowledge_units": {
+      "hits": [
+        {
+          "knowledge_id": "ku_2b4c34cb0bf14efb",
+          "score": 5,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "The boundaries of Aristotle's sire\" (bouleutik€ orexis) (I 113a), 22 Phantasia, Aristotle argues in De Anima, epideictic are perforated; epideictic stands in various relationships to other is indispensable to desire, in that images of a good or desirable object move even the most brute animals.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_60b36fc6e619383c",
+          "score": 5,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "One might grant that the notion of \"seeing as\" is basic to Aristotle's interest in phantasia and still claim that, as he devel- ops a theory based on this notion to explain various epistemo- logical problems, he immediately imports images, so that there •o Owen, \"Tithenai.\" 41 He seems to be animated by many of the same concerns as, for exam- ple, Dennett (Content) in his talk of the way in which a creature is aware of an object-cf.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_9e65f39a12a5a006",
+          "score": 5,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "tions of the mind, Although phantasia may be \"lower\" or \"primal,\" it is De Anima, phantasia, though an integral component of human perception and cognition, is nevertheless portrayed as quite vulnerable to distortion nevertheless the basis for the full range of functions of the psyche, not the and error, due to any number of factors internal or external to the knowing least deliberation (bouleutike), In this section, I show how the notion of and perceiving subject-for example, too little sleep, emotional immatu- phantasia as \"primal\" suggests a corresponding rhetorical order, where rity, or insufficient visual stimuli, Similarly, the psychological condition epideictic rhetoric, the most overtly lexical of rhetoric practices, occupies of an audience, as the Rhetoric makes startlingly clear,",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_6ef85c8cdf12ede9",
+          "score": 4,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "The English word “appearance” connotes an interesting polarity, since an appearance is always both of something and for someone, and itself seems to be engendered in a unique coming-together of something and someone: an appearance of one thing is not like that of another, while, on the other hand, the appearance of something to one person may differ from its appearance to another.12 This duality parallels a similar polarity in the word phantasia which is reflected in two basic uses which Aristotle makes of the word, uses described by Bonitz as speciem rei obiectae ...",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_83eec0c4e3a69677",
+          "score": 4,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Aristotle describes phantasia as (;-~~ement) present~ and when it makes a statement, as in sensation it asserts that an ob- ject is pleasant or unpleasant, in this case it avoids or pursues; and so gener- ally in action.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_8e061aef9b67a44b",
+          "score": 4,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Phantasia is integral to each of these psychic mans visions [visiones], whereby things absent are presented to our imagina- ,::.,) , ..<t- , t processes and to Aristotle's understanding of the function of appearance tion with such extreme vividness that they seem actually to be before our very eyes ....",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_1e64d2f640a2ab60",
+          "score": 3,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Hett summarizes, both in the presence of sen- tionship to the latter, Consistent with this causal relationship; phantasia is sible objects, interpreting them to the mind, and in their absence, bringing the faculty by which sense perceptions are retained; Frede calls the mental absent objects to the mind in what we would call variously memory, con- images retained by phantasia '.'after-iE!,lg,'_~ (I 992, 280), However, phan- templation, and imagination (1935, xiii), Thus, as Dorothea Frede argues, tasia's retention of sense perceptions does not make it equivalent to memory.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_3a2258dfe0abecd1",
+          "score": 3,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Further, thinking is also distinct from perceiving—I mean that in 10 which we find rightness and wrongness—rightness in understanding, knowledge, true opinion, wrongness in their opposites; for perception of the special objects of sense is always free from error, and is found in all animals, while it is possible to think falsely as well as truly, and thought is found only where there is discourse of reason.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_48109dd8283335d7",
+          "score": 3,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Similarly, Walker (2000) argues that epideictic discourse would assume an epideictic character when it leads jurors into was for the ancients the rhetoric of belief and desire that formed the basis emotional excess through phantasia; phantasia can corrupt the emotional of all rhetorics of practical decision making.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_73dbde3a6ebc7b85",
+          "score": 3,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "That is why, further, they regard respiration as the characteristic mark of life; as the environ- 10 ment compresses the bodies of animals, and tends to extrude those atoms which impart movement to them, because they themselves are never at rest, there must be a reinforcement of these by similar atoms coming in from without in the act of respiration; for they prevent the extrusion of those which are already within by 15 counteracting the compressing and consolidating force of the environment; and animals continue to live only so long as they are able to maintain this resistance.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_ed17021013dd6bfa",
+          "score": 3,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "It is perhaps the mistaken notion that epistemology and the explanation of action arc, for Aristotle, two different branches of inquiry, that has led many critics to mark off some phantasia-contexts from others and to fed no qualms about offering an interpreta- tion for one set that could not fit the other.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_00ddb2542e3d3dfa",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "(Though I suspect that the identities would be token- and not type-, so we would in practice have a hard time doing this.) Thus phautasiai are not logically dependent on the resulting action and can be used to explain it.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_02c520c9abc1d486",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "For it is enough if they are this, even if there are no Forms; and perhaps all the more if there are Forms.—At 15 the same time it is clear that if there are Ideas such as some people say there are, the substratum of them will not be substance; for these must be substances, and not predicable of a substratum; for if they were they would exist only by being participated in.—Each thing then and its essence are one and the same in no merely accidental way, as is evident both from the preceding arguments and because to know each thing, at least, is to know its essence, so that even by the exhibition of 20 instances it becomes clear that both must be one.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_0325efb7d46dc743",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Empedocles (and with him all others who used the same forms of expression) was wrong in speaking of light as ‘travelling’ or being at a given moment between the earth and its envelope, its movement being unobservable by us; that view is contrary both to the clear evidence of argument and to the observed facts; if the 25 distance traversed were short, the movement might have been unobservable, but where the distance is from extreme East to extreme West, the strain upon our powers of belief is too great.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_043c3c3957c4b77e",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Hence we think of plants also as living, for they are observed to possess in themselves an originative power through which they increase or decrease in all spatial directions; they do not grow up but not down—they grow alike in both, indeed in all, directions; 30 and that holds for everything which is constantly nourished and continues to live, so long as it can absorb nutriment.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_0a005cf37632a36d",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Since we can distinguish between a magnitude and what it is to be a 10 magnitude, and between water and what it is to be water, and so in many other cases (though not in all; for in certain cases the thing and its form are identical), flesh and what it is to be flesh are discriminated either by different faculties, or by the same faculty in two different states; for flesh necessarily involves matter and is like what is snub-nosed, a this in a this.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_1c990c3ec10a973d",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Consequently, while waking is actuality in a sense corresponding to the cutting and the seeing, the soul is actuality in the sense corresponding to sight and the power in the tool; the body corresponds to what is in 413*1 potentiality; as the pupil plus the power of sight constitutes the eye, so the soul plus the body constitutes the animal.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_247baa8ab683c5b5",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Therefore since there are attributes and they attach to a subject, and some of them attach in a particular place and at a particular time, whatever attaches to a subject, but not because it is this subject, at this time or in this place, will be an accident.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_25d3e63933c61a4b",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "If, then, it is 35 impossible to have such arts if one has not at some time learnt and acquired them, and it is then impossible not to have them if one has not sometime lost them (either by forgetfulness or by some accident or by time; for it cannot be by the destruction 1047*1 of the object itself, for that lasts for ever), a man will not have the art when he has ceased to use it, and yet he may immediately build again; how then will he have got the art?",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_264d6d39d5b7a74d",
+          "score": 2,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Here then we shall have another substance intermediate between, and separate from, the Ideas and the intermediates,—a substance which is neither number nor points nor spatial magnitude nor time.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        }
+      ],
+      "stats": {
+        "n_total": 52,
+        "n_scored_positive": 52,
+        "n_overlap_chunk": 0,
+        "n_overlap_doc": 0,
+        "knowledge_path": "/home/dalton/projects/claudeflow-testing/god-learn/knowledge.jsonl"
+      }
+    },
+    "reasoning_edges": {
+      "edges": [
+        {
+          "reason_id": "ru_43633887f8481b8a",
+          "relation": "conflict",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_3a2258dfe0abecd1",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_0f6b8caf4372bc71",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_1e64d2f640a2ab60",
+            "ku_b67cd8adb72a329e"
+          ],
+          "overlap_ku_ids": [
+            "ku_1e64d2f640a2ab60"
+          ]
+        },
+        {
+          "reason_id": "ru_5e9b94797ee626e4",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_00ddb2542e3d3dfa",
+            "ku_ea9bde54b2bd8b59"
+          ],
+          "overlap_ku_ids": [
+            "ku_00ddb2542e3d3dfa"
+          ]
+        },
+        {
+          "reason_id": "ru_601896b52fb23cd8",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_0a005cf37632a36d"
+          ],
+          "overlap_ku_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_0a005cf37632a36d"
+          ]
+        },
+        {
+          "reason_id": "ru_7b5a1ed0744795aa",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_00ddb2542e3d3dfa",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_00ddb2542e3d3dfa"
+          ]
+        },
+        {
+          "reason_id": "ru_7c23a839a8ece0e4",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_73dbde3a6ebc7b85",
+            "ku_b67cd8adb72a329e"
+          ],
+          "overlap_ku_ids": [
+            "ku_73dbde3a6ebc7b85"
+          ]
+        },
+        {
+          "reason_id": "ru_7ed1d2560091eca7",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_3a2258dfe0abecd1"
+          ],
+          "overlap_ku_ids": [
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_8055370c9c89fa96",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_324e188577f3a984",
+            "ku_73dbde3a6ebc7b85"
+          ],
+          "overlap_ku_ids": [
+            "ku_73dbde3a6ebc7b85"
+          ]
+        },
+        {
+          "reason_id": "ru_85e87f421be7ea1f",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_bc9d7cccf45e7835"
+          ],
+          "overlap_ku_ids": [
+            "ku_0325efb7d46dc743"
+          ]
+        },
+        {
+          "reason_id": "ru_8fe0bbf10de6127d",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_0a005cf37632a36d"
+          ],
+          "overlap_ku_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_0a005cf37632a36d"
+          ]
+        },
+        {
+          "reason_id": "ru_98be5f44f854de27",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_324e188577f3a984",
+            "ku_3a2258dfe0abecd1"
+          ],
+          "overlap_ku_ids": [
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_a205bb84f51e93db",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_0a005cf37632a36d"
+          ]
+        },
+        {
+          "reason_id": "ru_a30950ca6fa091bc",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_3a2258dfe0abecd1"
+          ],
+          "overlap_ku_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_afe65eec54b546f7",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_73dbde3a6ebc7b85",
+            "ku_ea9bde54b2bd8b59"
+          ],
+          "overlap_ku_ids": [
+            "ku_73dbde3a6ebc7b85"
+          ]
+        },
+        {
+          "reason_id": "ru_b3d14632a89593fa",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_1e64d2f640a2ab60",
+            "ku_3a2258dfe0abecd1"
+          ],
+          "overlap_ku_ids": [
+            "ku_1e64d2f640a2ab60",
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_b4aad1596177ab58",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_1c990c3ec10a973d",
+            "ku_73dbde3a6ebc7b85"
+          ],
+          "overlap_ku_ids": [
+            "ku_1c990c3ec10a973d",
+            "ku_73dbde3a6ebc7b85"
+          ]
+        },
+        {
+          "reason_id": "ru_b8cff4c2e26e49b5",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_043c3c3957c4b77e"
+          ]
+        },
+        {
+          "reason_id": "ru_baac417752e63c30",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_73dbde3a6ebc7b85"
+          ],
+          "overlap_ku_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_73dbde3a6ebc7b85"
+          ]
+        },
+        {
+          "reason_id": "ru_bb348abbbed286b0",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_550e45dd9aa351a9"
+          ],
+          "overlap_ku_ids": [
+            "ku_043c3c3957c4b77e"
+          ]
+        },
+        {
+          "reason_id": "ru_c40f04efa01530c9",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_6b5c01dc2cfc2b5c",
+            "ku_8e061aef9b67a44b"
+          ],
+          "overlap_ku_ids": [
+            "ku_8e061aef9b67a44b"
+          ]
+        },
+        {
+          "reason_id": "ru_d4e36a0ef98752f1",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_3a2258dfe0abecd1",
+            "ku_5f9217f97da62245"
+          ],
+          "overlap_ku_ids": [
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_dd43104c2c4fe3f9",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_324e188577f3a984"
+          ],
+          "overlap_ku_ids": [
+            "ku_0325efb7d46dc743"
+          ]
+        },
+        {
+          "reason_id": "ru_e890fb2203c145c7",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_3a2258dfe0abecd1",
+            "ku_550e45dd9aa351a9"
+          ],
+          "overlap_ku_ids": [
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_ff07fc6284b9a51d",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_1c990c3ec10a973d",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_1c990c3ec10a973d"
+          ]
+        },
+        {
+          "reason_id": "ru_11a303ee3faea362",
+          "relation": "elaboration",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_aa9dbc768aac06a3"
+          ],
+          "overlap_ku_ids": [
+            "ku_043c3c3957c4b77e"
+          ]
+        },
+        {
+          "reason_id": "ru_16015eb5a28d9aee",
+          "relation": "elaboration",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_9e65f39a12a5a006",
+            "ku_bc9d7cccf45e7835"
+          ],
+          "overlap_ku_ids": [
+            "ku_9e65f39a12a5a006"
+          ]
+        },
+        {
+          "reason_id": "ru_210497a6097fb132",
+          "relation": "elaboration",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_73dbde3a6ebc7b85"
+          ],
+          "overlap_ku_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_73dbde3a6ebc7b85"
+          ]
+        },
+        {
+          "reason_id": "ru_232bd1fddcb9f500",
+          "relation": "elaboration",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_1e64d2f640a2ab60",
+            "ku_9e65f39a12a5a006"
+          ],
+          "overlap_ku_ids": [
+            "ku_1e64d2f640a2ab60",
+            "ku_9e65f39a12a5a006"
+          ]
+        },
+        {
+          "reason_id": "ru_29cc4083fc140295",
+          "relation": "elaboration",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_5f9217f97da62245",
+            "ku_60b36fc6e619383c"
+          ],
+          "overlap_ku_ids": [
+            "ku_60b36fc6e619383c"
+          ]
+        },
+        {
+          "reason_id": "ru_32b5ad28fc231865",
+          "relation": "elaboration",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_6d00217828c03873",
+            "ku_ed17021013dd6bfa"
+          ],
+          "overlap_ku_ids": [
+            "ku_ed17021013dd6bfa"
+          ]
+        }
+      ],
+      "stats": {
+        "n_total": 138,
+        "n_hits": 102,
+        "by_relation": {
+          "conflict": 1,
+          "contrast": 23,
+          "elaboration": 44,
+          "support": 34
+        },
+        "reasoning_path": "/home/dalton/projects/claudeflow-testing/god-reason/reasoning.jsonl"
+      }
+    },
+    "vocab_bridge": {
+      "query_terms": [],
+      "mapped_terms": [],
+      "unmapped_terms": [],
+      "method": "not_implemented_yet"
+    },
+    "coverage_summary": {
+      "coverage_grade": "HIGH",
+      "coverage_rationale": [
+        "retrieved_chunks=8",
+        "distinct_docs=5",
+        "ku_hits=20",
+        "reason_edges=102",
+        "distance_min=0.812",
+        "semantic_relevant=True"
+      ],
+      "gaps": [],
+      "explicit_limitations": [
+        "Vector similarity indicates proximity, not entailment.",
+        "Report mode is diagnostic only; no synthesis is performed."
+      ]
+    },
+    "limitations": [
+      "Report does not modify corpus/embeddings/knowledge store.",
+      "Report does not perform generative interpretation.",
+      "Phase 9A: Knowledge Units are surfaced via overlap + lexical scoring; reasoning edges are filtered by surfaced KU ids."
+    ]
+  },
+  "layers": {
+    "evidence": [
+      {
+        "chunk_id": "11fdf613d40f9939:00002",
+        "doc_path": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+        "pages": [
+          4,
+          5
+        ],
+        "quote": "The English word “appearance” connotes an interesting polarity, since an appearance is always both of something and for someone, and itself seems to be engendered in a unique coming-together of something and someone: an appearance of one thing is not like that of another, while, on the other hand, the appearance of something to one person may differ from it…"
+      },
+      {
+        "chunk_id": "f03980fa5d95360d:00000",
+        "doc_path": "rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf",
+        "pages": [
+          1,
+          2
+        ],
+        "quote": "I5 THE COGNITIVE ROLE OF PHANTASIA IN ARISTOTLE DOROTHEA FREDE I. Problems with a Unified Concept of Phantasia The difficulties with the concept of phantasia start with the translation. One problem is that phantasia does triple duty. It designates the capacity, the activity’ or process, and the product or result. It is, of course, not alone in having so man…"
+      },
+      {
+        "chunk_id": "11fdf613d40f9939:00013",
+        "doc_path": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+        "pages": [
+          22,
+          23
+        ],
+        "quote": "504 Dialogue Conclusion The role of phantasia in human life, according to Aristotle, goes far beyond its contribution to the activity of noein, and is, in fact, perva¬ sive. That the discussion of the noetic soul occurs in the De anima just after the treatment of phantasia , on which it depends, seems to under¬ line the human importance of this activity, wh…"
+      },
+      {
+        "chunk_id": "9ae14153cdb6ed0e:00015",
+        "doc_path": "rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+        "pages": [
+          35,
+          37
+        ],
+        "quote": "All these passages discuss the various ways something may ap- pear to, or be interpreted by, a living creature. The second and third make an additional contrast between the way the thing appears to the agent and the belief he has about it. A phantasia would seem to be a single, isolated impression, in contrast to doxa, which is based on experience and refle…"
+      },
+      {
+        "chunk_id": "35a838f4ae19753a:00007",
+        "doc_path": "rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+        "pages": [
+          10,
+          11
+        ],
+        "quote": "5 • Contemporaneously with these philosophers and before them, the Pytha­ goreans, as they are called, devoted themselves to mathematics; they were the first to advance this study, and having been brought up in it they thought its 25 principles were the principles of all things. Since of these principles numbers are by nature the first, and in numbers they…"
+      },
+      {
+        "chunk_id": "9ae14153cdb6ed0e:00027",
+        "doc_path": "rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+        "pages": [
+          59,
+          59
+        ],
+        "quote": "theory that is sometimes ascribed to him. And he is also right to make it the job of the same theory to explain both practical and non-practical cases; for these differ not cognitively, but only with reference to the role played by desire. It is perhaps the mistaken notion that epistemology and the explanation of action arc, for Aristotle, two different bra…"
+      },
+      {
+        "chunk_id": "11fdf613d40f9939:00009",
+        "doc_path": "rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+        "pages": [
+          15,
+          17
+        ],
+        "quote": "It is difficult to know what to make of the remark that sensation and phantasia are the same but different in einai.63 If the suggestion is that the two are different activities of the same subject, both having the same organic foundation, the “secondary movement” of phantasia requires further physiological explanation.64 From the point of view of the De an…"
+      },
+      {
+        "chunk_id": "7fec712a90869ab6:00014",
+        "doc_path": "rhetorical_ontology/O'Gorman, Ned - Aristotle's Phantasia in the Rhetoric- Lexis, Appearance, and the Epideictic Function of Discourse_(2005)_[My Copy].pdf",
+        "pages": [
+          11,
+          12
+        ],
+        "quote": "Notes f lar hierarchy of experiences and faculties reflected in De Anima. Hence, my argument does hinge on a natural order, or the order of the soul, but not exclusively so. Any claims for the priority of epideictic necessarily assume the cultural practice of epideictic and hence are rooted, as Farrell puts it, \"in the conventions of culture, where the trac…"
+      }
+    ],
+    "knowledge_units": [
+      {
+        "ku_id": "ku_2b4c34cb0bf14efb",
+        "claim": "The boundaries of Aristotle's sire\" (bouleutik€ orexis) (I 113a), 22 Phantasia, Aristotle argues in De Anima, epideictic are perforated; epideictic stands in various relationships to other is indispensable to desire, in that images of a good or desirable object move even the most brute animals."
+      },
+      {
+        "ku_id": "ku_60b36fc6e619383c",
+        "claim": "One might grant that the notion of \"seeing as\" is basic to Aristotle's interest in phantasia and still claim that, as he devel- ops a theory based on this notion to explain various epistemo- logical problems, he immediately imports images, so that there •o Owen, \"Tithenai.\" 41 He seems to be animated by many of the same concerns as, for exam- ple, Dennett (Content) in his talk of the way in which a creature is aware of an object-cf."
+      },
+      {
+        "ku_id": "ku_9e65f39a12a5a006",
+        "claim": "tions of the mind, Although phantasia may be \"lower\" or \"primal,\" it is De Anima, phantasia, though an integral component of human perception and cognition, is nevertheless portrayed as quite vulnerable to distortion nevertheless the basis for the full range of functions of the psyche, not the and error, due to any number of factors internal or external to the knowing least deliberation (bouleutike), In this section, I show how the notion of and perceiving subject-for example, too little sleep, emotional immatu- phantasia as \"primal\" suggests a corresponding rhetorical order, where rity, or insufficient visual stimuli, Similarly, the psychological condition epideictic rhetoric, the most overtly lexical of rhetoric practices, occupies of an audience, as the Rhetoric makes startlingly clear,"
+      },
+      {
+        "ku_id": "ku_6ef85c8cdf12ede9",
+        "claim": "The English word “appearance” connotes an interesting polarity, since an appearance is always both of something and for someone, and itself seems to be engendered in a unique coming-together of something and someone: an appearance of one thing is not like that of another, while, on the other hand, the appearance of something to one person may differ from its appearance to another.12 This duality parallels a similar polarity in the word phantasia which is reflected in two basic uses which Aristotle makes of the word, uses described by Bonitz as speciem rei obiectae ..."
+      },
+      {
+        "ku_id": "ku_83eec0c4e3a69677",
+        "claim": "Aristotle describes phantasia as (;-~~ement) present~ and when it makes a statement, as in sensation it asserts that an ob- ject is pleasant or unpleasant, in this case it avoids or pursues; and so gener- ally in action."
+      },
+      {
+        "ku_id": "ku_8e061aef9b67a44b",
+        "claim": "Phantasia is integral to each of these psychic mans visions [visiones], whereby things absent are presented to our imagina- ,::.,) , ..<t- , t processes and to Aristotle's understanding of the function of appearance tion with such extreme vividness that they seem actually to be before our very eyes ...."
+      },
+      {
+        "ku_id": "ku_1e64d2f640a2ab60",
+        "claim": "Hett summarizes, both in the presence of sen- tionship to the latter, Consistent with this causal relationship; phantasia is sible objects, interpreting them to the mind, and in their absence, bringing the faculty by which sense perceptions are retained; Frede calls the mental absent objects to the mind in what we would call variously memory, con- images retained by phantasia '.'after-iE!,lg,'_~ (I 992, 280), However, phan- templation, and imagination (1935, xiii), Thus, as Dorothea Frede argues, tasia's retention of sense perceptions does not make it equivalent to memory."
+      },
+      {
+        "ku_id": "ku_3a2258dfe0abecd1",
+        "claim": "Further, thinking is also distinct from perceiving—I mean that in 10 which we find rightness and wrongness—rightness in understanding, knowledge, true opinion, wrongness in their opposites; for perception of the special objects of sense is always free from error, and is found in all animals, while it is possible to think falsely as well as truly, and thought is found only where there is discourse of reason."
+      },
+      {
+        "ku_id": "ku_48109dd8283335d7",
+        "claim": "Similarly, Walker (2000) argues that epideictic discourse would assume an epideictic character when it leads jurors into was for the ancients the rhetoric of belief and desire that formed the basis emotional excess through phantasia; phantasia can corrupt the emotional of all rhetorics of practical decision making."
+      },
+      {
+        "ku_id": "ku_73dbde3a6ebc7b85",
+        "claim": "That is why, further, they regard respiration as the characteristic mark of life; as the environ- 10 ment compresses the bodies of animals, and tends to extrude those atoms which impart movement to them, because they themselves are never at rest, there must be a reinforcement of these by similar atoms coming in from without in the act of respiration; for they prevent the extrusion of those which are already within by 15 counteracting the compressing and consolidating force of the environment; and animals continue to live only so long as they are able to maintain this resistance."
+      },
+      {
+        "ku_id": "ku_ed17021013dd6bfa",
+        "claim": "It is perhaps the mistaken notion that epistemology and the explanation of action arc, for Aristotle, two different branches of inquiry, that has led many critics to mark off some phantasia-contexts from others and to fed no qualms about offering an interpreta- tion for one set that could not fit the other."
+      },
+      {
+        "ku_id": "ku_00ddb2542e3d3dfa",
+        "claim": "(Though I suspect that the identities would be token- and not type-, so we would in practice have a hard time doing this.) Thus phautasiai are not logically dependent on the resulting action and can be used to explain it."
+      },
+      {
+        "ku_id": "ku_02c520c9abc1d486",
+        "claim": "For it is enough if they are this, even if there are no Forms; and perhaps all the more if there are Forms.—At 15 the same time it is clear that if there are Ideas such as some people say there are, the substratum of them will not be substance; for these must be substances, and not predicable of a substratum; for if they were they would exist only by being participated in.—Each thing then and its essence are one and the same in no merely accidental way, as is evident both from the preceding arguments and because to know each thing, at least, is to know its essence, so that even by the exhibition of 20 instances it becomes clear that both must be one."
+      },
+      {
+        "ku_id": "ku_0325efb7d46dc743",
+        "claim": "Empedocles (and with him all others who used the same forms of expression) was wrong in speaking of light as ‘travelling’ or being at a given moment between the earth and its envelope, its movement being unobservable by us; that view is contrary both to the clear evidence of argument and to the observed facts; if the 25 distance traversed were short, the movement might have been unobservable, but where the distance is from extreme East to extreme West, the strain upon our powers of belief is too great."
+      },
+      {
+        "ku_id": "ku_043c3c3957c4b77e",
+        "claim": "Hence we think of plants also as living, for they are observed to possess in themselves an originative power through which they increase or decrease in all spatial directions; they do not grow up but not down—they grow alike in both, indeed in all, directions; 30 and that holds for everything which is constantly nourished and continues to live, so long as it can absorb nutriment."
+      },
+      {
+        "ku_id": "ku_0a005cf37632a36d",
+        "claim": "Since we can distinguish between a magnitude and what it is to be a 10 magnitude, and between water and what it is to be water, and so in many other cases (though not in all; for in certain cases the thing and its form are identical), flesh and what it is to be flesh are discriminated either by different faculties, or by the same faculty in two different states; for flesh necessarily involves matter and is like what is snub-nosed, a this in a this."
+      },
+      {
+        "ku_id": "ku_1c990c3ec10a973d",
+        "claim": "Consequently, while waking is actuality in a sense corresponding to the cutting and the seeing, the soul is actuality in the sense corresponding to sight and the power in the tool; the body corresponds to what is in 413*1 potentiality; as the pupil plus the power of sight constitutes the eye, so the soul plus the body constitutes the animal."
+      },
+      {
+        "ku_id": "ku_247baa8ab683c5b5",
+        "claim": "Therefore since there are attributes and they attach to a subject, and some of them attach in a particular place and at a particular time, whatever attaches to a subject, but not because it is this subject, at this time or in this place, will be an accident."
+      },
+      {
+        "ku_id": "ku_25d3e63933c61a4b",
+        "claim": "If, then, it is 35 impossible to have such arts if one has not at some time learnt and acquired them, and it is then impossible not to have them if one has not sometime lost them (either by forgetfulness or by some accident or by time; for it cannot be by the destruction 1047*1 of the object itself, for that lasts for ever), a man will not have the art when he has ceased to use it, and yet he may immediately build again; how then will he have got the art?"
+      },
+      {
+        "ku_id": "ku_264d6d39d5b7a74d",
+        "claim": "Here then we shall have another substance intermediate between, and separate from, the Ideas and the intermediates,—a substance which is neither number nor points nor spatial magnitude nor time."
+      }
+    ],
+    "reasoning_edges": [
+      {
+        "edge_id": "ru_43633887f8481b8a",
+        "relation": "conflict",
+        "knowledge_ids": [
+          "ku_3a2258dfe0abecd1",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_0f6b8caf4372bc71",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_b67cd8adb72a329e"
+        ]
+      },
+      {
+        "edge_id": "ru_5e9b94797ee626e4",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_00ddb2542e3d3dfa",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "edge_id": "ru_601896b52fb23cd8",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "edge_id": "ru_7b5a1ed0744795aa",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_00ddb2542e3d3dfa",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_7c23a839a8ece0e4",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_73dbde3a6ebc7b85",
+          "ku_b67cd8adb72a329e"
+        ]
+      },
+      {
+        "edge_id": "ru_7ed1d2560091eca7",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_3a2258dfe0abecd1"
+        ]
+      },
+      {
+        "edge_id": "ru_8055370c9c89fa96",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_73dbde3a6ebc7b85"
+        ]
+      },
+      {
+        "edge_id": "ru_85e87f421be7ea1f",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0325efb7d46dc743",
+          "ku_bc9d7cccf45e7835"
+        ]
+      },
+      {
+        "edge_id": "ru_8fe0bbf10de6127d",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0325efb7d46dc743",
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "edge_id": "ru_98be5f44f854de27",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_3a2258dfe0abecd1"
+        ]
+      },
+      {
+        "edge_id": "ru_a205bb84f51e93db",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_a30950ca6fa091bc",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_3a2258dfe0abecd1"
+        ]
+      },
+      {
+        "edge_id": "ru_afe65eec54b546f7",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_73dbde3a6ebc7b85",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "edge_id": "ru_b3d14632a89593fa",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_3a2258dfe0abecd1"
+        ]
+      },
+      {
+        "edge_id": "ru_b4aad1596177ab58",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_1c990c3ec10a973d",
+          "ku_73dbde3a6ebc7b85"
+        ]
+      },
+      {
+        "edge_id": "ru_b8cff4c2e26e49b5",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_baac417752e63c30",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_73dbde3a6ebc7b85"
+        ]
+      },
+      {
+        "edge_id": "ru_bb348abbbed286b0",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_550e45dd9aa351a9"
+        ]
+      },
+      {
+        "edge_id": "ru_c40f04efa01530c9",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_6b5c01dc2cfc2b5c",
+          "ku_8e061aef9b67a44b"
+        ]
+      },
+      {
+        "edge_id": "ru_d4e36a0ef98752f1",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_3a2258dfe0abecd1",
+          "ku_5f9217f97da62245"
+        ]
+      },
+      {
+        "edge_id": "ru_dd43104c2c4fe3f9",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0325efb7d46dc743",
+          "ku_324e188577f3a984"
+        ]
+      },
+      {
+        "edge_id": "ru_e890fb2203c145c7",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_3a2258dfe0abecd1",
+          "ku_550e45dd9aa351a9"
+        ]
+      },
+      {
+        "edge_id": "ru_ff07fc6284b9a51d",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_1c990c3ec10a973d",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_11a303ee3faea362",
+        "relation": "elaboration",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_aa9dbc768aac06a3"
+        ]
+      },
+      {
+        "edge_id": "ru_16015eb5a28d9aee",
+        "relation": "elaboration",
+        "knowledge_ids": [
+          "ku_9e65f39a12a5a006",
+          "ku_bc9d7cccf45e7835"
+        ]
+      },
+      {
+        "edge_id": "ru_210497a6097fb132",
+        "relation": "elaboration",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_73dbde3a6ebc7b85"
+        ]
+      },
+      {
+        "edge_id": "ru_232bd1fddcb9f500",
+        "relation": "elaboration",
+        "knowledge_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_9e65f39a12a5a006"
+        ]
+      },
+      {
+        "edge_id": "ru_29cc4083fc140295",
+        "relation": "elaboration",
+        "knowledge_ids": [
+          "ku_5f9217f97da62245",
+          "ku_60b36fc6e619383c"
+        ]
+      },
+      {
+        "edge_id": "ru_32b5ad28fc231865",
+        "relation": "elaboration",
+        "knowledge_ids": [
+          "ku_6d00217828c03873",
+          "ku_ed17021013dd6bfa"
+        ]
+      }
+    ],
+    "synthesis": {
+      "enabled": false,
+      "text": "",
+      "claims": []
+    }
+  },
+  "claim_map": [],
+  "warnings": [],
+  "strict_diagnostics": null
+}

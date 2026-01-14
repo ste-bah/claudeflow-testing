@@ -1,0 +1,173 @@
+{
+  "timestamp": "2026-01-13T12:22:29.905535",
+  "files": {
+    "god-learn/knowledge.jsonl": {
+      "path": "god-learn/knowledge.jsonl",
+      "sha256": "bfb324f5e0352fecdbea0e49f758e77162c09ce936ed74f5212eaf086e1b4a9d",
+      "size": 44371,
+      "modified_time": 1768324968.0943499,
+      "line_count": 45
+    },
+    "god-learn/index.json": {
+      "path": "god-learn/index.json",
+      "sha256": "b3350ce01e42c7ecbe9f0d64b12ca108e1e6ddeac1c2974705281a0ec1be85c9",
+      "size": 1427,
+      "modified_time": 1768324968.0943499,
+      "line_count": 47
+    },
+    "god-reason/reasoning.jsonl": {
+      "path": "god-reason/reasoning.jsonl",
+      "sha256": "a086006f7a37366b3d42c1cff0f68e266838c701bd2095dc6c545a669f906104",
+      "size": 325553,
+      "modified_time": 1767978526.9163458,
+      "line_count": 138
+    },
+    "god-reason/index.json": {
+      "path": "god-reason/index.json",
+      "sha256": "667cb66bfc5bb0cf986781e454a48c8b6c15c9e6c31ec336f65b5bd11fddcb4a",
+      "size": 542,
+      "modified_time": 1767978526.9163458,
+      "line_count": 23
+    },
+    "scripts/ingest/manifest.jsonl": {
+      "path": "scripts/ingest/manifest.jsonl",
+      "sha256": "ce32647bbc4019adbb829a3f76e33c29a9dc614c420e66e5f8783b0661850d67",
+      "size": 14678,
+      "modified_time": 1768324954.689467,
+      "line_count": 21
+    },
+    "corpus/rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+      "sha256": "37ee7d2c0311a8b3781c7a7683e69a84edf91324af165a36c6d4640a8c6af639",
+      "size": 6930925,
+      "modified_time": 1675962442.3093016,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/White, Kevin - The Meaning of Phantasia in Aristotle's De Anime, III, 3-8_(1985)_[My Copy].pdf",
+      "sha256": "0f1951a017f878ac25117d1b03ff51d4d41ec695a253c10057d5e2b0031afbe1",
+      "size": 1153610,
+      "modified_time": 1739237933.0,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf:Zone.Identifier": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf:Zone.Identifier",
+      "sha256": "b952d24cf701bc4e7a7d21e1ae85c611824e80579a89836c0cb49b193446ccfe",
+      "size": 25,
+      "modified_time": 1768291837.5725439,
+      "line_count": 2
+    },
+    "corpus/rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf:Zone.Identifier": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf:Zone.Identifier",
+      "sha256": "b952d24cf701bc4e7a7d21e1ae85c611824e80579a89836c0cb49b193446ccfe",
+      "size": 25,
+      "modified_time": 1768292034.3741179,
+      "line_count": 2
+    },
+    "corpus/rhetorical_ontology/Aristotle - On Memory_(2014)_[Clean Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Aristotle - On Memory_(2014)_[Clean Copy].pdf",
+      "sha256": "97cbe34f6f8b39bb4f3be4807aab485637132f3352cf567993df69dbc5fde121",
+      "size": 328510,
+      "modified_time": 1675962448.151754,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+      "sha256": "6f46eeaf2b781091641ae91974e54ed0b1eb294d1d6fc1bf7b2918da8a8cb4ed",
+      "size": 5275126,
+      "modified_time": 1675962448.2992601,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf",
+      "sha256": "f3bb04e52f705ce92cfa9ee909411f289d0179ebebca4288952134030c18b4ed",
+      "size": 4929530,
+      "modified_time": 1768324331.3050785,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Aristotle - On The Soul (De Anima)_(2014)_[My Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Aristotle - On The Soul (De Anima)_(2014)_[My Copy].pdf",
+      "sha256": "7731bc36e2ed2c9a3533032755ecc2f8df70f8dd11900280ce1daad1d7d7589f",
+      "size": 2051950,
+      "modified_time": 1678255588.0,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Aristotle - Sense And Sensibilia_(2014)_[Clean Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Sense And Sensibilia_(2014)_[Clean Copy].pdf",
+      "sha256": "ca87dd93eb3eb8bf8137bf09a7dcec8c532918836613499614919419489e16d9",
+      "size": 742328,
+      "modified_time": 1675962436.1020741,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Aristotle - On Memory [clean copy].pdf:Zone.Identifier": {
+      "path": "corpus/rhetorical_ontology/Aristotle - On Memory [clean copy].pdf:Zone.Identifier",
+      "sha256": "b952d24cf701bc4e7a7d21e1ae85c611824e80579a89836c0cb49b193446ccfe",
+      "size": 25,
+      "modified_time": 1768292125.2600398,
+      "line_count": 2
+    },
+    "corpus/rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf:Zone.Identifier": {
+      "path": "corpus/rhetorical_ontology/Frede, Dorothea - The Cognitive Role of Phantasia in Aristotle_(1992)_[Clean Copy].pdf:Zone.Identifier",
+      "sha256": "b952d24cf701bc4e7a7d21e1ae85c611824e80579a89836c0cb49b193446ccfe",
+      "size": 25,
+      "modified_time": 1768324418.2439494,
+      "line_count": 2
+    },
+    "corpus/rhetorical_ontology/Aristotle - Rhetoric [clean copy].pdf:Zone.Identifier": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Rhetoric [clean copy].pdf:Zone.Identifier",
+      "sha256": "b952d24cf701bc4e7a7d21e1ae85c611824e80579a89836c0cb49b193446ccfe",
+      "size": 25,
+      "modified_time": 1768292125.1008317,
+      "line_count": 2
+    },
+    "corpus/rhetorical_ontology/Aristotle - Sense And Sensibilia [clean copy].pdf:Zone.Identifier": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Sense And Sensibilia [clean copy].pdf:Zone.Identifier",
+      "sha256": "b952d24cf701bc4e7a7d21e1ae85c611824e80579a89836c0cb49b193446ccfe",
+      "size": 25,
+      "modified_time": 1768292056.443216,
+      "line_count": 2
+    },
+    "corpus/rhetorical_ontology/O'Gorman, Ned - Aristotle's Phantasia in the Rhetoric- Lexis, Appearance, and the Epideictic Function of Discourse_(2005)_[My Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/O'Gorman, Ned - Aristotle's Phantasia in the Rhetoric- Lexis, Appearance, and the Epideictic Function of Discourse_(2005)_[My Copy].pdf",
+      "sha256": "e7498ba552420440f1bbb3edf2940e08b1bb2fa8f2fa0d3b38faea99bee570b8",
+      "size": 992537,
+      "modified_time": 1676054316.0,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Aristotle - On Colours [clean copy].pdf:Zone.Identifier": {
+      "path": "corpus/rhetorical_ontology/Aristotle - On Colours [clean copy].pdf:Zone.Identifier",
+      "sha256": "b952d24cf701bc4e7a7d21e1ae85c611824e80579a89836c0cb49b193446ccfe",
+      "size": 25,
+      "modified_time": 1768292056.598496,
+      "line_count": 2
+    },
+    "corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Metaphysics_(2014)_ [My Copy].pdf",
+      "sha256": "22c796d388307296cfdab5806f8af990778fb9f0242aed67d4dd240cebcd5df1",
+      "size": 7811117,
+      "modified_time": 1675962441.0,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Aristotle - Movement Of Animals_(2014)_[My Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Aristotle - Movement Of Animals_(2014)_[My Copy].pdf",
+      "sha256": "a15a5032a7f1835d1d9e1ecae899307ac532b2a6ffe2121b07ce37fb8ff69084",
+      "size": 599313,
+      "modified_time": 1606902170.0,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Aristotle - On Colours_(2014)_[Clean Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Aristotle - On Colours_(2014)_[Clean Copy].pdf",
+      "sha256": "ab380c51a3982d286bab4f21d24576d3801613954f5b2ea0f010737f103d39a9",
+      "size": 764910,
+      "modified_time": 1675962435.3765025,
+      "line_count": null
+    },
+    "corpus/rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf": {
+      "path": "corpus/rhetorical_ontology/Nussbaum, Martha - The Role of Phantasia in Aristotle's Explanation of Action_(1985)_[My Copy].pdf",
+      "sha256": "297d9f313976eeb60fa334673df3e2ce904606edb9ca6448293431f2ab9e1417",
+      "size": 2766824,
+      "modified_time": 1675963214.0,
+      "line_count": null
+    }
+  }
+}

@@ -4,7 +4,7 @@
  * Displays current style profile status and available profiles
  */
 
-import { UniversalAgent } from '../dist/god-agent/universal/index.js';
+import { UniversalAgent } from '../src/god-agent/universal/index.js';
 
 const agent = new UniversalAgent({ verbose: false });
 await agent.initialize();

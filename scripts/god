@@ -1,0 +1,583 @@
+#!/usr/bin/env python3
+"""
+God-Learn Unified CLI
+
+Single entry point for all God-Learn pipeline tools:
+  god explore  - Navigate and visualize knowledge artifacts (Phase 11)
+  god qa       - Quality assurance and health monitoring (Phase 15)
+  god audit    - Provenance chain verification (Phase 16)
+  god grow     - Corpus versioning and growth management (Phase 17)
+  god query    - Quick corpus query (Phase 4)
+  god answer   - Generate grounded answers (Phase 9)
+  god ingest   - Run ingestion pipeline (Phase 1-3)
+  god reason   - Build reasoning graph (Phase 7)
+
+Usage:
+  god <command> [options]
+  god help [command]
+  god --version
+"""
+
+import sys
+import os
+import subprocess
+from pathlib import Path
+
+VERSION = "1.0.0"
+
+# Get the project root (parent of scripts/)
+SCRIPT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = SCRIPT_DIR.parent
+
+# Command routing table
+COMMANDS = {
+    # Phase 11: Introspection
+    "explore": {
+        "module": "scripts.explore.cli.god_explore",
+        "description": "Navigate and visualize knowledge artifacts",
+        "phase": "11",
+        "examples": [
+            "god explore stats",
+            "god explore list kus --limit 10",
+            "god explore trace ku <ku_id>",
+            "god explore graph --query 'topic'",
+        ]
+    },
+    # Phase 15: QA
+    "qa": {
+        "dispatcher": "qa",
+        "description": "Quality assurance and health monitoring",
+        "phase": "15",
+        "examples": [
+            "god qa dashboard",
+            "god qa check",
+            "god qa watch",
+            "god qa alerts",
+        ]
+    },
+    # Phase 16: Audit
+    "audit": {
+        "module": "scripts.audit.cli.audit_cli",
+        "description": "Provenance chain verification and gap detection",
+        "phase": "16",
+        "examples": [
+            "god audit chain <ru_id>",
+            "god audit gaps",
+            "god audit full",
+            "god audit full --fix",
+        ]
+    },
+    # Phase 17: Growth
+    "grow": {
+        "dispatcher": "grow",
+        "description": "Corpus versioning and growth management",
+        "phase": "17",
+        "examples": [
+            "god grow status",
+            "god grow snapshot -d 'description'",
+            "god grow rebalance --detect",
+            "god grow rollback <snapshot-id>",
+            "god grow diff --list",
+            "god grow diff current <snapshot>",
+        ]
+    },
+    # Phase 4: Quick Query
+    "query": {
+        "dispatcher": "query",
+        "description": "Query corpus for relevant chunks",
+        "phase": "4",
+        "examples": [
+            "god query 'your search query' --k 10",
+            "god query 'topic' --preset research",
+            "god query 'topic' --preset quick",
+            "god query --batch queries.txt --parallel 4",
+        ]
+    },
+    # Phase 9: Answer
+    "answer": {
+        "script": "scripts/interaction/answer.py",
+        "description": "Generate grounded answers from corpus",
+        "phase": "9",
+        "examples": [
+            "god answer --query 'your question'",
+            "god answer --query 'topic' --enable_synthesis",
+            "god answer --query 'topic' --strict",
+        ]
+    },
+    # Phase 9A: Report
+    "report": {
+        "script": "scripts/interaction/report.py",
+        "description": "Generate coverage report for a query",
+        "phase": "9",
+        "examples": [
+            "god report --query 'your topic'",
+        ]
+    },
+    # Phase 1-3: Ingest
+    "ingest": {
+        "dispatcher": "ingest",
+        "description": "Run ingestion pipeline (Phase 1-3)",
+        "phase": "1-3",
+        "examples": [
+            "god ingest run --root corpus/",
+            "god ingest embed --root corpus/",
+            "god ingest verify --root corpus/",
+            "god ingest health",
+        ]
+    },
+    # Phase 6: Promote
+    "promote": {
+        "dispatcher": "promote",
+        "description": "Promote retrieval hits to Knowledge Units",
+        "phase": "6",
+        "examples": [
+            "god promote --hits_json hits.json --query 'topic'",
+            "god promote --auto --results_json results.json --query 'topic'",
+            "god promote config --show",
+        ]
+    },
+    # Phase 7: Reason
+    "reason": {
+        "script": "scripts/reason/reason_over_knowledge.py",
+        "description": "Build reasoning graph from Knowledge Units",
+        "phase": "7",
+        "examples": [
+            "god reason --out god-reason",
+            "god reason --knowledge god-learn/knowledge.jsonl",
+        ]
+    },
+    # Phase 8: Assemble
+    "assemble": {
+        "script": "scripts/assemble/assemble_longform.py",
+        "description": "Assemble reasoning into long-form prose",
+        "phase": "8",
+        "examples": [
+            "god assemble --ordering argument",
+            "god assemble --ordering relation",
+        ]
+    },
+    # Session Management
+    "history": {
+        "script": "scripts/interaction/session_manager.py",
+        "description": "Query history and session management",
+        "phase": "util",
+        "examples": [
+            "god history",
+            "god history list -n 20",
+            "god history search 'aristotle'",
+            "god history stats",
+        ]
+    },
+    # Calibration
+    "calibrate": {
+        "script": "scripts/learn/calibration_tracker.py",
+        "description": "Confidence calibration and accuracy tracking",
+        "phase": "util",
+        "examples": [
+            "god calibrate stats",
+            "god calibrate curve",
+            "god calibrate feedback <pred_id> --correct",
+            "god calibrate list",
+        ]
+    },
+    # Dashboard
+    "dashboard": {
+        "script": "scripts/dashboard/app.py",
+        "description": "Web-based QA and exploration dashboard",
+        "phase": "util",
+        "examples": [
+            "god dashboard",
+            "god dashboard --port 8080",
+            "god dashboard --host 0.0.0.0",
+        ]
+    },
+    # Export
+    "export": {
+        "script": "scripts/export/academic_export.py",
+        "description": "Export assembled prose to academic formats",
+        "phase": "util",
+        "examples": [
+            "god export --list",
+            "god export latex -i assembled.json -o paper.tex",
+            "god export docx -i assembled.json -o paper.docx",
+            "god export markdown -i assembled.json -o paper.md",
+        ]
+    },
+    # Configuration
+    "config": {
+        "script": "scripts/common/config_validator.py",
+        "description": "Validate configuration and check system health",
+        "phase": "util",
+        "examples": [
+            "god config check",
+            "god config show",
+            "god config show --section paths",
+        ]
+    },
+}
+
+# Ingest sub-dispatcher
+INGEST_SUBCOMMANDS = {
+    "run": "scripts/ingest/run_ingest.py",
+    "embed": "scripts/ingest/run_ingest_phase2.py",
+    "verify": "scripts/ingest/verify_ingest.py",
+    "audit": "scripts/ingest/audit_ingest.py",
+    "health": "scripts/ingest/healthcheck.sh",
+    "watch": "scripts/ingest/watch_corpus.py",
+}
+
+
+def print_banner():
+    """Print the God-Learn banner."""
+    print("""
+ ██████╗  ██████╗ ██████╗       ██╗     ███████╗ █████╗ ██████╗ ███╗   ██╗
+██╔════╝ ██╔═══██╗██╔══██╗      ██║     ██╔════╝██╔══██╗██╔══██╗████╗  ██║
+██║  ███╗██║   ██║██║  ██║█████╗██║     █████╗  ███████║██████╔╝██╔██╗ ██║
+██║   ██║██║   ██║██║  ██║╚════╝██║     ██╔══╝  ██╔══██║██╔══██╗██║╚██╗██║
+╚██████╔╝╚██████╔╝██████╔╝      ███████╗███████╗██║  ██║██║  ██║██║ ╚████║
+ ╚═════╝  ╚═════╝ ╚═════╝       ╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
+    """)
+
+
+def print_commands_table():
+    """Print a compact table of all commands."""
+    print(f"God-Learn CLI v{VERSION} - Command Reference")
+    print("=" * 70)
+    print()
+    print(f"{'Command':<12} {'Phase':<8} {'Description':<48}")
+    print("-" * 70)
+
+    for cmd in sorted(COMMANDS.keys()):
+        info = COMMANDS[cmd]
+        phase = info.get("phase", "?")
+        desc = info["description"][:46]
+        print(f"{cmd:<12} {phase:<8} {desc}")
+
+    print("-" * 70)
+    print(f"{'help':<12} {'meta':<8} Show help for a command")
+    print(f"{'version':<12} {'meta':<8} Show version information")
+    print()
+    print("Usage: god <command> [options]")
+    print("       god <command> --help    # Get help for a specific command")
+
+
+def print_main_help():
+    """Print main help message."""
+    print(f"God-Learn Unified CLI v{VERSION}")
+    print("=" * 60)
+    print()
+    print("Usage: god <command> [options]")
+    print("       god <command> --help    # Get help for a specific command")
+    print("       god --commands          # List all commands in table format")
+    print()
+    print("Commands:")
+    print()
+
+    # Group by phase
+    phases = {}
+    for cmd, info in COMMANDS.items():
+        phase = info.get("phase", "?")
+        if phase not in phases:
+            phases[phase] = []
+        phases[phase].append((cmd, info["description"]))
+
+    for phase in sorted(phases.keys(), key=lambda x: x.split("-")[0] if "-" in x else x):
+        print(f"  Phase {phase}:")
+        for cmd, desc in phases[phase]:
+            print(f"    {cmd:12} {desc}")
+        print()
+
+    print("Meta Commands:")
+    print(f"    {'help':12} Show help for a command")
+    print(f"    {'version':12} Show version information")
+    print(f"    {'--commands':12} List all commands (compact)")
+    print()
+    print("Examples:")
+    print("  god explore stats          # Show corpus statistics")
+    print("  god qa dashboard           # View QA dashboard")
+    print("  god query 'my topic'       # Search the corpus")
+    print("  god answer --query 'q'     # Get a grounded answer")
+    print()
+    print("Run 'god help <command>' or 'god <command> --help' for command details.")
+
+
+def print_command_help(cmd: str):
+    """Print help for a specific command."""
+    if cmd not in COMMANDS:
+        print(f"Unknown command: {cmd}")
+        print(f"Run 'god help' for a list of commands.")
+        sys.exit(1)
+
+    info = COMMANDS[cmd]
+    print(f"god {cmd} - {info['description']}")
+    print(f"Phase: {info['phase']}")
+    print()
+    print("Examples:")
+    for example in info.get("examples", []):
+        print(f"  {example}")
+    print()
+
+    # Show how to get more help
+    if "module" in info:
+        print(f"For full options, run: python3 -m {info['module']} --help")
+    elif "script" in info:
+        print(f"For full options, run: python3 {info['script']} --help")
+
+
+def run_module(module: str, args: list):
+    """Run a Python module with arguments."""
+    cmd = [sys.executable, "-m", module] + args
+    os.chdir(PROJECT_ROOT)
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
+    sys.exit(result.returncode)
+
+
+def run_script(script: str, args: list):
+    """Run a Python script with arguments."""
+    script_path = PROJECT_ROOT / script
+    if not script_path.exists():
+        print(f"Error: Script not found: {script_path}")
+        sys.exit(1)
+
+    if script.endswith(".sh"):
+        cmd = ["bash", str(script_path)] + args
+    else:
+        cmd = [sys.executable, str(script_path)] + args
+
+    os.chdir(PROJECT_ROOT)
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
+    sys.exit(result.returncode)
+
+
+def handle_ingest(args: list):
+    """Handle ingest subcommands."""
+    if not args:
+        print("god ingest - Ingestion Pipeline (Phase 1-3)")
+        print()
+        print("Subcommands:")
+        print("  run      Phase 1: Extract text from PDFs")
+        print("  embed    Phase 2: Embed chunks into vector DB")
+        print("  verify   Phase 3: Verify ingestion integrity")
+        print("  audit    Phase 3: Audit corpus state")
+        print("  health   Phase 3: Run health check")
+        print("  watch    Auto-ingest new files (watch mode)")
+        print()
+        print("Examples:")
+        print("  god ingest run --root corpus/")
+        print("  god ingest embed --root corpus/")
+        print("  god ingest verify --root corpus/")
+        print("  god ingest watch --root corpus/")
+        sys.exit(0)
+
+    subcmd = args[0]
+    sub_args = args[1:]
+
+    if subcmd not in INGEST_SUBCOMMANDS:
+        print(f"Unknown ingest subcommand: {subcmd}")
+        print("Valid subcommands: run, embed, verify, audit, health, watch")
+        sys.exit(1)
+
+    script = INGEST_SUBCOMMANDS[subcmd]
+    run_script(script, sub_args)
+
+
+def handle_qa(args: list):
+    """Handle QA subcommands."""
+    if not args:
+        # Show help
+        print("god qa - Quality Assurance and Health Monitoring")
+        print()
+        print("Subcommands:")
+        print("  dashboard   Show QA dashboard")
+        print("  check       Run QA checks")
+        print("  baseline    Establish baselines")
+        print("  watch       Start health monitoring daemon")
+        print("  alerts      Show active alerts")
+        print("  duplicates  Find semantic duplicates in corpus")
+        print()
+        print("Examples:")
+        print("  god qa dashboard")
+        print("  god qa watch --interval 60")
+        print("  god qa alerts")
+        print("  god qa duplicates --threshold 0.95")
+        sys.exit(0)
+
+    subcmd = args[0]
+    sub_args = args[1:]
+
+    if subcmd in ("watch", "alerts"):
+        # Use the daemon script
+        if subcmd == "alerts":
+            sub_args = ["--alerts"] + sub_args
+        run_script("scripts/qa/daemon/qa_daemon.py", sub_args)
+    elif subcmd == "duplicates":
+        # Use duplicate detector
+        run_script("scripts/qa/duplicate_detector.py", sub_args)
+    else:
+        # Use the CLI module
+        run_module("scripts.qa.cli.qa_cli", [subcmd] + sub_args)
+
+
+def handle_promote(args: list):
+    """Handle promote subcommands."""
+    # Check for --auto flag
+    if "--auto" in args:
+        # Use auto_promote.py
+        new_args = [a for a in args if a != "--auto"]
+        run_script("scripts/learn/auto_promote.py", new_args)
+    elif args and args[0] == "config":
+        # Config subcommand
+        config_args = args[1:]
+        if "--show" in config_args or not config_args:
+            run_script("scripts/learn/auto_promote.py", ["--show_config", "--results_json", "/dev/null", "--query", ""])
+        else:
+            print("Usage: god promote config --show")
+            sys.exit(1)
+    else:
+        # Default to manual promote_hits.py
+        run_script("scripts/learn/promote_hits.py", args)
+
+
+def handle_grow(args: list):
+    """Handle grow subcommands."""
+    if not args:
+        # Show help
+        print("god grow - Corpus Growth and Versioning (Phase 17)")
+        print()
+        print("Subcommands:")
+        print("  status     Show corpus version and statistics")
+        print("  snapshot   Create a versioned snapshot")
+        print("  list       List all snapshots")
+        print("  verify     Verify corpus integrity")
+        print("  rollback   Rollback to previous version")
+        print("  diff       Compare two snapshots (enhanced)")
+        print("  add        Add new documents to corpus")
+        print("  process    Process new documents")
+        print("  rebalance  Rebalance reasoning density")
+        print("  changelog  View or export changelog")
+        print()
+        print("Examples:")
+        print("  god grow status")
+        print("  god grow snapshot -d 'baseline'")
+        print("  god grow diff --list")
+        print("  god grow diff current <snapshot-id>")
+        sys.exit(0)
+
+    subcmd = args[0]
+    sub_args = args[1:]
+
+    # Route 'diff' to enhanced diff_visualizer.py
+    if subcmd == "diff":
+        run_script("scripts/growth/diff_visualizer.py", sub_args)
+    else:
+        # All other subcommands go to the growth_cli module
+        run_module("scripts.growth.cli.growth_cli", [subcmd] + sub_args)
+
+
+def handle_query(args: list):
+    """Handle query command with batch support."""
+    # Check for batch mode
+    if "--batch" in args or "-b" in args:
+        # Extract batch file and pass to batch_query.py
+        new_args = []
+        batch_file = None
+        skip_next = False
+
+        for i, arg in enumerate(args):
+            if skip_next:
+                skip_next = False
+                continue
+            if arg in ("--batch", "-b"):
+                if i + 1 < len(args):
+                    batch_file = args[i + 1]
+                    skip_next = True
+            else:
+                new_args.append(arg)
+
+        if batch_file:
+            run_script("scripts/retrieval/batch_query.py", [batch_file] + new_args)
+        else:
+            print("Error: --batch requires a file argument")
+            sys.exit(1)
+    else:
+        # Regular single query
+        run_script("scripts/retrieval/query_chunks.py", args)
+
+
+def main():
+    """Main entry point."""
+    # Handle no arguments
+    if len(sys.argv) < 2:
+        print_main_help()
+        sys.exit(0)
+
+    cmd = sys.argv[1].lower()
+    args = sys.argv[2:]
+
+    # Handle meta commands
+    if cmd in ("--version", "-v", "version"):
+        print(f"God-Learn CLI v{VERSION}")
+        sys.exit(0)
+
+    if cmd == "--commands":
+        print_commands_table()
+        sys.exit(0)
+
+    if cmd in ("--help", "-h", "help"):
+        if args:
+            print_command_help(args[0])
+        else:
+            print_main_help()
+        sys.exit(0)
+
+    # Intercept --help/-h in command arguments (e.g., "god query --help")
+    if "--help" in args or "-h" in args:
+        print_command_help(cmd)
+        sys.exit(0)
+
+    # Handle unknown commands
+    if cmd not in COMMANDS:
+        print(f"Unknown command: {cmd}")
+        print()
+        print("Available commands:")
+        for c in sorted(COMMANDS.keys()):
+            print(f"  {c}")
+        print()
+        print("Run 'god help' for more information.")
+        sys.exit(1)
+
+    # Get command info
+    info = COMMANDS[cmd]
+
+    # Handle dispatcher commands (like ingest, promote, qa, grow, query)
+    if "dispatcher" in info:
+        dispatcher = info["dispatcher"]
+        if dispatcher == "ingest":
+            handle_ingest(args)
+        elif dispatcher == "promote":
+            handle_promote(args)
+        elif dispatcher == "qa":
+            handle_qa(args)
+        elif dispatcher == "grow":
+            handle_grow(args)
+        elif dispatcher == "query":
+            handle_query(args)
+        else:
+            print(f"Unknown dispatcher: {dispatcher}")
+            sys.exit(1)
+
+    # Handle module-based commands
+    elif "module" in info:
+        run_module(info["module"], args)
+
+    # Handle script-based commands
+    elif "script" in info:
+        run_script(info["script"], args)
+
+    else:
+        print(f"Command {cmd} is not properly configured.")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

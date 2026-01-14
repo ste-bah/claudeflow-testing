@@ -1,0 +1,1362 @@
+{
+  "query": "What are the latest developments in transformer architecture for 2024?",
+  "timestamp_utc": "2026-01-14T04:27:23.298533+00:00",
+  "report_snapshot": {
+    "query": "What are the latest developments in transformer architecture for 2024?",
+    "timestamp_utc": "2026-01-14T04:27:23+00:00",
+    "inputs": {
+      "repo_root": "/home/dalton/projects/claudeflow-testing",
+      "phase4_entrypoint": "/home/dalton/projects/claudeflow-testing/scripts/retrieval/query_chunks.py",
+      "requested": {
+        "k": 8,
+        "overfetch": 8,
+        "where": {
+          "collection": "rhetorical_ontology"
+        },
+        "include_docs": true,
+        "use_highlights": false,
+        "knowledge_path": "/home/dalton/projects/claudeflow-testing/god-learn/knowledge.jsonl",
+        "top_ku": 20,
+        "reasoning_path": "/home/dalton/projects/claudeflow-testing/god-reason/reasoning.jsonl",
+        "top_edges": 30
+      }
+    },
+    "retrieval": {
+      "phase4_payload": {
+        "query": "What are the latest developments in transformer architecture for 2024?",
+        "config": {
+          "chroma_dir": "vector_db_1536",
+          "collection": "knowledge_chunks",
+          "k": 8,
+          "overfetch": 8,
+          "where": {
+            "collection": "rhetorical_ontology"
+          },
+          "filters": {
+            "require_my_copy": false,
+            "collection_filter": null,
+            "keep_biblio": false
+          },
+          "include_docs": true,
+          "use_highlights": false,
+          "highlights_index": "scripts/highlights/highlight_index.json",
+          "highlight_alpha": 0.02,
+          "highlight_cap": 5
+        },
+        "results": [
+          {
+            "raw_rank": 1,
+            "chunk_id": "803d92f2061a3db3:00086",
+            "distance": 1.3730205297470093,
+            "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+            "page_start": 107,
+            "page_end": 108,
+            "text": "12 • It should be observed that each kind of rhetoric has its own appropriate\n         style. The style of written prose is not that of spoken oratory, nor are those of\n     5   political and forensic speaking the same. Both written and spoken have to be known.\n         To know the latter is to know how to speak good Greek. To know the former means\n         that you are not obliged, as otherwise you are, to hold your tongue when you wish to\n         communicate something to the general public.\n               The written style is the more finished: the spoken better admits of dramatic\n    10   delivery—alike the kind of oratory that reflects character and the kind that reflects\n         emotion. Hence actors look out for plays written in the latter style, and poets for\n         actors competent to act in such plays. Yet poets whose plays are meant to be read\n         are read and circulated. Chaeremon, for instance, who is as finished as a\n         professional speech-writer; and Licymnius among the dithyrambic poets. Com-\n    15   pared with those of others, the speeches of professional writers sound thin in actual\n         contests. Those of the orators, on the other hand, look amateurish enough when they\n         pass into the hands of a reader. This is just because they are so well suited for an\n         actual tussle, and therefore contain many dramatic touches, which, being robbed of\n         all dramatic rendering, fail to do their own proper work, and consequently look silly.\n         Thus strings of unconnected words, and constant repetitions of words and phrases,\n    20   are very properly condemned in written speeches: but not in spoken speeches—\n         speakers use them freely, for they have a dramatic effect. In this repetition there\n         must be variety of tone, paving the way, as it were, to dramatic effect; e.g. ‘This is\n         the villain among you who deceived you, who cheated you, who meant to betray you\n    25   completely’. This is the sort of thing that Philemon the actor used to do in the Old\n         Mens Madness of Anaxandrides, whenever he spoke the words ‘Rhadamanthus\n         and Palamedes’, and also in the prologue to the Saints whenever he pronounced the\n         pronoun T. If one does not deliver such things cleverly, it becomes a case of ‘the\n         man who swallowed a poker’. So too with strings of unconnected words, e.g. ‘I came\n    30   to him; I met him; I besought him’. Such passages must be acted, not delivered with\n         the same quality and pitch of voice, as though they had only one idea in them. They\n         have the further peculiarity of suggesting that a number of separate statements\n         have been made in the time usually occupied by one. Just as the use of conjunctions\n         makes many statements into a single one, so the omission of conjunctions acts in the\n         reverse way and makes a single one into many. It thus makes everything more\n                                          211Had IX 385, 388-90.\n                           \"Marked by Kassel as a later addition by Aristotle himself.\n                                            \"Excised by Kassel.\n\nBOOK III                                     2257\nimportant: e.g. ‘I came to him; I talked to him; I entreated him’—what a lot of facts!      1414*1\nthe hearer thinks—‘he paid no attention to anything I said’. This is the effect which\nHomer seeks when he writes, ‘Nireus likewise from Syme, Nireus, the son of\nAglaia, Nireus, the comeliest man’.25 If many things are said about a man, his name\nmust be mentioned many times; and therefore people think that, if his name is\nmentioned many times, many things have been said about him. So that Homer, by               5\nmeans of this illusion, has made a great deal of Nireus, though he has mentioned\nhim only in this one passage, and has preserved his memory, though he nowhere\nsays a word about him afterwards.\n      Now the style of oratory addressed to public assemblies is really just like\nscene-painting. The bigger the throng, the more distant is the point of view: so that,\nin the one and the other, high finish in detail is superfluous and looks bad. The           io\nforensic style is more highly finished; still more so is the style of language addressed\nto a single judge, with whom there is very little room for rhetorical artifices, since he\ncan take the whole thing in better, and judge of what is to the point and what is not;\nthe struggle is less intense and so the judgement is undisturbed. This is why the\nsame speakers do not distinguish themselves in all these branches at once; high\nfinish is wanted least where dramatic delivery is wanted most, and here the speaker         15\nmust have a good voice, and above all, a strong one. It is epideictic oratory that is\nmost literary, for it is meant to be read; and next to it forensic oratory.\n      To analyse style still further, and add that it must be agreeable or magnificent,\nis useless; for why should it have these traits any more than restraint, liberality, or     20\nany other excellence of character? Obviously agreeableness will be produced by the\nqualities already mentioned, if our definition of excellence of style has been correct.\nFor what other reason should style be clear, and not mean but appropriate? If it is\nprolix, it is not clear; nor yet if it is curt. Plainly the middle way suits best. Again,   25\nstyle will be made agreeable by the elements mentioned, namely by a good blending\nof ordinary and unusual words, by the rhythm, and by the persuasiveness that\nsprings from appropriateness.\n      This concludes our discussion of style, both in its general aspects and in its\nspecial applications to the various branches of rhetoric. We have now to deal with\narrangement.",
+            "meta": {
+              "qualifier": "Clean Copy",
+              "is_my_copy": false,
+              "collection": "rhetorical_ontology",
+              "doc_id": "803d92f2061a3db3",
+              "sha256": "6f46eeaf2b781091641ae91974e54ed0b1eb294d1d6fc1bf7b2918da8a8cb4ed",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "title_raw": "Rhetoric",
+              "author_raw": "Aristotle",
+              "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "chunk_index": 86,
+              "mtime": 1675962448,
+              "page_end": 108,
+              "is_clean_copy": true,
+              "page_start": 107,
+              "year": 2014
+            },
+            "rank": 1
+          },
+          {
+            "raw_rank": 2,
+            "chunk_id": "c75e8f2652da6cda:00056",
+            "distance": 1.3754693269729614,
+            "path_rel": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+            "page_start": 64,
+            "page_end": 65,
+            "text": "termination of both parts, and their unity. And the dividing and the uniting are the\n   20   same thing and in the same reference, but in essence they are not the same.\n              So one kind of ‘now’ is described in this way: another is when the time of\n        something is near. He will come now, because he will come to-day; he has come\n        now, because he came to-day. But the things in the Iliad have not happened now,\n        nor is the flood now—not that the time from now to them is not continuous, but\n        because they are not near.\n   25         ‘At some time’ means a time determined in relation to the first of the two types\n        of‘now’, e.g. at some time Troy was taken, and at some time there will be a flood;\n        for it must be determined with reference to the ‘now’. There will thus be a\n        determinate time from this ‘now’ to that, and there was such in reference to the past\n        event. But if there be no time which is not ‘sometime’, every time will be\n        determined.\n   30         Will time then fail? Surely not, if motion always exists. Is time then always\n        different or does the same time recur? Clearly, it is the same with time as with\n        motion. For if one and the same motion sometimes recurs, it will be one and the\n        same time, and if not, not.\n              Since the ‘now’ is an end and a beginning of time, not of the same time\n222bl   however, but the end of that which is past and the beginning of that which is to\n        come, it follows that, as the circle has its convexity and its concavity, in a sense, in\n        the same thing, so time is always at a beginning and at an end. And for this reason it\n    5   seems to be always different; for the ‘now’ is not the beginning and the end of the\n        same thing; if it were, it would be at the same time and in the same respect two\n        opposites. And time will not fail; for it is always at a beginning.\n              ‘Just now’ refers to the part of future time which is near the indivisible present\n   10   ‘now’ (When are you walking?—Just now; because the time in which he is going to\n        do so is near), and to the part of past time which is not far from the ‘now’ (When are\n        you walking?—I have been walking just now). But to say that Troy has just now\n        been taken—we do not say that, because it is too far from the ‘now’. ‘Lately’, too,\n        refers to the part of past time which is near the present ‘now’. ‘When did you go?’\n        ‘Lately’, if the time is near the existing now. ‘Long ago’ refers to the distant past.\n   15         ‘Suddenly’ refers to what has departed from its former condition in a time\n        imperceptible because of its smallness; but it is the nature of all change to alter\n        things from their former condition. In time all things come into being and pass\n        away; for which reason some called it the wisest of all things, but the Pythagorean\n        Paron called it the most stupid, because in it we also forget; and his was the truer\n        view. It is clear then that it must be in itself, as we said before, a cause of destruction\n   20   rather than of coming into being (for change, in itself, makes things depart from\n        their former condition), and only accidentally of coming into being, and of being. A\n        sufficient evidence of this is that nothing comes into being without itself moving\n        somehow and acting, but a thing can be destroyed even if it does not move at all.\n        And this is what, as a rule, we chiefly mean by a thing’s being destroyed by time.\n  25    Still, time does not work even this change; but this sort of change too happens to\n        occur in time.\n\nBOOK IV                                        377\n     We have stated, then, that time exists and what it is, and in how many ways we\nspeak of the ‘now’, and what ‘at some time’, ‘lately’, ‘just now’, ‘long ago’, and\n‘suddenly’ mean.",
+            "meta": {
+              "path_rel": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+              "is_my_copy": false,
+              "doc_id": "c75e8f2652da6cda",
+              "mtime": 1675962442,
+              "chunk_index": 56,
+              "title_raw": "Physics_(2014)_ [My Copy]",
+              "author_raw": "Aristotle",
+              "is_clean_copy": false,
+              "collection": "rhetorical_ontology",
+              "page_start": 64,
+              "sha256": "37ee7d2c0311a8b3781c7a7683e69a84edf91324af165a36c6d4640a8c6af639",
+              "page_end": 65
+            },
+            "rank": 2
+          },
+          {
+            "raw_rank": 3,
+            "chunk_id": "803d92f2061a3db3:00019",
+            "distance": 1.3800464868545532,
+            "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+            "page_start": 25,
+            "page_end": 25,
+            "text": "9 • We have now to consider excellence and vice, the noble and the base,\n         since these are the objects of praise and blame. In doing so, we shall at the same\n   25    time be finding out how to make our hearers take the required view of our own\n         characters—our second method of persuasion. The ways in which to make them\n         trust the goodness of other people are also the ways in which to make them trust our\n         own. Praise, again, may be serious or frivolous; nor is it always of a human or divine\n   30    being but often of inanimate things, or of the humblest of the lower animals. Here\n         too we must know on what grounds to argue, and must, therefore, now discuss the\n         subject, though by way of illustration only.\n                The noble is that which is both desirable for its own sake and also worthy of\n         praise; or that which is both good and also pleasant because good. If this is the\n    35   noble, it follows that excellence must be noble, since it is both a good thing and also\n         praiseworthy. Excellence is, according to the usual view, a faculty of providing and\n          preserving good things; or a faculty of conferring many great benefits, and benefits\nI366bi   of all kinds on all occasions. The parts of excellence are justice, courage,\n         temperance, magnificence, magnanimity, liberality, gentleness, prudence, wisdom.\n          If excellence is a faculty of beneficence, the highest kinds of it must be those which\n     5   are most useful to others, and for this reason men honour most the just and the\n         courageous, since courage is useful to others in war, justice both in war and in\n          peace. Next comes liberality; liberal people let their money go instead of fighting\n          for it, whereas other people care more for money than for anything else. Justice is\n          the excellence through which everybody enjoys his own possessions in accordance\n    10   with the law; its opposite is injustice, through which men enjoy the possessions of\n         others in defiance of the law. Courage is the excellence that disposes men to do\n          noble deeds in situations of danger, in accordance with the law and in obedience to\n          its commands; cowardice is the opposite. Temperance is the excellence that disposes\n    15    us to obey the law where physical pleasures are concerned; intemperance is the\n         opposite. Liberality disposes us to spend money for others’ good; illiberality is the\n         opposite. Magnanimity is the excellence that disposes us to do good to others on a\n          large scale; [its opposite is meanness of spirit].20 Magnificence is the excellence\n          productive of greatness in matters involving the spending of money. The opposites\n    20   of these two are smallness of spirit and meanness respectively. Prudence is that\n          excellence of the understanding which enables men to come to wise decisions about\n          the relation to happiness of the goods and evils that have been previously\n          mentioned.\n                The above is a sufficient account, for our present purpose, of excellence and\n         vice in general, and of their various parts. As to further aspects of the subject, it is\n   25    not difficult to discern the facts; it is evident that things productive of excellence are\n         noble, as tending towards excellence; and also the effects of excellence, that is, the\n                                            “Excised by Kassel.",
+            "meta": {
+              "title_raw": "Rhetoric",
+              "year": 2014,
+              "qualifier": "Clean Copy",
+              "page_end": 25,
+              "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "mtime": 1675962448,
+              "sha256": "6f46eeaf2b781091641ae91974e54ed0b1eb294d1d6fc1bf7b2918da8a8cb4ed",
+              "is_my_copy": false,
+              "author_raw": "Aristotle",
+              "doc_id": "803d92f2061a3db3",
+              "page_start": 25,
+              "is_clean_copy": true,
+              "collection": "rhetorical_ontology",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "chunk_index": 19
+            },
+            "rank": 3
+          },
+          {
+            "raw_rank": 4,
+            "chunk_id": "c75e8f2652da6cda:00049",
+            "distance": 1.383776068687439,
+            "path_rel": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+            "page_start": 56,
+            "page_end": 56,
+            "text": "9 • There are some who think that the existence of rarity and density shows\n        that there is a void. If rarity and density do not exist, they say, neither can things\n        contract and be compressed. But if this were not to take place, either there would be\n  25    no movement at all, or the universe would bulge, as Xuthus said, or air and water\n        must always change into equal amounts (e.g. if air has been made out of a cupful of\n        water, at the same time out of an equal amount of air a cupful of water must have\n        been made), or void must necessarily exist; for compression and expansion cannot\n        lake place otherwise.\n  30          Now, if they mean by the rare that which has many voids existing separately, it\n        is plain that if void cannot exist separate any more than a place can exist with an\n        extension all to itself, neither can the rare exist in this sense. But if they mean that\n        there is void, not separately existent, but still present 'in the rare, this is less\n        impossible; yet, first, the void turns out not to be a cause of all movement, but only\n217*1   of movement upwards (for the rare is light, which is the reason why they say fire is\n        rare); second, the void turns out to be a cause of movement not as that in which it\n        takes place, but in that the void carries things up as skins by being carried up\n        themselves carry up what is continuous with them. Yet how can void have a local\n        movement or a place? For thus that into which void moves is till then void of a\n    5   void.\n              Again, how will they explain, in the case of what is heavy, its movement\n        downwards? And it is plain that if the rarer and more void a thing is the quicker it\n        will move upwards, if it were completely void it would move with a maximum speed.\n        But perhaps even this is impossible, that it should move at all; the same reason\n        which showed that in the void all things are incapable of moving shows that the void\n   10   cannot move, viz., the fact that the speeds are incomparable.\n              Since we deny that a void exists, but for the rest the problem has been truly\n        stated, that either there will be no movement, if there is no condensation and\n        rarefaction, or the universe will bulge, or a transformation of water into air will\n        always be balanced by an equal transformation of air into water (for it is clear that\n   15   more air is produced from the water: it is necessary therefore, if compression does\n         not exist, either that the next portion will be pushed outwards and make the\n        outermost part bulge, or that somewhere else there must be an equal amount of\n        water produced out of air, so that the entire bulk of the whole may be equal, or that\n        nothing moves. For when anything is displaced this will always happen, unless it\n        comes round in a circle; but locomotion is not always circular, but sometimes in a\n   20   straight line)—these then are the reasons for which they might say that there is a\n        void; our statement is based on the assumption that there is a single matter for\n        contraries, hot and cold and the other natural contrarieties, and that what is\n        actually is produced from what is potentially, and that matter is not separable from\n\n^These lines are bracketed by editors as a later addition.",
+            "meta": {
+              "path_rel": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+              "collection": "rhetorical_ontology",
+              "page_start": 56,
+              "author_raw": "Aristotle",
+              "sha256": "37ee7d2c0311a8b3781c7a7683e69a84edf91324af165a36c6d4640a8c6af639",
+              "is_clean_copy": false,
+              "page_end": 56,
+              "title_raw": "Physics_(2014)_ [My Copy]",
+              "mtime": 1675962442,
+              "doc_id": "c75e8f2652da6cda",
+              "chunk_index": 49,
+              "is_my_copy": false,
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf"
+            },
+            "rank": 4
+          },
+          {
+            "raw_rank": 5,
+            "chunk_id": "c75e8f2652da6cda:00091",
+            "distance": 1.3895059823989868,
+            "path_rel": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+            "page_start": 100,
+            "page_end": 100,
+            "text": "3 • That everything which undergoes alteration is altered by sensible causes,\n        and that there is alteration only in things that are said to be affected in their own\n    5   right by sensible things, can be seen from the following considerations. Of all other\n        things it would be most natural to suppose that there is alteration in figures and\n        shapes, and in states and in the processes of acquiring and losing these; but as a\n        matter of fact in neither of these two cases is there alteration.\n               For when anything has been completely shaped or structured, we do not call it\n   io   by the name of its material: e.g. we do not call the statue bronze or the candle wax or\n        the bed wood, but we use a paronymous expression and call them brazen, waxen,\n        and wooden respectively. But when a thing has been affected and altered in any way\n        we still call it by the original name: thus we speak of the bronze or the wax being\n   is   fluid or hard or hot (not only that—we also call the fluid and the hot stuff bronze),\n        giving the matter the same name as the affection.\n2 6*1          Since, therefore, having regard to the figure or shape of a thing we no longer\n        call that which has become of a certain figure by the name of the material that\n        exhibits the figure, whereas having regard to a thing’s affections or alterations we\n        do, it is evident that becomings of the former kind46 cannot be alterations.\n                 oreover it would seem absurd actually to speak in this way, to speak, that is\n    5   to say, of a man or house or anything else that has come into existence as having\n        been altered. Though it may be true that every such becoming is necessarily the\n        result of something’s being altered, the result, e.g. of the matter’s being condensed\n        or rarefied or heated or cooled, nevertheless it is not the things that are coming into\n        existence that are altered, and their becoming is not an alteration\n   10          Again, states, whether of the body or of the soul, are not alterations. For some\n        are excellences and others are defects, and neither excellence nor defect is an\n        alteration: excellence is a perfection (for when anything acquires its proper\n        excellence we call it perfect, since it is then really in its natural state: e.g. a circle is\n   15   perfect when it becomes really a circle and when it is best), while defect is a\n        perishing of or departure from this condition. So just as when speaking of a house\n        we do not call its arrival at perfection an alteration (for it would be absurd to\n        suppose that the coping or the tiling is an alteration or that in receiving its coping or\n        its tiling a house is altered and not perfected), the same also holds good in the case\n246bi   of excellences and defects and of the things that possess or acquire them; for\n        excellences are perfections and defects are departures: consequently they are not\n        alterations.\n               Further, we say that all excellences depend upon particular relations. Thus\n        bodily excellences such as health and fitness we regard as consisting in a blending of\n    5   hot and cold elements in due proportion, in relation either to one another within the\n\n‘‘Reading a! yewtif avrat (a! ymetis, Ross).",
+            "meta": {
+              "collection": "rhetorical_ontology",
+              "path_rel": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+              "author_raw": "Aristotle",
+              "sha256": "37ee7d2c0311a8b3781c7a7683e69a84edf91324af165a36c6d4640a8c6af639",
+              "chunk_index": 91,
+              "mtime": 1675962442,
+              "page_start": 100,
+              "doc_id": "c75e8f2652da6cda",
+              "is_my_copy": false,
+              "title_raw": "Physics_(2014)_ [My Copy]",
+              "page_end": 100,
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+              "is_clean_copy": false
+            },
+            "rank": 5
+          },
+          {
+            "raw_rank": 6,
+            "chunk_id": "803d92f2061a3db3:00056",
+            "distance": 1.3965058326721191,
+            "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+            "page_start": 67,
+            "page_end": 68,
+            "text": "20         17 • As to power, here too it may fairly be said that the type of character it\n        produces is mostly obvious enough. Some elements in this type it shares with the\n        wealthy type, others are better. Those in power are more ambitious and more manly\n        in character than the wealthy, because they aspire to do the great deeds that their\n     25 power permits them to do. Responsibility makes them more serious: they have to\n        keep paying attention to the duties their position involves. They are dignified rather\n        than arrogant, for the respect in which they are held inspires them with dignity and\n        therefore with moderation—dignity being a mild and becoming form of arrogance.\n        If they wrong others, they wrong them not on a small but on a great Scale.\n    30        Good fortune in certain of its branches produces the types of character\n        belonging to the conditions just described, since these conditions are in fact more or\n        less the kinds of good fortune that are regarded as most important. It may be added\n        that good fortune leads us to gain all we can in the way of family happiness and\n1391 bi bodily advantages. It does indeed make men more supercilious and more reckless;\n        but there is one excellent quality that goes with it—piety, and respect for the divine\n        power, in which they believe because of events which are really the result of\n        chance.\n              This account of the types of character that correspond to differences of age or\n\nBOOK II                                   2217\nfortune may end here; for to arrive at the opposite types to those described, namely,      5\nthose of the poor, the unfortunate, and the powerless, we have only to ask what the\nopposite qualities are.\n\n1 8 • [[The use of persuasive speech is to lead to decisions. (When we know a\nthing, and have decided about it, there is no further use in speaking about it.) This is\nso even if one is addressing a single person and urging him to do or not to do             10\nsomething, as when we advise a man about his conduct or try to change his views:\nthe single person is as much your judge as if he were one of many; we may say,\nwithout qualification, that anyone is your judge whom you have to persuade. Nor\ndoes it matter whether we are arguing against an actual opponent or against a mere\nproposition; in the latter case we still have to use speech and overthrow the opposing\narguments, and we attack these as we should attack an actual opponent. Our                 15\nprinciple holds good of epideictic speeches also; the audience for whom such a\nspeech is put together is treated as the judge of it. Nevertheless, the only sort of\nperson who can strictly be called a judge is the man who decides the issue in some\nmatter of public controversy; for the issue concerns the facts under dispute or\nsubject to deliberation.]]18 In the section on political oratory an account has already    20\nbeen given of the types of character that mark the different constitutions.\n      The manner and means of investing speeches with moral character may now be\nregarded as fully set forth.\n      Each of the main divisions of oratory has, we have seen, its own distinct goal.\nWith regard to each division, we have noted the accepted views and propositions\nupon which we may base our arguments—for deliberative, for epideictic, and for             25\nforensic speaking. We have further determined completely by what means speeches\nmay be invested with the required character. We are now to proceed to discuss the\narguments common to all oratory. All orators are bound to use the topic of the\npossible and impossible; and to try to show that a thing has happened, or will happen      30\nin the future. Again, the topic of size is common to all oratory; all of us have to\nargue that things are bigger or smaller than they seem, whether we are making\ndeliberative speeches, speeches of eulogy or attack, or prosecuting or defending in        1392*1\nthe law-courts. Having analysed these subjects, we will try to say what we can about\nthe general principles of arguing by enthymeme and example, by the addition of\nwhich we may hope to complete the project with which we set out. Of the\n above-mentioned commonplaces, that concerned with amplification is as has been            5\nalready said—most appropriate to epideictic speeches; that concerned with the\n past, to forensic speeches, where the required decision is always about the past; that\n concerned with possibility and the future, to deliberative speeches.",
+            "meta": {
+              "mtime": 1675962448,
+              "is_my_copy": false,
+              "page_end": 68,
+              "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "is_clean_copy": true,
+              "author_raw": "Aristotle",
+              "page_start": 67,
+              "collection": "rhetorical_ontology",
+              "sha256": "6f46eeaf2b781091641ae91974e54ed0b1eb294d1d6fc1bf7b2918da8a8cb4ed",
+              "chunk_index": 56,
+              "title_raw": "Rhetoric",
+              "doc_id": "803d92f2061a3db3",
+              "qualifier": "Clean Copy",
+              "year": 2014,
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf"
+            },
+            "rank": 6
+          },
+          {
+            "raw_rank": 7,
+            "chunk_id": "803d92f2061a3db3:00080",
+            "distance": 1.39906644821167,
+            "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+            "page_start": 98,
+            "page_end": 99,
+            "text": "BOOK III                                   2247\nthing. This language, then, should be used either under stress of emotion, or\nironically, after the manner of Gorgias and of the passages in the Phaedrus.              20\n\n8 • The form of a prose composition should be neither metrical nor destitute\nof rhythm. The metrical form destroys the hearer’s trust by its artificial appear­\nance, and at the same time it diverts his attention, making him watch for metrical\nrecurrences, just as children catch up the herald’s question, ‘Whom does the              25\nfreedman choose as his advocate?’, with the answer ‘Cleon!’ On the other hand,\nunrhythmical language is too unlimited; we do not want the limitations of metre,\nbut some limitation we must have, or the effect will be vague and unsatisfactory.\nNow it is number that limits all things; and it is the numerical limitation of the form\nof a composition that constitutes rhythm, of which metres are definite sections.\n      Prose, then, is to be rhythmical, but not metrical, or it will become not prose     30\nbut verse. It should not even have too precise a prose rhythm, and therefore should\nonly be rhythmical to a certain extent.\n      Of the various rhythms, the heroic has dignity, but lacks the tones of the\nspoken language. The iambic is the very language of ordinary people, so that in\ncommon talk iambic lines occur oftener than any others: but in a speech we need           35\ndignity and the power of taking the hearer out of his ordinary self. The trochee is too\nmuch akin to wild dancing: we can see this in tetrameter verse, which is one of the       M09*i\ntrochaic rhythms.\n      There remains the paean, which speakers began to use in the time of\nThrasymachus, though they had then no name to give it. The paean is a third class\nof rhythm, closely akin to both the two already mentioned; it has in it the ratio of\nthree to two, whereas the other two kinds have the ratio of one to one, and two to one    5\nrespectively. Between the two last ratios comes the ratio of one-and-a-half to one,\nwhich is that of the paean.\n      Now the other two kinds of rhythm must be rejected in writing prose, partly for\nthe reasons given, and partly because they are too metrical; and the paean must be\nadopted, since from this alone of the rhythms mentioned no definite metre arises,\nand therefore it is the least obtrusive of them. At present the same form of paean is     10\nemployed at the beginning as at the end of sentences, whereas the end should differ\nfrom the beginning. There are two opposite kinds of paean, one of which is suitable\nto the beginning of a sentence, where it is indeed actually used; this is the kind that\nbegins with a long syllable and ends with three short ones, as\n                               Aa\\oya>h I         Am | ai>,\nand\n                             XpvatOKOn | a ‘'Exem | ttoil AIds                            15\n\nThe other paean begins, conversely, with three short syllables and ends with a long\none, as\n                    jxera    yav | USara r’ w/c [ eavov rj |(fiaviot vu£.\n\n2248                                RHETORIC\n\nThis kind of paean makes a real close: a short syllable can give no effect of finality,\n      and therefore makes the rhythm appear truncated. A sentence should break off\n   20 with the long syllable: the fact that it is over should be indicated not by the scribe, or\n      by his full stop, but by the rhythm itself.\n           We have now seen that our language must be rhythmical and not destitute of\n      rhythm, and what rhythms, in what particular shape, make it so.",
+            "meta": {
+              "year": 2014,
+              "doc_id": "803d92f2061a3db3",
+              "author_raw": "Aristotle",
+              "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "collection": "rhetorical_ontology",
+              "mtime": 1675962448,
+              "page_start": 98,
+              "chunk_index": 80,
+              "qualifier": "Clean Copy",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "is_my_copy": false,
+              "title_raw": "Rhetoric",
+              "sha256": "6f46eeaf2b781091641ae91974e54ed0b1eb294d1d6fc1bf7b2918da8a8cb4ed",
+              "page_end": 99,
+              "is_clean_copy": true
+            },
+            "rank": 7
+          },
+          {
+            "raw_rank": 8,
+            "chunk_id": "803d92f2061a3db3:00017",
+            "distance": 1.4044666290283203,
+            "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+            "page_start": 23,
+            "page_end": 24,
+            "text": "people like him, or in a special way, or at a special place or time, his deed will have a\n        high degree of nobleness, goodness, and justice, or of their opposites. Hence the\n   25   epigram on the victor at the Olympic games:\n                 In time past, bearing a yoke on my shoulders, of wood unshaven,\n                 I carried my loads of fish from Argos to Tegea town.\n        So Iphicrates used to extol himself by describing the low estate from which he had\n        risen. Again, what is natural is better than what is acquired, since it is harder to\n        come by. Hence the words of Homer:\n   30                           I have learnt from none but myself.18\n       And the greatest of a great thing is particularly good; as when Pericles in his funeral\n       oration said that the country’s loss of its young men in battle was as if the spring\n       were taken out of the year. So with those things which are of service when the need\n       is greater; for example, in old age and times of sickness. And of two things that\n       which leads more directly to the end in view is the better. So too is that which is good\n    35 for an individual than that which is good generally. Again, what can be got is better\n       than what cannot, for it is good in a given case and the other thing is not. And what\n       is an end of life is better than what is not, since ends are better than things close to\n1365*1 the end. What aims at reality is better than what aims at appearance. We may\n       define what aims at appearance as what a man will not choose if nobody is to know\n       of his having it. This would seem to show that to receive benefits is more desirable\n       than to confer them, since a man will choose the former even if nobody is to know of\n       it, but it does not seem that he will choose the latter if nobody knows of it. What a\n     5 man wants to be is better than what a man wants to seem, for in aiming at that he is\n       aiming more at reality. Hence men say that justice is of small value, since it is more\n       desirable to seem just than to be just, whereas with health it is not so. That is better\n       than other things which is useful for a number of purposes; for example, that which\n       promotes life, good life, pleasure, and noble conduct. For this reason wealth and\n    10 health are thought to be of the highest value, as possessing all these advantages.\n       Again, that is better than other things which is accompanied both with less pain and\n       with actual pleasure; for here there is more than one advantage; and so here we have\n       the good of feeling pleasure and also the good of not feeling pain. And of two good\n       things that is the better whose addition to a third thing makes a better whole. Again,\n       those things which we are seen to possess are better than those which we are not\n    15 seen to possess, since the former have the air of reality. Hence being rich may be\n       regarded as a greater good than seeming to be. That which is dearly prized is better\n       than what is not—the sort of thing that some people have only one of, though others\n       have more like it. Accordingly, blinding a one-eyed man inflicts worse injury than\n       half-blinding a man with two eyes; for the one-eyed man has been robbed of what he\n       dearly prized.\n\n\"Odyssey XXII 347.\n\nBOOK I                                2173\n     The grounds on which we must base our persuasions, when we are speaking for     20\nor against a proposal, have now been set forth more or less completely.",
+            "meta": {
+              "title_raw": "Rhetoric",
+              "author_raw": "Aristotle",
+              "year": 2014,
+              "chunk_index": 17,
+              "doc_id": "803d92f2061a3db3",
+              "path_abs": "/home/dalton/projects/claudeflow-testing/corpus/rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "page_start": 23,
+              "page_end": 24,
+              "sha256": "6f46eeaf2b781091641ae91974e54ed0b1eb294d1d6fc1bf7b2918da8a8cb4ed",
+              "collection": "rhetorical_ontology",
+              "is_my_copy": false,
+              "path_rel": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+              "qualifier": "Clean Copy",
+              "mtime": 1675962448,
+              "is_clean_copy": true
+            },
+            "rank": 8
+          }
+        ]
+      },
+      "stats": {
+        "n_returned": 8,
+        "distinct_docs": 2,
+        "distinct_doc_paths": [
+          "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+          "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf"
+        ],
+        "distance_min": 1.3730205297470093,
+        "distance_max": 1.4044666290283203
+      }
+    },
+    "knowledge_units": {
+      "hits": [
+        {
+          "knowledge_id": "ku_0a005cf37632a36d",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Since we can distinguish between a magnitude and what it is to be a 10 magnitude, and between water and what it is to be water, and so in many other cases (though not in all; for in certain cases the thing and its form are identical), flesh and what it is to be flesh are discriminated either by different faculties, or by the same faculty in two different states; for flesh necessarily involves matter and is like what is snub-nosed, a this in a this.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_1c990c3ec10a973d",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Consequently, while waking is actuality in a sense corresponding to the cutting and the seeing, the soul is actuality in the sense corresponding to sight and the power in the tool; the body corresponds to what is in 413*1 potentiality; as the pupil plus the power of sight constitutes the eye, so the soul plus the body constitutes the animal.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_1e64d2f640a2ab60",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Hett summarizes, both in the presence of sen- tionship to the latter, Consistent with this causal relationship; phantasia is sible objects, interpreting them to the mind, and in their absence, bringing the faculty by which sense perceptions are retained; Frede calls the mental absent objects to the mind in what we would call variously memory, con- images retained by phantasia '.'after-iE!,lg,'_~ (I 992, 280), However, phan- templation, and imagination (1935, xiii), Thus, as Dorothea Frede argues, tasia's retention of sense perceptions does not make it equivalent to memory.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_247baa8ab683c5b5",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Therefore since there are attributes and they attach to a subject, and some of them attach in a particular place and at a particular time, whatever attaches to a subject, but not because it is this subject, at this time or in this place, will be an accident.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_34ed4533ef9ae613",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "It must be all the same whether we speak of units or corpuscles; for if the spherical atoms of Democritus became points, nothing being retained but their being a quantum, there must remain in each a moving and a moved part, just as there is in what is continuous; what happens has nothing to do with the size of the 15 atoms, it depends solely upon their being a quantum.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_5f9217f97da62245",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Now some thinkers assert that like is affected only by like; in what sense this is possible and in 417*1 what sense impossible, we have explained in our general discussion of acting and being acted upon.13 Here arises a problem: why do we not perceive the senses themselves, or why without the stimulation of external objects do they not produce sensation, seeing that they contain in themselves fire, earth, and all the other elements, of which—either in themselves or in respect of their incidental attributes—there is 5 perception?",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_a41084b149c8fba9",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "This is why, as has been said before, the man of experience is thought to be 30 wiser than the possessors of any perception whatever, the artist wiser than the men of experience, the master-worker than the mechanic, and the theoretical kinds of knowledge to be more of the nature of wisdom than the productive.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_aa9dbc768aac06a3",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "In the case of what is to possess sense, the first transition is due to the action of the male parent and takes place before birth so that at birth the living thing is, in respect of sensation, at the stage which corresponds to the possession of knowledge.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_ea9bde54b2bd8b59",
+          "score": 1,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "But if the essence of soul be to move itself, its being moved cannot be incidental to it, as it is to what is white or three cubits long; they too can be moved, but only incidentally—what is moved is that of which white and three cubits long are the attributes, the body in which they inhere; hence they have no 20 place: but if the soul naturally partakes in movement, it follows that it must have a place.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_00ddb2542e3d3dfa",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "(Though I suspect that the identities would be token- and not type-, so we would in practice have a hard time doing this.) Thus phautasiai are not logically dependent on the resulting action and can be used to explain it.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_00e5259a79c0e5d0",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "For the power of perception is never found apart from the power of self-nutrition, while—in plants—the latter is found isolated from the former.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_02c520c9abc1d486",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "For it is enough if they are this, even if there are no Forms; and perhaps all the more if there are Forms.—At 15 the same time it is clear that if there are Ideas such as some people say there are, the substratum of them will not be substance; for these must be substances, and not predicable of a substratum; for if they were they would exist only by being participated in.—Each thing then and its essence are one and the same in no merely accidental way, as is evident both from the preceding arguments and because to know each thing, at least, is to know its essence, so that even by the exhibition of 20 instances it becomes clear that both must be one.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_0325efb7d46dc743",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Empedocles (and with him all others who used the same forms of expression) was wrong in speaking of light as ‘travelling’ or being at a given moment between the earth and its envelope, its movement being unobservable by us; that view is contrary both to the clear evidence of argument and to the observed facts; if the 25 distance traversed were short, the movement might have been unobservable, but where the distance is from extreme East to extreme West, the strain upon our powers of belief is too great.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_043c3c3957c4b77e",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Hence we think of plants also as living, for they are observed to possess in themselves an originative power through which they increase or decrease in all spatial directions; they do not grow up but not down—they grow alike in both, indeed in all, directions; 30 and that holds for everything which is constantly nourished and continues to live, so long as it can absorb nutriment.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_0e313e936bcdd286",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "whether it is everywhere homogeneous or not; and if not homogeneous, whether its various forms are different specifically or generically: up to the present time those who have discussed and investigated soul seem to have confined themselves to the 5 human soul.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_25d3e63933c61a4b",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "If, then, it is 35 impossible to have such arts if one has not at some time learnt and acquired them, and it is then impossible not to have them if one has not sometime lost them (either by forgetfulness or by some accident or by time; for it cannot be by the destruction 1047*1 of the object itself, for that lasts for ever), a man will not have the art when he has ceased to use it, and yet he may immediately build again; how then will he have got the art?",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_264d6d39d5b7a74d",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Here then we shall have another substance intermediate between, and separate from, the Ideas and the intermediates,—a substance which is neither number nor points nor spatial magnitude nor time.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_2b4c34cb0bf14efb",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "The boundaries of Aristotle's sire\" (bouleutik€ orexis) (I 113a), 22 Phantasia, Aristotle argues in De Anima, epideictic are perforated; epideictic stands in various relationships to other is indispensable to desire, in that images of a good or desirable object move even the most brute animals.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_324e188577f3a984",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "After compounding the soul- substance out of the elements and dividing it in accordance with the harmonic 30 numbers, in order that it may possess a connate sensibility for ‘harmony’ and that the whole may move in movements well attuned, the Demiurge bent the straight line into a circle; this single circle he divided into two circles united at two common 407*1 points; one of these he subdivided into seven circles.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        },
+        {
+          "knowledge_id": "ku_3a2258dfe0abecd1",
+          "score": 0,
+          "overlap": {
+            "chunk": false,
+            "doc": false
+          },
+          "claim": "Further, thinking is also distinct from perceiving—I mean that in 10 which we find rightness and wrongness—rightness in understanding, knowledge, true opinion, wrongness in their opposites; for perception of the special objects of sense is always free from error, and is found in all animals, while it is possible to think falsely as well as truly, and thought is found only where there is discourse of reason.",
+          "source": {
+            "chunk_id": null,
+            "doc_id": null
+          }
+        }
+      ],
+      "stats": {
+        "n_total": 52,
+        "n_scored_positive": 9,
+        "n_overlap_chunk": 0,
+        "n_overlap_doc": 0,
+        "knowledge_path": "/home/dalton/projects/claudeflow-testing/god-learn/knowledge.jsonl"
+      }
+    },
+    "reasoning_edges": {
+      "edges": [
+        {
+          "reason_id": "ru_43633887f8481b8a",
+          "relation": "conflict",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_3a2258dfe0abecd1",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_01cbadbb32c16a63",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_324e188577f3a984",
+            "ku_aa9dbc768aac06a3"
+          ],
+          "overlap_ku_ids": [
+            "ku_324e188577f3a984",
+            "ku_aa9dbc768aac06a3"
+          ]
+        },
+        {
+          "reason_id": "ru_06754d72663bac62",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_dc922348955b4c89"
+          ],
+          "overlap_ku_ids": [
+            "ku_34ed4533ef9ae613"
+          ]
+        },
+        {
+          "reason_id": "ru_0f6b8caf4372bc71",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_1e64d2f640a2ab60",
+            "ku_b67cd8adb72a329e"
+          ],
+          "overlap_ku_ids": [
+            "ku_1e64d2f640a2ab60"
+          ]
+        },
+        {
+          "reason_id": "ru_532388312b980017",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_bc9d7cccf45e7835"
+          ],
+          "overlap_ku_ids": [
+            "ku_34ed4533ef9ae613"
+          ]
+        },
+        {
+          "reason_id": "ru_5e9b94797ee626e4",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_00ddb2542e3d3dfa",
+            "ku_ea9bde54b2bd8b59"
+          ],
+          "overlap_ku_ids": [
+            "ku_00ddb2542e3d3dfa",
+            "ku_ea9bde54b2bd8b59"
+          ]
+        },
+        {
+          "reason_id": "ru_601896b52fb23cd8",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_0a005cf37632a36d"
+          ],
+          "overlap_ku_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_0a005cf37632a36d"
+          ]
+        },
+        {
+          "reason_id": "ru_74e05bcdbdbcd3b9",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_324e188577f3a984",
+            "ku_550e45dd9aa351a9"
+          ],
+          "overlap_ku_ids": [
+            "ku_324e188577f3a984"
+          ]
+        },
+        {
+          "reason_id": "ru_7b5a1ed0744795aa",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_00ddb2542e3d3dfa",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_00ddb2542e3d3dfa"
+          ]
+        },
+        {
+          "reason_id": "ru_7ed1d2560091eca7",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_3a2258dfe0abecd1"
+          ],
+          "overlap_ku_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_8055370c9c89fa96",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_324e188577f3a984",
+            "ku_73dbde3a6ebc7b85"
+          ],
+          "overlap_ku_ids": [
+            "ku_324e188577f3a984"
+          ]
+        },
+        {
+          "reason_id": "ru_85e87f421be7ea1f",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_bc9d7cccf45e7835"
+          ],
+          "overlap_ku_ids": [
+            "ku_0325efb7d46dc743"
+          ]
+        },
+        {
+          "reason_id": "ru_8fe0bbf10de6127d",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_0a005cf37632a36d"
+          ],
+          "overlap_ku_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_0a005cf37632a36d"
+          ]
+        },
+        {
+          "reason_id": "ru_91a7b1ca2297b208",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_550e45dd9aa351a9"
+          ],
+          "overlap_ku_ids": [
+            "ku_34ed4533ef9ae613"
+          ]
+        },
+        {
+          "reason_id": "ru_98be5f44f854de27",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_324e188577f3a984",
+            "ku_3a2258dfe0abecd1"
+          ],
+          "overlap_ku_ids": [
+            "ku_324e188577f3a984",
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_a17a832889fc3f43",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_ea9bde54b2bd8b59"
+          ],
+          "overlap_ku_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_ea9bde54b2bd8b59"
+          ]
+        },
+        {
+          "reason_id": "ru_a205bb84f51e93db",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_0a005cf37632a36d"
+          ]
+        },
+        {
+          "reason_id": "ru_a30950ca6fa091bc",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_3a2258dfe0abecd1"
+          ],
+          "overlap_ku_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_a567a297bd2cfa13",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_6b5c01dc2cfc2b5c",
+            "ku_aa9dbc768aac06a3"
+          ],
+          "overlap_ku_ids": [
+            "ku_aa9dbc768aac06a3"
+          ]
+        },
+        {
+          "reason_id": "ru_afe65eec54b546f7",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_73dbde3a6ebc7b85",
+            "ku_ea9bde54b2bd8b59"
+          ],
+          "overlap_ku_ids": [
+            "ku_ea9bde54b2bd8b59"
+          ]
+        },
+        {
+          "reason_id": "ru_b3d14632a89593fa",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_1e64d2f640a2ab60",
+            "ku_3a2258dfe0abecd1"
+          ],
+          "overlap_ku_ids": [
+            "ku_1e64d2f640a2ab60",
+            "ku_3a2258dfe0abecd1"
+          ]
+        },
+        {
+          "reason_id": "ru_b4aad1596177ab58",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_1c990c3ec10a973d",
+            "ku_73dbde3a6ebc7b85"
+          ],
+          "overlap_ku_ids": [
+            "ku_1c990c3ec10a973d"
+          ]
+        },
+        {
+          "reason_id": "ru_b8cff4c2e26e49b5",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_6b5c01dc2cfc2b5c"
+          ],
+          "overlap_ku_ids": [
+            "ku_043c3c3957c4b77e"
+          ]
+        },
+        {
+          "reason_id": "ru_b9b6d4189543206e",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_324e188577f3a984",
+            "ku_ea9bde54b2bd8b59"
+          ],
+          "overlap_ku_ids": [
+            "ku_324e188577f3a984",
+            "ku_ea9bde54b2bd8b59"
+          ]
+        },
+        {
+          "reason_id": "ru_baac417752e63c30",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0a005cf37632a36d",
+            "ku_73dbde3a6ebc7b85"
+          ],
+          "overlap_ku_ids": [
+            "ku_0a005cf37632a36d"
+          ]
+        },
+        {
+          "reason_id": "ru_bb348abbbed286b0",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_043c3c3957c4b77e",
+            "ku_550e45dd9aa351a9"
+          ],
+          "overlap_ku_ids": [
+            "ku_043c3c3957c4b77e"
+          ]
+        },
+        {
+          "reason_id": "ru_cf85bf37377967cf",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_6b5c01dc2cfc2b5c",
+            "ku_ea9bde54b2bd8b59"
+          ],
+          "overlap_ku_ids": [
+            "ku_ea9bde54b2bd8b59"
+          ]
+        },
+        {
+          "reason_id": "ru_d4e36a0ef98752f1",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_3a2258dfe0abecd1",
+            "ku_5f9217f97da62245"
+          ],
+          "overlap_ku_ids": [
+            "ku_3a2258dfe0abecd1",
+            "ku_5f9217f97da62245"
+          ]
+        },
+        {
+          "reason_id": "ru_dd43104c2c4fe3f9",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_324e188577f3a984"
+          ],
+          "overlap_ku_ids": [
+            "ku_0325efb7d46dc743",
+            "ku_324e188577f3a984"
+          ]
+        },
+        {
+          "reason_id": "ru_e5471d396df697fb",
+          "relation": "contrast",
+          "topic": "all",
+          "knowledge_ids": [
+            "ku_34ed4533ef9ae613",
+            "ku_6d00217828c03873"
+          ],
+          "overlap_ku_ids": [
+            "ku_34ed4533ef9ae613"
+          ]
+        }
+      ],
+      "stats": {
+        "n_total": 138,
+        "n_hits": 103,
+        "by_relation": {
+          "conflict": 1,
+          "contrast": 33,
+          "elaboration": 44,
+          "support": 25
+        },
+        "reasoning_path": "/home/dalton/projects/claudeflow-testing/god-reason/reasoning.jsonl"
+      }
+    },
+    "vocab_bridge": {
+      "query_terms": [],
+      "mapped_terms": [],
+      "unmapped_terms": [],
+      "method": "not_implemented_yet"
+    },
+    "coverage_summary": {
+      "coverage_grade": "HIGH",
+      "coverage_rationale": [
+        "retrieved_chunks=8",
+        "distinct_docs=2",
+        "ku_hits=20",
+        "reason_edges=103"
+      ],
+      "gaps": [],
+      "explicit_limitations": [
+        "Vector similarity indicates proximity, not entailment.",
+        "Report mode is diagnostic only; no synthesis is performed."
+      ]
+    },
+    "limitations": [
+      "Report does not modify corpus/embeddings/knowledge store.",
+      "Report does not perform generative interpretation.",
+      "Phase 9A: Knowledge Units are surfaced via overlap + lexical scoring; reasoning edges are filtered by surfaced KU ids."
+    ]
+  },
+  "layers": {
+    "evidence": [
+      {
+        "chunk_id": "803d92f2061a3db3:00086",
+        "doc_path": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+        "pages": [
+          107,
+          108
+        ],
+        "quote": "12 • It should be observed that each kind of rhetoric has its own appropriate style. The style of written prose is not that of spoken oratory, nor are those of 5 political and forensic speaking the same. Both written and spoken have to be known. To know the latter is to know how to speak good Greek. To know the former means that you are not obliged, as othe…"
+      },
+      {
+        "chunk_id": "c75e8f2652da6cda:00056",
+        "doc_path": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+        "pages": [
+          64,
+          65
+        ],
+        "quote": "termination of both parts, and their unity. And the dividing and the uniting are the 20 same thing and in the same reference, but in essence they are not the same. So one kind of ‘now’ is described in this way: another is when the time of something is near. He will come now, because he will come to-day; he has come now, because he came to-day. But the thing…"
+      },
+      {
+        "chunk_id": "803d92f2061a3db3:00019",
+        "doc_path": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+        "pages": [
+          25,
+          25
+        ],
+        "quote": "9 • We have now to consider excellence and vice, the noble and the base, since these are the objects of praise and blame. In doing so, we shall at the same 25 time be finding out how to make our hearers take the required view of our own characters—our second method of persuasion. The ways in which to make them trust the goodness of other people are also the…"
+      },
+      {
+        "chunk_id": "c75e8f2652da6cda:00049",
+        "doc_path": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+        "pages": [
+          56,
+          56
+        ],
+        "quote": "9 • There are some who think that the existence of rarity and density shows that there is a void. If rarity and density do not exist, they say, neither can things contract and be compressed. But if this were not to take place, either there would be 25 no movement at all, or the universe would bulge, as Xuthus said, or air and water must always change into e…"
+      },
+      {
+        "chunk_id": "c75e8f2652da6cda:00091",
+        "doc_path": "rhetorical_ontology/Aristotle - Physics_(2014)_ [My Copy].pdf",
+        "pages": [
+          100,
+          100
+        ],
+        "quote": "3 • That everything which undergoes alteration is altered by sensible causes, and that there is alteration only in things that are said to be affected in their own 5 right by sensible things, can be seen from the following considerations. Of all other things it would be most natural to suppose that there is alteration in figures and shapes, and in states an…"
+      },
+      {
+        "chunk_id": "803d92f2061a3db3:00056",
+        "doc_path": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+        "pages": [
+          67,
+          68
+        ],
+        "quote": "20 17 • As to power, here too it may fairly be said that the type of character it produces is mostly obvious enough. Some elements in this type it shares with the wealthy type, others are better. Those in power are more ambitious and more manly in character than the wealthy, because they aspire to do the great deeds that their 25 power permits them to do. R…"
+      },
+      {
+        "chunk_id": "803d92f2061a3db3:00080",
+        "doc_path": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+        "pages": [
+          98,
+          99
+        ],
+        "quote": "BOOK III 2247 thing. This language, then, should be used either under stress of emotion, or ironically, after the manner of Gorgias and of the passages in the Phaedrus. 20 8 • The form of a prose composition should be neither metrical nor destitute of rhythm. The metrical form destroys the hearer’s trust by its artificial appear­ ance, and at the same time…"
+      },
+      {
+        "chunk_id": "803d92f2061a3db3:00017",
+        "doc_path": "rhetorical_ontology/Aristotle - Rhetoric_(2014)_[Clean Copy].pdf",
+        "pages": [
+          23,
+          24
+        ],
+        "quote": "people like him, or in a special way, or at a special place or time, his deed will have a high degree of nobleness, goodness, and justice, or of their opposites. Hence the 25 epigram on the victor at the Olympic games: In time past, bearing a yoke on my shoulders, of wood unshaven, I carried my loads of fish from Argos to Tegea town. So Iphicrates used to e…"
+      }
+    ],
+    "knowledge_units": [
+      {
+        "ku_id": "ku_0a005cf37632a36d",
+        "claim": "Since we can distinguish between a magnitude and what it is to be a 10 magnitude, and between water and what it is to be water, and so in many other cases (though not in all; for in certain cases the thing and its form are identical), flesh and what it is to be flesh are discriminated either by different faculties, or by the same faculty in two different states; for flesh necessarily involves matter and is like what is snub-nosed, a this in a this."
+      },
+      {
+        "ku_id": "ku_1c990c3ec10a973d",
+        "claim": "Consequently, while waking is actuality in a sense corresponding to the cutting and the seeing, the soul is actuality in the sense corresponding to sight and the power in the tool; the body corresponds to what is in 413*1 potentiality; as the pupil plus the power of sight constitutes the eye, so the soul plus the body constitutes the animal."
+      },
+      {
+        "ku_id": "ku_1e64d2f640a2ab60",
+        "claim": "Hett summarizes, both in the presence of sen- tionship to the latter, Consistent with this causal relationship; phantasia is sible objects, interpreting them to the mind, and in their absence, bringing the faculty by which sense perceptions are retained; Frede calls the mental absent objects to the mind in what we would call variously memory, con- images retained by phantasia '.'after-iE!,lg,'_~ (I 992, 280), However, phan- templation, and imagination (1935, xiii), Thus, as Dorothea Frede argues, tasia's retention of sense perceptions does not make it equivalent to memory."
+      },
+      {
+        "ku_id": "ku_247baa8ab683c5b5",
+        "claim": "Therefore since there are attributes and they attach to a subject, and some of them attach in a particular place and at a particular time, whatever attaches to a subject, but not because it is this subject, at this time or in this place, will be an accident."
+      },
+      {
+        "ku_id": "ku_34ed4533ef9ae613",
+        "claim": "It must be all the same whether we speak of units or corpuscles; for if the spherical atoms of Democritus became points, nothing being retained but their being a quantum, there must remain in each a moving and a moved part, just as there is in what is continuous; what happens has nothing to do with the size of the 15 atoms, it depends solely upon their being a quantum."
+      },
+      {
+        "ku_id": "ku_5f9217f97da62245",
+        "claim": "Now some thinkers assert that like is affected only by like; in what sense this is possible and in 417*1 what sense impossible, we have explained in our general discussion of acting and being acted upon.13 Here arises a problem: why do we not perceive the senses themselves, or why without the stimulation of external objects do they not produce sensation, seeing that they contain in themselves fire, earth, and all the other elements, of which—either in themselves or in respect of their incidental attributes—there is 5 perception?"
+      },
+      {
+        "ku_id": "ku_a41084b149c8fba9",
+        "claim": "This is why, as has been said before, the man of experience is thought to be 30 wiser than the possessors of any perception whatever, the artist wiser than the men of experience, the master-worker than the mechanic, and the theoretical kinds of knowledge to be more of the nature of wisdom than the productive."
+      },
+      {
+        "ku_id": "ku_aa9dbc768aac06a3",
+        "claim": "In the case of what is to possess sense, the first transition is due to the action of the male parent and takes place before birth so that at birth the living thing is, in respect of sensation, at the stage which corresponds to the possession of knowledge."
+      },
+      {
+        "ku_id": "ku_ea9bde54b2bd8b59",
+        "claim": "But if the essence of soul be to move itself, its being moved cannot be incidental to it, as it is to what is white or three cubits long; they too can be moved, but only incidentally—what is moved is that of which white and three cubits long are the attributes, the body in which they inhere; hence they have no 20 place: but if the soul naturally partakes in movement, it follows that it must have a place."
+      },
+      {
+        "ku_id": "ku_00ddb2542e3d3dfa",
+        "claim": "(Though I suspect that the identities would be token- and not type-, so we would in practice have a hard time doing this.) Thus phautasiai are not logically dependent on the resulting action and can be used to explain it."
+      },
+      {
+        "ku_id": "ku_00e5259a79c0e5d0",
+        "claim": "For the power of perception is never found apart from the power of self-nutrition, while—in plants—the latter is found isolated from the former."
+      },
+      {
+        "ku_id": "ku_02c520c9abc1d486",
+        "claim": "For it is enough if they are this, even if there are no Forms; and perhaps all the more if there are Forms.—At 15 the same time it is clear that if there are Ideas such as some people say there are, the substratum of them will not be substance; for these must be substances, and not predicable of a substratum; for if they were they would exist only by being participated in.—Each thing then and its essence are one and the same in no merely accidental way, as is evident both from the preceding arguments and because to know each thing, at least, is to know its essence, so that even by the exhibition of 20 instances it becomes clear that both must be one."
+      },
+      {
+        "ku_id": "ku_0325efb7d46dc743",
+        "claim": "Empedocles (and with him all others who used the same forms of expression) was wrong in speaking of light as ‘travelling’ or being at a given moment between the earth and its envelope, its movement being unobservable by us; that view is contrary both to the clear evidence of argument and to the observed facts; if the 25 distance traversed were short, the movement might have been unobservable, but where the distance is from extreme East to extreme West, the strain upon our powers of belief is too great."
+      },
+      {
+        "ku_id": "ku_043c3c3957c4b77e",
+        "claim": "Hence we think of plants also as living, for they are observed to possess in themselves an originative power through which they increase or decrease in all spatial directions; they do not grow up but not down—they grow alike in both, indeed in all, directions; 30 and that holds for everything which is constantly nourished and continues to live, so long as it can absorb nutriment."
+      },
+      {
+        "ku_id": "ku_0e313e936bcdd286",
+        "claim": "whether it is everywhere homogeneous or not; and if not homogeneous, whether its various forms are different specifically or generically: up to the present time those who have discussed and investigated soul seem to have confined themselves to the 5 human soul."
+      },
+      {
+        "ku_id": "ku_25d3e63933c61a4b",
+        "claim": "If, then, it is 35 impossible to have such arts if one has not at some time learnt and acquired them, and it is then impossible not to have them if one has not sometime lost them (either by forgetfulness or by some accident or by time; for it cannot be by the destruction 1047*1 of the object itself, for that lasts for ever), a man will not have the art when he has ceased to use it, and yet he may immediately build again; how then will he have got the art?"
+      },
+      {
+        "ku_id": "ku_264d6d39d5b7a74d",
+        "claim": "Here then we shall have another substance intermediate between, and separate from, the Ideas and the intermediates,—a substance which is neither number nor points nor spatial magnitude nor time."
+      },
+      {
+        "ku_id": "ku_2b4c34cb0bf14efb",
+        "claim": "The boundaries of Aristotle's sire\" (bouleutik€ orexis) (I 113a), 22 Phantasia, Aristotle argues in De Anima, epideictic are perforated; epideictic stands in various relationships to other is indispensable to desire, in that images of a good or desirable object move even the most brute animals."
+      },
+      {
+        "ku_id": "ku_324e188577f3a984",
+        "claim": "After compounding the soul- substance out of the elements and dividing it in accordance with the harmonic 30 numbers, in order that it may possess a connate sensibility for ‘harmony’ and that the whole may move in movements well attuned, the Demiurge bent the straight line into a circle; this single circle he divided into two circles united at two common 407*1 points; one of these he subdivided into seven circles."
+      },
+      {
+        "ku_id": "ku_3a2258dfe0abecd1",
+        "claim": "Further, thinking is also distinct from perceiving—I mean that in 10 which we find rightness and wrongness—rightness in understanding, knowledge, true opinion, wrongness in their opposites; for perception of the special objects of sense is always free from error, and is found in all animals, while it is possible to think falsely as well as truly, and thought is found only where there is discourse of reason."
+      }
+    ],
+    "reasoning_edges": [
+      {
+        "edge_id": "ru_43633887f8481b8a",
+        "relation": "conflict",
+        "knowledge_ids": [
+          "ku_3a2258dfe0abecd1",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_01cbadbb32c16a63",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_aa9dbc768aac06a3"
+        ]
+      },
+      {
+        "edge_id": "ru_06754d72663bac62",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_dc922348955b4c89"
+        ]
+      },
+      {
+        "edge_id": "ru_0f6b8caf4372bc71",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_b67cd8adb72a329e"
+        ]
+      },
+      {
+        "edge_id": "ru_532388312b980017",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_bc9d7cccf45e7835"
+        ]
+      },
+      {
+        "edge_id": "ru_5e9b94797ee626e4",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_00ddb2542e3d3dfa",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "edge_id": "ru_601896b52fb23cd8",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "edge_id": "ru_74e05bcdbdbcd3b9",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_550e45dd9aa351a9"
+        ]
+      },
+      {
+        "edge_id": "ru_7b5a1ed0744795aa",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_00ddb2542e3d3dfa",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_7ed1d2560091eca7",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_3a2258dfe0abecd1"
+        ]
+      },
+      {
+        "edge_id": "ru_8055370c9c89fa96",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_73dbde3a6ebc7b85"
+        ]
+      },
+      {
+        "edge_id": "ru_85e87f421be7ea1f",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0325efb7d46dc743",
+          "ku_bc9d7cccf45e7835"
+        ]
+      },
+      {
+        "edge_id": "ru_8fe0bbf10de6127d",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0325efb7d46dc743",
+          "ku_0a005cf37632a36d"
+        ]
+      },
+      {
+        "edge_id": "ru_91a7b1ca2297b208",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_550e45dd9aa351a9"
+        ]
+      },
+      {
+        "edge_id": "ru_98be5f44f854de27",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_3a2258dfe0abecd1"
+        ]
+      },
+      {
+        "edge_id": "ru_a17a832889fc3f43",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "edge_id": "ru_a205bb84f51e93db",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_a30950ca6fa091bc",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_3a2258dfe0abecd1"
+        ]
+      },
+      {
+        "edge_id": "ru_a567a297bd2cfa13",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_6b5c01dc2cfc2b5c",
+          "ku_aa9dbc768aac06a3"
+        ]
+      },
+      {
+        "edge_id": "ru_afe65eec54b546f7",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_73dbde3a6ebc7b85",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "edge_id": "ru_b3d14632a89593fa",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_1e64d2f640a2ab60",
+          "ku_3a2258dfe0abecd1"
+        ]
+      },
+      {
+        "edge_id": "ru_b4aad1596177ab58",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_1c990c3ec10a973d",
+          "ku_73dbde3a6ebc7b85"
+        ]
+      },
+      {
+        "edge_id": "ru_b8cff4c2e26e49b5",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_6b5c01dc2cfc2b5c"
+        ]
+      },
+      {
+        "edge_id": "ru_b9b6d4189543206e",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_324e188577f3a984",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "edge_id": "ru_baac417752e63c30",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0a005cf37632a36d",
+          "ku_73dbde3a6ebc7b85"
+        ]
+      },
+      {
+        "edge_id": "ru_bb348abbbed286b0",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_043c3c3957c4b77e",
+          "ku_550e45dd9aa351a9"
+        ]
+      },
+      {
+        "edge_id": "ru_cf85bf37377967cf",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_6b5c01dc2cfc2b5c",
+          "ku_ea9bde54b2bd8b59"
+        ]
+      },
+      {
+        "edge_id": "ru_d4e36a0ef98752f1",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_3a2258dfe0abecd1",
+          "ku_5f9217f97da62245"
+        ]
+      },
+      {
+        "edge_id": "ru_dd43104c2c4fe3f9",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_0325efb7d46dc743",
+          "ku_324e188577f3a984"
+        ]
+      },
+      {
+        "edge_id": "ru_e5471d396df697fb",
+        "relation": "contrast",
+        "knowledge_ids": [
+          "ku_34ed4533ef9ae613",
+          "ku_6d00217828c03873"
+        ]
+      }
+    ],
+    "synthesis": {
+      "enabled": false,
+      "text": "",
+      "claims": []
+    }
+  },
+  "claim_map": [],
+  "warnings": [],
+  "strict_diagnostics": null
+}

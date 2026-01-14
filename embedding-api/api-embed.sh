@@ -19,17 +19,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
-# Virtual environment - check multiple locations
+# Virtual environment - check multiple locations (project venv first)
 if [ -n "$VENV_DIR" ] && [ -d "$VENV_DIR" ]; then
     VENV_BIN="$VENV_DIR/bin"
-elif [ -d "$HOME/.venv" ]; then
-    VENV_BIN="$HOME/.venv/bin"
 elif [ -d "$PROJECT_DIR/.venv" ]; then
     VENV_BIN="$PROJECT_DIR/.venv/bin"
+elif [ -d "$HOME/.venv" ]; then
+    VENV_BIN="$HOME/.venv/bin"
 else
     echo "Error: No Python virtual environment found."
-    echo "Please create one: python3 -m venv ~/.venv"
-    echo "Then install: ~/.venv/bin/pip install -r $SCRIPT_DIR/requirements.txt"
+    echo "Please create one: python3 -m venv $PROJECT_DIR/.venv"
+    echo "Then install: $PROJECT_DIR/.venv/bin/pip install -r $SCRIPT_DIR/requirements.txt"
     exit 1
 fi
 
@@ -56,6 +56,11 @@ NC='\033[0m'
 
 # Ensure directories exist
 mkdir -p "$PID_DIR" "$LOG_DIR" "$DB_DIR"
+
+# GPU Configuration for Blackwell (RTX 50 series) - enables JIT compilation
+export TORCH_CUDA_ARCH_LIST="12.0"
+# Uncomment the following line to force CPU mode if GPU issues occur:
+# export CUDA_VISIBLE_DEVICES=""
 
 start_services() {
     echo -e "${YELLOW}Starting God Agent Embedding Services (1536D)...${NC}"

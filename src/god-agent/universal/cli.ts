@@ -14,15 +14,10 @@
  *   npx tsx src/god-agent/universal/cli.ts status
  */
 
+import { spawnSync } from "node:child_process";
 import { UniversalAgent, type ICodeTaskPreparation, type IWriteTaskPreparation } from './universal-agent.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-
-// Import CommandTaskBridge for sophisticated pipeline detection (fixes isPipeline: false bug)
-import {
-  CommandTaskBridge,
-  DEFAULT_PIPELINE_THRESHOLD,
-} from '../core/pipeline/command-task-bridge.js';
 
 // Import hook registry for standalone mode initialization (TASK-HOOK-008)
 import {
@@ -134,38 +129,25 @@ function getFlag(flags: Record<string, string | boolean>, ...names: string[]): s
  * Output result as JSON (DAI-002: FR-016)
  */
 function outputJson(output: ICLIJsonOutput): void {
-  console.log('__GODAGENT_JSON_START__');
   console.log(JSON.stringify(output, null, 2));
-  console.log('__GODAGENT_JSON_END__');
 }
 
 /**
- * Detect if task requires multi-agent pipeline using CommandTaskBridge scoring
- *
- * Uses sophisticated complexity analysis with weighted scoring:
- * - Phase keywords (understand, design, implement, test): +0.15 each
- * - Document keywords (paper, thesis, dissertation): +0.2 each
- * - Multi-step patterns (then, after, finally): +0.25
- * - Connector words (and, with, also): +0.1 each
- * - Multiple action verbs (>=2): +(verbCount-1) * 0.1
- * - Word count >15: +0.1
- *
- * Pipeline triggers when score >= DEFAULT_PIPELINE_THRESHOLD (0.6)
+ * Detect if task requires multi-agent pipeline (heuristic)
  */
 function isPipelineTask(input: string): boolean {
-  const bridge = new CommandTaskBridge();
-  const analysis = bridge.analyzeTaskComplexity(input);
-  const isPipeline = analysis.score >= DEFAULT_PIPELINE_THRESHOLD;
-
-  // Log decision for debugging (visible in CLI output)
-  if (isPipeline) {
-    console.error(`[Pipeline] TRIGGERED: score=${analysis.score.toFixed(2)} >= threshold=${DEFAULT_PIPELINE_THRESHOLD}`);
-    console.error(`[Pipeline] Reason: ${analysis.reasoning}`);
-  } else {
-    console.error(`[Pipeline] Single agent: score=${analysis.score.toFixed(2)} < threshold=${DEFAULT_PIPELINE_THRESHOLD}`);
-  }
-
-  return isPipeline;
+  // Heuristics for multi-step tasks that benefit from pipeline execution
+  const pipelineIndicators = [
+    /implement.*and.*test/i,
+    /create.*with.*validation/i,
+    /build.*complete/i,
+    /full.*implementation/i,
+    /end.to.end/i,
+    /multi.step/i,
+    /comprehensive/i,
+    /including.*tests/i,
+  ];
+  return pipelineIndicators.some(pattern => pattern.test(input));
 }
 
 /**
@@ -235,6 +217,24 @@ function initializeCliHooks(verbose: boolean): void {
 }
 
 async function main() {
+    // -------------------- god-learn passthrough (unified compiler front-end) --------------------
+  // IMPORTANT: must run BEFORE parseArgs() so we preserve raw argv ordering and flags.
+  if ((process.argv[2] || "").toLowerCase() === "god-learn") {
+    const repoRoot = process.cwd();
+    const exe = path.join(repoRoot, "scripts", "god_learn", "god-learn");
+
+    // Forward args EXACTLY as passed after "god-learn"
+    const forwardArgs = process.argv.slice(3);
+
+    const res = spawnSync(exe, forwardArgs, {
+      stdio: "inherit",
+      env: process.env,
+    });
+
+    process.exit(res.status ?? 1);
+  }
+  // ------------------------------------------------------------------------------------------
+
   const { command, positional, flags } = parseArgs(process.argv);
   const input = positional.join(' ');
   const jsonMode = getFlag(flags, 'json', 'j') === true;
