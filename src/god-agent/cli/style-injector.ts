@@ -6,6 +6,8 @@
 import { StyleProfileManager } from '../universal/style-profile.js';
 import { StyleAnalyzer, StyleCharacteristics } from '../universal/style-analyzer.js';
 import type { AgentConfig } from './pipeline-loader.js';
+import type { DataSourceMode } from './cli-types.js';
+
 
 // Default style prompt when no profile is available
 const DEFAULT_STYLE_PROMPT = `Regional Language Settings:
@@ -39,8 +41,10 @@ export class StyleInjector {
     agent: AgentConfig,
     styleProfileId?: string,
     query?: string,
-    outputContext?: { researchDir: string; agentIndex: number; agentKey: string }
+    outputContext?: { researchDir: string; agentIndex: number; agentKey: string },
+    dataSourceMode: DataSourceMode = "external"
   ): Promise<string> {
+
     // Check if Phase 6 agent
     const isPhase6 = agent.phase === 6;
 

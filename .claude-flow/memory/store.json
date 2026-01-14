@@ -1,0 +1,26 @@
+{
+  "entries": {
+    "phase18-deferred": {
+      "key": "phase18-deferred",
+      "value": {
+        "phase": "Phase 18: Multi-Corpus",
+        "status": "DEFERRED",
+        "reason": "Reasoning explosion risk (N² complexity), needs 6+ months production stability from Phase 17",
+        "return_date": "July 2026 or later",
+        "preconditions": [
+          "Phase 17 stable 6+ months",
+          "Validated multi-corpus use case",
+          "Reasoning explosion mitigation designed"
+        ]
+      },
+      "metadata": {
+        "created": "2026-01-13",
+        "type": "deferred-phase"
+      },
+      "storedAt": "2026-01-14T00:28:42.169Z",
+      "accessCount": 0,
+      "lastAccessed": "2026-01-14T00:28:42.169Z"
+    }
+  },
+  "version": "3.0.0"
+}

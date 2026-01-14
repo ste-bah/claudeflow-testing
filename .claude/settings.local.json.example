@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsx:*)",
+      "Bash(npm run:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(sqlite3:*)",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(tree:*)",
+      "Bash(du:*)",
+      "Bash(chmod:*)",
+      "Bash(./god:*)",
+      "Bash(./scripts/god:*)",
+      "Bash(./embedding-api/api-embed.sh:*)",
+      "mcp__perplexity__perplexity_research",
+      "mcp__perplexity__perplexity_ask",
+      "mcp__claude-flow_latest__memory_store",
+      "mcp__claude-flow_latest__memory_search",
+      "mcp__claude-flow_latest__memory_list",
+      "mcp__serena__think_about_whether_you_are_done",
+      "WebSearch",
+      "WebFetch(domain:link.springer.com)",
+      "WebFetch(domain:www.frontiersin.org)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "serena",
+    "claude-flow@latest",
+    "ruv-swarm",
+    "perplexity"
+  ]
+}

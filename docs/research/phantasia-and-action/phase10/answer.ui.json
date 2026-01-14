@@ -1,0 +1,81 @@
+{
+  "schema_version": "10.0.0",
+  "artifact": "answer.ui",
+  "timestamp_utc": "2026-01-13T07:17:15Z",
+  "query": "phantasia and action",
+  "data_source_mode": "local",
+  "derived_from": {
+    "answer_full_path": "docs/research/phantasia-and-action/phase9/answer.json",
+    "report_path": "docs/research/phantasia-and-action/phase9/report.json",
+    "answer_full_sha256": "2ca669ccad214f03925e1ccd4007957811140efdc882d442b7529a22989e6afc",
+    "report_sha256": "73b4edb58802257982c21336ccddb2665da5189a2b7b1af387c24016672469a9"
+  },
+  "generation": {
+    "phase": 10,
+    "epistemic_status": "non_authoritative",
+    "renderer": "phase10_render_ui.py",
+    "llm_used": true,
+    "provider": "claude",
+    "model": "claude-3-haiku-20240307",
+    "prompt_sha256": "cf45c435427bf98595f9e0e9f5a8f437f57a45b7e4d2605ce1ad9b1bbc45c9ef",
+    "max_output_tokens": 1600
+  },
+  "ui": {
+    "short_answer_md": "Aristotle's concept of phantasia is central to his explanation of action. Phantasia is the animal's awareness of an object or state of affairs, which can serve to present the object of desire initially and later specify the object as what is desired. Phantasia is vulnerable to distortion and error, but is nevertheless the basis for the full range of psychic functions, including deliberation and decision-making. The role of phantasia in practical cases is similar to its role in non-practical cases, with the difference lying solely in the role played by desire.",
+    "key_points": [
+      {
+        "text": "Phantasia is the animal's awareness of some object or state of affairs, which may well prove to be an object of desire.",
+        "support": [
+          {
+            "kind": "knowledge_unit",
+            "id": "ku_2b4c34cb0bf14efb"
+          },
+          {
+            "kind": "knowledge_unit",
+            "id": "ku_83eec0c4e3a69677"
+          }
+        ]
+      },
+      {
+        "text": "Phantasia can serve both to present the object of desire initially and, later, to specify the object at hand as what is desired.",
+        "support": [
+          {
+            "kind": "knowledge_unit",
+            "id": "ku_2b4c34cb0bf14efb"
+          }
+        ]
+      },
+      {
+        "text": "Phantasia is vulnerable to distortion and error, due to factors internal or external to the knowing and perceiving subject.",
+        "support": [
+          {
+            "kind": "knowledge_unit",
+            "id": "ku_9e65f39a12a5a006"
+          }
+        ]
+      },
+      {
+        "text": "Nevertheless, phantasia is the basis for the full range of psychic functions, including deliberation and decision-making.",
+        "support": [
+          {
+            "kind": "knowledge_unit",
+            "id": "ku_9e65f39a12a5a006"
+          }
+        ]
+      }
+    ],
+    "what_we_know": [
+      "Phantasia is central to Aristotle's explanation of action.",
+      "Phantasia can present and specify the object of desire.",
+      "Phantasia is vulnerable to distortion and error.",
+      "Phantasia is the basis for psychic functions like deliberation."
+    ],
+    "what_we_cannot_claim": [
+      "The local corpus lacks sufficient evidence to make strong claims about the specific mechanisms by which phantasia influences action."
+    ],
+    "next_queries": [
+      "How does phantasia interact with other psychic faculties like judgment and desire to produce action?",
+      "What physiological processes underlie phantasia, and how do they relate to the generation of action?"
+    ]
+  }
+}

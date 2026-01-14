@@ -1,0 +1,114 @@
+name: God-Learn QA Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'god-learn/**'
+      - 'god-reason/**'
+      - 'scripts/learn/**'
+      - 'scripts/reason/**'
+      - 'scripts/qa/**'
+      - 'qa/baselines/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'god-learn/**'
+      - 'god-reason/**'
+      - 'scripts/learn/**'
+      - 'scripts/reason/**'
+      - 'scripts/qa/**'
+      - 'qa/baselines/**'
+
+jobs:
+  # ===========================
+  # Job 1: Verify Integrity
+  # ===========================
+  verify-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install chromadb numpy sentence-transformers scikit-learn
+
+      - name: Verify Knowledge Units (Phase 6)
+        run: |
+          python3 scripts/learn/verify_knowledge.py --strict_order
+
+      - name: Verify Reasoning Units (Phase 7)
+        run: |
+          python3 scripts/reason/verify_reasoning.py --strict_order
+
+      - name: Check Immutability
+        run: |
+          python3 scripts/explore/verify/immutability_checker.py --verify
+
+  # ===========================
+  # Job 2: Regression Detection
+  # ===========================
+  regression-detection:
+    runs-on: ubuntu-latest
+    needs: verify-integrity
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install chromadb numpy sentence-transformers scikit-learn
+
+      - name: Check Coverage Regression
+        run: |
+          python3 scripts/qa/cli/qa_cli.py check-coverage --fail-on-high
+
+      - name: Check Reasoning Stability
+        run: |
+          python3 scripts/qa/cli/qa_cli.py check-reasoning --fail-on-critical
+
+      - name: Verify Consistency
+        run: |
+          python3 scripts/qa/cli/qa_cli.py check-consistency --fail-on-high
+
+  # ===========================
+  # Job 3: Generate Report
+  # ===========================
+  generate-report:
+    runs-on: ubuntu-latest
+    needs: [verify-integrity, regression-detection]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install chromadb numpy sentence-transformers scikit-learn
+
+      - name: Generate QA Report
+        run: |
+          python3 scripts/qa/cli/qa_cli.py generate-report \
+            --output qa/reports/report_$(date +%Y%m%d_%H%M%S).json
+
+      - name: Commit Reports
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore(qa): Update QA report"
+          file_pattern: "qa/reports/**"

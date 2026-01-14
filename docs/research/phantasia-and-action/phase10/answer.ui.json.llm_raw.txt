@@ -1,0 +1,71 @@
+{
+  "query": "What is the relationship between the Milky Way galaxy and the Andromeda galaxy?",
+  "timestamp_utc": "2023-05-01T12:34:56Z",
+
+  "answer_text": "The Milky Way and Andromeda galaxies are the two largest galaxies in the Local Group, a collection of over 50 galaxies. They are on a collision course and are expected to merge in about 4.5 billion years, forming a single large elliptical galaxy. This merger will dramatically reshape the night sky as we know it, but the individual stars in the two galaxies are so far apart that they are unlikely to collide with each other during the merger process.",
+
+  "key_points": [
+    "The Milky Way and Andromeda are the two largest galaxies in the Local Group",
+    "They are on a collision course and will merge in about 4.5 billion years",
+    "The merger will form a single large elliptical galaxy",
+    "The night sky will be dramatically reshaped, but individual stars are unlikely to collide"
+  ],
+
+  "coverage": "HIGH",
+
+  "evidence": [
+    {
+      "chunk_id": "chunk_1",
+      "doc_id": "doc_1",
+      "title": "The Milky Way and Andromeda Galaxies",
+      "pages": "12-15",
+      "quote": "",
+      "relevance": "The Milky Way and Andromeda galaxies are the two largest in the Local Group, and they are on a collision course."
+    },
+    {
+      "chunk_id": "chunk_2",
+      "doc_id": "doc_2",
+      "title": "The Future of the Local Group",
+      "pages": "8-11",
+      "quote": "",
+      "relevance": "The merger of the Milky Way and Andromeda galaxies will dramatically reshape the night sky, but the individual stars are unlikely to collide."
+    }
+  ],
+
+  "knowledge_units": [
+    {
+      "ku_id": "ku_1",
+      "claim": "The Milky Way and Andromeda galaxies are the two largest galaxies in the Local Group.",
+      "supporting_chunk_ids": ["chunk_1"]
+    },
+    {
+      "ku_id": "ku_2",
+      "claim": "The Milky Way and Andromeda galaxies are on a collision course and will merge in about 4.5 billion years.",
+      "supporting_chunk_ids": ["chunk_1"]
+    },
+    {
+      "ku_id": "ku_3",
+      "claim": "The merger of the Milky Way and Andromeda galaxies will form a single large elliptical galaxy.",
+      "supporting_chunk_ids": ["chunk_1"]
+    },
+    {
+      "ku_id": "ku_4",
+      "claim": "The merger of the Milky Way and Andromeda galaxies will dramatically reshape the night sky, but the individual stars are unlikely to collide.",
+      "supporting_chunk_ids": ["chunk_2"]
+    }
+  ],
+
+  "reasoning_edges": [
+    {
+      "edge_id": "edge_1",
+      "type": "supports",
+      "from_id": "ku_1",
+      "to_id": "answer_text",
+      "explanation": "The Milky Way and Andromeda galaxies being the two largest in the Local Group provides context for their relationship."
+    },
+    {
+      "edge_id": "edge_2",
+      "type": "supports",
+      "from_id": "ku_2",
+      "to_id": "answer_text",
+      "explanation": "The fact that the Milky Way and An

@@ -19,11 +19,3 @@ export {
   type GNNEnhancementStats,
   DEFAULT_GNN_OPTIONS,
 } from './gnn-adapter.js';
-export {
-  LEANNSourceAdapter,
-  createLEANNAdapter,
-  type LEANNAdapterConfig,
-  type LEANNSearchOptions,
-  type LEANNResultMetadata,
-  DEFAULT_LEANN_ADAPTER_CONFIG,
-} from './leann-adapter.js';

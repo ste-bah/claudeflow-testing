@@ -225,14 +225,12 @@ export class LocalEmbeddingProvider implements IEmbeddingProvider {
 
   /**
    * Check if the local embedding API is available
-   * Uses the configured timeout (default 30s) to accommodate slow model loading
    * @returns true if API is reachable
    */
   async isAvailable(): Promise<boolean> {
     try {
       const controller = new AbortController();
-      // Use configured timeout instead of hardcoded 5s - embedding models can take 20-30s on first request
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       const response = await fetch(this.endpoint, {
         method: 'POST',

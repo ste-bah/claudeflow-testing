@@ -24,7 +24,7 @@ function normalizeVector(vec: Float32Array): Float32Array {
  * Create a normalized test embedding
  */
 function createTestEmbedding(baseValue: number = 0.1): Float32Array {
-  const vec = new Float32Array(1536).fill(baseValue);
+  const vec = new Float32Array(768).fill(baseValue);
   return normalizeVector(vec);
 }
 
@@ -35,7 +35,7 @@ describe('QAStore', () => {
 
   beforeEach(() => {
     // Create fresh instances
-    vectorDB = new VectorDB({ dimension: 1536 });
+    vectorDB = new VectorDB({ dimension: 768 });
     graphDB = new GraphDB();
     qaStore = new QAStore({
       vectorDB,
@@ -144,7 +144,7 @@ describe('QAStore', () => {
       ];
 
       await expect(qaStore.createQA(question, embedding, answers)).rejects.toThrow(
-        /1536-dimensional/
+        /768-dimensional/
       );
     });
 

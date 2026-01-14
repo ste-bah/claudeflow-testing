@@ -1,0 +1,17 @@
+# Serena Project Configuration
+languages:
+  - python
+  - typescript
+
+encoding: "utf-8"
+project_name: "claudeflow-testing"
+
+# File handling
+ignore_all_files_in_gitignore: true
+read_only: false
+
+# Tools configuration
+excluded_tools: []
+
+# Memory settings
+memory_enabled: true

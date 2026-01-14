@@ -28,7 +28,7 @@ export class VectorDB {
   private readonly metric: DistanceMetric;
   private readonly persistencePath: string;
   private readonly autoSave: boolean;
-  private readonly backendConfig: { type?: 'native' | 'leann' | 'javascript'; verbose?: boolean; leannConfig?: VectorDBOptions['leannConfig'] };
+  private readonly backendConfig: { type?: 'native' | 'javascript'; verbose?: boolean };
   private backendSelection?: BackendSelection;
   private initialized: boolean = false;
 
@@ -49,8 +49,7 @@ export class VectorDB {
       persistencePath = '.agentdb/vectors.bin',
       autoSave = false,
       backend = 'auto',
-      verbose = false,
-      leannConfig
+      verbose = false
     } = options;
 
     this.dimension = dimension;
@@ -61,8 +60,7 @@ export class VectorDB {
     // Store backend configuration for lazy initialization
     this.backendConfig = {
       type: backend === 'auto' ? undefined : backend,
-      verbose,
-      leannConfig
+      verbose
     };
   }
 
@@ -81,11 +79,7 @@ export class VectorDB {
     const { backend, selection } = await BackendSelector.loadBackend(
       this.dimension,
       this.metric,
-      {
-        forceBackend: this.backendConfig.type,
-        verbose: this.backendConfig.verbose,
-        leannConfig: this.backendConfig.leannConfig
-      }
+      { forceBackend: this.backendConfig.type, verbose: this.backendConfig.verbose }
     );
 
     this.backend = backend;
