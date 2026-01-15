@@ -18,6 +18,19 @@ import { UniversalAgent, type ICodeTaskPreparation, type IWriteTaskPreparation }
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
+// Import CodingQualityCalculator for code-feedback command
+import {
+  calculateCodingQuality,
+  assessCodingQuality,
+  createCodingQualityContext,
+  type ICodingQualityAssessment,
+} from '../cli/coding-quality-calculator.js';
+
+// Import SonaEngine for trajectory management and feedback
+import { createProductionSonaEngine } from '../core/learning/sona-engine.js';
+import type { SonaEngine } from '../core/learning/sona-engine.js';
+import type { TrajectoryID, Route } from '../core/learning/sona-types.js';
+
 // Import CommandTaskBridge for sophisticated pipeline detection (fixes isPipeline: false bug)
 import {
   CommandTaskBridge,
@@ -187,6 +200,10 @@ function getSelectedAgent(command: string): string {
     l: 'learn-agent',
     feedback: 'feedback-agent',
     f: 'feedback-agent',
+    'code-feedback': 'code-feedback-agent',
+    cf: 'code-feedback-agent',
+    'auto-complete-coding': 'auto-complete-agent',
+    acc: 'auto-complete-agent',
     query: 'query-agent',
     q: 'query-agent',
   };
@@ -232,6 +249,234 @@ function initializeCliHooks(verbose: boolean): void {
     const counts = hookRegistry.getHookCount();
     console.log(`[CLI] Hooks registered (standalone mode): ${counts.total} hooks`);
   }
+}
+
+// ==================== SonaEngine Lazy Initialization ====================
+
+/**
+ * Lazy-initialized SonaEngine for trajectory tracking and feedback
+ * Used by code-feedback and auto-complete-coding commands
+ */
+let sonaEngine: SonaEngine | null = null;
+
+/**
+ * Get or create SonaEngine instance with SQLite persistence
+ * Implements lazy initialization pattern to avoid startup overhead
+ */
+function getSonaEngine(): SonaEngine | null {
+  if (!sonaEngine) {
+    try {
+      sonaEngine = createProductionSonaEngine({
+        learningRate: 0.01,
+        trackPerformance: true,
+      });
+      if (sonaEngine.isPersistenceEnabled()) {
+        console.error('[CLI] SonaEngine initialized with persistence enabled');
+      } else {
+        console.error('[CLI] Warning: SonaEngine persistence not enabled');
+      }
+    } catch (error) {
+      console.error('[CLI] Failed to initialize SonaEngine:', error);
+      return null;
+    }
+  }
+  return sonaEngine;
+}
+
+// ==================== Code Feedback Functions ====================
+
+/**
+ * Result from code feedback submission
+ */
+interface CodeFeedbackResult {
+  trajectoryId: string;
+  quality: number;
+  assessment: ICodingQualityAssessment;
+  weightUpdates: number;
+  patternCreated: boolean;
+}
+
+/**
+ * Submit feedback for a coding trajectory with quality calculation
+ *
+ * @param trajectoryId - The trajectory ID to provide feedback for
+ * @param output - The code output to assess (string or object)
+ * @param context - Optional context (agentKey, phase)
+ * @returns CodeFeedbackResult with quality assessment
+ */
+async function submitCodeFeedback(
+  trajectoryId: string,
+  output: unknown,
+  context?: { agentKey?: string; phase?: number }
+): Promise<CodeFeedbackResult> {
+  const engine = getSonaEngine();
+  if (!engine) {
+    throw new Error('SonaEngine not available - cannot submit feedback');
+  }
+
+  // Calculate quality using CodingQualityCalculator
+  const qualityContext = context?.agentKey
+    ? createCodingQualityContext(context.agentKey, context.phase)
+    : undefined;
+  const assessment = assessCodingQuality(output, qualityContext);
+
+  // Get pattern count before feedback
+  const statsBefore = engine.getStats();
+  const patternsBefore = statsBefore.totalPatterns;
+
+  // Submit feedback to SonaEngine
+  try {
+    await engine.provideFeedback(trajectoryId, assessment.score, {
+      skipAutoSave: false, // Ensure persistence to SQLite
+    });
+  } catch (error) {
+    throw new Error(`Failed to submit feedback: ${error}`);
+  }
+
+  // Check if new pattern was created
+  const statsAfter = engine.getStats();
+  const patternsAfter = statsAfter.totalPatterns;
+
+  return {
+    trajectoryId,
+    quality: assessment.score,
+    assessment,
+    weightUpdates: 1,
+    patternCreated: patternsAfter > patternsBefore,
+  };
+}
+
+/**
+ * Auto-complete orphaned coding trajectories
+ *
+ * Finds trajectories without quality scores (orphaned) and assigns quality
+ * based on available output or a default minimum quality score.
+ *
+ * @param route - Optional route filter (e.g., 'code', 'code-pipeline')
+ * @param dryRun - If true, only report what would be done without making changes
+ * @returns Object with count of completed trajectories and details
+ */
+async function autoCompleteCodingTrajectories(
+  route?: string,
+  dryRun: boolean = false
+): Promise<{
+  totalFound: number;
+  completed: number;
+  skipped: number;
+  errors: string[];
+  details: Array<{
+    trajectoryId: string;
+    route: string;
+    quality: number;
+    status: 'completed' | 'skipped' | 'error';
+    reason?: string;
+  }>;
+}> {
+  const engine = getSonaEngine();
+  if (!engine) {
+    return {
+      totalFound: 0,
+      completed: 0,
+      skipped: 0,
+      errors: ['SonaEngine not available'],
+      details: [],
+    };
+  }
+
+  // Get all trajectories (optionally filtered by route)
+  const allTrajectories = engine.listTrajectories(route as Route | undefined);
+
+  // Find orphaned trajectories (those without quality scores)
+  const orphanedTrajectories = allTrajectories.filter(t => t.quality === undefined || t.quality === null);
+
+  const result = {
+    totalFound: orphanedTrajectories.length,
+    completed: 0,
+    skipped: 0,
+    errors: [] as string[],
+    details: [] as Array<{
+      trajectoryId: string;
+      route: string;
+      quality: number;
+      status: 'completed' | 'skipped' | 'error';
+      reason?: string;
+    }>,
+  };
+
+  // Filter to only coding-related routes
+  const codingRoutes = ['code', 'code-pipeline', 'implementation', 'code-generation'];
+
+  for (const trajectory of orphanedTrajectories) {
+    // Check if this is a coding trajectory
+    const isCodingTrajectory = !route || codingRoutes.some(r =>
+      trajectory.route?.toLowerCase().includes(r) ||
+      trajectory.id.toLowerCase().includes('code')
+    );
+
+    if (!isCodingTrajectory && !route) {
+      result.skipped++;
+      result.details.push({
+        trajectoryId: trajectory.id,
+        route: trajectory.route || 'unknown',
+        quality: 0,
+        status: 'skipped',
+        reason: 'Not a coding trajectory',
+      });
+      continue;
+    }
+
+    if (dryRun) {
+      // In dry-run mode, calculate quality but don't persist
+      const quality = 0.5; // Default quality for orphaned trajectories
+      result.completed++;
+      result.details.push({
+        trajectoryId: trajectory.id,
+        route: trajectory.route || 'unknown',
+        quality,
+        status: 'completed',
+        reason: 'Would be auto-completed (dry run)',
+      });
+      continue;
+    }
+
+    try {
+      // Calculate quality based on trajectory steps if available
+      let quality = 0.5; // Default quality
+
+      // Check if trajectory has steps with result (IReasoningStep uses 'result' field)
+      if (trajectory.steps && trajectory.steps.length > 0) {
+        const lastStep = trajectory.steps[trajectory.steps.length - 1];
+        if (lastStep.result) {
+          const assessment = assessCodingQuality(lastStep.result);
+          quality = assessment.score;
+        }
+      }
+
+      // Submit feedback to complete the trajectory
+      await engine.provideFeedback(trajectory.id, quality, {
+        skipAutoSave: false,
+      });
+
+      result.completed++;
+      result.details.push({
+        trajectoryId: trajectory.id,
+        route: trajectory.route || 'unknown',
+        quality,
+        status: 'completed',
+      });
+    } catch (error) {
+      result.errors.push(`Failed to complete ${trajectory.id}: ${error}`);
+      result.details.push({
+        trajectoryId: trajectory.id,
+        route: trajectory.route || 'unknown',
+        quality: 0,
+        status: 'error',
+        reason: String(error),
+      });
+    }
+  }
+
+  return result;
 }
 
 async function main() {
@@ -685,6 +930,203 @@ async function main() {
         break;
       }
 
+      case 'code-feedback':
+      case 'cf': {
+        // code-feedback <trajectoryId> [--output <code>] [--file <path>] [--agent <key>] [--phase <num>]
+        const trajectoryId = positional[0];
+
+        if (!trajectoryId) {
+          if (jsonMode) {
+            outputJson({
+              command: 'code-feedback',
+              selectedAgent: 'code-feedback-agent',
+              prompt: '',
+              isPipeline: false,
+              result: null,
+              success: false,
+              error: 'Trajectory ID required',
+            });
+          } else {
+            console.error('Error: Please provide trajectory ID');
+            console.error('Usage: code-feedback <trajectoryId> [--output <code>] [--file <path>] [--agent <key>] [--phase <num>]');
+          }
+          process.exit(1);
+        }
+
+        // Get output from --output flag, --file flag, or stdin
+        let codeOutput: string;
+        const outputFlag = getFlag(flags, 'output', 'o') as string | undefined;
+        const fileFlag = getFlag(flags, 'file', 'f') as string | undefined;
+
+        if (outputFlag) {
+          codeOutput = outputFlag;
+        } else if (fileFlag) {
+          try {
+            const filePath = path.resolve(fileFlag);
+            codeOutput = await fs.readFile(filePath, 'utf-8');
+            if (!jsonMode) console.log(`Reading output from: ${filePath}`);
+          } catch (err) {
+            if (jsonMode) {
+              outputJson({
+                command: 'code-feedback',
+                selectedAgent: 'code-feedback-agent',
+                prompt: trajectoryId,
+                isPipeline: false,
+                result: null,
+                success: false,
+                error: `Error reading file: ${fileFlag}`,
+              });
+            } else {
+              console.error(`Error reading file: ${fileFlag}`);
+            }
+            process.exit(1);
+          }
+        } else {
+          // Use remaining positional args as output
+          codeOutput = positional.slice(1).join(' ') || '';
+        }
+
+        // Get optional context
+        const agentKey = getFlag(flags, 'agent', 'a') as string | undefined;
+        const phaseStr = getFlag(flags, 'phase', 'p') as string | undefined;
+        const phase = phaseStr ? parseInt(phaseStr, 10) : undefined;
+
+        try {
+          const result = await submitCodeFeedback(trajectoryId, codeOutput, { agentKey, phase });
+
+          if (jsonMode) {
+            outputJson({
+              command: 'code-feedback',
+              selectedAgent: 'code-feedback-agent',
+              prompt: trajectoryId,
+              isPipeline: false,
+              result: {
+                trajectoryId: result.trajectoryId,
+                quality: result.quality,
+                tier: result.assessment.tier,
+                breakdown: result.assessment.breakdown,
+                summary: result.assessment.summary,
+                meetsPatternThreshold: result.assessment.meetsPatternThreshold,
+                weightUpdates: result.weightUpdates,
+                patternCreated: result.patternCreated,
+              },
+              success: true,
+              qualityScore: result.quality,
+            });
+          } else {
+            console.log(`\n--- Code Feedback Recorded ---`);
+            console.log(`Trajectory: ${result.trajectoryId}`);
+            console.log(`Quality: ${(result.quality * 100).toFixed(1)}% (${result.assessment.tier})`);
+            console.log(`Summary: ${result.assessment.summary}`);
+            console.log(`\n--- Breakdown ---`);
+            console.log(`  Code Quality: ${(result.assessment.breakdown.codeQuality * 100).toFixed(1)}% / 30%`);
+            console.log(`  Completeness: ${(result.assessment.breakdown.completeness * 100).toFixed(1)}% / 25%`);
+            console.log(`  Structure: ${(result.assessment.breakdown.structuralIntegrity * 100).toFixed(1)}% / 20%`);
+            console.log(`  Documentation: ${(result.assessment.breakdown.documentationScore * 100).toFixed(1)}% / 15%`);
+            console.log(`  Test Coverage: ${(result.assessment.breakdown.testCoverage * 100).toFixed(1)}% / 10%`);
+            console.log(`\n--- Learning ---`);
+            console.log(`Weight updates: ${result.weightUpdates}`);
+            console.log(`Pattern created: ${result.patternCreated}`);
+            console.log(`Meets pattern threshold (80%): ${result.assessment.meetsPatternThreshold}`);
+          }
+        } catch (error) {
+          if (jsonMode) {
+            outputJson({
+              command: 'code-feedback',
+              selectedAgent: 'code-feedback-agent',
+              prompt: trajectoryId,
+              isPipeline: false,
+              result: null,
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } else {
+            console.error(`Error submitting code feedback: ${error}`);
+          }
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'auto-complete-coding':
+      case 'acc': {
+        // auto-complete-coding [--route <route>] [--dry-run]
+        const routeFilter = getFlag(flags, 'route', 'r') as string | undefined;
+        const dryRun = getFlag(flags, 'dry-run', 'd') === true;
+
+        try {
+          const result = await autoCompleteCodingTrajectories(routeFilter, dryRun);
+
+          if (jsonMode) {
+            outputJson({
+              command: 'auto-complete-coding',
+              selectedAgent: 'auto-complete-agent',
+              prompt: routeFilter || 'all-coding',
+              isPipeline: false,
+              result: {
+                totalFound: result.totalFound,
+                completed: result.completed,
+                skipped: result.skipped,
+                errorCount: result.errors.length,
+                errors: result.errors,
+                details: result.details,
+                dryRun,
+              },
+              success: result.errors.length === 0,
+            });
+          } else {
+            console.log(`\n--- Auto-Complete Coding Trajectories ---`);
+            if (dryRun) {
+              console.log(`[DRY RUN - No changes made]`);
+            }
+            console.log(`Route filter: ${routeFilter || 'all coding routes'}`);
+            console.log(`\n--- Summary ---`);
+            console.log(`  Orphaned found: ${result.totalFound}`);
+            console.log(`  Completed: ${result.completed}`);
+            console.log(`  Skipped: ${result.skipped}`);
+            console.log(`  Errors: ${result.errors.length}`);
+
+            if (result.details.length > 0) {
+              console.log(`\n--- Details ---`);
+              for (const detail of result.details) {
+                const statusIcon = detail.status === 'completed' ? '[OK]' :
+                                   detail.status === 'skipped' ? '[SKIP]' : '[ERR]';
+                console.log(`  ${statusIcon} ${detail.trajectoryId.slice(0, 16)}... (${detail.route}) - ${detail.status}`);
+                if (detail.status === 'completed') {
+                  console.log(`       Quality: ${(detail.quality * 100).toFixed(1)}%`);
+                }
+                if (detail.reason) {
+                  console.log(`       Reason: ${detail.reason}`);
+                }
+              }
+            }
+
+            if (result.errors.length > 0) {
+              console.log(`\n--- Errors ---`);
+              for (const error of result.errors) {
+                console.log(`  - ${error}`);
+              }
+            }
+          }
+        } catch (error) {
+          if (jsonMode) {
+            outputJson({
+              command: 'auto-complete-coding',
+              selectedAgent: 'auto-complete-agent',
+              prompt: routeFilter || 'all-coding',
+              isPipeline: false,
+              result: null,
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } else {
+            console.error(`Error auto-completing trajectories: ${error}`);
+          }
+          process.exit(1);
+        }
+        break;
+      }
+
       case 'learn':
       case 'l': {
         // Get content from positional args OR file
@@ -877,7 +1319,7 @@ async function main() {
             prompt: '',
             isPipeline: false,
             result: {
-              commands: ['ask', 'code', 'research', 'write', 'status', 'learn', 'feedback', 'query', 'help'],
+              commands: ['ask', 'code', 'research', 'write', 'status', 'learn', 'feedback', 'code-feedback', 'auto-complete-coding', 'query', 'help'],
               usage: 'npx tsx src/god-agent/universal/cli.ts <command> [input] [options]',
             },
             success: true,
@@ -944,6 +1386,8 @@ COMMANDS:
   status, s                             Show agent status and learning stats
   learn, l    <content> [options]       Store knowledge (text or file)
   feedback, f <id> <rating> [options]   Provide feedback (0-1) for learning
+  code-feedback, cf <trajectoryId>      Code-specific feedback with quality analysis
+  auto-complete-coding, acc             Auto-complete orphaned coding trajectories
   query, q    --domain <name> [options] Query stored knowledge
   help, h                               Show this help
 
@@ -956,6 +1400,16 @@ LEARN OPTIONS:
 FEEDBACK OPTIONS:
   --notes, -n <text>     Additional notes about the feedback
   --trajectory, -t       ID is a trajectory ID (not interaction ID)
+
+CODE-FEEDBACK OPTIONS:
+  --output, -o <code>    Code output to analyze (inline)
+  --file, -f <path>      Read code output from file
+  --agent, -a <key>      Agent key for context-aware scoring (e.g., "code-generator")
+  --phase, -p <num>      Pipeline phase number (1-7) for phase weighting
+
+AUTO-COMPLETE-CODING OPTIONS:
+  --route, -r <route>    Filter by route (e.g., "code", "code-pipeline")
+  --dry-run, -d          Show what would be done without making changes
 
 QUERY OPTIONS:
   --domain, -d <name>    Domain to query (required)
@@ -1001,6 +1455,15 @@ EXAMPLES:
   # Get JSON output for machine processing (DAI-002)
   npx tsx src/god-agent/universal/cli.ts status --json
   npx tsx src/god-agent/universal/cli.ts code "Implement a linked list" --json
+
+  # Code-specific feedback with quality analysis
+  npx tsx src/god-agent/universal/cli.ts code-feedback traj_abc123 --file ./output.ts --agent code-generator --phase 4
+  npx tsx src/god-agent/universal/cli.ts cf traj_abc123 --output "export function hello() { return 'world'; }"
+
+  # Auto-complete orphaned coding trajectories
+  npx tsx src/god-agent/universal/cli.ts auto-complete-coding --dry-run
+  npx tsx src/god-agent/universal/cli.ts acc --route code-pipeline
+  npx tsx src/god-agent/universal/cli.ts acc --json
 
 SELF-LEARNING:
   The agent automatically learns from every interaction:

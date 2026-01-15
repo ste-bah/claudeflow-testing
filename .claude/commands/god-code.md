@@ -164,9 +164,51 @@ After the Task() subagent completes:
 
 ---
 
-## Phase 4: Feedback (Recommended)
+## Phase 3.5: Auto-Feedback Submission (Required)
 
-To improve future agent selection, provide feedback on the trajectory:
+**CRITICAL**: After the Task() subagent returns, you MUST automatically submit quality feedback to close the learning loop. This is NOT optional.
+
+### Submit Auto-Feedback
+
+Using the subagent's output and the trajectoryId from Phase 1, run the CodingQualityCalculator:
+
+```bash
+npx tsx src/god-agent/universal/cli.ts code-feedback "[trajectoryId]" --output "[first 5000 chars of subagent output]" --agent "[result.agentType]" --phase 4
+```
+
+**Alternative** (if code-feedback unavailable): Estimate quality and submit directly:
+
+```bash
+npx tsx src/god-agent/universal/cli.ts feedback [trajectoryId] [quality_score] --trajectory --notes "Auto-assessed: [brief reason for score]"
+```
+
+### Quality Assessment Guidelines
+
+When manually assessing, use these thresholds:
+
+| Score Range | Quality Level | Criteria |
+|-------------|---------------|----------|
+| **0.85-0.95** | Excellent | Full implementation with tests, docs, error handling, follows best practices |
+| **0.70-0.84** | Good | Working implementation, minor gaps in tests or docs |
+| **0.50-0.69** | Adequate | Partial implementation, needs refinement, some errors |
+| **0.30-0.49** | Poor | Incomplete, significant errors, or wrong approach |
+| **0.00-0.29** | Failed | Did not address the task or completely broken |
+
+### Why Auto-Feedback is Mandatory
+
+Submitting feedback after every trajectory enables:
+- **Pattern Learning**: Quality outputs (>0.8) generate reusable patterns
+- **Agent Selection Improvement**: DAI-001 learns which agents work best for which tasks
+- **Memory Context Accumulation**: Future tasks benefit from prior successful approaches
+- **SoNA Self-Learning Loop Closure**: Trajectories without feedback cannot improve the system
+
+**IMPORTANT**: You MUST submit feedback for every trajectory, even if the quality is low. Low-quality feedback is still valuable for learning what NOT to do.
+
+---
+
+## Phase 4: Additional Feedback (Optional)
+
+If the auto-feedback was insufficient or the user wants to provide manual assessment:
 
 ```bash
 npx tsx src/god-agent/universal/cli.ts feedback [trajectoryId] [rating] --trajectory --notes "[optional notes]"
@@ -176,8 +218,13 @@ npx tsx src/god-agent/universal/cli.ts feedback [trajectoryId] [rating] --trajec
 
 **Example**:
 ```bash
-npx tsx src/god-agent/universal/cli.ts feedback traj_xxx_yyy 0.9 --trajectory --notes "Agent selection was appropriate"
+npx tsx src/god-agent/universal/cli.ts feedback traj_xxx_yyy 0.9 --trajectory --notes "Agent selection was appropriate, excellent test coverage"
 ```
+
+**Use this phase when**:
+- Auto-feedback score seems inaccurate
+- You want to add specific notes about agent performance
+- The user explicitly requests a different rating
 
 ---
 
