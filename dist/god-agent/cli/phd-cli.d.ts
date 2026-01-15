@@ -376,10 +376,10 @@ interface FinalizeCliOptions {
     skipValidation?: boolean;
     /** Generate synthesis prompts for Claude Code instead of writing chapters */
     generatePrompts?: boolean;
-    /** Prepare for Claude Code Task tool execution with DYNAMIC agents per chapter */
-    prepareForClaudeCode?: boolean;
     /** Style profile ID to use (overrides session lookup) */
     styleProfile?: string;
+    /** Generate PDF from existing synthesized chapters (skips prompt generation) */
+    generatePdf?: boolean;
 }
 /**
  * Execute finalize command

@@ -26,6 +26,8 @@ import { SocketClient } from '../observability/socket-client.js';
 import { FinalStageOrchestrator, PROGRESS_MILESTONES } from './final-stage/index.js';
 // Implements RULE-025, RULE-028, RULE-031: SonaEngine integration for trajectory tracking
 import { createProductionSonaEngine } from '../core/learning/sona-engine.js';
+// Import PhDQualityCalculator for discriminating quality assessment (RULE-033, RULE-034)
+import { calculatePhDQuality, createQualityContext } from './phd-quality-calculator.js';
 // Lazy-initialized socket client for event emission
 let socketClient = null;
 // Lazy-initialized SonaEngine for trajectory tracking (RULE-031)
@@ -971,9 +973,10 @@ function createAgentTrajectory(sessionId, agentKey, agentIndex, query) {
  * @param sessionId - Pipeline session ID
  * @param agentKey - Agent that completed
  * @param output - Agent output (for quality assessment)
+ * @param phase - Pipeline phase the agent belongs to (for context-aware quality)
  * @returns Promise<boolean> - true if feedback recorded
  */
-async function recordAgentFeedback(sessionId, agentKey, output) {
+async function recordAgentFeedback(sessionId, agentKey, output, phase) {
     const engine = getSonaEngine();
     if (!engine)
         return false;
@@ -989,8 +992,9 @@ async function recordAgentFeedback(sessionId, agentKey, output) {
         return false;
     }
     try {
-        // Calculate quality based on output (RULE-033, RULE-034)
-        const quality = assessOutputQuality(output);
+        // Calculate quality using PhDQualityCalculator with context (RULE-033, RULE-034)
+        const context = createQualityContext(agentKey, phase);
+        const quality = calculatePhDQuality(output, context);
         // Record feedback (RULE-028: persist before acknowledgment)
         await engine.provideFeedback(trajectoryId, quality, {
             skipAutoSave: false, // Ensure immediate persistence
@@ -1011,41 +1015,16 @@ async function recordAgentFeedback(sessionId, agentKey, output) {
 /**
  * Assess output quality for feedback
  * Implements RULE-033, RULE-034: Quality assessment on results
+ * @deprecated Use calculatePhDQuality with createQualityContext for context-aware scoring
+ * @param output - The output to assess
+ * @param agentKey - Optional agent key for context-aware scoring
+ * @param phase - Optional phase number for context-aware scoring
+ * @returns Quality score between 0.30 and 0.95
  */
-function assessOutputQuality(output) {
-    if (output === null || output === undefined) {
-        return 0.3; // Minimal quality for null output
-    }
-    let quality = 0.4; // Base quality
-    if (typeof output === 'object') {
-        const outputStr = JSON.stringify(output);
-        // RULE-034 calibration
-        if (outputStr.length > 500)
-            quality += 0.05;
-        if (outputStr.length > 2000)
-            quality += 0.10;
-        // Check for structured content
-        const outputObj = output;
-        if (outputObj.summary || outputObj.result || outputObj.content) {
-            quality += 0.10; // Structured output bonus
-        }
-        // Check for code blocks (common in research outputs)
-        if (outputStr.includes('```')) {
-            quality += 0.15;
-        }
-        // Check for detailed analysis markers
-        if (outputStr.includes('## ') || outputStr.includes('### ')) {
-            quality += 0.10;
-        }
-    }
-    else if (typeof output === 'string') {
-        if (output.length > 500)
-            quality += 0.05;
-        if (output.length > 2000)
-            quality += 0.10;
-    }
-    // Cap at 0.95 (never assume perfection)
-    return Math.min(0.95, quality);
+function assessOutputQuality(output, agentKey, phase) {
+    // Delegate to PhDQualityCalculator for discriminating quality assessment
+    const context = agentKey ? createQualityContext(agentKey, phase) : undefined;
+    return calculatePhDQuality(output, context);
 }
 /**
  * Query top-weighted patterns for an agent route
@@ -1111,6 +1090,86 @@ function formatPatternsForPrompt(patterns) {
     });
     lines.push('Consider these patterns when executing your task.\n');
     return lines.join('\n');
+}
+/**
+ * Auto-complete orphaned trajectories from previous agents
+ * Implements RULE-028-AUTO: Ensure no trajectories get stuck in "active" state
+ *
+ * This function is called at the start of commandNext() to auto-complete any
+ * trajectories that were created but never had feedback recorded (e.g., due to
+ * process interruption or commandComplete() not being called).
+ *
+ * @param sessionId - Pipeline session ID
+ * @param researchDir - Directory where agent outputs are stored
+ * @param previousAgentIndex - The agent index that just completed (current - 1)
+ * @param query - Original research query for context
+ * @returns Number of trajectories auto-completed
+ */
+async function autoCompleteOrphanedTrajectories(sessionId, researchDir, previousAgentIndex, query) {
+    const engine = getSonaEngine();
+    if (!engine)
+        return 0;
+    // Get active trajectories for this session
+    const sessionTrajectories = activeTrajectories.get(sessionId);
+    if (!sessionTrajectories || sessionTrajectories.size === 0) {
+        return 0;
+    }
+    let completedCount = 0;
+    const trajectoriesList = Array.from(sessionTrajectories.entries());
+    for (const [agentKey, trajectoryId] of trajectoriesList) {
+        try {
+            // Try to find output file for this agent
+            const outputResult = await tryReadAgentOutput(researchDir, previousAgentIndex, agentKey);
+            let quality;
+            let output;
+            if (outputResult) {
+                // Output file exists - calculate quality based on content
+                output = {
+                    status: 'auto-completed',
+                    content: outputResult.content,
+                    output_file: outputResult.outputPath,
+                    auto_captured: true,
+                    word_count: outputResult.content.split(/\s+/).length,
+                };
+                // Calculate quality using PhDQualityCalculator with context
+                // Estimate phase from agent index (roughly 10 agents per phase for phases 1-5)
+                const estimatedPhase = Math.min(7, Math.floor(previousAgentIndex / 10) + 1);
+                const context = createQualityContext(agentKey, estimatedPhase);
+                quality = calculatePhDQuality(output, context);
+                console.error(`[Auto-Complete] Found output for ${agentKey}: ${outputResult.outputPath} (quality: ${quality.toFixed(2)})`);
+            }
+            else {
+                // No output file found - assign minimum quality for incomplete work
+                output = {
+                    status: 'auto-completed-no-output',
+                    auto_captured: false,
+                    reason: 'No output file found during auto-completion',
+                };
+                quality = 0.30; // Minimum quality for missing output
+                console.error(`[Auto-Complete] No output found for ${agentKey}, using minimum quality: ${quality.toFixed(2)}`);
+            }
+            // Record feedback with skipAutoSave: false to ensure persistence (RULE-028)
+            await engine.provideFeedback(trajectoryId, quality, {
+                skipAutoSave: false,
+            });
+            // Remove from active trajectories after feedback
+            sessionTrajectories.delete(agentKey);
+            completedCount++;
+            console.error(`[Auto-Complete] Completed orphaned trajectory ${trajectoryId} for ${agentKey} with quality=${quality.toFixed(2)}`);
+        }
+        catch (error) {
+            console.error(`[Auto-Complete] Failed to auto-complete trajectory for ${agentKey}: ${error}`);
+            // Continue with other trajectories even if one fails
+        }
+    }
+    // Clean up session entry if no more active trajectories
+    if (sessionTrajectories.size === 0) {
+        activeTrajectories.delete(sessionId);
+    }
+    if (completedCount > 0) {
+        console.error(`[Auto-Complete] Auto-completed ${completedCount} orphaned trajectories for session ${sessionId.slice(0, 8)}`);
+    }
+    return completedCount;
 }
 async function getSocketClient() {
     if (!socketClient) {
@@ -1534,6 +1593,18 @@ async function commandNext(sessionId, options, sessionBasePath) {
     if (sessionManager.isSessionExpired(session)) {
         throw new SessionExpiredError(sessionId);
     }
+    // [RULE-028-AUTO] Auto-complete orphaned trajectories from previous agents
+    // This ensures no trajectories get stuck in "active" state without quality scores
+    // Must run before processing the next phase to close the learning loop
+    if (session.currentAgentIndex > 0) {
+        const researchDir = session.researchDir ||
+            path.join(process.cwd(), 'docs/research', session.slug || generateSlug(session.query));
+        const previousAgentIndex = session.currentAgentIndex - 1;
+        const autoCompletedCount = await autoCompleteOrphanedTrajectories(sessionId, researchDir, previousAgentIndex, session.query);
+        if (autoCompletedCount > 0 && options.verbose) {
+            console.error(`[RULE-028-AUTO] Auto-completed ${autoCompletedCount} orphaned trajectory(ies)`);
+        }
+    }
     // Load static pipeline config (for legacy compatibility)
     const staticConfig = await pipelineLoader.loadPipelineConfig();
     // CRITICAL: Detect Phase 6 entry and generate dynamic agents [DYNAMIC-001, DYNAMIC-002]
@@ -1801,6 +1872,7 @@ program
     .description('Mark agent as complete and optionally store output')
     .option('--result <json>', 'Agent output as JSON string')
     .option('--file <path>', 'Agent output from file')
+    .option('--force', 'Mark complete even without output (not recommended)')
     .option('--json', 'Output as JSON (default: true)', true)
     .action(async (sessionId, agentKey, options) => {
     try {
@@ -1934,10 +2006,23 @@ async function commandComplete(sessionId, agentKey, options, sessionBasePath) {
             }));
         }
     }
-    // Update session state
+    // Update session state - ONLY mark complete if output was captured
+    // [BUG-FIX-001] Prevent state/file desync by requiring output verification
+    if (output === null && !options.force) {
+        // Output is required unless --force flag is used
+        throw new Error(`[PIPELINE-ERROR] Agent "${agentKey}" cannot be marked complete: no output captured.\n` +
+            `Expected output file at index ${session.currentAgentIndex} or via --result/--file options.\n` +
+            `Use --force to mark complete without output (not recommended).`);
+    }
     session.completedAgents.push(agentKey);
     if (output !== null) {
         session.agentOutputs[agentKey] = output;
+    }
+    else {
+        // Log warning when --force is used without output
+        console.error(JSON.stringify({
+            warning: `[BUG-FIX-001] Agent "${agentKey}" marked complete without output (--force used)`
+        }));
     }
     // TASK-CLI-004: Get agent config for memory key lookup
     // Uses canonical PHD_AGENTS configuration for 46-agent pipeline
@@ -2028,7 +2113,8 @@ async function commandComplete(sessionId, agentKey, options, sessionBasePath) {
     // Persist updated session
     await sessionManager.saveSession(session);
     // [RULE-028] Record feedback for completed agent BEFORE acknowledgment
-    const feedbackRecorded = await recordAgentFeedback(session.sessionId, agentKey, output);
+    // Pass previousPhase for context-aware quality assessment (RULE-033, RULE-034)
+    const feedbackRecorded = await recordAgentFeedback(session.sessionId, agentKey, output, previousPhase);
     if (feedbackRecorded) {
         console.error(`[PHD-CLI] Feedback persisted for ${agentKey}`);
     }
@@ -2795,10 +2881,14 @@ program
     .option('--sequential', 'Write chapters sequentially (safer, slower)', false)
     .option('--skip-validation', 'Skip quality validation (debug only)', false)
     .option('--generate-prompts', 'Output synthesis prompts for Claude Code agents', false)
-    .option('--prepare-for-claude-code', 'Prepare Phase 8 for Claude Code Task tool execution with dynamic agents', false)
+    .option('--generate-pdf', 'Generate PDF from existing synthesized chapters', false)
     .option('--style-profile <id>', 'Style profile ID to use (overrides session lookup)')
     .action(async (options) => {
     try {
+        const basePath = process.cwd();
+        const researchDir = path.join(basePath, 'docs', 'research', options.slug);
+        const finalDir = path.join(researchDir, 'final');
+        const archiveDir = path.join(researchDir, 'final-archive');
         // If --generate-prompts is set, output synthesis prompts for Claude Code
         if (options.generatePrompts) {
             const prompts = await commandGeneratePrompts(options);
@@ -2821,29 +2911,116 @@ program
             process.exit(0);
             return;
         }
-        // If --prepare-for-claude-code is set, use the new ClaudeFlow-aware preparation
-        // This uses DYNAMIC agent assignment from dissertation-architect structure
-        if (options.prepareForClaudeCode) {
-            const result = await commandPrepareForClaudeCode(options);
-            // Output Phase8PrepareResult as JSON for Claude Code Task tool execution
-            console.log(JSON.stringify(result, null, 2));
-            process.exit(result.success ? 0 : 1);
+        // Check for existing synthesized chapters (in archive or final/chapters)
+        const findSynthesizedChapters = async () => {
+            // First check archive for most recent synthesized chapters
+            try {
+                const archiveExists = await fs.stat(archiveDir).then(() => true).catch(() => false);
+                if (archiveExists) {
+                    const archiveDirs = await fs.readdir(archiveDir);
+                    // Sort by date descending (most recent first)
+                    const sortedDirs = archiveDirs.sort().reverse();
+                    for (const dir of sortedDirs) {
+                        const chaptersPath = path.join(archiveDir, dir, 'chapters');
+                        try {
+                            const files = await fs.readdir(chaptersPath);
+                            const chapterFiles = files.filter(f => f.startsWith('chapter-') && f.endsWith('.md'));
+                            if (chapterFiles.length >= 8) {
+                                console.error(`[Phase 8] Found ${chapterFiles.length} synthesized chapters in archive: ${dir}`);
+                                return chaptersPath;
+                            }
+                        }
+                        catch { /* continue */ }
+                    }
+                }
+            }
+            catch { /* no archive */ }
+            // Check final/chapters for chapter-X.md files (synthesized format)
+            const finalChaptersPath = path.join(finalDir, 'chapters');
+            try {
+                const files = await fs.readdir(finalChaptersPath);
+                const synthChapterFiles = files.filter(f => f.startsWith('chapter-') && f.endsWith('.md'));
+                if (synthChapterFiles.length >= 8) {
+                    console.error(`[Phase 8] Found ${synthChapterFiles.length} synthesized chapters in final/chapters`);
+                    return finalChaptersPath;
+                }
+            }
+            catch { /* no final/chapters */ }
+            return null;
+        };
+        // If --generate-pdf OR checking for existing chapters
+        const synthesizedChaptersPath = await findSynthesizedChapters();
+        if (options.generatePdf || synthesizedChaptersPath) {
+            if (!synthesizedChaptersPath) {
+                console.error('[Phase 8] ERROR: No synthesized chapters found. Run Claude Code agents first.');
+                console.error('[Phase 8] Use: npx tsx src/god-agent/cli/phd-cli.ts finalize --slug ' + options.slug);
+                process.exit(2);
+                return;
+            }
+            // Generate PDF from synthesized chapters
+            console.error(`[Phase 8] Generating PDF from synthesized chapters...`);
+            // Read all chapter files and combine
+            const chapterFiles = (await fs.readdir(synthesizedChaptersPath))
+                .filter(f => f.startsWith('chapter-') && f.endsWith('.md'))
+                .sort((a, b) => {
+                const numA = parseInt(a.match(/chapter-(\d+)/)?.[1] || '0');
+                const numB = parseInt(b.match(/chapter-(\d+)/)?.[1] || '0');
+                return numA - numB;
+            });
+            let combinedContent = '';
+            let totalWords = 0;
+            for (const file of chapterFiles) {
+                const content = await fs.readFile(path.join(synthesizedChaptersPath, file), 'utf-8');
+                combinedContent += content + '\n\n';
+                totalWords += content.split(/\s+/).length;
+            }
+            // Write combined markdown
+            await fs.mkdir(finalDir, { recursive: true });
+            const finalPaperPath = path.join(finalDir, 'final-paper.md');
+            await fs.writeFile(finalPaperPath, combinedContent, 'utf-8');
+            console.error(`[Phase 8] Combined paper written: ${finalPaperPath} (${totalWords} words)`);
+            // Convert to HTML using pandoc
+            const htmlPath = path.join(finalDir, 'final-paper.html');
+            const pdfPath = path.join(finalDir, 'final-paper.pdf');
+            try {
+                const { execSync } = await import('child_process');
+                execSync(`pandoc "${finalPaperPath}" -o "${htmlPath}" --standalone --toc --metadata title="Research Paper"`, {
+                    stdio: ['pipe', 'pipe', 'pipe']
+                });
+                console.error(`[Phase 8] HTML generated: ${htmlPath}`);
+                // Try to generate PDF using playwright
+                try {
+                    const playwrightScript = path.join(basePath, 'scripts', 'html-to-pdf.mjs');
+                    execSync(`node "${playwrightScript}" "${htmlPath}" "${pdfPath}"`, {
+                        stdio: ['pipe', 'pipe', 'pipe']
+                    });
+                    console.error(`[Phase 8] PDF generated: ${pdfPath}`);
+                }
+                catch (pdfErr) {
+                    console.error(`[Phase 8] PDF generation failed (playwright not available), HTML output available`);
+                }
+            }
+            catch (pandocErr) {
+                console.error(`[Phase 8] Pandoc conversion failed, markdown output available`);
+            }
+            console.log(JSON.stringify({
+                success: true,
+                mode: 'generate-pdf',
+                outputPath: pdfPath,
+                markdownPath: finalPaperPath,
+                totalWords,
+                chaptersProcessed: chapterFiles.length
+            }, null, 2));
+            process.exit(0);
             return;
         }
-        const result = await commandFinalize(options);
-        // Output result as JSON
-        console.log(JSON.stringify({
-            success: result.success,
-            dryRun: result.dryRun,
-            outputPath: result.outputPath,
-            totalWords: result.totalWords,
-            totalCitations: result.totalCitations,
-            chaptersGenerated: result.chaptersGenerated,
-            warnings: result.warnings,
-            errors: result.errors,
-            exitCode: result.exitCode
-        }, null, 2));
-        process.exit(result.exitCode);
+        // DEFAULT: Prepare prompts for Claude Code LLM synthesis
+        // This outputs phase8-prompts.json for Claude Code Task tool execution
+        console.error('[Phase 8] No synthesized chapters found. Generating synthesis prompts...');
+        const result = await commandPrepareForClaudeCode(options);
+        // Output Phase8PrepareResult as JSON for Claude Code Task tool execution
+        console.log(JSON.stringify(result, null, 2));
+        process.exit(result.success ? 0 : 1);
     }
     catch (error) {
         handleFinalizeError(error);
