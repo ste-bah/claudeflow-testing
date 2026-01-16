@@ -1,0 +1,92 @@
+/* Error Fallback Styles */
+.error-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.error-fallback__icon {
+  color: var(--color-error-500);
+  margin-bottom: var(--space-4);
+}
+
+.error-fallback__title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-neutral-800);
+  margin-bottom: var(--space-2);
+}
+
+.error-fallback__message {
+  font-size: var(--font-size-base);
+  color: var(--color-neutral-600);
+  margin-bottom: var(--space-6);
+  max-width: 400px;
+}
+
+.error-fallback__actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.error-fallback__details {
+  margin-top: var(--space-6);
+  width: 100%;
+  max-width: 600px;
+  text-align: left;
+}
+
+.error-fallback__details summary {
+  cursor: pointer;
+  color: var(--color-neutral-500);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-2);
+}
+
+.error-fallback__stack {
+  background-color: var(--color-neutral-100);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Section Error Styles */
+.section-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-6);
+  background-color: var(--color-neutral-50);
+  border: var(--border-width-thin) dashed var(--color-neutral-300);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+.section-error__icon {
+  color: var(--color-error-500);
+  margin-bottom: var(--space-2);
+}
+
+.section-error__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-neutral-700);
+  margin-bottom: var(--space-1);
+}
+
+.section-error__message {
+  font-size: var(--font-size-xs);
+  color: var(--color-neutral-500);
+  margin-bottom: var(--space-3);
+}

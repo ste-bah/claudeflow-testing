@@ -15,6 +15,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [PhD Research Pipeline (45 Agents)](#phd-research-pipeline-45-agents)
 - [Coding Pipeline (47 Agents)](#coding-pipeline-47-agents)
 - [Observability Dashboard](#observability-dashboard)
+- [Memory Visualization Tool](#memory-visualization-tool)
 - [Learning System](#learning-system)
 - [Quick Start](#quick-start)
 - [Available Commands](#available-commands)
@@ -649,6 +650,65 @@ The dashboard uses:
 │  Injections: 89 │  Warnings: 0    │  Uptime: 2h 15m         │
 └─────────────────┴─────────────────┴─────────────────────────┘
 ```
+
+## Memory Visualization Tool
+
+An interactive React-based visualization tool for exploring God Agent memory structures, learning trajectories, patterns, and feedback data.
+
+### Quick Start
+
+```bash
+cd god-agent-memory-viz
+npm install
+npm run dev
+# Open http://localhost:5173
+```
+
+### Features
+
+- **Interactive Graph Visualization**: Explore memory structures using Cytoscape.js with 8 layout algorithms (force, grid, circle, concentric, breadthfirst, dagre, cose, cola)
+- **Dashboard View**: Metrics cards, timeline charts, and activity feeds
+- **Advanced Filtering**: Filter by node types, edge types, time ranges, sessions, and agents
+- **Full-text Search**: Regex support across all graph data
+- **Export**: PNG, SVG, JSON, CSV formats
+- **Keyboard Shortcuts**: Full keyboard navigation (Cmd+F search, +/- zoom, F fit, H help)
+- **Dark Mode**: Light/dark/system theme support
+
+### Loading Data
+
+1. **Drag & Drop**: Drag a `.db` or `.sqlite` file onto the application
+2. **File Picker**: Click "Load Database" in the header
+
+The tool reads SQLite databases with God Agent memory structures:
+- `events` table - Learning events and trajectories
+- `memory_entries` table - Memory patterns and episodes
+- `feedback` table - User feedback data
+
+### Node Types
+
+| Type | Color | Description |
+|------|-------|-------------|
+| Trajectory | Blue | Learning trajectories with verdict/quality |
+| Pattern | Green | Learned patterns with success rates |
+| Episode | Purple | Memory episodes with context |
+| Feedback | Amber | User feedback with ratings |
+| Reasoning Step | Pink | Individual reasoning steps |
+| Checkpoint | Indigo | State checkpoints |
+
+### Building for Production
+
+```bash
+cd god-agent-memory-viz
+npm run build
+npm run preview  # Preview production build
+```
+
+### Tech Stack
+
+- React 18 + TypeScript + Vite 5
+- Zustand (state management)
+- Cytoscape.js (graph visualization)
+- SQL.js (SQLite in browser)
 
 ## Learning System
 
