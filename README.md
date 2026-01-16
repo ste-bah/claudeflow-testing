@@ -653,62 +653,79 @@ The dashboard uses:
 
 ## Memory Visualization Tool
 
-An interactive React-based visualization tool for exploring God Agent memory structures, learning trajectories, patterns, and feedback data.
+An interactive graph visualization tool for exploring God Agent memory structures, showing relationships between agents, task types, patterns, trajectories, events, token usage, feedback, and sessions.
 
 ### Quick Start
 
 ```bash
-cd god-agent-memory-viz
-npm install
-npm run dev
-# Open http://localhost:5173
+# Terminal 1: Start the API server
+cd src/god-agent-viz
+npx tsx server.ts
+# Server runs on http://localhost:3456
+
+# Terminal 2: Open the visualization
+open src/god-agent-viz/index.html
+```
+
+Or use the start script:
+```bash
+cd src/god-agent-viz
+./start.sh
 ```
 
 ### Features
 
-- **Interactive Graph Visualization**: Explore memory structures using Cytoscape.js with 8 layout algorithms (force, grid, circle, concentric, breadthfirst, dagre, cose, cola)
-- **Dashboard View**: Metrics cards, timeline charts, and activity feeds
-- **Advanced Filtering**: Filter by node types, edge types, time ranges, sessions, and agents
-- **Full-text Search**: Regex support across all graph data
-- **Export**: PNG, SVG, JSON, CSV formats
-- **Keyboard Shortcuts**: Full keyboard navigation (Cmd+F search, +/- zoom, F fit, H help)
-- **Dark Mode**: Light/dark/system theme support
+- **Interactive Graph Visualization**: Cytoscape.js with force-directed layout showing all memory relationships
+- **8 Node Types**: Agents, Task Types, Patterns, Trajectories, Events, Token Usage, Feedback, Sessions
+- **Advanced Filtering**: Filter by node type, task type, status, date range, and limits
+- **Real-time Stats**: Live counts of nodes and edges with filter indicators
+- **Click-to-Explore**: Select nodes to see full details and connections in sidebar
+- **Legend with Counts**: Color-coded legend showing node type distribution
 
-### Loading Data
+### API Endpoints
 
-1. **Drag & Drop**: Drag a `.db` or `.sqlite` file onto the application
-2. **File Picker**: Click "Load Database" in the header
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/graph` | Full graph data with filtering support |
+| `GET /api/filters` | Available filter options |
+| `GET /api/stats` | Node and edge statistics |
+| `GET /api/events` | Event data with pagination |
+| `GET /api/token-usage` | Token consumption metrics |
+| `GET /api/feedback` | User feedback data |
+| `GET /api/health` | Server health check |
 
-The tool reads SQLite databases with God Agent memory structures:
-- `events` table - Learning events and trajectories
-- `memory_entries` table - Memory patterns and episodes
-- `feedback` table - User feedback data
+### Query Parameters
 
-### Node Types
+```
+?includeTrajectories=all|recent|none
+&includeEvents=true|false
+&includeTokenUsage=true|false
+&includeFeedback=true|false
+&taskType=<type>
+&status=<status>
+&dateFrom=YYYY-MM-DD
+&dateTo=YYYY-MM-DD
+&limit=<number>
+```
+
+### Node Types & Colors
 
 | Type | Color | Description |
 |------|-------|-------------|
-| Trajectory | Blue | Learning trajectories with verdict/quality |
-| Pattern | Green | Learned patterns with success rates |
-| Episode | Purple | Memory episodes with context |
-| Feedback | Amber | User feedback with ratings |
-| Reasoning Step | Pink | Individual reasoning steps |
-| Checkpoint | Indigo | State checkpoints |
-
-### Building for Production
-
-```bash
-cd god-agent-memory-viz
-npm run build
-npm run preview  # Preview production build
-```
+| Agent | Blue (#3b82f6) | AI agent identifiers |
+| Task Type | Green (#10b981) | Types of tasks (code, research, ask, write) |
+| Pattern | Purple (#8b5cf6) | Learned patterns with success rates |
+| Trajectory | Amber (#f59e0b) | Learning trajectories with outcomes |
+| Event | Red (#ef4444) | System events and interactions |
+| Token Usage | Cyan (#06b6d4) | Token consumption records |
+| Feedback | Pink (#ec4899) | User feedback with ratings |
+| Session | Yellow (#eab308) | Session identifiers |
 
 ### Tech Stack
 
-- React 18 + TypeScript + Vite 5
-- Zustand (state management)
-- Cytoscape.js (graph visualization)
-- SQL.js (SQLite in browser)
+- **Backend**: Express.js + TypeScript + better-sqlite3
+- **Frontend**: React 18 (CDN) + Cytoscape.js (CDN) + Babel
+- **Database**: SQLite (`.god-agent/*.db` files)
 
 ## Learning System
 

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>God Agent Memory Visualization</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; }
+#root { width: 100vw; height: 100vh; }
+.app-container { display: flex; height: 100vh; width: 100vw; }
+.graph-container { flex: 1; position: relative; background: #1e293b; }
+#cy { width: 100%; height: 100%; }
+.filter-panel { position: absolute; top: 70px; left: 20px; right: 340px; background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; border-radius: 8px; z-index: 20; backdrop-filter: blur(8px); }
+.filter-panel.collapsed { right: auto; width: auto; }
+.filter-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #334155; }
+.filter-panel.collapsed .filter-header { border-bottom: none; }
+.filter-title { font-weight: 600; font-size: 0.9rem; color: #f1f5f9; }
+.filter-toggle { font-size: 1.2rem; color: #64748b; font-weight: bold; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+.filter-content { padding: 12px 16px; }
+.filter-row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+.filter-row:last-child { margin-bottom: 0; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+.filter-group label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 500; }
+.filter-group select, .filter-group input[type="date"], .filter-group input[type="number"] { padding: 6px 10px; background: #1e293b; border: 1px solid #475569; border-radius: 4px; color: #e2e8f0; font-size: 0.85rem; min-width: 140px; }
+.filter-group select:focus, .filter-group input:focus { outline: none; border-color: #3b82f6; }
+.filter-group input[type="number"] { width: 80px; min-width: 80px; }
+.filter-group.checkbox-group { flex-direction: row; gap: 16px; align-items: center; flex-wrap: wrap; }
+.filter-group.checkbox-group label { display: flex; align-items: center; gap: 6px; text-transform: none; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
+.filter-group.checkbox-group input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #3b82f6; }
+.filter-group.filter-actions { justify-content: flex-end; margin-left: auto; }
+.filter-counts { display: flex; gap: 16px; padding-top: 8px; border-top: 1px solid #334155; margin-top: 8px; font-size: 0.75rem; color: #64748b; flex-wrap: wrap; }
+.header { position: absolute; top: 0; left: 0; right: 0; padding: 16px 24px; background: linear-gradient(to bottom, rgba(15, 23, 42, 0.95), transparent); z-index: 10; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 1.5rem; font-weight: 600; color: #f1f5f9; }
+.header-stats { display: flex; gap: 24px; }
+.stat-item { text-align: center; }
+.stat-value { font-size: 1.25rem; font-weight: 700; color: #60a5fa; }
+.stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; }
+.controls { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 8px; z-index: 10; }
+.btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500; transition: all 0.2s; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary { background: #3b82f6; color: white; }
+.btn-primary:hover:not(:disabled) { background: #2563eb; }
+.btn-secondary { background: #334155; color: #e2e8f0; }
+.btn-secondary:hover:not(:disabled) { background: #475569; }
+.legend { position: absolute; bottom: 20px; right: 340px; background: rgba(30, 41, 59, 0.95); border: 1px solid #334155; border-radius: 8px; padding: 12px 16px; z-index: 10; max-width: 500px; }
+.legend-title { font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; }
+.legend-items { display: flex; gap: 12px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+.legend-count { color: #64748b; font-size: 0.7rem; }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.legend-dot.agent { background: #3b82f6; }
+.legend-dot.task_type { background: #10b981; }
+.legend-dot.pattern { background: #8b5cf6; }
+.legend-dot.trajectory { background: #f59e0b; }
+.legend-dot.event { background: #ef4444; }
+.legend-dot.token_usage { background: #06b6d4; }
+.legend-dot.feedback { background: #ec4899; }
+.legend-dot.session { background: #eab308; }
+.sidebar { width: 320px; background: #1e293b; border-left: 1px solid #334155; overflow-y: auto; display: flex; flex-direction: column; }
+.sidebar-header { padding: 20px; border-bottom: 1px solid #334155; background: #0f172a; }
+.sidebar-header h2 { font-size: 1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+.sidebar-header p { font-size: 0.8rem; color: #64748b; }
+.sidebar-content { flex: 1; padding: 20px; overflow-y: auto; }
+.node-details { background: #0f172a; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.node-type-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+.node-type-badge.agent { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.node-type-badge.task_type { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.node-type-badge.pattern { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+.node-type-badge.trajectory { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.node-type-badge.event { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.node-type-badge.token_usage { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
+.node-type-badge.feedback { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
+.node-type-badge.session { background: rgba(234, 179, 8, 0.2); color: #facc15; }
+.node-label { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 12px; word-break: break-all; }
+.metadata-section { margin-top: 12px; }
+.metadata-title { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px; }
+.metadata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.metadata-item { background: rgba(51, 65, 85, 0.5); padding: 8px 10px; border-radius: 6px; }
+.metadata-item.full-width { grid-column: 1 / -1; }
+.metadata-key { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+.metadata-value { font-size: 0.9rem; color: #e2e8f0; font-weight: 500; word-break: break-all; }
+.metadata-more { margin-top: 8px; font-size: 0.75rem; color: #64748b; font-style: italic; }
+.connections-section { margin-top: 20px; max-height: 300px; overflow-y: auto; }
+.connection-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #334155; }
+.connection-item:last-child { border-bottom: none; }
+.connection-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.connection-dot.agent { background: #3b82f6; }
+.connection-dot.task_type { background: #10b981; }
+.connection-dot.pattern { background: #8b5cf6; }
+.connection-dot.trajectory { background: #f59e0b; }
+.connection-dot.event { background: #ef4444; }
+.connection-dot.token_usage { background: #06b6d4; }
+.connection-dot.feedback { background: #ec4899; }
+.connection-dot.session { background: #eab308; }
+.connection-label { font-size: 0.85rem; color: #cbd5e1; flex: 1; word-break: break-all; min-width: 0; }
+.connection-type { font-size: 0.7rem; color: #64748b; background: #334155; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.connections-more { margin-top: 8px; font-size: 0.75rem; color: #64748b; font-style: italic; text-align: center; }
+.empty-state { text-align: center; padding: 40px 20px; color: #64748b; }
+.empty-state-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
+.empty-state h3 { font-size: 1rem; color: #94a3b8; margin-bottom: 8px; }
+.empty-state p { font-size: 0.85rem; }
+.loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #64748b; }
+.spinner { width: 40px; height: 40px; border: 3px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+.loading-overlay p { color: #94a3b8; font-size: 0.9rem; margin-top: 8px; }
+.error-state { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 20px; margin: 20px; text-align: center; }
+.error-state h3 { color: #f87171; margin-bottom: 8px; }
+.error-state p { color: #fca5a5; font-size: 0.875rem; }
+@media (max-width: 1200px) { .filter-panel { right: 20px; } .legend { right: 20px; bottom: 70px; } }
+@media (max-width: 900px) { .sidebar { width: 280px; } .filter-row { flex-direction: column; gap: 12px; } .filter-group.filter-actions { margin-left: 0; } }
+@media (max-width: 768px) { .app-container { flex-direction: column; } .sidebar { width: 100%; max-height: 40vh; border-left: none; border-top: 1px solid #334155; } .filter-panel { right: 20px; left: 20px; } .legend { right: 20px; left: 20px; } }
+  </style>
+</head>
+<body>
+  <div id="root"><div class="loading"><div class="spinner"></div><p>Loading visualization...</p></div></div>
+  <script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+const API_BASE = 'http://localhost:3456';
+const NODE_COLORS = { agent: '#3b82f6', task_type: '#10b981', pattern: '#8b5cf6', trajectory: '#f59e0b', event: '#ef4444', token_usage: '#06b6d4', feedback: '#ec4899', session: '#eab308' };
+const NODE_SIZES = { agent: 45, task_type: 35, pattern: 28, trajectory: 22, event: 20, token_usage: 18, feedback: 20, session: 30 };
+const NODE_LABELS = { agent: 'Agent', task_type: 'Task Type', pattern: 'Pattern', trajectory: 'Trajectory', event: 'Event', token_usage: 'Token Usage', feedback: 'Feedback', session: 'Session' };
+
+const cytoscapeStyles = [
+  { selector: 'node', style: { 'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center', 'color': '#e2e8f0', 'font-size': '10px', 'text-wrap': 'ellipsis', 'text-max-width': '80px', 'background-opacity': 0.9, 'border-width': 2, 'border-opacity': 0.8 }},
+  { selector: 'node[type="agent"]', style: { 'background-color': NODE_COLORS.agent, 'border-color': '#60a5fa', 'width': NODE_SIZES.agent, 'height': NODE_SIZES.agent, 'font-weight': 600 }},
+  { selector: 'node[type="task_type"]', style: { 'background-color': NODE_COLORS.task_type, 'border-color': '#34d399', 'width': NODE_SIZES.task_type, 'height': NODE_SIZES.task_type }},
+  { selector: 'node[type="pattern"]', style: { 'background-color': NODE_COLORS.pattern, 'border-color': '#a78bfa', 'width': NODE_SIZES.pattern, 'height': NODE_SIZES.pattern, 'font-size': '8px' }},
+  { selector: 'node[type="trajectory"]', style: { 'background-color': NODE_COLORS.trajectory, 'border-color': '#fbbf24', 'width': NODE_SIZES.trajectory, 'height': NODE_SIZES.trajectory, 'font-size': '7px' }},
+  { selector: 'node[type="event"]', style: { 'background-color': NODE_COLORS.event, 'border-color': '#f87171', 'width': NODE_SIZES.event, 'height': NODE_SIZES.event, 'font-size': '7px' }},
+  { selector: 'node[type="token_usage"]', style: { 'background-color': NODE_COLORS.token_usage, 'border-color': '#22d3ee', 'width': NODE_SIZES.token_usage, 'height': NODE_SIZES.token_usage, 'font-size': '6px' }},
+  { selector: 'node[type="feedback"]', style: { 'background-color': NODE_COLORS.feedback, 'border-color': '#f472b6', 'width': NODE_SIZES.feedback, 'height': NODE_SIZES.feedback, 'font-size': '7px' }},
+  { selector: 'node[type="session"]', style: { 'background-color': NODE_COLORS.session, 'border-color': '#facc15', 'width': NODE_SIZES.session, 'height': NODE_SIZES.session, 'font-size': '8px' }},
+  { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#ffffff', 'background-opacity': 1 }},
+  { selector: 'edge', style: { 'width': 'data(weight)', 'line-color': '#475569', 'target-arrow-color': '#475569', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'opacity': 0.6 }},
+  { selector: 'edge[type="performs"]', style: { 'line-color': '#3b82f6', 'target-arrow-color': '#3b82f6' }},
+  { selector: 'edge[type="matches"]', style: { 'line-color': '#8b5cf6', 'target-arrow-color': '#8b5cf6' }},
+  { selector: 'edge[type="belongs_to"]', style: { 'line-color': '#f59e0b', 'target-arrow-color': '#f59e0b' }},
+  { selector: 'edge[type="has_feedback"]', style: { 'line-color': '#ec4899', 'target-arrow-color': '#ec4899' }},
+];
+
+function FilterPanel({ filters, filterOptions, onFilterChange, onApply, isLoading }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  return (
+    <div className={`filter-panel ${isCollapsed ? 'collapsed' : ''}`}>
+      <div className="filter-header" onClick={() => setIsCollapsed(!isCollapsed)}>
+        <span className="filter-title">Filters</span>
+        <span className="filter-toggle">{isCollapsed ? '+' : '-'}</span>
+      </div>
+      {!isCollapsed && (
+        <div className="filter-content">
+          <div className="filter-row">
+            <div className="filter-group">
+              <label>Trajectories</label>
+              <select value={filters.includeTrajectories} onChange={(e) => onFilterChange('includeTrajectories', e.target.value)}>
+                <option value="all">All</option>
+                <option value="top50">Top 50</option>
+                <option value="top100">Top 100</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div className="filter-group checkbox-group">
+              <label><input type="checkbox" checked={filters.includeEvents} onChange={(e) => onFilterChange('includeEvents', e.target.checked)} /> Events</label>
+              <label><input type="checkbox" checked={filters.includeTokenUsage} onChange={(e) => onFilterChange('includeTokenUsage', e.target.checked)} /> Token Usage</label>
+              <label><input type="checkbox" checked={filters.includeFeedback} onChange={(e) => onFilterChange('includeFeedback', e.target.checked)} /> Feedback</label>
+            </div>
+          </div>
+          <div className="filter-row">
+            <div className="filter-group">
+              <label>Task Type</label>
+              <select value={filters.taskType} onChange={(e) => onFilterChange('taskType', e.target.value)}>
+                <option value="">All Types</option>
+                {filterOptions.taskTypes?.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </div>
+            <div className="filter-group">
+              <label>Status</label>
+              <select value={filters.status} onChange={(e) => onFilterChange('status', e.target.value)}>
+                <option value="">All</option>
+                {filterOptions.statuses?.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="filter-group filter-actions">
+              <button className="btn btn-primary" onClick={onApply} disabled={isLoading}>{isLoading ? 'Loading...' : 'Apply Filters'}</button>
+            </div>
+          </div>
+          {filterOptions.counts && (
+            <div className="filter-counts">
+              <span>{filterOptions.counts.trajectories || 0} trajectories</span>
+              <span>{filterOptions.counts.events || 0} events</span>
+              <span>{filterOptions.counts.feedback || 0} feedback</span>
+              <span>{filterOptions.counts.tokenUsage || 0} tokens</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NodeDetails({ node, connections }) {
+  if (!node) return <div className="empty-state"><div className="empty-state-icon">&#128269;</div><h3>No Node Selected</h3><p>Click on a node to view details.</p></div>;
+  const { type, label, metadata } = node;
+  const metadataEntries = Object.entries(metadata || {}).filter(([key]) => !['id', 'type', 'label'].includes(key));
+  return (
+    <div className="node-details">
+      <span className={`node-type-badge ${type}`}>{type.replace('_', ' ')}</span>
+      <div className="node-label">{label}</div>
+      {metadataEntries.length > 0 && (
+        <div className="metadata-section">
+          <div className="metadata-title">Metadata</div>
+          <div className="metadata-grid">
+            {metadataEntries.slice(0, 12).map(([key, value]) => (
+              <div key={key} className="metadata-item">
+                <div className="metadata-key">{key}</div>
+                <div className="metadata-value">{typeof value === 'number' ? value.toLocaleString() : String(value)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {connections?.length > 0 && (
+        <div className="connections-section">
+          <div className="metadata-title">Connections ({connections.length})</div>
+          {connections.slice(0, 30).map((conn, idx) => (
+            <div key={idx} className="connection-item">
+              <span className={`connection-dot ${conn.nodeType}`}></span>
+              <span className="connection-label">{conn.label}</span>
+              <span className="connection-type">{conn.edgeType}</span>
+            </div>
+          ))}
+          {connections.length > 30 && <div className="connections-more">+{connections.length - 30} more</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Legend({ nodeCounts }) {
+  return (
+    <div className="legend">
+      <div className="legend-title">Node Types</div>
+      <div className="legend-items">
+        {Object.keys(NODE_COLORS).map(type => {
+          const count = nodeCounts[type] || 0;
+          if (count === 0 && !['agent', 'task_type', 'pattern', 'trajectory'].includes(type)) return null;
+          return <div key={type} className="legend-item"><span className={`legend-dot ${type}`}></span><span>{NODE_LABELS[type]}</span><span className="legend-count">({count})</span></div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const cyRef = useRef(null);
+  const containerRef = useRef(null);
+  const [graphData, setGraphData] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [filterOptions, setFilterOptions] = useState({});
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [connections, setConnections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({ includeTrajectories: 'top100', includeEvents: false, includeTokenUsage: false, includeFeedback: false, taskType: '', status: '', limit: 500 });
+
+  const nodeCounts = useMemo(() => {
+    if (!graphData?.nodes) return {};
+    const counts = {};
+    graphData.nodes.forEach(node => { counts[node.type] = (counts[node.type] || 0) + 1; });
+    return counts;
+  }, [graphData]);
+
+  const buildQueryString = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set('includeTrajectories', filters.includeTrajectories);
+    params.set('includeEvents', filters.includeEvents.toString());
+    params.set('includeTokenUsage', filters.includeTokenUsage.toString());
+    params.set('includeFeedback', filters.includeFeedback.toString());
+    if (filters.taskType) params.set('taskType', filters.taskType);
+    if (filters.status) params.set('status', filters.status);
+    if (filters.limit) params.set('limit', filters.limit.toString());
+    return params.toString();
+  }, [filters]);
+
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/filters`);
+      if (res.ok) setFilterOptions(await res.json());
+    } catch (err) { console.warn('Could not fetch filters:', err); }
+  }, []);
+
+  const fetchData = useCallback(async (showOverlay = false) => {
+    if (showOverlay) setGraphLoading(true); else setLoading(true);
+    setError(null);
+    try {
+      const queryString = buildQueryString();
+      const [graphRes, statsRes] = await Promise.all([fetch(`${API_BASE}/api/graph?${queryString}`), fetch(`${API_BASE}/api/stats`)]);
+      if (!graphRes.ok) throw new Error(`API error: ${graphRes.status}`);
+      const [graphJson, statsJson] = await Promise.all([graphRes.json(), statsRes.json()]);
+      setGraphData(graphJson);
+      setStats(statsJson);
+    } catch (err) {
+      console.error('Failed to fetch:', err);
+      setError(err.message);
+    } finally { setLoading(false); setGraphLoading(false); }
+  }, [buildQueryString]);
+
+  useEffect(() => { fetchFilterOptions(); fetchData(); }, []);
+
+  const getLayoutSettings = useCallback((nodeCount) => ({
+    name: 'cose', animate: nodeCount < 300, animationDuration: 800, fit: true, padding: 40,
+    nodeRepulsion: nodeCount > 300 ? 4000 : 8000, idealEdgeLength: nodeCount > 300 ? 50 : 100,
+    numIter: nodeCount > 300 ? 300 : 800, gravity: 80
+  }), []);
+
+  useEffect(() => {
+    if (!graphData || !containerRef.current) return;
+    if (cyRef.current) cyRef.current.destroy();
+    const elements = [
+      ...graphData.nodes.map(node => ({ data: { id: node.id, label: node.label.length > 20 ? node.label.substring(0, 17) + '...' : node.label, fullLabel: node.label, type: node.type, ...node.metadata }})),
+      ...graphData.edges.map((edge, idx) => ({ data: { id: `edge-${idx}`, source: edge.source, target: edge.target, type: edge.type, weight: Math.max(1, Math.min(4, Math.log10((edge.weight || 1) + 1) * 2)) }}))
+    ];
+    cyRef.current = cytoscape({ container: containerRef.current, elements, style: cytoscapeStyles, layout: getLayoutSettings(graphData.nodes.length), minZoom: 0.05, maxZoom: 3, wheelSensitivity: 0.3 });
+    cyRef.current.on('tap', 'node', (evt) => {
+      const node = evt.target;
+      const nodeData = { id: node.data('id'), type: node.data('type'), label: node.data('fullLabel') || node.data('label'), metadata: { ...node.data() }};
+      delete nodeData.metadata.id; delete nodeData.metadata.label; delete nodeData.metadata.fullLabel; delete nodeData.metadata.type;
+      setSelectedNode(nodeData);
+      const connectedEdges = node.connectedEdges();
+      const connectedNodes = connectedEdges.connectedNodes().filter(n => n.id() !== node.id());
+      setConnections(connectedNodes.map(n => {
+        const edge = connectedEdges.filter(e => e.source().id() === n.id() || e.target().id() === n.id()).first();
+        return { nodeId: n.data('id'), nodeType: n.data('type'), label: n.data('fullLabel') || n.data('label'), edgeType: edge ? edge.data('type') : 'unknown' };
+      }));
+    });
+    cyRef.current.on('tap', (evt) => { if (evt.target === cyRef.current) { setSelectedNode(null); setConnections([]); }});
+    return () => { if (cyRef.current) cyRef.current.destroy(); };
+  }, [graphData, getLayoutSettings]);
+
+  if (loading) return <div className="app-container"><div className="graph-container"><div className="loading"><div className="spinner"></div><p>Loading graph data...</p></div></div></div>;
+  if (error) return <div className="app-container"><div className="graph-container"><div className="error-state"><h3>Failed to Load</h3><p>{error}</p><p>Make sure server is running at {API_BASE}</p><button className="btn btn-primary" onClick={() => fetchData()}>Retry</button></div></div></div>;
+
+  return (
+    <div className="app-container">
+      <div className="graph-container">
+        <FilterPanel filters={filters} filterOptions={filterOptions} onFilterChange={(k, v) => setFilters(prev => ({ ...prev, [k]: v }))} onApply={() => fetchData(true)} isLoading={graphLoading} />
+        <div className="header">
+          <h1>God Agent Memory Graph</h1>
+          {stats && <div className="header-stats">
+            <div className="stat-item"><div className="stat-value">{graphData?.nodes?.length || 0}</div><div className="stat-label">Nodes</div></div>
+            <div className="stat-item"><div className="stat-value">{graphData?.edges?.length || 0}</div><div className="stat-label">Edges</div></div>
+            <div className="stat-item"><div className="stat-value">{stats.patterns?.total || 0}</div><div className="stat-label">Patterns</div></div>
+          </div>}
+        </div>
+        <div id="cy" ref={containerRef}></div>
+        {graphLoading && <div className="loading-overlay"><div className="spinner"></div><p>Applying filters...</p></div>}
+        <div className="controls">
+          <button className="btn btn-primary" onClick={() => cyRef.current?.fit(50)}>Fit View</button>
+          <button className="btn btn-secondary" onClick={() => cyRef.current?.layout(getLayoutSettings(graphData?.nodes?.length || 0)).run()}>Re-Layout</button>
+          <button className="btn btn-secondary" onClick={() => fetchData(true)}>Refresh</button>
+        </div>
+        <Legend nodeCounts={nodeCounts} />
+      </div>
+      <div className="sidebar">
+        <div className="sidebar-header"><h2>Node Details</h2><p>Click a node to view properties</p></div>
+        <div className="sidebar-content"><NodeDetails node={selectedNode} connections={connections} /></div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+  </script>
+</body>
+</html>
