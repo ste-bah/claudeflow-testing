@@ -49,6 +49,12 @@ import { useGraphStore } from './stores/graphStore';
 import { useDatabaseStore, selectIsConnected } from './stores/databaseStore';
 import { useFilterStore, selectHasActiveFilters } from './stores/filterStore';
 
+// Database services and transformers
+import { DatabaseService } from './services/database/DatabaseService';
+import { getEvents } from './services/database/queries/eventQueries';
+import { getMemoryEntries } from './services/database/queries/memoryQueries';
+import { transformToGraphData } from './services/database/transformers';
+
 // Note: Using ExtendedLayoutType from LayoutSelector for compatibility
 
 // ============================================================================
@@ -431,6 +437,8 @@ export function App(): JSX.Element {
   const connection = useDatabaseStore((state) => state.connection);
   const setConnectionInfo = useDatabaseStore((state) => state.setConnectionInfo);
   const setLoading = useDatabaseStore((state) => state.setLoading);
+  const setEvents = useDatabaseStore((state) => state.setEvents);
+  const setMemoryEntries = useDatabaseStore((state) => state.setMemoryEntries);
 
   const hasActiveFilters = useFilterStore(selectHasActiveFilters);
   const resetAllFilters = useFilterStore((state) => state.resetAllFilters);
@@ -440,6 +448,7 @@ export function App(): JSX.Element {
   const clearSelection = useGraphStore((state) => state.clearSelection);
   const selectAll = useGraphStore((state) => state.selectAll);
   const setFocusedNode = useGraphStore((state) => state.setFocusedNode);
+  const setGraphData = useGraphStore((state) => state.setGraphData);
   const zoomIn = useGraphStore((state) => state.zoomIn);
   const zoomOut = useGraphStore((state) => state.zoomOut);
   const viewport = useGraphStore((state) => state.viewport);
@@ -609,6 +618,8 @@ export function App(): JSX.Element {
 
   /**
    * Handle file drop for database loading
+   * Loads SQLite database via sql.js, fetches events and memory entries,
+   * transforms to graph data, and updates stores.
    */
   const handleFileSelect = useCallback(
     async (file: File) => {
@@ -616,28 +627,63 @@ export function App(): JSX.Element {
       setLoading(true);
 
       try {
-        // WARNING: Database loading is currently a PLACEHOLDER implementation.
-        // TODO: Implement actual SQLite file loading using DatabaseService.
-        // The current implementation only simulates loading without actually
-        // parsing or loading the database contents.
-        console.warn(
-          '[App] Database loading is a placeholder - actual SQLite parsing not yet implemented'
-        );
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // Initialize and load the database using DatabaseService
+        const db = DatabaseService.getInstance();
+        await db.initialize();
 
-        setConnectionInfo({
-          state: 'connected',
-          fileName: file.name,
-          fileSize: file.size,
-          loadedAt: new Date(),
-          error: null,
+        console.log('[App] Loading database file:', file.name, 'Size:', file.size);
+
+        const validation = await db.loadFromFile(file);
+
+        if (!validation.isValid) {
+          throw new Error(validation.error || 'Invalid database schema');
+        }
+
+        console.log('[App] Database loaded successfully. Tables:', validation.foundTables);
+
+        // Fetch events and memory entries from the database
+        const events = getEvents({}, { limit: 10000 });
+        const memoryEntries = getMemoryEntries({}, { limit: 10000 });
+
+        console.log('[App] Fetched', events.length, 'events and', memoryEntries.length, 'memory entries');
+
+        // Update database store with loaded data
+        setEvents(events);
+        setMemoryEntries(memoryEntries);
+
+        // Transform to graph data
+        const graphData = transformToGraphData(events, memoryEntries, {
+          includeTemporalEdges: true,
+          sessionScopedTemporal: true,
+          includeSessionNodes: true,
+          includeAgentNodes: true,
+          includeNamespaceNodes: true,
+          includeNamespaceMembership: true,
+          includeKeyReferences: true,
+          includeSimilarityEdges: false,
         });
 
-        toast.success(`Database loaded: ${file.name} (placeholder - actual loading not implemented)`);
+        console.log('[App] Transformed to', graphData.nodes.length, 'nodes and', graphData.edges.length, 'edges');
+
+        // Update graph store with transformed data
+        setGraphData(graphData);
+
+        // Update connection info
+        const connectionInfo = db.getConnectionInfo();
+        setConnectionInfo({
+          state: connectionInfo.state,
+          fileName: connectionInfo.fileName,
+          fileSize: connectionInfo.fileSize,
+          loadedAt: connectionInfo.loadedAt,
+          error: connectionInfo.error,
+        });
+
+        toast.success(`Database loaded: ${file.name} (${events.length} events, ${memoryEntries.length} memory entries)`);
         setIsLoadDatabaseModalOpen(false);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Failed to load database';
+        console.error('[App] Database loading error:', error);
         setConnectionInfo({
           state: 'error',
           error: errorMessage,
@@ -648,7 +694,7 @@ export function App(): JSX.Element {
         setLoading(false);
       }
     },
-    [setConnectionInfo, setLoading]
+    [setConnectionInfo, setLoading, setEvents, setMemoryEntries, setGraphData]
   );
 
   /**
