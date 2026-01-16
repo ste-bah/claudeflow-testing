@@ -55,6 +55,9 @@ import { getEvents } from './services/database/queries/eventQueries';
 import { getMemoryEntries } from './services/database/queries/memoryQueries';
 import { transformToGraphData } from './services/database/transformers';
 
+// API service for backend connection
+import { apiService, type ApiEvent } from './services/api/ApiService';
+
 // Note: Using ExtendedLayoutType from LayoutSelector for compatibility
 
 // ============================================================================
@@ -62,6 +65,48 @@ import { transformToGraphData } from './services/database/transformers';
 // ============================================================================
 
 const PAN_STEP = 50;
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Maps backend component/operation to frontend event type
+ * @param component - Event component (e.g., 'pipeline', 'memory')
+ * @param operation - Event operation (e.g., 'step_started', 'memory_stored')
+ * @returns Mapped event type
+ */
+function mapComponentToEventType(component: string, operation: string): import('@/types/database').EventType {
+  const key = `${component}:${operation}`;
+  const mapping: Record<string, string> = {
+    // Pipeline events
+    'pipeline:pipeline_started': 'session_start',
+    'pipeline:pipeline_completed': 'session_end',
+    'pipeline:step_started': 'task_start',
+    'pipeline:step_completed': 'task_complete',
+    'pipeline:step_failed': 'task_error',
+    // Memory events
+    'memory:memory_stored': 'memory_store',
+    'memory:memory_retrieved': 'memory_retrieve',
+    'memory:memory_deleted': 'memory_delete',
+    // Agent events
+    'agent:agent_started': 'agent_spawn',
+    'agent:agent_completed': 'agent_terminate',
+    'agent:agent_failed': 'task_error',
+    // Learning/SONA events
+    'learning:learning_feedback': 'learning_update',
+    'learning:trajectory_stored': 'trajectory_end',
+    'sona:sona_trajectory_created': 'trajectory_start',
+    'sona:sona_feedback_processed': 'learning_update',
+    // Routing events
+    'routing:agent_selected': 'pattern_match',
+    // Reasoning events
+    'reasoning:reasoning_pattern_matched': 'pattern_match',
+    'reasoning:reasoning_trajectory_stored': 'trajectory_end',
+  };
+
+  return (mapping[key] ?? 'custom') as import('@/types/database').EventType;
+}
 
 // ============================================================================
 // Sub-components
@@ -735,6 +780,94 @@ export function App(): JSX.Element {
 
     root.setAttribute('data-theme', theme);
   }, [theme]);
+
+  /**
+   * Auto-connect to backend server on mount
+   * Attempts to connect to the Express observability server and load data.
+   * Falls back to file picker if server is unavailable.
+   */
+  useEffect(() => {
+    const autoConnect = async () => {
+      try {
+        setConnectionInfo({ state: 'initializing' });
+
+        // Check if backend server is available
+        const isHealthy = await apiService.health();
+        if (!isHealthy) {
+          console.log('[App] Backend server not available, falling back to file picker');
+          setConnectionInfo({ state: 'ready' });
+          return;
+        }
+
+        console.log('[App] Backend server detected at', apiService.getBaseUrl());
+        setConnectionInfo({
+          state: 'connecting',
+          fileName: 'API Connection',
+        });
+        setLoading(true);
+
+        // Fetch all data from backend in parallel
+        const [apiEvents, agents, pipelines] = await Promise.all([
+          apiService.getEvents(10000),
+          apiService.getAgents(),
+          apiService.getPipelines(),
+        ]);
+
+        console.log(
+          `[App] Loaded from API: ${apiEvents.length} events, ${agents.length} agents, ${pipelines.length} pipelines`
+        );
+
+        // Transform API events to GodAgentEvent format
+        const transformedEvents = apiEvents.map((e: ApiEvent) => ({
+          id: e.id,
+          eventType: mapComponentToEventType(e.component, e.operation),
+          timestamp: new Date(e.timestamp),
+          sessionId: (e.metadata?.sessionId as string) ?? (e.metadata?.pipelineId as string) ?? null,
+          agentId: (e.metadata?.agentId as string) ?? (e.metadata?.stepName as string) ?? null,
+          data: e.metadata ?? {},
+          createdAt: new Date(e.created_at ?? e.timestamp),
+        }));
+
+        // Update database store with events
+        setEvents(transformedEvents);
+
+        // Transform to graph data
+        const graphData = transformToGraphData(transformedEvents, [], {
+          includeTemporalEdges: true,
+          sessionScopedTemporal: true,
+          includeSessionNodes: true,
+          includeAgentNodes: true,
+        });
+
+        console.log(
+          `[App] Transformed to ${graphData.nodes.length} nodes and ${graphData.edges.length} edges`
+        );
+
+        // Update graph store
+        setGraphData(graphData);
+
+        // Update connection info to connected
+        setConnectionInfo({
+          state: 'connected',
+          fileName: `API: ${apiService.getBaseUrl()}`,
+          loadedAt: new Date(),
+        });
+
+        toast.success(
+          `Connected to server: ${transformedEvents.length} events loaded`
+        );
+      } catch (error) {
+        console.error('[App] Auto-connect failed:', error);
+        setConnectionInfo({ state: 'ready' });
+        // Silent fallback - user can still use file picker
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    autoConnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
 
   // ========================================================================
   // Render
