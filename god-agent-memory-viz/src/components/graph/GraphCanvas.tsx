@@ -15,6 +15,7 @@ import {
   forwardRef,
   useImperativeHandle,
   memo,
+  useMemo,
 } from 'react';
 import {
   cytoscapeManager,
@@ -24,7 +25,7 @@ import {
   type SelectionEventPayload,
 } from '@/services/graph/CytoscapeManager';
 import { getDefaultStylesheet, getDarkModeStylesheet } from '@/services/graph/styles';
-import { useGraphStore, selectVisibleNodes, selectVisibleEdges } from '@/stores/graphStore';
+import { useGraphStore } from '@/stores/graphStore';
 import type { ViewportState, LayoutType, GraphData } from '@/types/graph';
 import { cn } from '@/lib/utils';
 
@@ -126,12 +127,31 @@ export const GraphCanvas = memo(
       // Track if we're in the middle of syncing to prevent loops
       const isSyncingRef = useRef(false);
 
-      // Store selectors
-      const nodes = useGraphStore((state) => selectVisibleNodes(state));
-      const edges = useGraphStore((state) => selectVisibleEdges(state));
+      // Store selectors - use raw data and memoize filtering to avoid infinite loops
+      const allNodes = useGraphStore((state) => state.nodes);
+      const allEdges = useGraphStore((state) => state.edges);
+      const visibleNodeTypes = useGraphStore((state) => state.visibleNodeTypes);
+      const visibleEdgeTypes = useGraphStore((state) => state.visibleEdgeTypes);
       const currentLayout = useGraphStore((state) => state.currentLayout);
       const selection = useGraphStore((state) => state.selection);
       const viewport = useGraphStore((state) => state.viewport);
+
+      // Memoize filtered nodes/edges to prevent infinite render loops
+      const nodes = useMemo(
+        () => allNodes.filter((n) => visibleNodeTypes.has(n.type)),
+        [allNodes, visibleNodeTypes]
+      );
+
+      const edges = useMemo(() => {
+        const nodeMap = new Map(allNodes.map((n) => [n.id, n]));
+        return allEdges.filter((e) => {
+          if (!visibleEdgeTypes.has(e.type)) return false;
+          const sourceNode = nodeMap.get(e.source);
+          const targetNode = nodeMap.get(e.target);
+          if (!sourceNode || !targetNode) return false;
+          return visibleNodeTypes.has(sourceNode.type) && visibleNodeTypes.has(targetNode.type);
+        });
+      }, [allNodes, allEdges, visibleNodeTypes, visibleEdgeTypes]);
 
       // Store actions
       const selectNode = useGraphStore((state) => state.selectNode);

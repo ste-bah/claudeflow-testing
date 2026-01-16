@@ -98,8 +98,8 @@ export interface NodeData {
   timestamp?: Date;
   /** Event type if derived from an event */
   eventType?: EventType;
-  /** Source event ID */
-  eventId?: number;
+  /** Source event ID (string in actual events.db schema) */
+  eventId?: number | string;
   /** Associated session ID */
   sessionId?: string;
   /** Number of events in this node (for grouped nodes) */

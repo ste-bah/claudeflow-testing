@@ -239,6 +239,14 @@
   --color-text-disabled: var(--color-neutral-500);
   --color-primary: var(--color-primary-500);
   --color-primary-hover: var(--color-primary-400);
+
+  /* ==================== COMPATIBILITY ALIASES ==================== */
+  /* Aliases for layout components that use --color-bg-* naming */
+  --color-bg-primary: var(--color-background);
+  --color-bg-secondary: var(--color-surface);
+  --color-bg-hover: var(--color-surface-elevated);
+  --color-bg-tertiary: var(--color-neutral-600);
+  --color-bg-tooltip: var(--color-neutral-700);
 }
 
 /* ==================== LIGHT THEME ==================== */
@@ -268,4 +276,11 @@
   --node-feedback-glow: rgba(34, 197, 94, 0.3);
   --node-reasoning-step-glow: rgba(59, 130, 246, 0.3);
   --node-checkpoint-glow: rgba(139, 92, 246, 0.3);
+
+  /* Compatibility aliases for light mode */
+  --color-bg-primary: var(--color-background);
+  --color-bg-secondary: var(--color-surface);
+  --color-bg-hover: var(--color-surface-elevated);
+  --color-bg-tertiary: var(--color-neutral-300);
+  --color-bg-tooltip: var(--color-neutral-200);
 }

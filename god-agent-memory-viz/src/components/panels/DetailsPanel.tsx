@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { useGraphStore, selectSelectedNodes, selectSelectedEdges } from '../../stores/graphStore';
+import { useGraphStore } from '../../stores/graphStore';
 import type { GraphNode, GraphEdge, NodeType, EdgeType } from '../../types/graph';
 
 // ============================================================================
@@ -581,9 +581,21 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
   onClose,
   showHeader = true,
 }) => {
-  const selectedNodes = useGraphStore(selectSelectedNodes);
-  const selectedEdges = useGraphStore(selectSelectedEdges);
+  // Get raw data and selection state, then memoize filtering to avoid infinite loops
+  const nodes = useGraphStore((state) => state.nodes);
+  const edges = useGraphStore((state) => state.edges);
+  const selection = useGraphStore((state) => state.selection);
   const clearSelection = useGraphStore((state) => state.clearSelection);
+
+  // Memoize selected nodes/edges to prevent infinite render loops
+  const selectedNodes = useMemo(
+    () => nodes.filter((n) => selection.selectedNodeIds.has(n.id)),
+    [nodes, selection.selectedNodeIds]
+  );
+  const selectedEdges = useMemo(
+    () => edges.filter((e) => selection.selectedEdgeIds.has(e.id)),
+    [edges, selection.selectedEdgeIds]
+  );
 
   const hasSelection = selectedNodes.length > 0 || selectedEdges.length > 0;
   const isSingleNodeSelection =

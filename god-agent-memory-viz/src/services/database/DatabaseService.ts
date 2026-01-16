@@ -17,8 +17,8 @@ import type {
   QueryResult,
 } from './types';
 
-/** Required tables for a valid God Agent database */
-const REQUIRED_TABLES = ['events', 'memory_entries', 'sessions'] as const;
+/** Required tables for a valid God Agent database - only 'events' is mandatory */
+const REQUIRED_TABLES = ['events'] as const;
 
 /**
  * DatabaseService class - Singleton pattern for database operations

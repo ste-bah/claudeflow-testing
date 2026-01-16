@@ -12,23 +12,29 @@
 // ============================================================================
 
 /**
- * Raw event row from the events table
+ * Raw event row from the events table (actual events.db schema)
  */
 export interface EventRow {
-  /** Auto-incremented primary key */
-  id: number;
-  /** Type of event (e.g., 'task_start', 'memory_store') */
-  event_type: string;
-  /** ISO timestamp when event occurred */
-  timestamp: string;
-  /** Associated session ID, if any */
-  session_id: string | null;
-  /** Associated agent ID, if any */
-  agent_id: string | null;
-  /** JSON-encoded event payload */
-  data: string;
-  /** ISO timestamp when row was created */
-  created_at: string;
+  /** TEXT primary key (e.g., 'evt_1768486051421_7fyfz7') */
+  id: string;
+  /** Unix timestamp in milliseconds when event occurred */
+  timestamp: number;
+  /** Event component (e.g., 'pipeline', 'memory', 'learning') */
+  component: string;
+  /** Event operation (e.g., 'step_started', 'memory_stored') */
+  operation: string;
+  /** Event status (e.g., 'running', 'success') */
+  status: string;
+  /** Duration in milliseconds, if applicable */
+  duration_ms: number | null;
+  /** JSON-encoded metadata with pipelineId, stepId, sessionId, etc. */
+  metadata: string;
+  /** Trace ID for distributed tracing */
+  trace_id: string | null;
+  /** Span ID for distributed tracing */
+  span_id: string | null;
+  /** Unix timestamp in milliseconds when row was created */
+  created_at: number;
 }
 
 /**
@@ -138,8 +144,8 @@ export interface MemoryMetadata {
  * Parsed God Agent event with typed fields
  */
 export interface GodAgentEvent {
-  /** Unique event identifier */
-  id: number;
+  /** Unique event identifier (string in actual events.db schema) */
+  id: number | string;
   /** Typed event type */
   eventType: EventType;
   /** When the event occurred */

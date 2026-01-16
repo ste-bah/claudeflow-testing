@@ -1,18 +1,35 @@
-import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
+import type { Database, SqlJsStatic } from 'sql.js';
 
 let SQL: SqlJsStatic | null = null;
 
-// TODO: Bundle SQL.js WASM locally instead of fetching from CDN
-// This would improve reliability and offline support.
-// To implement:
-// 1. Install sql.js as a dependency (npm install sql.js)
-// 2. Copy WASM file to public directory during build
-// 3. Update locateFile to point to local asset: `/sql-wasm.wasm`
-// See: https://github.com/sql-js/sql.js#usage
+// Declare global initSqlJs for CDN script loading
+declare global {
+  interface Window {
+    initSqlJs?: (config: { locateFile: (file: string) => string }) => Promise<SqlJsStatic>;
+  }
+}
+
+// sql.js WASM loading - uses CDN script injection for reliable browser compatibility
 export async function initializeSQL(): Promise<SqlJsStatic> {
   if (SQL) return SQL;
 
-  SQL = await initSqlJs({
+  // Load sql.js from CDN via script tag - most reliable browser method
+  if (!window.initSqlJs) {
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://sql.js.org/dist/sql-wasm.js';
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load sql.js from CDN'));
+      document.head.appendChild(script);
+    });
+  }
+
+  if (!window.initSqlJs) {
+    throw new Error('sql.js failed to initialize - initSqlJs not found on window');
+  }
+
+  SQL = await window.initSqlJs({
     locateFile: (file: string) => `https://sql.js.org/dist/${file}`,
   });
 
