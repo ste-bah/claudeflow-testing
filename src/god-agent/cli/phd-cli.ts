@@ -1341,21 +1341,34 @@ async function recordAgentFeedback(
   sessionId: string,
   agentKey: string,
   output: unknown,
-  phase?: number
+  phase?: number,
+  agentIndex?: number
 ): Promise<boolean> {
   const engine = getSonaEngine();
   if (!engine) return false;
 
-  // Get trajectory ID from active map
+  // Get trajectory ID from active map (fast path)
+  let trajectoryId: TrajectoryID | undefined;
   const sessionTrajectories = activeTrajectories.get(sessionId);
-  if (!sessionTrajectories) {
-    console.error(`[PHD-CLI] No active trajectories for session ${sessionId}`);
-    return false;
+  if (sessionTrajectories) {
+    trajectoryId = sessionTrajectories.get(agentKey);
   }
 
-  const trajectoryId = sessionTrajectories.get(agentKey);
+  // FIX: If not in memory map (e.g., after CLI restart), reconstruct the ID
+  // Trajectory ID pattern: phd-{sessionId.slice(0,8)}-{agentIndex}-{agentKey}
+  if (!trajectoryId && agentIndex !== undefined) {
+    trajectoryId = `phd-${sessionId.slice(0, 8)}-${agentIndex}-${agentKey}` as TrajectoryID;
+    console.error(`[PHD-CLI] Reconstructed trajectory ID: ${trajectoryId}`);
+
+    // Verify trajectory exists in database before providing feedback
+    if (!engine.hasTrajectoryInStorage(trajectoryId)) {
+      console.error(`[PHD-CLI] Trajectory ${trajectoryId} not found in database`);
+      return false;
+    }
+  }
+
   if (!trajectoryId) {
-    console.error(`[PHD-CLI] No trajectory found for agent ${agentKey}`);
+    console.error(`[PHD-CLI] No trajectory found for agent ${agentKey} (no agentIndex provided for reconstruction)`);
     return false;
   }
 
@@ -1369,10 +1382,12 @@ async function recordAgentFeedback(
       skipAutoSave: false, // Ensure immediate persistence
     });
 
-    // Remove from active trajectories after feedback
-    sessionTrajectories.delete(agentKey);
-    if (sessionTrajectories.size === 0) {
-      activeTrajectories.delete(sessionId);
+    // Remove from active trajectories after feedback (only if present in map)
+    if (sessionTrajectories) {
+      sessionTrajectories.delete(agentKey);
+      if (sessionTrajectories.size === 0) {
+        activeTrajectories.delete(sessionId);
+      }
     }
 
     console.error(`[PHD-CLI] Recorded feedback for ${agentKey}: quality=${quality.toFixed(2)}`);
@@ -2680,11 +2695,14 @@ async function commandComplete(
 
   // [RULE-028] Record feedback for completed agent BEFORE acknowledgment
   // Pass previousPhase for context-aware quality assessment (RULE-033, RULE-034)
+  // Pass agentIndex for trajectory ID reconstruction after CLI restart
+  const completedAgentIndex = session.currentAgentIndex - 1;
   const feedbackRecorded = await recordAgentFeedback(
     session.sessionId,
     agentKey,
     output,
-    previousPhase
+    previousPhase,
+    completedAgentIndex
   );
   if (feedbackRecorded) {
     console.error(`[PHD-CLI] Feedback persisted for ${agentKey}`);
