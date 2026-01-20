@@ -276,3 +276,43 @@ export {
   DEFAULT_PHASE_MAPPINGS,
   DOCUMENT_AGENT_MAPPING,
 } from './command-task-bridge.js';
+
+// ===== CONSTITUTION VALIDATION =====
+
+export {
+  ConstitutionValidator,
+  createConstitutionValidator,
+  createCustomConstitutionValidator,
+  CONSTITUTION_LIMITS,
+  type IValidationResult as IConstitutionValidationCheck,
+  type IConstitutionValidationResult,
+} from './constitution-validator.js';
+
+// ===== TRUTH PROTOCOL VERIFICATION =====
+
+export {
+  TruthProtocolVerifier,
+  createTruthProtocolVerifier,
+  createCustomTruthProtocolVerifier,
+  // Constants
+  MIN_TRUTH_SCORE,
+  MIN_VERIFIED_PERCENTAGE,
+  MAX_HALLUCINATION_RISK,
+  // Types
+  type ITruthClaim,
+  type ClaimType,
+  type ClaimConfidence,
+  type ClaimFlag,
+  type IClaimEvidence,
+  type EvidenceType,
+  type IHallucinationResult,
+  type IHallucinationPattern,
+  type HallucinationPatternType,
+  type ITruthVerificationResult,
+  type ITruthStatistics,
+} from './truth-protocol.js';
+
+// ===== LEANN SEMANTIC CONTEXT SERVICE =====
+
+export { createLeannContextService, LeannContextService } from './leann-context-service.js';
+export type { ISemanticContext, ICodeContextResult, ISemanticContextParams, ILeannContextConfig } from './leann-context-service.js';

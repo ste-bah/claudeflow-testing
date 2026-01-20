@@ -9,10 +9,9 @@
  * @see TASK-WIRING-002-agent-mappings.md
  */
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // PHASE TYPES
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ═════════════════════════════════════════════════════════════════════════
 /**
  * The 7 phases of the coding pipeline
  * Each phase contains specialized agents for that development stage
@@ -26,84 +25,77 @@ export type CodingPipelinePhase =
   | 'optimization'     // Phase 6: Performance and quality (4 agents)
   | 'delivery';        // Phase 7: Documentation and release (4 agents)
 
-// ═══════════════════════════════════════════════════════════════════════════
-// AGENT TYPES BY PHASE
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** Phase 1: Understanding - 5 agents */
+// ═════════════════════════════════════════════════════════════════════════
+// AGENT TYPES BY PHASE (Matches actual .claude/agents/coding-pipeline/*.md files)
+// REQ-PIPE-047: 47 agents total
+// ═════════════════════════════════════════════════════════════════════════
+/** Phase 1: Understanding - 6 agents */
 export type Phase1Agent =
-  | 'task-analyzer'          // #1 - CRITICAL: Halts pipeline if task cannot be parsed
-  | 'requirement-extractor'  // #2
-  | 'scope-definer'          // #3
-  | 'context-gatherer'       // #4
-  | 'constraint-analyzer';   // #5
+  | 'task-analyzer'           // #1 - CRITICAL: Pipeline entry point
+  | 'requirement-extractor'   // #2
+  | 'requirement-prioritizer' // #3
+  | 'scope-definer'           // #4
+  | 'context-gatherer'        // #5
+  | 'feasibility-analyzer';   // #6
 
-/** Phase 2: Exploration - 5 agents */
+/** Phase 2: Exploration - 4 agents */
 export type Phase2Agent =
-  | 'solution-explorer'      // #6
-  | 'pattern-matcher'        // #7
-  | 'analogy-finder'         // #8
-  | 'prior-art-searcher'     // #9
-  | 'feasibility-assessor';  // #10
+  | 'pattern-explorer'        // #7
+  | 'technology-scout'        // #8
+  | 'research-planner'        // #9
+  | 'codebase-analyzer';      // #10
 
-/** Phase 3: Architecture - 6 agents */
+/** Phase 3: Architecture - 5 agents */
 export type Phase3Agent =
-  | 'architecture-designer'  // #11
-  | 'component-specifier'    // #12
-  | 'interface-designer'     // #13
-  | 'dependency-mapper'      // #14
-  | 'consistency-checker'    // #15 - CRITICAL: Halts if design has unresolved conflicts
-  | 'type-system-designer';  // #16
+  | 'system-designer'         // #11
+  | 'component-designer'      // #12
+  | 'interface-designer'      // #13
+  | 'data-architect'          // #14
+  | 'integration-architect';  // #15
 
-/** Phase 4: Implementation - 8 agents */
+/** Phase 4: Implementation - 12 agents */
 export type Phase4Agent =
-  | 'type-generator'           // #17
-  | 'algorithm-implementer'    // #18
-  | 'data-structure-builder'   // #19
-  | 'api-implementer'          // #20
-  | 'integration-coder'        // #21
-  | 'error-handler'            // #22
-  | 'config-generator'         // #23
-  | 'utility-generator';       // #24
+  | 'code-generator'           // #16
+  | 'type-implementer'         // #17
+  | 'unit-implementer'         // #18
+  | 'service-implementer'      // #19
+  | 'data-layer-implementer'   // #20
+  | 'api-implementer'          // #21
+  | 'frontend-implementer'     // #22
+  | 'error-handler-implementer'// #23
+  | 'config-implementer'       // #24
+  | 'logger-implementer'       // #25
+  | 'dependency-manager'       // #26
+  | 'implementation-coordinator'; // #27
 
-/** Phase 5: Testing - 8 agents */
+/** Phase 5: Testing - 7 agents */
 export type Phase5Agent =
-  | 'test-planner'             // #25
-  | 'unit-test-writer'         // #26
-  | 'integration-test-writer'  // #27
-  | 'edge-case-tester'         // #28
-  | 'mock-generator'           // #29
-  | 'test-runner'              // #30
-  | 'bug-fixer'                // #31
-  | 'coverage-analyzer';       // #32
+  | 'test-generator'          // #28
+  | 'test-runner'             // #29
+  | 'integration-tester'      // #30
+  | 'regression-tester'       // #31
+  | 'security-tester'         // #32
+  | 'coverage-analyzer'       // #33
+  | 'quality-gate';           // #34
 
-/** Phase 6: Optimization - 4 agents */
+/** Phase 6: Optimization - 5 agents */
 export type Phase6Agent =
-  | 'performance-optimizer'    // #33
-  | 'refactoring-agent'        // #34
-  | 'security-auditor'         // #35
-  | 'code-quality-checker';    // #36
+  | 'performance-optimizer'   // #35
+  | 'performance-architect'   // #36
+  | 'code-quality-improver'   // #37
+  | 'security-architect'      // #38
+  | 'final-refactorer';       // #39
 
-/** Phase 7: Delivery - 4 agents */
+/** Phase 7: Delivery - 1 core agent */
 export type Phase7Agent =
-  | 'documentation-writer'     // #37
-  | 'code-reviewer'            // #38
-  | 'release-preparer'         // #39
-  | 'sign-off-approver';       // #40 - CRITICAL: Must pass for pipeline completion
+  | 'sign-off-approver';      // #40 - CRITICAL: Must pass for pipeline completion
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // SHERLOCK FORENSIC AGENTS (41-47)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Sherlock Forensic Review Agents - 7 agents (one per phase + recovery)
- * These agents perform forensic review with verdicts:
- * - INNOCENT: Phase passed review
- * - GUILTY: Phase failed, requires remediation
- * - INSUFFICIENT_EVIDENCE: Needs more data
- *
- * All forensic reviewers are CRITICAL - they gate pipeline progression.
- */
+// ═════════════════════════════════════════════════════════════════════════
+/** Sherlock Forensic Review Agents - 7 agents (one per phase + recovery)
+ * Verdicts: INNOCENT (passed), GUILTY (failed), INSUFFICIENT_EVIDENCE (needs more data)
+ * All forensic reviewers are CRITICAL - they gate pipeline progression. */
 export type SherlockForensicAgent =
   | 'phase-1-reviewer'    // #41 - CRITICAL: Phase 1 Understanding forensic review
   | 'phase-2-reviewer'    // #42 - CRITICAL: Phase 2 Exploration forensic review
@@ -113,10 +105,7 @@ export type SherlockForensicAgent =
   | 'phase-6-reviewer'    // #46 - CRITICAL: Phase 6 Optimization forensic review
   | 'recovery-agent';     // #47 - CRITICAL: Phase 7 Forensic Review / Recovery orchestration
 
-/**
- * Union type of all 47 coding pipeline agents
- * 40 core pipeline agents + 7 Sherlock forensic reviewers
- */
+/** Union type of all 47 coding pipeline agents (40 core + 7 Sherlock) */
 export type CodingPipelineAgent =
   | Phase1Agent
   | Phase2Agent
@@ -127,10 +116,9 @@ export type CodingPipelineAgent =
   | Phase7Agent
   | SherlockForensicAgent;
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // ALGORITHM TYPES (USACF)
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ═════════════════════════════════════════════════════════════════════════
 /**
  * USACF Algorithm types used by agents
  * From SPEC-003-algorithms.md
@@ -143,10 +131,9 @@ export type AlgorithmType =
   | 'PoT'        // Program of Thought - Mathematical tasks
   | 'ToT';       // Tree of Thought - Design decisions
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // AGENT MAPPING INTERFACE
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ═════════════════════════════════════════════════════════════════════════
 /**
  * Complete mapping for a single agent in the pipeline
  */
@@ -191,10 +178,9 @@ export interface IAgentMapping {
   description?: string;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // DAG STRUCTURES
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ═════════════════════════════════════════════════════════════════════════
 /**
  * A node in the pipeline DAG
  */
@@ -229,10 +215,9 @@ export interface IPipelineDAG {
   checkpointPhases: CodingPipelinePhase[];
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // PIPELINE EXECUTION CONFIG
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ═════════════════════════════════════════════════════════════════════════
 /**
  * Configuration for pipeline execution
  * Used by prepareCodeTask() and CodingPipelineOrchestrator
@@ -260,10 +245,9 @@ export interface IPipelineExecutionConfig {
   endPhase?: number;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // PHASE RESULT INTERFACES
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ═════════════════════════════════════════════════════════════════════════
 /**
  * Result from a single agent execution
  */
@@ -302,10 +286,9 @@ export interface IPipelineExecutionResult {
   rollbackApplied: boolean;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // CONSTANTS
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ═════════════════════════════════════════════════════════════════════════
 /**
  * Phases in execution order
  */
@@ -331,22 +314,24 @@ export const CHECKPOINT_PHASES: CodingPipelinePhase[] = [
 ];
 
 /**
- * Number of agents per phase (core + Sherlock forensic reviewer)
- * Each phase includes its Sherlock reviewer for forensic analysis
+ * Number of agents per phase (core only, excludes Sherlock forensic reviewers)
+ * Sherlock reviewers are separate (7 total: phase-1-reviewer through phase-6-reviewer + recovery-agent)
+ * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export const PHASE_AGENT_COUNTS: Record<CodingPipelinePhase, number> = {
-  understanding: 6,    // 5 core + phase-1-reviewer
-  exploration: 6,      // 5 core + phase-2-reviewer
-  architecture: 7,     // 6 core + phase-3-reviewer
-  implementation: 9,   // 8 core + phase-4-reviewer
-  testing: 9,          // 8 core + phase-5-reviewer
-  optimization: 5,     // 4 core + phase-6-reviewer
-  delivery: 5,         // 4 core + recovery-agent
+  understanding: 6,     // task-analyzer, requirement-extractor, requirement-prioritizer, scope-definer, context-gatherer, feasibility-analyzer
+  exploration: 4,       // pattern-explorer, technology-scout, research-planner, codebase-analyzer
+  architecture: 5,      // system-designer, component-designer, interface-designer, data-architect, integration-architect
+  implementation: 12,   // code-generator, type-implementer, unit-implementer, service-implementer, data-layer-implementer, api-implementer, frontend-implementer, error-handler-implementer, config-implementer, logger-implementer, dependency-manager, implementation-coordinator
+  testing: 7,           // test-generator, test-runner, integration-tester, regression-tester, security-tester, coverage-analyzer, quality-gate
+  optimization: 5,      // performance-optimizer, performance-architect, code-quality-improver, security-architect, final-refactorer
+  delivery: 1,          // sign-off-approver
 };
 
 /**
  * Total number of core pipeline agents
- * 5 + 5 + 6 + 8 + 8 + 4 + 4 = 40
+ * 6 + 4 + 5 + 12 + 7 + 5 + 1 = 40
+ * REQ-PIPE-047: Verified against actual .claude/agents/coding-pipeline/*.md files
  */
 export const CORE_AGENTS = 40;
 
@@ -378,11 +363,13 @@ export const SHERLOCK_AGENTS: SherlockForensicAgent[] = [
 /**
  * Critical agents that halt pipeline on failure
  * Includes core critical agents AND all Sherlock forensic reviewers
+ * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export const CRITICAL_AGENTS: CodingPipelineAgent[] = [
   // Core critical agents
-  'task-analyzer',       // #1 - Phase 1: Pipeline entry point
-  'consistency-checker', // #15 - Phase 3: Design validation
+  'task-analyzer',       // #1 - Phase 1: Pipeline entry point (CRITICAL in frontmatter)
+  'interface-designer',  // #13 - Phase 3: API contract validation
+  'quality-gate',        // #34 - Phase 5: L-Score validation gateway
   'sign-off-approver',   // #40 - Phase 7: Final approval
   // Sherlock forensic reviewers (all critical - gate phase progression)
   'phase-1-reviewer',    // #41 - Understanding forensic review
@@ -424,3 +411,94 @@ export const MEMORY_PREFIXES: Record<CodingPipelinePhase, string> = {
   optimization: 'coding/optimization',
   delivery: 'coding/delivery',
 };
+
+// ═════════════════════════════════════════════════════════════════════════
+// SHERLOCK FORENSIC VERIFICATION TYPES
+// ═════════════════════════════════════════════════════════════════════════
+/**
+ * Sherlock forensic verification verdict values.
+ * Used by agents 41-47 in Phase 6 for code review.
+ */
+export enum SherlockVerdict {
+  /** Code passes all forensic checks */
+  INNOCENT = 'INNOCENT',
+  /** Code has critical issues requiring remediation */
+  GUILTY = 'GUILTY',
+  /** Not enough information to make determination */
+  INSUFFICIENT_EVIDENCE = 'INSUFFICIENT_EVIDENCE',
+}
+
+/**
+ * Confidence level for Sherlock verdicts.
+ */
+export type SherlockConfidence = 'HIGH' | 'MEDIUM' | 'LOW';
+
+/**
+ * Evidence collected during forensic review.
+ */
+export interface ISherlockEvidence {
+  /** Type of evidence (code_pattern, test_result, static_analysis, etc.) */
+  type: string;
+  /** File path where evidence was found */
+  filePath?: string;
+  /** Line numbers if applicable */
+  lineRange?: { start: number; end: number };
+  /** Description of the evidence */
+  description: string;
+  /** Raw data or code snippet */
+  data?: unknown;
+}
+
+/**
+ * Issue found during forensic review.
+ */
+export interface ISherlockIssue {
+  /** Severity: critical, high, medium, low */
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  /** Category of issue */
+  category: string;
+  /** Description of the issue */
+  description: string;
+  /** File path where issue was found */
+  filePath?: string;
+  /** Suggested remediation */
+  remediation?: string;
+}
+
+/**
+ * Complete result from Sherlock forensic verification.
+ */
+export interface ISherlockResult {
+  /** Overall verdict */
+  verdict: SherlockVerdict;
+  /** Confidence in the verdict */
+  confidence: SherlockConfidence;
+  /** Evidence supporting the verdict */
+  evidence: ISherlockEvidence[];
+  /** Issues found during review */
+  issues: ISherlockIssue[];
+  /** Agent that produced this result */
+  agentKey: string;
+  /** Timestamp of review */
+  timestamp: string;
+  /** Optional reasoning */
+  reasoning?: string;
+}
+
+/**
+ * Phase-level review result from Sherlock pipeline.
+ */
+export interface IPhaseReviewResult {
+  /** Phase number reviewed */
+  phase: number;
+  /** Verdict for this phase */
+  verdict: SherlockVerdict;
+  /** Confidence level */
+  confidence: SherlockConfidence;
+  /** Remediation steps if GUILTY */
+  remediations: string[];
+  /** Number of retry attempts */
+  retryCount: number;
+  /** Individual agent results */
+  agentResults?: ISherlockResult[];
+}

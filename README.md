@@ -675,15 +675,34 @@ The pipeline consists of **40 core development agents** plus **7 Sherlock forens
 
 | Phase | Core Agents | Description |
 |-------|-------------|-------------|
-| **Phase 1: Understanding (5)** | task-analyzer*, requirement-extractor, scope-definer, context-gatherer, constraint-analyzer | Task parsing, requirements extraction, scope definition |
-| **Phase 2: Exploration (5)** | solution-explorer, pattern-matcher, analogy-finder, prior-art-searcher, feasibility-assessor | Solution space exploration, pattern matching |
-| **Phase 3: Architecture (6)** | architecture-designer, component-specifier, interface-designer, dependency-mapper, consistency-checker*, type-system-designer | System design, interface contracts |
-| **Phase 4: Implementation (8)** | type-generator, algorithm-implementer, data-structure-builder, api-implementer, integration-coder, error-handler, config-generator, utility-generator | Code generation, API implementation |
-| **Phase 5: Testing (8)** | test-planner, unit-test-writer, integration-test-writer, edge-case-tester, mock-generator, test-runner, bug-fixer, coverage-analyzer | Test creation, execution, coverage |
-| **Phase 6: Optimization (4)** | performance-optimizer, refactoring-agent, security-auditor, code-quality-checker | Performance tuning, security audit |
-| **Phase 7: Delivery (4)** | documentation-writer, code-reviewer, release-preparer, sign-off-approver* | Documentation, review, release |
+| **Phase 1: Understanding (6)** | task-analyzer*, requirement-extractor, requirement-prioritizer, scope-definer, context-gatherer, feasibility-analyzer* | Task parsing, requirements extraction, scope definition |
+| **Phase 2: Exploration (4)** | pattern-explorer, technology-scout, research-planner, codebase-analyzer | Solution space exploration, pattern matching |
+| **Phase 3: Architecture (5)** | system-designer*, component-designer, interface-designer*, data-architect, integration-architect | System design, interface contracts |
+| **Phase 4: Implementation (12)** | code-generator*, type-implementer, unit-implementer, service-implementer, data-layer-implementer, api-implementer, frontend-implementer, error-handler-implementer, config-implementer, logger-implementer, dependency-manager, implementation-coordinator* | Code generation, API implementation |
+| **Phase 5: Testing (7)** | test-generator, test-runner*, integration-tester, regression-tester, security-tester*, coverage-analyzer, quality-gate* | Test creation, execution, coverage |
+| **Phase 6: Optimization (5)** | performance-optimizer, performance-architect, code-quality-improver, security-architect*, final-refactorer | Performance tuning, security audit |
+| **Phase 7: Delivery (1)** | sign-off-approver* | Final approval gate |
 
 *\* = Critical agents that halt pipeline on failure*
+
+### Dynamic Configuration Loading
+
+Agent definitions are loaded dynamically from `.claude/agents/coding-pipeline/*.md` files:
+
+```typescript
+// CodingPipelineConfigLoader loads agents from markdown frontmatter
+const loader = createCodingPipelineConfigLoader();
+const config = await loader.loadPipelineConfig();
+
+// Returns 47 agents with phase, order, algorithm, dependencies
+console.log(config.agents.length); // 47
+```
+
+Key features:
+- **YAML Frontmatter Parsing**: Agent metadata extracted from markdown files
+- **Phase Derivation**: Phase determined by AGENT_ORDER position (not frontmatter type)
+- **Critical Agent Detection**: Agents marked critical in frontmatter or CRITICAL_AGENT_KEYS
+- **Algorithm Assignment**: Default algorithm per phase (ReAct, LATS, ToT, Self-Debug, Reflexion)
 
 ### Sherlock Forensic Reviewers
 
@@ -759,15 +778,15 @@ coding/
 ┌─────────────────────────────────────────────────────────────────┐
 │                    47-AGENT CODING PIPELINE                      │
 ├─────────────────────────────────────────────────────────────────┤
-│  Phase 1 (5 agents) → Sherlock #41 → Phase 2 (5 agents)        │
+│  Phase 1 (6 agents) → Sherlock #41 → Phase 2 (4 agents)        │
 │           ↓                                    ↓                │
-│  Sherlock #42 → Phase 3 (6 agents) → Sherlock #43              │
+│  Sherlock #42 → Phase 3 (5 agents) → Sherlock #43              │
 │           ↓                                    ↓                │
-│  Phase 4 (8 agents) → Sherlock #44 → Phase 5 (8 agents)        │
+│  Phase 4 (12 agents) → Sherlock #44 → Phase 5 (7 agents)       │
 │           ↓                                    ↓                │
-│  Sherlock #45 → Phase 6 (4 agents) → Sherlock #46              │
+│  Sherlock #45 → Phase 6 (5 agents) → Sherlock #46              │
 │           ↓                                    ↓                │
-│  Phase 7 (4 agents) → Sherlock #47 (Recovery) → COMPLETE       │
+│  Phase 7 (1 agent) → Sherlock #47 (Recovery) → COMPLETE        │
 └─────────────────────────────────────────────────────────────────┘
 
 On GUILTY verdict: Recovery Agent (#47) orchestrates remediation
