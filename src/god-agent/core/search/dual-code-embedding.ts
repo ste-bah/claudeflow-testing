@@ -45,6 +45,8 @@ export interface DualCodeEmbeddingConfig {
   codeIndicators?: RegExp[];
   /** Minimum confidence for code detection (default: 0.6) */
   codeDetectionThreshold?: number;
+  /** Embedding timeout in ms (default: 5000ms per PRD LATENCY-EMBEDDING) */
+  embeddingTimeoutMs?: number;
 }
 
 /**
@@ -88,7 +90,18 @@ export const DEFAULT_DUAL_CODE_CONFIG: DualCodeEmbeddingConfig = {
   cacheMaxSize: 1000,
   provider: 'local',
   codeDetectionThreshold: 0.6,
+  embeddingTimeoutMs: 5000, // PRD LATENCY-EMBEDDING p99 requirement
 };
+
+/**
+ * Timeout error for embedding operations
+ */
+export class EmbeddingTimeoutError extends Error {
+  constructor(timeoutMs: number) {
+    super(`Embedding operation timed out after ${timeoutMs}ms`);
+    this.name = 'EmbeddingTimeoutError';
+  }
+}
 
 // ==================== Code Detection Patterns ====================
 
@@ -243,13 +256,21 @@ export class DualCodeEmbeddingProvider implements IEmbeddingProvider {
   }
 
   /**
-   * Initialize the base embedding provider lazily
+   * Initialize the base embedding provider lazily.
+   * Thread-safe: uses promise caching pattern with error recovery.
    */
   private async ensureInitialized(): Promise<void> {
+    // Fast path: already initialized
     if (this.baseProvider) return;
 
+    // Synchronous check-and-set to prevent race condition
+    // (JavaScript is single-threaded, so no race between check and assignment)
     if (!this.initPromise) {
-      this.initPromise = this.initialize();
+      this.initPromise = this.initialize().catch((error) => {
+        // Reset promise on failure to allow retry
+        this.initPromise = null;
+        throw error;
+      });
     }
 
     await this.initPromise;
@@ -263,6 +284,32 @@ export class DualCodeEmbeddingProvider implements IEmbeddingProvider {
       // Currently fallback to local
       this.baseProvider = await EmbeddingProviderFactory.getProvider(false);
     }
+  }
+
+  /**
+   * Get the base provider, throwing if not initialized.
+   * Call ensureInitialized() before this method.
+   */
+  private getProvider(): IEmbeddingProvider {
+    if (!this.baseProvider) {
+      throw new Error('DualCodeEmbeddingProvider not initialized. Call ensureInitialized() first.');
+    }
+    return this.baseProvider;
+  }
+
+  /**
+   * Embed text with timeout protection.
+   * Throws EmbeddingTimeoutError if operation exceeds configured timeout.
+   */
+  private async embedWithTimeout(text: string): Promise<Float32Array> {
+    const timeoutMs = this.config.embeddingTimeoutMs ?? 5000;
+
+    return Promise.race([
+      this.getProvider().embed(text),
+      new Promise<Float32Array>((_, reject) =>
+        setTimeout(() => reject(new EmbeddingTimeoutError(timeoutMs)), timeoutMs)
+      ),
+    ]);
   }
 
   /**
@@ -286,7 +333,7 @@ export class DualCodeEmbeddingProvider implements IEmbeddingProvider {
     const processedQuery = this.preprocessForNLP(query);
 
     // Generate embedding
-    const embedding = await this.baseProvider!.embed(processedQuery);
+    const embedding = await this.embedWithTimeout(processedQuery);
 
     // Cache result
     if (this.config.cacheEnabled) {
@@ -317,7 +364,7 @@ export class DualCodeEmbeddingProvider implements IEmbeddingProvider {
     const processedCode = this.preprocessForCode(code);
 
     // Generate embedding
-    const embedding = await this.baseProvider!.embed(processedCode);
+    const embedding = await this.embedWithTimeout(processedCode);
 
     // Cache result
     if (this.config.cacheEnabled) {
@@ -477,7 +524,7 @@ export class DualCodeEmbeddingProvider implements IEmbeddingProvider {
    */
   private async generateNLPEmbedding(content: string): Promise<Float32Array> {
     const processed = this.preprocessForNLP(content);
-    return this.baseProvider!.embed(processed);
+    return this.embedWithTimeout(processed);
   }
 
   /**
@@ -485,7 +532,7 @@ export class DualCodeEmbeddingProvider implements IEmbeddingProvider {
    */
   private async generateCodeEmbedding(content: string): Promise<Float32Array> {
     const processed = this.preprocessForCode(content);
-    return this.baseProvider!.embed(processed);
+    return this.embedWithTimeout(processed);
   }
 
   /**

@@ -94,8 +94,17 @@ export class LEANNBackend implements IHNSWBackend {
 
   /**
    * Insert a vector into the index
+   *
+   * @throws Error if vector dimension doesn't match expected dimension
    */
   insert(id: VectorID, vector: Float32Array): void {
+    // Validate dimension to prevent silent corruption
+    if (vector.length !== this.dimension) {
+      throw new Error(
+        `Vector dimension mismatch: expected ${this.dimension}, got ${vector.length}`
+      );
+    }
+
     // Store vector copy
     const vectorCopy = new Float32Array(vector);
     this.vectors.set(id, vectorCopy);
@@ -224,7 +233,8 @@ export class LEANNBackend implements IHNSWBackend {
   }
 
   /**
-   * Update hub cache with highest-degree nodes
+   * Update hub cache with highest-degree nodes.
+   * Uses atomic swap pattern to prevent concurrent access issues.
    */
   private updateHubCache(): void {
     // Get all nodes with their degrees
@@ -240,34 +250,30 @@ export class LEANNBackend implements IHNSWBackend {
     // Sort by degree descending
     nodesByDegree.sort((a, b) => b.degree - a.degree);
 
-    // Update hub cache
-    const newHubIds = new Set<VectorID>();
+    // Build new cache completely before modifying existing
+    // This ensures searches see a consistent state
+    const newCache = new Map<VectorID, HubCacheEntry>();
+    const now = Date.now();
+
     for (let i = 0; i < Math.min(this.maxHubCacheSize, nodesByDegree.length); i++) {
       const { id, degree } = nodesByDegree[i];
-      newHubIds.add(id);
-
-      // Add to cache if not present
-      if (!this.hubCache.has(id)) {
-        const vector = this.vectors.get(id);
-        if (vector) {
-          this.hubCache.set(id, {
-            vector: new Float32Array(vector),
-            degree,
-            lastAccess: Date.now(),
-          });
-        }
-      } else {
-        // Update degree
-        const entry = this.hubCache.get(id)!;
-        entry.degree = degree;
+      const vector = this.vectors.get(id);
+      if (vector) {
+        // Preserve lastAccess from existing cache if available
+        const existing = this.hubCache.get(id);
+        newCache.set(id, {
+          vector: new Float32Array(vector),
+          degree,
+          lastAccess: existing?.lastAccess ?? now,
+        });
       }
     }
 
-    // Remove evicted hubs
-    for (const id of this.hubCache.keys()) {
-      if (!newHubIds.has(id)) {
-        this.hubCache.delete(id);
-      }
+    // Atomic swap: clear and repopulate in sync block
+    // (JavaScript single-threaded execution guarantees no interleaving)
+    this.hubCache.clear();
+    for (const [id, entry] of newCache.entries()) {
+      this.hubCache.set(id, entry);
     }
   }
 

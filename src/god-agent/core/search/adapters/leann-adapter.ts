@@ -30,6 +30,8 @@ export interface LEANNAdapterConfig {
   metric?: DistanceMetric;
   /** Existing LEANNBackend instance (if provided, ignores other config) */
   backend?: LEANNBackend;
+  /** Maximum content store size for LRU eviction (default: 10000) */
+  maxContentStoreSize?: number;
 }
 
 /**
@@ -93,6 +95,10 @@ export class LEANNSourceAdapter {
   private lastHubCacheUpdate: number = 0;
   private readonly hubCacheUpdateIntervalMs: number = 5000;
 
+  /** Store original text for on-demand embedding recomputation (LRU eviction enabled) */
+  private readonly contentStore: Map<string, string> = new Map();
+  private readonly maxContentStoreSize: number;
+
   /**
    * Create LEANN source adapter
    *
@@ -102,6 +108,7 @@ export class LEANNSourceAdapter {
     this.dimension = config.dimension ?? DEFAULT_LEANN_ADAPTER_CONFIG.dimension;
     this.metric = config.metric ?? DEFAULT_LEANN_ADAPTER_CONFIG.metric;
     this.embedder = config.embeddingProvider;
+    this.maxContentStoreSize = config.maxContentStoreSize ?? 10000;
 
     // Use provided backend or create new one
     if (config.backend) {
@@ -117,11 +124,15 @@ export class LEANNSourceAdapter {
 
       // Set embedding generator if provided
       if (this.embedder) {
-        this.backend.setEmbeddingGenerator(async (id) => {
-          // For recomputation, we need the original text
-          // This is a simplified implementation - in production,
-          // you'd store text alongside vectors or have a content retrieval system
-          return new Float32Array(this.dimension);
+        this.backend.setEmbeddingGenerator(async (id: string) => {
+          // Retrieve original text for on-demand recomputation
+          const text = this.contentStore.get(id);
+          if (!text) {
+            console.warn(`[LEANNAdapter] No stored text for ID ${id}, returning zero vector`);
+            return new Float32Array(this.dimension);
+          }
+          // Recompute embedding from original text
+          return await this.embedder!(text);
         });
       }
     }
@@ -294,6 +305,9 @@ export class LEANNSourceAdapter {
     // Generate unique ID
     const id = this.generateVectorId(content, metadata);
 
+    // Store content for on-demand recomputation (with LRU eviction)
+    this.storeContentWithEviction(id, content);
+
     // Insert into backend
     this.backend.insert(id, embedding);
 
@@ -305,9 +319,35 @@ export class LEANNSourceAdapter {
    *
    * @param id - Vector ID
    * @param embedding - Pre-computed embedding
+   * @param content - Optional original content for on-demand recomputation
    */
-  indexEmbedding(id: string, embedding: Float32Array): void {
+  indexEmbedding(id: string, embedding: Float32Array, content?: string): void {
+    // Store content for recomputation if provided (with LRU eviction)
+    if (content) {
+      this.storeContentWithEviction(id, content);
+    }
     this.backend.insert(id, embedding);
+  }
+
+  /**
+   * Store content with LRU eviction when store exceeds maxContentStoreSize.
+   * Uses Map's insertion order for LRU - oldest entries are first.
+   *
+   * @param id - Content ID
+   * @param content - Content text to store
+   */
+  private storeContentWithEviction(id: string, content: string): void {
+    // If already exists, delete to refresh LRU position
+    if (this.contentStore.has(id)) {
+      this.contentStore.delete(id);
+    } else if (this.contentStore.size >= this.maxContentStoreSize) {
+      // Evict oldest entry (first in iteration order)
+      const oldestKey = this.contentStore.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.contentStore.delete(oldestKey);
+      }
+    }
+    this.contentStore.set(id, content);
   }
 
   /**
@@ -317,6 +357,7 @@ export class LEANNSourceAdapter {
    * @returns True if deleted, false if not found
    */
   delete(id: string): boolean {
+    this.contentStore.delete(id);
     return this.backend.delete(id);
   }
 
@@ -367,6 +408,7 @@ export class LEANNSourceAdapter {
   clear(): void {
     this.backend.clear();
     this.hubIdsCache.clear();
+    this.contentStore.clear();
     this.lastHubCacheUpdate = 0;
   }
 
