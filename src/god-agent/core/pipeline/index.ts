@@ -137,7 +137,7 @@ export {
   QA_PHASE_ID,
 } from './phd-pipeline-bridge.js';
 
-// ===== QUALITY GATE VALIDATION =====
+// ===== PHD QUALITY GATE VALIDATION (for /god-research pipeline) =====
 
 export {
   QualityGateValidator,
@@ -146,7 +146,200 @@ export {
   type IQualityCheck,
   type IQualityValidationResult,
   type IQualityRule,
-} from './quality-gate-validator.js';
+} from './phd-quality-gate-validator.js';
+
+// ===== CODING QUALITY GATE VALIDATION (for /god-code pipeline) =====
+
+// Types and enums from types file
+export {
+  EmergencyTrigger,
+  GateResult,
+  PipelinePhase,
+  type ILScoreWeights,
+  type ILScoreBreakdown,
+  type IGateViolation,
+  type IEmergencyEvent,
+  type IGateValidationContext,
+  type IGateValidationResult,
+  type IQualityGate,
+  type LScoreWeights,
+  type LScoreBreakdown,
+  type LScoreComponent,
+  type QualityGate,
+  type GateViolation,
+  type GateValidationContext,
+  type GateValidationResult,
+  type EmergencyEvent,
+  type ViolationSeverity,
+} from './coding-quality-gate-types.js';
+
+// Weight calculation functions
+export {
+  getPhaseWeights,
+  calculateLScore,
+  createLScoreBreakdown,
+} from './coding-quality-gate-weights.js';
+
+// Gate definitions
+export {
+  GATE_1_UNDERSTANDING,
+  GATE_2_EXPLORATION,
+  GATE_3_ARCHITECTURE,
+  GATE_4_IMPLEMENTATION,
+  GATE_5_TESTING,
+  GATE_6_OPTIMIZATION,
+  GATE_7_DELIVERY,
+  ALL_GATES,
+  getGateById,
+  getGateForPhase,
+  getGateThresholdsSummary,
+} from './coding-quality-gate-definitions.js';
+
+// Zod schemas
+export {
+  LScoreBreakdownSchema,
+  GateValidationContextSchema,
+  GateIdSchema,
+} from './coding-quality-gate-schemas.js';
+
+// Validator class and factory
+export {
+  CodingQualityGateValidator,
+  createCodingQualityGateValidator,
+  getAllGates,
+  CodingQualityGateError,
+  type QualityGateErrorCode,
+} from './coding-quality-gate-validator.js';
+
+// ===== SHERLOCK PHASE REVIEWER (for /god-code pipeline) =====
+
+// Types and enums from types file
+export {
+  InvestigationTier,
+  Verdict,
+  VerdictConfidence,
+  EvidenceStatus,
+  AdversarialPersona,
+  INVESTIGATION_TIER_CONFIG,
+  FORENSIC_MEMORY_NAMESPACE,
+  MAX_RETRY_COUNT,
+  DEFAULT_INVESTIGATION_TIER,
+  PHASE_NAMES as SHERLOCK_PHASE_NAMES,
+  SherlockPhaseReviewerError,
+  type IInvestigationTierConfig,
+  type IEvidenceItem,
+  type IVerificationCheck,
+  type IAdversarialFinding,
+  type IChainOfCustodyEvent,
+  type ICaseFile,
+  type IPhaseReviewResult,
+  type IPhaseInvestigationProtocol,
+  type IVerificationMatrixEntry,
+  type IVerdictCriteria,
+  type SherlockErrorCode,
+} from './sherlock-phase-reviewer-types.js';
+
+// Zod schemas from types file
+export {
+  PhaseNumberSchema,
+  InvestigationTierSchema,
+  VerdictSchema,
+  VerdictConfidenceSchema,
+  EvidenceStatusSchema,
+  EvidenceItemSchema,
+  VerificationCheckSchema,
+  PhaseReviewInputSchema,
+} from './sherlock-phase-reviewer-types.js';
+
+// Phase investigation protocols
+export {
+  PHASE_1_UNDERSTANDING_PROTOCOL,
+  PHASE_2_EXPLORATION_PROTOCOL,
+  PHASE_3_ARCHITECTURE_PROTOCOL,
+  PHASE_4_IMPLEMENTATION_PROTOCOL,
+  PHASE_5_TESTING_PROTOCOL,
+  PHASE_6_OPTIMIZATION_PROTOCOL,
+  PHASE_7_DELIVERY_PROTOCOL,
+  ALL_PHASE_PROTOCOLS,
+  getProtocolForPhase,
+  getEvidenceSourcesForPhase,
+  getAdversarialPersonasForPhase,
+  getProtocolSummary,
+} from './sherlock-phase-reviewer-protocols.js';
+
+// Main reviewer class and factory
+export {
+  SherlockPhaseReviewer,
+  createSherlockPhaseReviewer,
+  handlePhaseReviewResult,
+  type IMemoryRetriever,
+  type ISherlockPhaseReviewerConfig,
+  type IPhaseReviewCallbacks,
+} from './sherlock-phase-reviewer.js';
+
+// Case file builder (extracted module)
+export {
+  buildCaseFile,
+  getCaseFileReport,
+  type IBuildCaseFileParams,
+} from './sherlock-case-file-builder.js';
+
+// Verdict engine (extracted module)
+export {
+  renderVerdict,
+  type IVerdictResult,
+} from './sherlock-verdict-engine.js';
+
+// Adversarial analysis (extracted module)
+export {
+  runAdversarialAnalysis,
+  generateAdversarialFinding,
+} from './sherlock-adversarial-analysis.js';
+
+// Flow handler (extracted module)
+export {
+  handlePhaseReviewResult as sherlockHandlePhaseReviewResult,
+} from './sherlock-flow-handler.js';
+
+// Verification matrix engine (enhanced verification per PRD 2.3.3)
+export {
+  VerificationMethod,
+  VerificationContextSchema,
+  executeVerificationCheck,
+  runVerificationMatrix,
+  calculatePassRate,
+  type IVerificationContext,
+} from './sherlock-verification-matrix.js';
+
+// ===== SHERLOCK-QUALITY GATE INTEGRATION =====
+
+export {
+  IntegratedValidator,
+  createIntegratedValidator,
+  createTestIntegratedValidator,
+  IntegratedValidatorError,
+  type IIntegratedValidatorConfig,
+  type IIntegratedValidationResult,
+  type IntegrationErrorCode,
+  type PipelineType,
+} from './sherlock-quality-gate-integration.js';
+
+// ===== SHERLOCK-LEARNING INTEGRATION (/god-code only) =====
+
+export {
+  SherlockLearningIntegration,
+  createSherlockLearningIntegration,
+  createTestSherlockLearningIntegration,
+  SherlockLearningError,
+  SherlockLearningConfigSchema,
+  DEFAULT_SHERLOCK_LEARNING_CONFIG,
+  type ISherlockLearningConfig,
+  type ISherlockLearningEvent,
+  type SherlockLearningEventType,
+  type SherlockLearningEventListener,
+  type IForensicPattern,
+  type SherlockLearningErrorCode,
+} from './sherlock-learning-integration.js';
 
 // ===== PHD PIPELINE RUNNER =====
 

@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.1.0 | **Status**: Production-Ready | **Last Updated**: January 2025
+**Version**: 2.1.1 | **Status**: Production-Ready | **Last Updated**: January 2025
 
 ## Table of Contents
 
@@ -23,6 +23,52 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.1.1
+
+### Sherlock-Learning Integration (Coding Pipeline Only)
+
+Connects Sherlock forensic verdicts to the RLM/LEANN learning system for continuous improvement of the `/god-code` pipeline:
+
+| Feature | Description |
+|---------|-------------|
+| **SonaEngine Integration** | Trajectories created for each forensic investigation with quality feedback |
+| **ReasoningBank Patterns** | High-quality INNOCENT verdicts stored as patterns for future reference |
+| **Verdict-to-Quality Mapping** | INNOCENT=0.9, GUILTY=0.3, INSUFFICIENT=0.5 (×confidence multiplier) |
+| **Confidence Multipliers** | HIGH=1.0, MEDIUM=0.85, LOW=0.7 (per PRD Section 2.3) |
+| **Bounded Pattern Storage** | LRU eviction at 500 patterns prevents memory leaks |
+| **PhD Pipeline Isolation** | Explicit rejection of `pipelineType: 'phd'` prevents contamination |
+| **Event System** | `verdict:recorded`, `pattern:created`, `trajectory:feedback` events |
+
+#### Memory Namespace
+
+```
+coding/forensics/
+├── phase-[N]/verdict     # Verdict trajectories per phase
+└── pipeline/pattern-library  # High-quality patterns from INNOCENT verdicts
+```
+
+#### Quality Gate Thresholds (L-Score)
+
+| Gate | Phase | Threshold |
+|------|-------|-----------|
+| Gate 1 | Understanding | 0.75 |
+| Gate 2 | Exploration | 0.80 |
+| Gate 3 | Architecture | 0.85 |
+| Gate 4 | Implementation | 0.90 |
+| Gate 5 | Testing | 0.92 |
+| Gate 6 | Optimization | 0.88 |
+| Gate 7 | Delivery | 0.95 |
+
+#### Key Components
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| Learning Integration | `src/god-agent/core/pipeline/sherlock-learning-integration.ts` | Verdict-to-learning bridge |
+| Quality Gate Integration | `src/god-agent/core/pipeline/sherlock-quality-gate-integration.ts` | Gate + Sherlock coordination |
+| Tests | `tests/god-agent/core/pipeline/sherlock-learning-integration.test.ts` | 24 unit tests |
+
+---
 
 ## Features
 
@@ -792,6 +838,11 @@ coding/
 On GUILTY verdict: Recovery Agent (#47) orchestrates remediation
 Checkpoints created at: Understanding, Exploration, Architecture,
                         Implementation, Testing (for rollback support)
+
+Learning Integration (v2.1.1):
+- INNOCENT verdicts → SonaEngine trajectory + ReasoningBank pattern
+- GUILTY verdicts → Low-quality feedback for learning avoidance
+- Quality scores feed into RLM/LEANN for continuous improvement
 ```
 
 ## Observability Dashboard
