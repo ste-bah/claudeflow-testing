@@ -1,12 +1,3 @@
-/**
- * Sherlock-Quality Gate Integration
- *
- * Connects CodingQualityGateValidator to SherlockPhaseReviewer for unified
- * phase boundary validation. Quality Gate failures trigger Sherlock INVESTIGATION tier.
- *
- * @module src/god-agent/core/pipeline/sherlock-quality-gate-integration
- * @see docs/god-agent-coding-pipeline/PRD-god-agent-coding-pipeline.md Section 2.3
- */
 import { CodingQualityGateValidator } from './coding-quality-gate-validator.js';
 import { type ILScoreBreakdown, type IGateValidationContext, type IGateValidationResult } from './coding-quality-gate-types.js';
 import { SherlockPhaseReviewer, type IMemoryRetriever } from './sherlock-phase-reviewer.js';
@@ -31,25 +22,13 @@ export interface IIntegratedValidatorConfig {
     readonly autoTriggerSherlock?: boolean;
     /** Default tier for standard reviews */
     readonly defaultTier?: InvestigationTier;
-    /**
-     * Pipeline type - MUST be 'coding' for this validator.
-     * PhD pipeline uses different quality validation (PhDQualityGateValidator).
-     * @default 'coding'
-     */
+    /** Pipeline type - MUST be 'coding' (PhD uses PhDQualityGateValidator) @default 'coding' */
     readonly pipelineType?: PipelineType;
-    /**
-     * SonaEngine instance for learning integration.
-     * When provided, Sherlock verdicts feed into the learning system.
-     */
+    /** SonaEngine instance for learning integration (verdicts feed into RLM/LEANN) */
     readonly sonaEngine?: ISonaEngine | null;
-    /**
-     * ReasoningBank instance for pattern storage.
-     * When provided, high-quality verdicts create learning patterns.
-     */
+    /** ReasoningBank instance for pattern storage (high-quality verdicts create patterns) */
     readonly reasoningBank?: ReasoningBank | null;
-    /**
-     * Configuration for learning integration.
-     */
+    /** Configuration for learning integration */
     readonly learningConfig?: Partial<ISherlockLearningConfig>;
 }
 /**
@@ -108,24 +87,9 @@ export declare class IntegratedValidator {
     private readonly _verbose;
     private readonly _validationHistory;
     constructor(config: IIntegratedValidatorConfig);
-    /**
-     * Validate phase boundary with integrated Quality Gate and Sherlock review.
-     *
-     * @param phase - Phase number (1-7)
-     * @param lScore - L-Score breakdown
-     * @param context - Gate validation context
-     * @param retryCount - Current retry count for this phase
-     * @returns Promise resolving to integrated validation result
-     */
+    /** Validate phase boundary with integrated Quality Gate and Sherlock review. */
     validatePhase(phase: number, lScore: ILScoreBreakdown, context: IGateValidationContext, retryCount?: number): Promise<IIntegratedValidationResult>;
-    /**
-     * Run Sherlock review directly (without gate validation).
-     *
-     * @param phase - Phase number
-     * @param tier - Investigation tier
-     * @param retryCount - Retry count
-     * @returns Sherlock review result
-     */
+    /** Run Sherlock review directly (without gate validation). */
     reviewPhase(phase: number, tier?: InvestigationTier, retryCount?: number): Promise<IPhaseReviewResult>;
     /**
      * Quick gate check without Sherlock.
@@ -157,6 +121,14 @@ export declare class IntegratedValidator {
     clearHistory(): void;
     /**
      * Determine if Sherlock review should be triggered.
+     *
+     * Per PRD Section 2.3: "Each phase concludes with a **mandatory forensic review**
+     * by the sherlock-holmes agent before proceeding to the next phase."
+     *
+     * This implements the "Guilty Until Proven Innocent" verification model where
+     * ALL phases are reviewed, not just failures. The investigation tier is
+     * selected based on gate result severity via _selectTier().
+     *
      * @private
      */
     private _shouldTriggerSherlock;
@@ -198,11 +170,6 @@ export declare class IntegratedValidator {
  * @returns New IntegratedValidator instance
  */
 export declare function createIntegratedValidator(config: IIntegratedValidatorConfig): IntegratedValidator;
-/**
- * Create a minimal integrated validator for testing.
- *
- * @param memoryRetriever - Memory retriever implementation
- * @returns New IntegratedValidator instance
- */
+/** Create a minimal integrated validator for testing. */
 export declare function createTestIntegratedValidator(memoryRetriever: IMemoryRetriever): IntegratedValidator;
 //# sourceMappingURL=sherlock-quality-gate-integration.d.ts.map

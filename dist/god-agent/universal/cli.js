@@ -132,6 +132,8 @@ function getSelectedAgent(command) {
         cf: 'code-feedback-agent',
         'auto-complete-coding': 'auto-complete-agent',
         acc: 'auto-complete-agent',
+        'batch-learn': 'batch-learn-agent',
+        bl: 'batch-learn-agent',
         query: 'query-agent',
         q: 'query-agent',
     };
@@ -342,6 +344,139 @@ async function autoCompleteCodingTrajectories(route, dryRun = false) {
     }
     return result;
 }
+// ==================== Learning Loop Gap Fix (TASK-LOOPFIX-001) ====================
+/**
+ * Check for orphaned trajectories and warn at CLI startup
+ *
+ * TASK-LOOPFIX-001: Addresses the learning loop gap where feedback submission
+ * relies on Claude following instructions rather than being programmatic.
+ *
+ * CONSTITUTION COMPLIANCE:
+ * - ERR-001: No silent failures - warn users about orphaned trajectories
+ * - RULE-035: All agent results MUST be assessed for quality
+ *
+ * @param verbose - If true, print warnings to stderr
+ * @returns Object with orphan count and details
+ */
+function checkOrphanedTrajectories(verbose = true) {
+    const engine = getSonaEngine();
+    if (!engine) {
+        return { orphanCount: 0, recentOrphans: [] };
+    }
+    try {
+        // Get all trajectories
+        const allTrajectories = engine.listTrajectories();
+        // Find orphaned trajectories (those without quality scores)
+        const orphanedTrajectories = allTrajectories.filter(t => t.quality === undefined || t.quality === null);
+        // Filter to recent orphans (last 24 hours)
+        const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        const recentOrphans = orphanedTrajectories
+            .filter(t => {
+            const createdAt = t.createdAt || (t.steps?.[0]?.timestamp) || 0;
+            return createdAt > oneDayAgo;
+        })
+            .map(t => ({
+            id: t.id,
+            route: t.route || 'unknown',
+            createdAt: t.createdAt || (t.steps?.[0]?.timestamp) || 0,
+        }))
+            .slice(0, 5); // Show only first 5
+        if (verbose && recentOrphans.length > 0) {
+            console.error('\n\x1b[33m[WARNING] Learning Loop Gap Detected!\x1b[0m');
+            console.error(`Found ${orphanedTrajectories.length} orphaned trajectories without feedback.`);
+            console.error('Recent orphans (last 24h):');
+            for (const orphan of recentOrphans) {
+                const age = Math.round((Date.now() - orphan.createdAt) / (60 * 1000));
+                console.error(`  - ${orphan.id.slice(0, 20)}... (${orphan.route}) - ${age} min ago`);
+            }
+            console.error('\nTo fix, run one of:');
+            console.error('  npx tsx src/god-agent/universal/cli.ts auto-complete-coding');
+            console.error('  npx tsx src/god-agent/universal/cli.ts feedback <trajectoryId> <rating> --trajectory\n');
+        }
+        return { orphanCount: orphanedTrajectories.length, recentOrphans };
+    }
+    catch (error) {
+        // ERR-001 compliance: Log error, don't silently swallow
+        console.debug('[checkOrphanedTrajectories] Failed:', error.message);
+        return { orphanCount: 0, recentOrphans: [] };
+    }
+}
+/**
+ * Get orphan warning for JSON output
+ *
+ * TASK-LOOPFIX-001: Include orphan warning in JSON output for programmatic consumers.
+ * This allows skills and automated systems to detect and handle orphaned trajectories.
+ *
+ * @returns Warning object if orphans exist, undefined otherwise
+ */
+function getOrphanWarningForJson() {
+    const { orphanCount } = checkOrphanedTrajectories(false);
+    if (orphanCount > 0) {
+        return {
+            orphanCount,
+            warning: `${orphanCount} trajectories without feedback. Run 'auto-complete-coding' to fix.`,
+        };
+    }
+    return undefined;
+}
+// ==================== Embedding Service Health Check (TASK-EMBED-HEALTH-001) ====================
+/**
+ * Check if the embedding service is available at localhost:8000
+ *
+ * TASK-EMBED-HEALTH-001: Startup health check for embedding service.
+ * DESC episodic memory requires the embedding service to function.
+ * This check warns users early if the service is unavailable.
+ *
+ * @returns Promise<boolean> true if service is available
+ */
+async function checkEmbeddingServiceHealth() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+        const response = await fetch('http://localhost:8000/', {
+            signal: controller.signal,
+            method: 'GET',
+        });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+            const data = await response.json();
+            // api-embedder2.py returns {status: "online", model: "...", database_items: N}
+            return data.status === 'online';
+        }
+        return false;
+    }
+    catch {
+        // Network error, timeout, or service not running
+        return false;
+    }
+}
+/**
+ * Display embedding service health warning
+ *
+ * TASK-EMBED-HEALTH-001: Clear warning message with fix instructions.
+ * Uses ANSI colors for visibility in terminal.
+ *
+ * @param verbose - Whether to display the warning (false in JSON mode)
+ */
+async function displayEmbeddingHealthWarning(verbose) {
+    if (!verbose)
+        return;
+    const isAvailable = await checkEmbeddingServiceHealth();
+    if (!isAvailable) {
+        console.error('\n\x1b[33m========================================\x1b[0m');
+        console.error('\x1b[33m  WARNING: Embedding Service Unavailable\x1b[0m');
+        console.error('\x1b[33m========================================\x1b[0m');
+        console.error('\x1b[31mEmbedding service not running at localhost:8000\x1b[0m');
+        console.error('DESC episodic memory will NOT work.');
+        console.error('');
+        console.error('To start the embedding service:');
+        console.error('  \x1b[36m./embedding-api/api-embed.sh start\x1b[0m');
+        console.error('');
+        console.error('To check status:');
+        console.error('  \x1b[36m./embedding-api/api-embed.sh status\x1b[0m');
+        console.error('\x1b[33m========================================\x1b[0m\n');
+    }
+}
 async function main() {
     const { command, positional, flags } = parseArgs(process.argv);
     const input = positional.join(' ');
@@ -349,6 +484,16 @@ async function main() {
     // TASK-HOOK-008: Initialize hooks for CLI standalone mode (idempotent)
     // This ensures hooks work even when CLI runs standalone without daemon
     initializeCliHooks(!jsonMode);
+    // TASK-LOOPFIX-001: Check for orphaned trajectories at CLI startup
+    // Only show warning in non-JSON mode to avoid breaking machine parsing
+    // This addresses the learning loop gap where feedback relies on Claude following instructions
+    if (!jsonMode) {
+        checkOrphanedTrajectories(true);
+    }
+    // TASK-EMBED-HEALTH-001: Check embedding service health at CLI startup
+    // Warns users if DESC episodic memory will not work due to missing embedding service
+    // Non-blocking: CLI continues to work for basic operations without embedding service
+    await displayEmbeddingHealthWarning(!jsonMode);
     if (!command) {
         if (jsonMode) {
             outputJson({
@@ -478,6 +623,11 @@ async function main() {
                     const preparation = await agent.prepareCodeTask(input, { language: languageFlag });
                     // Implements [REQ-GODCODE-002]: Output structured JSON with builtPrompt
                     if (jsonMode) {
+                        // TASK-LOOPFIX-001: Build feedback command for programmatic enforcement
+                        const trajectoryId = preparation.trajectoryId ?? undefined;
+                        const feedbackCommand = trajectoryId
+                            ? `npx tsx src/god-agent/universal/cli.ts code-feedback "${trajectoryId}" --output "[TASK_OUTPUT]" --agent "${preparation.agentType}"`
+                            : undefined;
                         // Machine-readable output for skill consumption
                         outputJson({
                             command: 'code',
@@ -494,9 +644,14 @@ async function main() {
                                 memoryContext: preparation.memoryContext,
                                 language: preparation.language,
                                 pipeline: preparation.pipeline,
+                                // TASK-LOOPFIX-001: Feedback enforcement fields
+                                feedbackRequired: true,
+                                feedbackCommand,
                             },
                             success: true,
-                            trajectoryId: preparation.trajectoryId ?? undefined,
+                            trajectoryId,
+                            // TASK-LOOPFIX-001: Include orphan warning if any exist
+                            orphanWarning: getOrphanWarningForJson(),
                         });
                     }
                     else {
@@ -641,6 +796,11 @@ async function main() {
                     });
                     // Implements [REQ-GODWRITE-002]: Output structured JSON with builtPrompt
                     if (jsonMode) {
+                        // TASK-LOOPFIX-001: Build feedback command for programmatic enforcement
+                        const trajectoryId = preparation.trajectoryId ?? undefined;
+                        const feedbackCommand = trajectoryId
+                            ? `npx tsx src/god-agent/universal/cli.ts feedback "${trajectoryId}" [quality_score] --trajectory --notes "Write task completed"`
+                            : undefined;
                         // Machine-readable output for skill consumption
                         outputJson({
                             command: 'write',
@@ -661,9 +821,14 @@ async function main() {
                                 descContext: preparation.descContext,
                                 memoryContext: preparation.memoryContext,
                                 pipeline: preparation.pipeline,
+                                // TASK-LOOPFIX-001: Feedback enforcement fields
+                                feedbackRequired: true,
+                                feedbackCommand,
                             },
                             success: true,
-                            trajectoryId: preparation.trajectoryId ?? undefined,
+                            trajectoryId,
+                            // TASK-LOOPFIX-001: Include orphan warning if any exist
+                            orphanWarning: getOrphanWarningForJson(),
                         });
                     }
                     else {
@@ -985,6 +1150,129 @@ async function main() {
                 }
                 break;
             }
+            case 'batch-learn':
+            case 'bl': {
+                // batch-learn [--limit <num>] [--dry-run]
+                // Process unprocessed feedback records for batch learning
+                const limitStr = getFlag(flags, 'limit', 'n');
+                const batchLimit = limitStr ? parseInt(limitStr, 10) : 100;
+                const dryRun = getFlag(flags, 'dry-run', 'd') === true;
+                try {
+                    const engine = getSonaEngine();
+                    if (!engine) {
+                        if (jsonMode) {
+                            outputJson({
+                                command: 'batch-learn',
+                                selectedAgent: 'batch-learn-agent',
+                                prompt: `limit=${batchLimit}`,
+                                isPipeline: false,
+                                result: null,
+                                success: false,
+                                error: 'SonaEngine not available',
+                            });
+                        }
+                        else {
+                            console.error('Error: SonaEngine not available');
+                        }
+                        process.exit(1);
+                    }
+                    // Initialize engine if needed
+                    await engine.initialize();
+                    // Check unprocessed count first
+                    const unprocessedCount = engine.getUnprocessedFeedbackCount();
+                    if (dryRun) {
+                        // Dry run: just report what would be done
+                        if (jsonMode) {
+                            outputJson({
+                                command: 'batch-learn',
+                                selectedAgent: 'batch-learn-agent',
+                                prompt: `limit=${batchLimit}`,
+                                isPipeline: false,
+                                result: {
+                                    dryRun: true,
+                                    unprocessedCount,
+                                    wouldProcess: Math.min(unprocessedCount, batchLimit),
+                                    message: `Would process up to ${Math.min(unprocessedCount, batchLimit)} of ${unprocessedCount} unprocessed records`,
+                                },
+                                success: true,
+                            });
+                        }
+                        else {
+                            console.log('\n--- Batch Learn (Dry Run) ---');
+                            console.log(`Unprocessed feedback records: ${unprocessedCount}`);
+                            console.log(`Would process: up to ${Math.min(unprocessedCount, batchLimit)} records`);
+                            console.log(`\nTo execute, run without --dry-run flag`);
+                        }
+                    }
+                    else {
+                        // Execute batch processing
+                        const result = await engine.processUnprocessedFeedback(batchLimit);
+                        if (jsonMode) {
+                            outputJson({
+                                command: 'batch-learn',
+                                selectedAgent: 'batch-learn-agent',
+                                prompt: `limit=${batchLimit}`,
+                                isPipeline: false,
+                                result: {
+                                    processed: result.processed,
+                                    patternsCreated: result.patternsCreated,
+                                    errors: result.errors,
+                                    details: result.details,
+                                    remainingUnprocessed: engine.getUnprocessedFeedbackCount(),
+                                },
+                                success: result.errors === 0,
+                            });
+                        }
+                        else {
+                            console.log('\n--- Batch Learn Results ---');
+                            console.log(`Processed: ${result.processed} feedback records`);
+                            console.log(`Patterns created: ${result.patternsCreated}`);
+                            console.log(`Errors: ${result.errors}`);
+                            if (result.details.length > 0 && result.details.length <= 10) {
+                                console.log('\n--- Details ---');
+                                for (const detail of result.details) {
+                                    const statusIcon = detail.status === 'pattern_created' ? '[PATTERN]' :
+                                        detail.status === 'processed' ? '[OK]' :
+                                            detail.status === 'skipped' ? '[SKIP]' : '[ERR]';
+                                    console.log(`  ${statusIcon} ${detail.feedbackId.slice(0, 20)}... - quality: ${(detail.quality * 100).toFixed(1)}%`);
+                                    if (detail.reason) {
+                                        console.log(`       Reason: ${detail.reason}`);
+                                    }
+                                }
+                            }
+                            else if (result.details.length > 10) {
+                                console.log(`\n(${result.details.length} details omitted for brevity, use --json for full output)`);
+                            }
+                            const remaining = engine.getUnprocessedFeedbackCount();
+                            if (remaining > 0) {
+                                console.log(`\nRemaining unprocessed: ${remaining}`);
+                                console.log('Run again to process more records.');
+                            }
+                            else {
+                                console.log('\nAll feedback records have been processed.');
+                            }
+                        }
+                    }
+                }
+                catch (error) {
+                    if (jsonMode) {
+                        outputJson({
+                            command: 'batch-learn',
+                            selectedAgent: 'batch-learn-agent',
+                            prompt: `limit=${batchLimit}`,
+                            isPipeline: false,
+                            result: null,
+                            success: false,
+                            error: error instanceof Error ? error.message : String(error),
+                        });
+                    }
+                    else {
+                        console.error(`Error in batch learning: ${error}`);
+                    }
+                    process.exit(1);
+                }
+                break;
+            }
             case 'learn':
             case 'l': {
                 // Get content from positional args OR file
@@ -1173,7 +1461,7 @@ async function main() {
                         prompt: '',
                         isPipeline: false,
                         result: {
-                            commands: ['ask', 'code', 'research', 'write', 'status', 'learn', 'feedback', 'code-feedback', 'auto-complete-coding', 'query', 'help'],
+                            commands: ['ask', 'code', 'research', 'write', 'status', 'learn', 'feedback', 'code-feedback', 'auto-complete-coding', 'batch-learn', 'query', 'help'],
                             usage: 'npx tsx src/god-agent/universal/cli.ts <command> [input] [options]',
                         },
                         success: true,
@@ -1242,6 +1530,7 @@ COMMANDS:
   feedback, f <id> <rating> [options]   Provide feedback (0-1) for learning
   code-feedback, cf <trajectoryId>      Code-specific feedback with quality analysis
   auto-complete-coding, acc             Auto-complete orphaned coding trajectories
+  batch-learn, bl [options]             Process unprocessed feedback for batch learning
   query, q    --domain <name> [options] Query stored knowledge
   help, h                               Show this help
 
@@ -1264,6 +1553,10 @@ CODE-FEEDBACK OPTIONS:
 AUTO-COMPLETE-CODING OPTIONS:
   --route, -r <route>    Filter by route (e.g., "code", "code-pipeline")
   --dry-run, -d          Show what would be done without making changes
+
+BATCH-LEARN OPTIONS:
+  --limit, -n <num>      Max records to process per batch (default: 100)
+  --dry-run, -d          Show unprocessed count without processing
 
 QUERY OPTIONS:
   --domain, -d <name>    Domain to query (required)
@@ -1318,6 +1611,11 @@ EXAMPLES:
   npx tsx src/god-agent/universal/cli.ts auto-complete-coding --dry-run
   npx tsx src/god-agent/universal/cli.ts acc --route code-pipeline
   npx tsx src/god-agent/universal/cli.ts acc --json
+
+  # Batch process unprocessed feedback for learning
+  npx tsx src/god-agent/universal/cli.ts batch-learn --dry-run
+  npx tsx src/god-agent/universal/cli.ts batch-learn --limit 50
+  npx tsx src/god-agent/universal/cli.ts bl --json
 
 SELF-LEARNING:
   The agent automatically learns from every interaction:

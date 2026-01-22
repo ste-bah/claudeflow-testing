@@ -62,11 +62,35 @@ Present the subagent's output to the user along with:
 - Sources referenced
 - Trajectory ID for feedback
 
-## Step 5: Provide Feedback (Recommended)
+## Step 5: Provide Feedback (MANDATORY - Learning Loop Closure)
 
-To improve learning, provide feedback:
+**CRITICAL - LEARNING LOOP CLOSURE**: After the Task() subagent returns, you MUST automatically submit quality feedback. This is NOT optional. Skipping this step causes orphaned trajectories that break the learning system.
+
+### Programmatic Feedback Command
+
+The CLI output includes `result.feedbackCommand` - a pre-built command with the correct trajectoryId. Use it directly, replacing `[quality_score]` with your assessment (0.0-1.0):
+
 ```bash
-npx tsx src/god-agent/universal/cli.ts feedback [trajectoryId] [rating 0-1] --trajectory --notes "feedback"
+# Replace [quality_score] with actual score (0.0-1.0)
+${result.feedbackCommand}
+```
+
+### Quality Assessment Guidelines
+
+| Score Range | Quality Level | Criteria |
+|-------------|---------------|----------|
+| **0.85-0.95** | Excellent | Well-structured, comprehensive, proper citations, clear writing |
+| **0.70-0.84** | Good | Mostly complete, minor structural issues |
+| **0.50-0.69** | Adequate | Partial content, needs improvement |
+| **0.30-0.49** | Poor | Incomplete or low quality |
+| **0.00-0.29** | Failed | Did not address the topic |
+
+### Orphan Detection
+
+If the CLI output includes `orphanWarning`, there are orphaned trajectories from previous runs. Consider running:
+
+```bash
+npx tsx src/god-agent/universal/cli.ts auto-complete-coding
 ```
 
 ---

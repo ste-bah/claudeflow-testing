@@ -290,13 +290,74 @@ export class PipelineExecutor {
                 cause: new Error('Invalid step configuration'),
             });
         }
-        // 2. Build prompt with workflow context (RULE-007)
+        // 2. Retrieve previous agent's output for context injection (RULE-005)
+        let previousOutput;
+        let previousStepData;
+        if (stepIndex > 0 && step.inputDomain) {
+            const retrieveResult = this.memoryCoordinator.retrievePreviousOutput({ ...step, agentKey }, pipelineId);
+            if (retrieveResult.output !== undefined && retrieveResult.stepData) {
+                previousOutput = retrieveResult.output;
+                previousStepData = {
+                    agentKey: retrieveResult.stepData.agentKey,
+                    stepIndex: retrieveResult.stepData.stepIndex,
+                    domain: step.inputDomain,
+                };
+                // Emit MEMORY_RETRIEVED event for observability
+                this.emitEvent({
+                    type: PipelineEventType.MEMORY_RETRIEVED,
+                    pipelineId,
+                    timestamp: Date.now(),
+                    data: {
+                        stepIndex,
+                        agentKey,
+                        sourceDomain: step.inputDomain,
+                        sourceAgentKey: previousStepData.agentKey,
+                        sourceStepIndex: previousStepData.stepIndex,
+                        hasOutput: true,
+                    },
+                });
+                this.log(`[Pipeline ${pipelineId}] Step ${stepIndex}: Retrieved output from ` +
+                    `agent '${previousStepData.agentKey}' (step ${previousStepData.stepIndex})`);
+            }
+            else {
+                // Log warning if retrieval failed but continue with fallback
+                this.log(`[Pipeline ${pipelineId}] Step ${stepIndex}: Warning - could not retrieve ` +
+                    `previous output from domain '${step.inputDomain}'. Agent will use fallback retrieval.`);
+            }
+        }
+        // 2b. Get semantic context from LEANN if available
+        // Use taskDescription (for DAI-001) or task (explicit) for semantic search
+        const searchDescription = step.taskDescription || step.task;
+        let semanticContext;
+        if (this.dependencies.leannContextService && searchDescription) {
+            try {
+                semanticContext = await this.dependencies.leannContextService.buildSemanticContext({
+                    taskDescription: searchDescription,
+                    phase: stepIndex,
+                    previousOutput,
+                    maxResults: 5,
+                });
+                if (semanticContext.totalResults > 0) {
+                    this.log(`[Pipeline ${pipelineId}] Step ${stepIndex}: Found ${semanticContext.totalResults} ` +
+                        `relevant code contexts via LEANN`);
+                }
+            }
+            catch (error) {
+                // Log but don't fail - semantic context is optional enrichment
+                this.log(`[Pipeline ${pipelineId}] Step ${stepIndex}: LEANN context search failed: ` +
+                    `${error.message}`);
+            }
+        }
+        // 3. Build prompt with workflow context (RULE-007)
         const promptContext = {
             step: { ...step, agentKey }, // Ensure agentKey is set
             stepIndex,
             pipeline,
             pipelineId,
             initialInput,
+            previousOutput,
+            previousStepData,
+            semanticContext,
         };
         const builtPrompt = this.promptBuilder.buildPrompt(promptContext);
         this.emitEvent({
@@ -384,8 +445,15 @@ export class PipelineExecutor {
             });
         }
         // 8. Provide step feedback if learning enabled
-        if (this.config.enableLearning && this.dependencies.reasoningBank) {
-            await this.provideStepFeedback(stepTrajectoryId, quality, agentKey, stepIndex);
+        if (this.config.enableLearning && (this.dependencies.sonaEngine || this.dependencies.reasoningBank)) {
+            // Construct RLM context for relay-race memory handoff tracking
+            const rlmContext = {
+                injectionSuccess: previousOutput !== undefined && previousStepData !== undefined,
+                sourceAgentKey: previousStepData?.agentKey,
+                sourceStepIndex: previousStepData?.stepIndex,
+                sourceDomain: previousStepData?.domain,
+            };
+            await this.provideStepFeedback(stepTrajectoryId, quality, agentKey, stepIndex, rlmContext);
         }
         const stepDuration = Date.now() - stepStartTime;
         this.emitEvent({
@@ -520,9 +588,42 @@ export class PipelineExecutor {
         return 0.5;
     }
     /**
-     * Provide feedback to ReasoningBank for a step.
+     * Provide feedback to SonaEngine for a step (direct SQLite persistence).
+     * Falls back to ReasoningBank if SonaEngine is not available.
+     *
+     * @param trajectoryId - The trajectory ID for this step
+     * @param quality - Quality score (0-1)
+     * @param agentKey - The agent key that executed the step
+     * @param stepIndex - The step index in the pipeline
+     * @param rlmContext - Optional RLM context for relay-race memory handoff tracking
      */
-    async provideStepFeedback(trajectoryId, quality, agentKey, stepIndex) {
+    async provideStepFeedback(trajectoryId, quality, agentKey, stepIndex, rlmContext) {
+        // Prefer SonaEngine for direct SQLite persistence
+        if (this.dependencies.sonaEngine) {
+            try {
+                await this.dependencies.sonaEngine.provideFeedback(trajectoryId, quality, {
+                    skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+                    rlmContext, // Pass RLM context for relay-race memory tracking
+                });
+                this.emitEvent({
+                    type: PipelineEventType.FEEDBACK_PROVIDED,
+                    pipelineId: trajectoryId.split('_')[2] || 'unknown',
+                    timestamp: Date.now(),
+                    data: {
+                        trajectoryId,
+                        quality,
+                        agentKey,
+                        stepIndex,
+                        outcome: quality >= 0.7 ? 'positive' : 'negative',
+                    },
+                });
+                return;
+            }
+            catch (error) {
+                this.log(`[Feedback] Warning: SonaEngine feedback failed, trying ReasoningBank: ${error.message}`);
+            }
+        }
+        // Fallback to ReasoningBank
         if (!this.dependencies.reasoningBank)
             return;
         try {
@@ -551,9 +652,23 @@ export class PipelineExecutor {
         }
     }
     /**
-     * Provide feedback to ReasoningBank for the entire pipeline.
+     * Provide feedback to SonaEngine for the entire pipeline (direct SQLite persistence).
+     * Falls back to ReasoningBank if SonaEngine is not available.
      */
     async providePipelineFeedback(trajectoryId, quality, status, pipelineName, errorMessage) {
+        // Prefer SonaEngine for direct SQLite persistence
+        if (this.dependencies.sonaEngine) {
+            try {
+                await this.dependencies.sonaEngine.provideFeedback(trajectoryId, quality, {
+                    skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+                });
+                return;
+            }
+            catch (error) {
+                this.log(`[Feedback] Warning: SonaEngine pipeline feedback failed, trying ReasoningBank: ${error.message}`);
+            }
+        }
+        // Fallback to ReasoningBank
         if (!this.dependencies.reasoningBank)
             return;
         try {

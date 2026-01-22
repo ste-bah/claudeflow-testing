@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: contradiction-analyzer
-type: critical-analyst
+type: researcher
 color: "#6A1B9A"
 description: Use PROACTIVELY after gap analysis to systematically identify contradictions, inconsistencies, and conflicting findings in literature. MUST BE USED to discover 10+ contradictions and reconcile with evidence. Works for ANY domain (all research fields).
 capabilities:

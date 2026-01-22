@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: opportunity-identifier
-type: gap-analyst
+type: researcher
 color: "#FFC107"
 description: Use PROACTIVELY after model architecture to identify research opportunities and gaps. MUST BE USED to discover novel research questions and未explored territories. Works for ANY domain (software, business, research, product).
 capabilities:

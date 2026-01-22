@@ -235,6 +235,81 @@ function buildSessionStateForMemory(session: {
 }
 
 // ============================================================================
+// TASK-EMBED-HEALTH-001: EMBEDDING SERVICE HEALTH CHECK
+// ============================================================================
+// DESC episodic memory requires the embedding service at localhost:8000
+// This health check warns users early if the service is unavailable
+
+/**
+ * Check if the embedding service is available at localhost:8000
+ *
+ * TASK-EMBED-HEALTH-001: Startup health check for embedding service.
+ * DESC episodic memory requires the embedding service to function.
+ *
+ * @returns Promise<boolean> true if service is available
+ */
+async function checkEmbeddingServiceHealth(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
+    const response = await fetch('http://localhost:8000/', {
+      signal: controller.signal,
+      method: 'GET',
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      // api-embedder2.py returns {status: "online", model: "...", database_items: N}
+      return data.status === 'online';
+    }
+    return false;
+  } catch {
+    // Network error, timeout, or service not running
+    return false;
+  }
+}
+
+/**
+ * Display embedding service health warning if service is unavailable
+ *
+ * TASK-EMBED-HEALTH-001: Clear warning message with fix instructions.
+ * Uses ANSI colors for visibility in terminal.
+ *
+ * @param verbose - Whether to display verbose output
+ * @returns Promise<{ available: boolean; warned: boolean }> Health check result
+ */
+async function checkAndWarnEmbeddingService(verbose: boolean): Promise<{ available: boolean; warned: boolean }> {
+  const isAvailable = await checkEmbeddingServiceHealth();
+
+  if (!isAvailable) {
+    // Always output warning to stderr (not stdout) to avoid breaking JSON parsing
+    console.error('\n\x1b[33m========================================\x1b[0m');
+    console.error('\x1b[33m  WARNING: Embedding Service Unavailable\x1b[0m');
+    console.error('\x1b[33m========================================\x1b[0m');
+    console.error('\x1b[31mEmbedding service not running at localhost:8000\x1b[0m');
+    console.error('DESC episodic memory will NOT work.');
+    console.error('PhD Pipeline agents will not have access to learned patterns.');
+    console.error('');
+    console.error('To start the embedding service:');
+    console.error('  \x1b[36m./embedding-api/api-embed.sh start\x1b[0m');
+    console.error('');
+    console.error('To check status:');
+    console.error('  \x1b[36m./embedding-api/api-embed.sh status\x1b[0m');
+    console.error('\x1b[33m========================================\x1b[0m\n');
+    return { available: false, warned: true };
+  }
+
+  if (verbose) {
+    console.error('[PHD-CLI] Embedding service: online');
+  }
+
+  return { available: true, warned: false };
+}
+
+// ============================================================================
 // TASK-CLI-001: AGENT FILE VALIDATION
 // ============================================================================
 // Implements RULE-018: Agent Key Validity - all agent keys must have corresponding .md files
@@ -1743,6 +1818,11 @@ async function commandInit(
   if (options.verbose) {
     console.error(`[PHD-CLI] Agent file validation passed: ${agentValidation.foundAgents}/${agentValidation.totalAgents} agents verified`);
   }
+
+  // TASK-EMBED-HEALTH-001: Check embedding service health at pipeline init
+  // This warns users early if DESC episodic memory won't work
+  // Non-blocking: pipeline continues but without DESC capabilities
+  await checkAndWarnEmbeddingService(options.verbose || false);
 
   // [REQ-PIPE-001] Validate query
   if (!query || query.trim() === '') {

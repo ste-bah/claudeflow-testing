@@ -33,7 +33,7 @@ describe('GraphSourceAdapter', () => {
       id: 'node3',
       type: 'concept',
       properties: { name: 'Graph Database' },
-      embedding: Array(768).fill(0.1),
+      embedding: Array(1536).fill(0.1),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     },

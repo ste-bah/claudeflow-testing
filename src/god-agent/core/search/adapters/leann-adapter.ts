@@ -8,6 +8,7 @@
  * @module src/god-agent/core/search/adapters/leann-adapter
  */
 
+import * as fs from 'fs/promises';
 import type {
   SourceExecutionResult,
   RawSourceResult,
@@ -384,22 +385,96 @@ export class LEANNSourceAdapter {
   }
 
   /**
-   * Save index to persistent storage
+   * Save index to persistent storage with atomic writes.
+   * Uses temp files and rename to prevent partial write corruption.
    *
    * @param filePath - Path to save the index
+   * @param timeoutMs - Timeout in milliseconds (default: 30000)
+   * @throws Error if save operation times out or fails
    */
-  async save(filePath: string): Promise<void> {
-    await this.backend.save(filePath);
+  async save(filePath: string, timeoutMs: number = 30000): Promise<void> {
+    const saveOp = async () => {
+      const tempVectorPath = filePath + '.tmp';
+      const tempContentPath = filePath + '.content.tmp';
+      const contentStorePath = filePath + '.content';
+
+      try {
+        // Write to temp files first (atomic write pattern)
+        await this.backend.save(tempVectorPath);
+
+        const contentData = {
+          version: 1,
+          entries: Array.from(this.contentStore.entries()),
+        };
+        await fs.writeFile(tempContentPath, JSON.stringify(contentData), 'utf-8');
+
+        // Atomic rename (both files)
+        await fs.rename(tempVectorPath, filePath);
+        await fs.rename(tempContentPath, contentStorePath);
+      } catch (error) {
+        // Cleanup temp files on failure
+        await fs.unlink(tempVectorPath).catch(() => {});
+        await fs.unlink(tempContentPath).catch(() => {});
+        throw error;
+      }
+    };
+
+    await withTimeout(saveOp(), timeoutMs, 'leann-save');
   }
 
   /**
-   * Load index from persistent storage
+   * Load index from persistent storage with timeout and error handling.
+   * Distinguishes between ENOENT (file not found) and other errors.
+   * Warns on version mismatch instead of silent ignore.
    *
    * @param filePath - Path to load the index from
-   * @returns True if loaded successfully
+   * @param timeoutMs - Timeout in milliseconds (default: 30000)
+   * @returns True if loaded successfully, false if file doesn't exist
+   * @throws Error if load operation times out or fails (non-ENOENT)
    */
-  async load(filePath: string): Promise<boolean> {
-    return this.backend.load(filePath);
+  async load(filePath: string, timeoutMs: number = 30000): Promise<boolean> {
+    const loadOp = async () => {
+      const backendLoaded = await this.backend.load(filePath);
+      if (!backendLoaded) return false;
+
+      // Load contentStore if exists
+      const contentStorePath = filePath + '.content';
+      try {
+        const data = await fs.readFile(contentStorePath, 'utf-8');
+        let parsed: { version?: number; entries?: Array<[string, string]> };
+        try {
+          parsed = JSON.parse(data);
+        } catch (parseError) {
+          console.warn(`[LEANNAdapter] Failed to parse contentStore JSON: ${parseError}`);
+          return true; // Backend loaded successfully, content store corrupted but non-fatal
+        }
+
+        if (parsed.version === 1 && Array.isArray(parsed.entries)) {
+          this.contentStore.clear();
+          for (const [id, content] of parsed.entries) {
+            this.contentStore.set(id, content);
+          }
+        } else if (parsed.version !== undefined && parsed.version > 1) {
+          // Warn on version mismatch instead of silent ignore
+          console.warn(
+            `[LEANNAdapter] ContentStore version ${parsed.version} not supported (max: 1), skipping content restore`
+          );
+        } else if (!Array.isArray(parsed.entries)) {
+          console.warn('[LEANNAdapter] ContentStore missing entries array, skipping content restore');
+        }
+      } catch (error: unknown) {
+        // Only ignore ENOENT (file not found), warn on other errors
+        const errCode = (error as NodeJS.ErrnoException).code;
+        if (errCode !== 'ENOENT') {
+          console.warn(`[LEANNAdapter] Failed to load contentStore: ${error}`);
+        }
+        // Backend loaded successfully, content store missing is acceptable
+      }
+
+      return true;
+    };
+
+    return withTimeout(loadOp(), timeoutMs, 'leann-load');
   }
 
   /**

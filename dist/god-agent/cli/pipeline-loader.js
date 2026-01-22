@@ -24,60 +24,63 @@ const _PHASE_ORDER = {
 };
 /**
  * Agent order within phases (static agents only)
+ * CANONICAL SOURCE: 46 agents matching successful run directory structure
+ * Phase counts: 7+4+4+5+9+6+11=46
  */
 const AGENT_ORDER = {
-    // Phase 1: Foundation
+    // Phase 1: Foundation (7 agents, positions 1-7)
     'step-back-analyzer': 1,
     'self-ask-decomposer': 2,
     'ambiguity-clarifier': 3,
     'research-planner': 4,
     'construct-definer': 5,
     'dissertation-architect': 6,
-    // Phase 2: Discovery
-    'literature-mapper': 7,
-    'systematic-reviewer': 8,
+    'chapter-synthesizer': 7,
+    // Phase 2: Discovery (4 agents, positions 8-11)
+    'literature-mapper': 8,
     'source-tier-classifier': 9,
     'citation-extractor': 10,
     'context-tier-manager': 11,
-    // Phase 3: Architecture
+    // Phase 3: Architecture (4 agents, positions 12-15)
     'theoretical-framework-analyst': 12,
     'contradiction-analyzer': 13,
     'gap-hunter': 14,
     'risk-analyst': 15,
-    // Phase 4: Synthesis
+    // Phase 4: Synthesis (5 agents, positions 16-20)
     'evidence-synthesizer': 16,
     'pattern-analyst': 17,
     'thematic-synthesizer': 18,
     'theory-builder': 19,
     'opportunity-identifier': 20,
-    // Phase 5: Design
+    // Phase 5: Design (9 agents, positions 21-29)
     'method-designer': 21,
-    'ethics-reviewer': 22,
-    'hypothesis-generator': 23,
-    'model-architect': 24,
-    'analysis-planner': 25,
-    'sampling-strategist': 26,
-    'instrument-developer': 27,
-    'validity-guardian': 28,
-    'methodology-scanner': 29,
-    'methodology-writer': 30,
-    // Phase 6: Writing (dynamic, handled separately)
-    'introduction-writer': 31,
-    'literature-review-writer': 32,
-    'results-writer': 33,
-    'discussion-writer': 34,
-    'conclusion-writer': 35,
-    'abstract-writer': 36,
-    // Phase 7: Validation
-    'adversarial-reviewer': 37,
-    'confidence-quantifier': 38,
-    'citation-validator': 39,
-    'reproducibility-checker': 40,
-    'apa-citation-specialist': 41,
-    'consistency-validator': 42,
-    'quality-assessor': 43,
-    'bias-detector': 44,
-    'file-length-manager': 45
+    'hypothesis-generator': 22,
+    'model-architect': 23,
+    'analysis-planner': 24,
+    'sampling-strategist': 25,
+    'instrument-developer': 26,
+    'validity-guardian': 27,
+    'methodology-scanner': 28,
+    'methodology-writer': 29,
+    // Phase 6: Writing (6 agents, positions 30-35)
+    'introduction-writer': 30,
+    'literature-review-writer': 31,
+    'results-writer': 32,
+    'discussion-writer': 33,
+    'conclusion-writer': 34,
+    'abstract-writer': 35,
+    // Phase 7: Validation (11 agents, positions 36-46)
+    'systematic-reviewer': 36,
+    'ethics-reviewer': 37,
+    'adversarial-reviewer': 38,
+    'confidence-quantifier': 39,
+    'citation-validator': 40,
+    'reproducibility-checker': 41,
+    'apa-citation-specialist': 42,
+    'consistency-validator': 43,
+    'quality-assessor': 44,
+    'bias-detector': 45,
+    'file-length-manager': 46
 };
 /**
  * PipelineConfigLoader class
@@ -180,22 +183,22 @@ export class PipelineConfigLoader {
         if (key.includes('reviewer') || key.includes('validator') || key.includes('checker')) {
             return 7; // Validation phase
         }
-        // Use order lookup
+        // Use order lookup - Phase boundaries: 7+4+4+5+9+6+11=46
         const order = AGENT_ORDER[key];
         if (order) {
-            if (order <= 6)
-                return 1;
+            if (order <= 7)
+                return 1; // Foundation: 1-7
             if (order <= 11)
-                return 2;
+                return 2; // Discovery: 8-11
             if (order <= 15)
-                return 3;
+                return 3; // Architecture: 12-15
             if (order <= 20)
-                return 4;
-            if (order <= 30)
-                return 5;
-            if (order <= 36)
-                return 6;
-            return 7;
+                return 4; // Synthesis: 16-20
+            if (order <= 29)
+                return 5; // Design: 21-29
+            if (order <= 35)
+                return 6; // Writing: 30-35
+            return 7; // Validation: 36-46
         }
         return 1; // Default to Foundation phase
     }

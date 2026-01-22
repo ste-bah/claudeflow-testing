@@ -21,7 +21,9 @@ import type { AgentRegistry } from '../agents/agent-registry.js';
 import type { AgentSelector } from '../agents/agent-selector.js';
 import type { InteractionStore } from '../../universal/interaction-store.js';
 import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
+import type { SonaEngine } from '../learning/sona-engine.js';
 import type { IPipelineDefinition, IPipelineOptions, IPipelineResult, PipelineEventHandler } from './dai-002-types.js';
+import type { LeannContextService } from './leann-context-service.js';
 /**
  * Configuration for PipelineExecutor
  */
@@ -86,6 +88,8 @@ export declare class PipelineExecutor {
         agentSelector: AgentSelector;
         interactionStore: InteractionStore;
         reasoningBank?: ReasoningBank;
+        sonaEngine?: SonaEngine;
+        leannContextService?: LeannContextService;
     }, config?: IPipelineExecutorConfig);
     /**
      * Execute a pipeline sequentially.
@@ -130,11 +134,19 @@ export declare class PipelineExecutor {
      */
     private assessQuality;
     /**
-     * Provide feedback to ReasoningBank for a step.
+     * Provide feedback to SonaEngine for a step (direct SQLite persistence).
+     * Falls back to ReasoningBank if SonaEngine is not available.
+     *
+     * @param trajectoryId - The trajectory ID for this step
+     * @param quality - Quality score (0-1)
+     * @param agentKey - The agent key that executed the step
+     * @param stepIndex - The step index in the pipeline
+     * @param rlmContext - Optional RLM context for relay-race memory handoff tracking
      */
     private provideStepFeedback;
     /**
-     * Provide feedback to ReasoningBank for the entire pipeline.
+     * Provide feedback to SonaEngine for the entire pipeline (direct SQLite persistence).
+     * Falls back to ReasoningBank if SonaEngine is not available.
      */
     private providePipelineFeedback;
     /**
@@ -158,5 +170,7 @@ export declare function createPipelineExecutor(dependencies: {
     agentSelector: AgentSelector;
     interactionStore: InteractionStore;
     reasoningBank?: ReasoningBank;
+    sonaEngine?: SonaEngine;
+    leannContextService?: LeannContextService;
 }, config?: IPipelineExecutorConfig): PipelineExecutor;
 //# sourceMappingURL=pipeline-executor.d.ts.map

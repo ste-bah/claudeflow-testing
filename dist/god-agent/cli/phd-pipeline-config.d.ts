@@ -87,6 +87,9 @@ export interface SessionState {
 /**
  * Complete array of all 46 PhD Pipeline agents.
  * Agents are ordered by phase and execution sequence.
+ *
+ * CANONICAL ORDER: Matches successful run from pipeline-loader.ts AGENT_ORDER
+ * Phase counts: 7+4+4+5+9+6+11=46
  */
 export declare const PHD_AGENTS: readonly AgentConfig[];
 /**

@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: dissertation-architect
-type: structure-planner
+type: researcher
 color: "#1565C0"
 description: Design dissertation/document chapter structure based on research scope. Stores structure to memory for writing agents. MUST BE USED before any writing phase to ensure all agents follow the same structure. Works for ANY research type.
 capabilities:

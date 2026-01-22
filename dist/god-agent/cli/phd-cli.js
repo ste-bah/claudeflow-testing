@@ -152,6 +152,73 @@ function buildSessionStateForMemory(session) {
         status: session.status,
     };
 }
+// ============================================================================
+// TASK-EMBED-HEALTH-001: EMBEDDING SERVICE HEALTH CHECK
+// ============================================================================
+// DESC episodic memory requires the embedding service at localhost:8000
+// This health check warns users early if the service is unavailable
+/**
+ * Check if the embedding service is available at localhost:8000
+ *
+ * TASK-EMBED-HEALTH-001: Startup health check for embedding service.
+ * DESC episodic memory requires the embedding service to function.
+ *
+ * @returns Promise<boolean> true if service is available
+ */
+async function checkEmbeddingServiceHealth() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+        const response = await fetch('http://localhost:8000/', {
+            signal: controller.signal,
+            method: 'GET',
+        });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+            const data = await response.json();
+            // api-embedder2.py returns {status: "online", model: "...", database_items: N}
+            return data.status === 'online';
+        }
+        return false;
+    }
+    catch {
+        // Network error, timeout, or service not running
+        return false;
+    }
+}
+/**
+ * Display embedding service health warning if service is unavailable
+ *
+ * TASK-EMBED-HEALTH-001: Clear warning message with fix instructions.
+ * Uses ANSI colors for visibility in terminal.
+ *
+ * @param verbose - Whether to display verbose output
+ * @returns Promise<{ available: boolean; warned: boolean }> Health check result
+ */
+async function checkAndWarnEmbeddingService(verbose) {
+    const isAvailable = await checkEmbeddingServiceHealth();
+    if (!isAvailable) {
+        // Always output warning to stderr (not stdout) to avoid breaking JSON parsing
+        console.error('\n\x1b[33m========================================\x1b[0m');
+        console.error('\x1b[33m  WARNING: Embedding Service Unavailable\x1b[0m');
+        console.error('\x1b[33m========================================\x1b[0m');
+        console.error('\x1b[31mEmbedding service not running at localhost:8000\x1b[0m');
+        console.error('DESC episodic memory will NOT work.');
+        console.error('PhD Pipeline agents will not have access to learned patterns.');
+        console.error('');
+        console.error('To start the embedding service:');
+        console.error('  \x1b[36m./embedding-api/api-embed.sh start\x1b[0m');
+        console.error('');
+        console.error('To check status:');
+        console.error('  \x1b[36m./embedding-api/api-embed.sh status\x1b[0m');
+        console.error('\x1b[33m========================================\x1b[0m\n');
+        return { available: false, warned: true };
+    }
+    if (verbose) {
+        console.error('[PHD-CLI] Embedding service: online');
+    }
+    return { available: true, warned: false };
+}
 /**
  * Validate that all 46 agent .md files exist in the agents directory.
  * Implements RULE-018: Agent Key Validity - all agent keys must have corresponding .md files.
@@ -976,19 +1043,29 @@ function createAgentTrajectory(sessionId, agentKey, agentIndex, query) {
  * @param phase - Pipeline phase the agent belongs to (for context-aware quality)
  * @returns Promise<boolean> - true if feedback recorded
  */
-async function recordAgentFeedback(sessionId, agentKey, output, phase) {
+async function recordAgentFeedback(sessionId, agentKey, output, phase, agentIndex) {
     const engine = getSonaEngine();
     if (!engine)
         return false;
-    // Get trajectory ID from active map
+    // Get trajectory ID from active map (fast path)
+    let trajectoryId;
     const sessionTrajectories = activeTrajectories.get(sessionId);
-    if (!sessionTrajectories) {
-        console.error(`[PHD-CLI] No active trajectories for session ${sessionId}`);
-        return false;
+    if (sessionTrajectories) {
+        trajectoryId = sessionTrajectories.get(agentKey);
     }
-    const trajectoryId = sessionTrajectories.get(agentKey);
+    // FIX: If not in memory map (e.g., after CLI restart), reconstruct the ID
+    // Trajectory ID pattern: phd-{sessionId.slice(0,8)}-{agentIndex}-{agentKey}
+    if (!trajectoryId && agentIndex !== undefined) {
+        trajectoryId = `phd-${sessionId.slice(0, 8)}-${agentIndex}-${agentKey}`;
+        console.error(`[PHD-CLI] Reconstructed trajectory ID: ${trajectoryId}`);
+        // Verify trajectory exists in database before providing feedback
+        if (!engine.hasTrajectoryInStorage(trajectoryId)) {
+            console.error(`[PHD-CLI] Trajectory ${trajectoryId} not found in database`);
+            return false;
+        }
+    }
     if (!trajectoryId) {
-        console.error(`[PHD-CLI] No trajectory found for agent ${agentKey}`);
+        console.error(`[PHD-CLI] No trajectory found for agent ${agentKey} (no agentIndex provided for reconstruction)`);
         return false;
     }
     try {
@@ -999,10 +1076,12 @@ async function recordAgentFeedback(sessionId, agentKey, output, phase) {
         await engine.provideFeedback(trajectoryId, quality, {
             skipAutoSave: false, // Ensure immediate persistence
         });
-        // Remove from active trajectories after feedback
-        sessionTrajectories.delete(agentKey);
-        if (sessionTrajectories.size === 0) {
-            activeTrajectories.delete(sessionId);
+        // Remove from active trajectories after feedback (only if present in map)
+        if (sessionTrajectories) {
+            sessionTrajectories.delete(agentKey);
+            if (sessionTrajectories.size === 0) {
+                activeTrajectories.delete(sessionId);
+            }
         }
         console.error(`[PHD-CLI] Recorded feedback for ${agentKey}: quality=${quality.toFixed(2)}`);
         return true;
@@ -1291,6 +1370,10 @@ async function commandInit(query, options, sessionBasePath) {
     if (options.verbose) {
         console.error(`[PHD-CLI] Agent file validation passed: ${agentValidation.foundAgents}/${agentValidation.totalAgents} agents verified`);
     }
+    // TASK-EMBED-HEALTH-001: Check embedding service health at pipeline init
+    // This warns users early if DESC episodic memory won't work
+    // Non-blocking: pipeline continues but without DESC capabilities
+    await checkAndWarnEmbeddingService(options.verbose || false);
     // [REQ-PIPE-001] Validate query
     if (!query || query.trim() === '') {
         throw new Error('Query cannot be empty');
@@ -2114,7 +2197,9 @@ async function commandComplete(sessionId, agentKey, options, sessionBasePath) {
     await sessionManager.saveSession(session);
     // [RULE-028] Record feedback for completed agent BEFORE acknowledgment
     // Pass previousPhase for context-aware quality assessment (RULE-033, RULE-034)
-    const feedbackRecorded = await recordAgentFeedback(session.sessionId, agentKey, output, previousPhase);
+    // Pass agentIndex for trajectory ID reconstruction after CLI restart
+    const completedAgentIndex = session.currentAgentIndex - 1;
+    const feedbackRecorded = await recordAgentFeedback(session.sessionId, agentKey, output, previousPhase, completedAgentIndex);
     if (feedbackRecorded) {
         console.error(`[PHD-CLI] Feedback persisted for ${agentKey}`);
     }

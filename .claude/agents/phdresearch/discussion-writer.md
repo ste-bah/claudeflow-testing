@@ -1,6 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "discussion-writer"
+type: researcher
 description: "Agent #37/43 - Discussion section specialist | Interprets findings, links to literature, addresses limitations, explores implications"
 triggers:
   - "write discussion"

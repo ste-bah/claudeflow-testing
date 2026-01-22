@@ -208,8 +208,9 @@ describe('MemoryEngine', () => {
 
     describe('atomic rollback', () => {
       it('should rollback vector insert on graph failure', async () => {
+        // TASK-VEC-001-008: Updated from 768D to 1536D
         // Create a valid search vector
-        const searchVector = new Float32Array(768).fill(1.0 / Math.sqrt(768));
+        const searchVector = new Float32Array(1536).fill(1.0 / Math.sqrt(1536));
 
         // Get initial vector count
         const initialResults = await vectorDB.search(searchVector, 100);
@@ -244,10 +245,11 @@ describe('MemoryEngine', () => {
       });
 
       it('should use provided embedding', async () => {
-        const customEmbedding = new Float32Array(768).fill(0.1);
+        // TASK-VEC-001-008: Updated from 768D to 1536D
+        const customEmbedding = new Float32Array(1536).fill(0.1);
         // Normalize
-        const norm = Math.sqrt(768 * 0.1 * 0.1);
-        for (let i = 0; i < 768; i++) {
+        const norm = Math.sqrt(1536 * 0.1 * 0.1);
+        for (let i = 0; i < 1536; i++) {
           customEmbedding[i] /= norm;
         }
 

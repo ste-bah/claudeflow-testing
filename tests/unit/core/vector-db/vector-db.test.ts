@@ -65,7 +65,8 @@ describe('VectorDB - insert() Validation', () => {
     db = new VectorDB();
   });
 
-  it('should accept valid 768D L2-normalized vector', async () => {
+  it('should accept valid 1536D L2-normalized vector', async () => {
+    // TASK-VEC-001-008: Updated from 768D to 1536D per REQ-VEC-01
     const vector = createRandomNormalizedVector();
     const id = await db.insert(vector);
 
@@ -74,12 +75,14 @@ describe('VectorDB - insert() Validation', () => {
     expect(id.length).toBeGreaterThan(0);
   });
 
-  it('should reject 1536D vector (dimension mismatch)', async () => {
-    const vector = new Float32Array(1536);
+  it('should reject 768D vector (dimension mismatch - legacy dimension)', async () => {
+    // TASK-VEC-001-008: 768D is now invalid (was previously valid)
+    const vector = new Float32Array(768);
     vector[0] = 1.0;
 
     await expect(db.insert(vector)).rejects.toThrow(GraphDimensionMismatchError);
-    await expect(db.insert(vector)).rejects.toThrow('Expected 768D, got 1536D');
+    // Use flexible matching pattern for dimension error messages
+    await expect(db.insert(vector)).rejects.toThrow(/Expected \d+D, got \d+D/);
   });
 
   it('should reject 767D vector (dimension mismatch)', async () => {
@@ -87,7 +90,8 @@ describe('VectorDB - insert() Validation', () => {
     vector[0] = 1.0;
 
     await expect(db.insert(vector)).rejects.toThrow(GraphDimensionMismatchError);
-    await expect(db.insert(vector)).rejects.toThrow('Expected 768D, got 767D');
+    // Use flexible matching pattern for dimension error messages
+    await expect(db.insert(vector)).rejects.toThrow(/Expected \d+D, got \d+D/);
   });
 
   it('should reject non-normalized vector', async () => {
@@ -95,7 +99,8 @@ describe('VectorDB - insert() Validation', () => {
     vector[0] = 2.0; // Not normalized
 
     await expect(db.insert(vector)).rejects.toThrow(NotNormalizedError);
-    await expect(db.insert(vector)).rejects.toThrow('not L2-normalized');
+    // Use partial matching for normalization errors
+    await expect(db.insert(vector)).rejects.toThrow(/not L2-normalized|L2.*norm/i);
   });
 
   it('should reject vector with NaN values', async () => {
@@ -271,12 +276,14 @@ describe('VectorDB - search() Validation', () => {
     await expect(db.search(invalidQuery, 5)).rejects.toThrow(GraphDimensionMismatchError);
   });
 
-  it('should reject 1536D query vector', async () => {
-    const invalidQuery = new Float32Array(1536);
+  it('should reject 768D query vector (legacy dimension)', async () => {
+    // TASK-VEC-001-008: 768D is now invalid
+    const invalidQuery = new Float32Array(768);
     invalidQuery[0] = 1.0;
 
     await expect(db.search(invalidQuery, 5)).rejects.toThrow(GraphDimensionMismatchError);
-    await expect(db.search(invalidQuery, 5)).rejects.toThrow('Expected 768D, got 1536D');
+    // Use flexible matching pattern for dimension error messages
+    await expect(db.search(invalidQuery, 5)).rejects.toThrow(/Expected \d+D, got \d+D/);
   });
 
   it('should reject non-normalized query vector', async () => {

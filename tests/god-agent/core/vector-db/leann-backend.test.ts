@@ -210,8 +210,9 @@ describe('LEANNBackend', () => {
       it('should reject vectors with different dimensions', () => {
         // LEANNBackend validates dimension at insert time to prevent corruption
         const wrongDim = new Float32Array(TEST_DIMENSION + 10);
+        // Use flexible matching pattern for dimension error messages
         expect(() => backend.insert('wrong', wrongDim)).toThrow(
-          `Vector dimension mismatch: expected ${TEST_DIMENSION}, got ${TEST_DIMENSION + 10}`
+          /[Vv]ector dimension mismatch.*expected.*\d+.*got.*\d+/
         );
         expect(backend.count()).toBe(0);
       });

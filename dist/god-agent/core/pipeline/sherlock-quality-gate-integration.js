@@ -12,7 +12,7 @@ import { createCodingQualityGateValidator, } from './coding-quality-gate-validat
 import { GateResult, PipelinePhase, } from './coding-quality-gate-types.js';
 import { createSherlockPhaseReviewer, } from './sherlock-phase-reviewer.js';
 import { InvestigationTier, Verdict, } from './sherlock-phase-reviewer-types.js';
-import { createSherlockLearningIntegration, } from './sherlock-learning-integration.js';
+import { createSherlockLearningIntegration, SherlockLearningConfigSchema, } from './sherlock-learning-integration.js';
 /**
  * Zod schema for configuration validation (TS-004).
  */
@@ -25,6 +25,10 @@ const IntegratedValidatorConfigSchema = z.object({
     autoTriggerSherlock: z.boolean().optional().default(true),
     defaultTier: z.nativeEnum(InvestigationTier).optional(),
     pipelineType: z.enum(['coding', 'phd']).optional().default('coding'),
+    // TS-004: Added missing fields to match IIntegratedValidatorConfig interface
+    sonaEngine: z.any().nullable().optional(),
+    reasoningBank: z.any().nullable().optional(),
+    learningConfig: SherlockLearningConfigSchema.partial().optional(),
 });
 /**
  * Maximum history entries to retain (prevents memory leaks).
@@ -56,9 +60,7 @@ export class IntegratedValidatorError extends Error {
         Object.setPrototypeOf(this, IntegratedValidatorError.prototype);
     }
 }
-// ═══════════════════════════════════════════════════════════════════════════
 // INTEGRATED VALIDATOR CLASS
-// ═══════════════════════════════════════════════════════════════════════════
 /**
  * Integrated validator combining Quality Gate and Sherlock Phase Review.
  *
@@ -116,15 +118,7 @@ export class IntegratedValidator {
         this._autoTriggerSherlock = config.autoTriggerSherlock ?? true;
         this._verbose = config.verbose ?? false;
     }
-    /**
-     * Validate phase boundary with integrated Quality Gate and Sherlock review.
-     *
-     * @param phase - Phase number (1-7)
-     * @param lScore - L-Score breakdown
-     * @param context - Gate validation context
-     * @param retryCount - Current retry count for this phase
-     * @returns Promise resolving to integrated validation result
-     */
+    /** Validate phase boundary with integrated Quality Gate and Sherlock review. */
     async validatePhase(phase, lScore, context, retryCount = 0) {
         // Validate phase
         const phaseInfo = PHASE_GATE_MAP[phase];
@@ -161,14 +155,7 @@ export class IntegratedValidator {
         this._log(`Phase ${phase} validation complete: canProceed=${canProceed}`);
         return result;
     }
-    /**
-     * Run Sherlock review directly (without gate validation).
-     *
-     * @param phase - Phase number
-     * @param tier - Investigation tier
-     * @param retryCount - Retry count
-     * @returns Sherlock review result
-     */
+    /** Run Sherlock review directly (without gate validation). */
     async reviewPhase(phase, tier, retryCount = 0) {
         const result = await this._sherlockReviewer.reviewPhase(phase, tier, retryCount);
         // Feed verdict into learning system (RLM/LEANN)
@@ -223,16 +210,23 @@ export class IntegratedValidator {
     }
     /**
      * Determine if Sherlock review should be triggered.
+     *
+     * Per PRD Section 2.3: "Each phase concludes with a **mandatory forensic review**
+     * by the sherlock-holmes agent before proceeding to the next phase."
+     *
+     * This implements the "Guilty Until Proven Innocent" verification model where
+     * ALL phases are reviewed, not just failures. The investigation tier is
+     * selected based on gate result severity via _selectTier().
+     *
      * @private
      */
-    _shouldTriggerSherlock(gateResult) {
+    _shouldTriggerSherlock(_gateResult) {
         if (!this._autoTriggerSherlock) {
             return false;
         }
-        // Trigger on rejection or conditional pass
-        return (gateResult.result === GateResult.SOFT_REJECT ||
-            gateResult.result === GateResult.HARD_REJECT ||
-            gateResult.result === GateResult.CONDITIONAL_PASS);
+        // MANDATORY review after EVERY phase per PRD Section 2.3
+        // Investigation tier escalates based on gate result (see _selectTier)
+        return true;
     }
     /**
      * Select investigation tier based on gate result.
@@ -315,9 +309,7 @@ export class IntegratedValidator {
         }
     }
 }
-// ═══════════════════════════════════════════════════════════════════════════
 // FACTORY FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
 /**
  * Create an integrated validator instance.
  *
@@ -327,12 +319,7 @@ export class IntegratedValidator {
 export function createIntegratedValidator(config) {
     return new IntegratedValidator(config);
 }
-/**
- * Create a minimal integrated validator for testing.
- *
- * @param memoryRetriever - Memory retriever implementation
- * @returns New IntegratedValidator instance
- */
+/** Create a minimal integrated validator for testing. */
 export function createTestIntegratedValidator(memoryRetriever) {
     return new IntegratedValidator({
         memoryRetriever,

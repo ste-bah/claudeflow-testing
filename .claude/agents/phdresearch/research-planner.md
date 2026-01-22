@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: research-planner
-type: meta-analyst
+type: researcher
 color: "#1A237E"
 description: Use PROACTIVELY to create comprehensive research plans using ReWOO methodology (Reasoning WithOut Observation). MUST BE USED to plan all research tasks upfront before execution. Works for ANY domain - creates complete roadmap with dependencies, resources, and quality gates.
 capabilities:

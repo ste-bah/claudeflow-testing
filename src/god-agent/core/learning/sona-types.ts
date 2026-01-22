@@ -302,6 +302,24 @@ export interface ISerializedSonaState {
 export type FisherInformationStorage = Map<Route, Map<PatternID, number>>;
 
 /**
+ * RLM (Relay Race Memory) context for learning feedback.
+ * Tracks context injection success and source agent metadata.
+ *
+ * This interface captures relay-race memory handoff metadata to enable
+ * learning from inter-agent context propagation patterns.
+ */
+export interface IRlmContext {
+  /** Whether RLM injection was successful */
+  injectionSuccess: boolean;
+  /** Source agent key that produced the injected output */
+  sourceAgentKey?: string;
+  /** Source step index in the pipeline */
+  sourceStepIndex?: number;
+  /** Memory domain from which output was retrieved */
+  sourceDomain?: string;
+}
+
+/**
  * Feedback input for weight updates
  */
 export interface IFeedbackInput {
@@ -313,6 +331,8 @@ export interface IFeedbackInput {
   lScore?: number;
   /** Optional similarity scores per pattern */
   similarities?: Map<PatternID, number>;
+  /** Optional RLM context for relay-race memory handoff tracking */
+  rlmContext?: IRlmContext;
 }
 
 /**
@@ -493,6 +513,7 @@ export interface ISonaEngine {
       lScore?: number;
       similarities?: Map<PatternID, number>;
       skipAutoSave?: boolean;
+      rlmContext?: IRlmContext;
     }
   ): Promise<IWeightUpdateResult>;
 

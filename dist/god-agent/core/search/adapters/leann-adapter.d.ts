@@ -24,6 +24,8 @@ export interface LEANNAdapterConfig {
     metric?: DistanceMetric;
     /** Existing LEANNBackend instance (if provided, ignores other config) */
     backend?: LEANNBackend;
+    /** Maximum content store size for LRU eviction (default: 10000) */
+    maxContentStoreSize?: number;
 }
 /**
  * Search options specific to LEANN adapter
@@ -80,6 +82,9 @@ export declare class LEANNSourceAdapter {
     private hubIdsCache;
     private lastHubCacheUpdate;
     private readonly hubCacheUpdateIntervalMs;
+    /** Store original text for on-demand embedding recomputation (LRU eviction enabled) */
+    private readonly contentStore;
+    private readonly maxContentStoreSize;
     /**
      * Create LEANN source adapter
      *
@@ -121,8 +126,17 @@ export declare class LEANNSourceAdapter {
      *
      * @param id - Vector ID
      * @param embedding - Pre-computed embedding
+     * @param content - Optional original content for on-demand recomputation
      */
-    indexEmbedding(id: string, embedding: Float32Array): void;
+    indexEmbedding(id: string, embedding: Float32Array, content?: string): void;
+    /**
+     * Store content with LRU eviction when store exceeds maxContentStoreSize.
+     * Uses Map's insertion order for LRU - oldest entries are first.
+     *
+     * @param id - Content ID
+     * @param content - Content text to store
+     */
+    private storeContentWithEviction;
     /**
      * Delete a vector from the index
      *
@@ -144,18 +158,25 @@ export declare class LEANNSourceAdapter {
      */
     getBackend(): LEANNBackend;
     /**
-     * Save index to persistent storage
+     * Save index to persistent storage with atomic writes.
+     * Uses temp files and rename to prevent partial write corruption.
      *
      * @param filePath - Path to save the index
+     * @param timeoutMs - Timeout in milliseconds (default: 30000)
+     * @throws Error if save operation times out or fails
      */
-    save(filePath: string): Promise<void>;
+    save(filePath: string, timeoutMs?: number): Promise<void>;
     /**
-     * Load index from persistent storage
+     * Load index from persistent storage with timeout and error handling.
+     * Distinguishes between ENOENT (file not found) and other errors.
+     * Warns on version mismatch instead of silent ignore.
      *
      * @param filePath - Path to load the index from
-     * @returns True if loaded successfully
+     * @param timeoutMs - Timeout in milliseconds (default: 30000)
+     * @returns True if loaded successfully, false if file doesn't exist
+     * @throws Error if load operation times out or fails (non-ENOENT)
      */
-    load(filePath: string): Promise<boolean>;
+    load(filePath: string, timeoutMs?: number): Promise<boolean>;
     /**
      * Clear all vectors from the index
      */

@@ -41,9 +41,7 @@ export class SherlockLearningError extends Error {
         Object.setPrototypeOf(this, SherlockLearningError.prototype);
     }
 }
-// ═══════════════════════════════════════════════════════════════════════════
-// QUALITY CALCULATION HELPERS (< 50 lines per function)
-// ═══════════════════════════════════════════════════════════════════════════
+// QUALITY CALCULATION HELPERS
 /**
  * Convert verdict to quality score for learning.
  * INNOCENT = high quality (execution was correct)
@@ -83,9 +81,7 @@ function generatePatternId(caseFile) {
 function buildForensicRoute(routePrefix, phase) {
     return `${routePrefix}phase-${phase}/verdict`;
 }
-// ═══════════════════════════════════════════════════════════════════════════
 // SHERLOCK LEARNING INTEGRATION CLASS
-// ═══════════════════════════════════════════════════════════════════════════
 /**
  * Integrates Sherlock forensic verdicts with the learning system.
  *
@@ -107,6 +103,10 @@ function buildForensicRoute(routePrefix, phase) {
  * await integration.recordVerdict(reviewResult);
  * ```
  */
+/**
+ * Maximum patterns to retain (prevents memory leaks).
+ */
+const MAX_PATTERNS_SIZE = 500;
 export class SherlockLearningIntegration {
     _sonaEngine;
     _reasoningBank;
@@ -223,7 +223,8 @@ export class SherlockLearningIntegration {
             quality,
             timestamp: new Date(),
         };
-        // Store locally
+        // Store locally with bounded size (prevents memory leaks)
+        this._trimPatterns();
         this._patterns.set(patternId, pattern);
         // Store in ReasoningBank if available
         if (this._reasoningBank && result.verdict === Verdict.INNOCENT) {
@@ -306,6 +307,20 @@ export class SherlockLearningIntegration {
         }
     }
     /**
+     * Trim patterns to bounded size (prevents memory leaks).
+     */
+    _trimPatterns() {
+        while (this._patterns.size >= MAX_PATTERNS_SIZE) {
+            const oldest = this._patterns.keys().next().value;
+            if (oldest) {
+                this._patterns.delete(oldest);
+            }
+            else {
+                break;
+            }
+        }
+    }
+    /**
      * Log message if verbose mode enabled.
      */
     _log(message) {
@@ -314,9 +329,7 @@ export class SherlockLearningIntegration {
         }
     }
 }
-// ═══════════════════════════════════════════════════════════════════════════
 // FACTORY FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
 /**
  * Create a Sherlock-Learning integration instance.
  *

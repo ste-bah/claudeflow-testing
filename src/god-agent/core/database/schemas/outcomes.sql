@@ -76,6 +76,13 @@ CREATE TABLE IF NOT EXISTS learning_feedback (
     result_length INTEGER,
     has_code_blocks INTEGER NOT NULL DEFAULT 0,
 
+    -- RLM (Relay Race Memory) context for learning
+    -- Tracks context injection success and source agent metadata
+    rlm_injection_success INTEGER,
+    rlm_source_agent TEXT,
+    rlm_source_step_index INTEGER,
+    rlm_source_domain TEXT,
+
     -- Timestamps (RULE-020)
     created_at INTEGER NOT NULL,
     version INTEGER NOT NULL DEFAULT 1,
@@ -89,6 +96,8 @@ CREATE INDEX IF NOT EXISTS idx_feedback_trajectory ON learning_feedback(trajecto
 CREATE INDEX IF NOT EXISTS idx_feedback_quality ON learning_feedback(quality DESC);
 CREATE INDEX IF NOT EXISTS idx_feedback_processed ON learning_feedback(processed);
 CREATE INDEX IF NOT EXISTS idx_feedback_created ON learning_feedback(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feedback_rlm_success
+  ON learning_feedback(rlm_injection_success, quality DESC);
 
 -- ============================================================
 -- TRAJECTORY METADATA TABLE

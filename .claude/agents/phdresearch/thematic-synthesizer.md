@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: thematic-synthesizer
-type: synthesis-specialist
+type: researcher
 color: "#E91E63"
 description: Use PROACTIVELY after pattern analysis to synthesize recurring themes across literature. MUST BE USED to identify conceptual clusters and thematic frameworks. Works for ANY domain (software, business, research, product).
 capabilities:

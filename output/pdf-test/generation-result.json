@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "outputPath": "/Users/stevenbahia/Documents/projects/claudeflow-testing/output/pdf-test/apa-formatted-paper.pdf",
+  "generatorUsed": "pdfkit",
+  "warnings": [
+    "Abstract: Abstract is 283 words; APA recommends no more than 250 words",
+    "Abstract: Abstract should be a single paragraph without breaks per APA 7th Edition"
+  ],
+  "durationMs": 638,
+  "timestamp": "2026-01-05T11:32:22.333Z",
+  "duration": "0.64s",
+  "source": "/Users/stevenbahia/Documents/projects/claudeflow-testing/docs/research/we-need-to-write-a-technical-white-paper-on-how-to/final/final-paper.md"
+}

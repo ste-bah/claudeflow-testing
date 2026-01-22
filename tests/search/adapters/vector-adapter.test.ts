@@ -39,7 +39,7 @@ describe('VectorSourceAdapter', () => {
   describe('search', () => {
     it('should return success with results when search succeeds', async () => {
       vi.useRealTimers();
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       const mockResults: SearchResult[] = [
         { id: 'vec1', similarity: 0.9 },
         { id: 'vec2', similarity: 0.8 },
@@ -60,7 +60,7 @@ describe('VectorSourceAdapter', () => {
 
     it('should normalize cosine similarity scores', async () => {
       vi.useRealTimers();
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       const mockResults: SearchResult[] = [
         { id: 'vec1', similarity: 1.0 }, // Max cosine similarity
         { id: 'vec2', similarity: 0.0 }, // Neutral
@@ -91,7 +91,7 @@ describe('VectorSourceAdapter', () => {
     });
 
     it('should handle timeout gracefully', async () => {
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
 
       // Make search hang indefinitely
       vi.mocked(mockVectorDb.search).mockImplementation(() => {
@@ -107,7 +107,7 @@ describe('VectorSourceAdapter', () => {
 
     it('should handle "Native HNSW not available" error gracefully', async () => {
       vi.useRealTimers();
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
 
       vi.mocked(mockVectorDb.search).mockImplementation(() => {
         throw new Error('Native HNSW not available');
@@ -123,7 +123,7 @@ describe('VectorSourceAdapter', () => {
 
     it('should return error for other exceptions', async () => {
       vi.useRealTimers();
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
 
       vi.mocked(mockVectorDb.search).mockImplementation(() => {
         throw new Error('Database error');
@@ -139,7 +139,7 @@ describe('VectorSourceAdapter', () => {
 
     it('should include metadata in results', async () => {
       vi.useRealTimers();
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       const mockResults: SearchResult[] = [
         { id: 'vec1', similarity: 0.9, vector: new Float32Array([1, 2, 3]) },
       ];
@@ -160,7 +160,7 @@ describe('VectorSourceAdapter', () => {
 
     it('should respect topK parameter', async () => {
       vi.useRealTimers();
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
 
       vi.mocked(mockVectorDb.search).mockReturnValue([]);
 

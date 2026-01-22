@@ -8,9 +8,9 @@
  * @see SPEC-001-architecture.md
  * @see TASK-WIRING-002-agent-mappings.md
  */
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 // CONSTANTS
-// ═══════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════
 /**
  * Phases in execution order
  */
@@ -34,20 +34,23 @@ export const CHECKPOINT_PHASES = [
     'testing',
 ];
 /**
- * Number of agents per phase
+ * Number of agents per phase (core only, excludes Sherlock forensic reviewers)
+ * Sherlock reviewers are separate (7 total: phase-1-reviewer through phase-6-reviewer + recovery-agent)
+ * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export const PHASE_AGENT_COUNTS = {
-    understanding: 5,
-    exploration: 5,
-    architecture: 6,
-    implementation: 8,
-    testing: 8,
-    optimization: 4,
-    delivery: 4,
+    understanding: 6, // task-analyzer, requirement-extractor, requirement-prioritizer, scope-definer, context-gatherer, feasibility-analyzer
+    exploration: 4, // pattern-explorer, technology-scout, research-planner, codebase-analyzer
+    architecture: 5, // system-designer, component-designer, interface-designer, data-architect, integration-architect
+    implementation: 12, // code-generator, type-implementer, unit-implementer, service-implementer, data-layer-implementer, api-implementer, frontend-implementer, error-handler-implementer, config-implementer, logger-implementer, dependency-manager, implementation-coordinator
+    testing: 7, // test-generator, test-runner, integration-tester, regression-tester, security-tester, coverage-analyzer, quality-gate
+    optimization: 5, // performance-optimizer, performance-architect, code-quality-improver, security-architect, final-refactorer
+    delivery: 1, // sign-off-approver
 };
 /**
  * Total number of core pipeline agents
- * 5 + 5 + 6 + 8 + 8 + 4 + 4 = 40
+ * 6 + 4 + 5 + 12 + 7 + 5 + 1 = 40
+ * REQ-PIPE-047: Verified against actual .claude/agents/coding-pipeline/*.md files
  */
 export const CORE_AGENTS = 40;
 /**
@@ -75,11 +78,13 @@ export const SHERLOCK_AGENTS = [
 /**
  * Critical agents that halt pipeline on failure
  * Includes core critical agents AND all Sherlock forensic reviewers
+ * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export const CRITICAL_AGENTS = [
     // Core critical agents
-    'task-analyzer', // #1 - Phase 1: Pipeline entry point
-    'consistency-checker', // #15 - Phase 3: Design validation
+    'task-analyzer', // #1 - Phase 1: Pipeline entry point (CRITICAL in frontmatter)
+    'interface-designer', // #13 - Phase 3: API contract validation
+    'quality-gate', // #34 - Phase 5: L-Score validation gateway
     'sign-off-approver', // #40 - Phase 7: Final approval
     // Sherlock forensic reviewers (all critical - gate phase progression)
     'phase-1-reviewer', // #41 - Understanding forensic review
@@ -118,4 +123,20 @@ export const MEMORY_PREFIXES = {
     optimization: 'coding/optimization',
     delivery: 'coding/delivery',
 };
+// ═════════════════════════════════════════════════════════════════════════
+// SHERLOCK FORENSIC VERIFICATION TYPES
+// ═════════════════════════════════════════════════════════════════════════
+/**
+ * Sherlock forensic verification verdict values.
+ * Used by agents 41-47 in Phase 6 for code review.
+ */
+export var SherlockVerdict;
+(function (SherlockVerdict) {
+    /** Code passes all forensic checks */
+    SherlockVerdict["INNOCENT"] = "INNOCENT";
+    /** Code has critical issues requiring remediation */
+    SherlockVerdict["GUILTY"] = "GUILTY";
+    /** Not enough information to make determination */
+    SherlockVerdict["INSUFFICIENT_EVIDENCE"] = "INSUFFICIENT_EVIDENCE";
+})(SherlockVerdict || (SherlockVerdict = {}));
 //# sourceMappingURL=types.js.map

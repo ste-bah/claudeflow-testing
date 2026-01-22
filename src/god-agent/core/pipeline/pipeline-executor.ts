@@ -23,6 +23,7 @@ import type { AgentSelector, IAgentSelectionResult } from '../agents/agent-selec
 import type { InteractionStore } from '../../universal/interaction-store.js';
 import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
 import type { SonaEngine } from '../learning/sona-engine.js';
+import type { IRlmContext } from '../learning/sona-types.js';
 import type {
   IPipelineDefinition,
   IPipelineStep,
@@ -45,6 +46,7 @@ import {
 import { PipelineValidator } from './pipeline-validator.js';
 import { PipelinePromptBuilder, IPromptContext } from './pipeline-prompt-builder.js';
 import { PipelineMemoryCoordinator } from './pipeline-memory-coordinator.js';
+import type { LeannContextService, ISemanticContext } from './leann-context-service.js';
 import {
   PipelineExecutionError,
   PipelineTimeoutError,
@@ -129,6 +131,7 @@ export class PipelineExecutor {
       interactionStore: InteractionStore;
       reasoningBank?: ReasoningBank;
       sonaEngine?: SonaEngine;
+      leannContextService?: LeannContextService;
     },
     config: IPipelineExecutorConfig = {}
   ) {
@@ -435,13 +438,90 @@ export class PipelineExecutor {
       );
     }
 
-    // 2. Build prompt with workflow context (RULE-007)
+    // 2. Retrieve previous agent's output for context injection (RULE-005)
+    let previousOutput: unknown;
+    let previousStepData: { agentKey: string; stepIndex: number; domain: string } | undefined;
+
+    if (stepIndex > 0 && step.inputDomain) {
+      const retrieveResult = this.memoryCoordinator.retrievePreviousOutput(
+        { ...step, agentKey },
+        pipelineId
+      );
+
+      if (retrieveResult.output !== undefined && retrieveResult.stepData) {
+        previousOutput = retrieveResult.output;
+        previousStepData = {
+          agentKey: retrieveResult.stepData.agentKey,
+          stepIndex: retrieveResult.stepData.stepIndex,
+          domain: step.inputDomain,
+        };
+
+        // Emit MEMORY_RETRIEVED event for observability
+        this.emitEvent({
+          type: PipelineEventType.MEMORY_RETRIEVED,
+          pipelineId,
+          timestamp: Date.now(),
+          data: {
+            stepIndex,
+            agentKey,
+            sourceDomain: step.inputDomain,
+            sourceAgentKey: previousStepData.agentKey,
+            sourceStepIndex: previousStepData.stepIndex,
+            hasOutput: true,
+          },
+        });
+
+        this.log(
+          `[Pipeline ${pipelineId}] Step ${stepIndex}: Retrieved output from ` +
+          `agent '${previousStepData.agentKey}' (step ${previousStepData.stepIndex})`
+        );
+      } else {
+        // Log warning if retrieval failed but continue with fallback
+        this.log(
+          `[Pipeline ${pipelineId}] Step ${stepIndex}: Warning - could not retrieve ` +
+          `previous output from domain '${step.inputDomain}'. Agent will use fallback retrieval.`
+        );
+      }
+    }
+
+    // 2b. Get semantic context from LEANN if available
+    // Use taskDescription (for DAI-001) or task (explicit) for semantic search
+    const searchDescription = step.taskDescription || step.task;
+    let semanticContext: ISemanticContext | undefined;
+    if (this.dependencies.leannContextService && searchDescription) {
+      try {
+        semanticContext = await this.dependencies.leannContextService.buildSemanticContext({
+          taskDescription: searchDescription,
+          phase: stepIndex,
+          previousOutput,
+          maxResults: 5,
+        });
+
+        if (semanticContext.totalResults > 0) {
+          this.log(
+            `[Pipeline ${pipelineId}] Step ${stepIndex}: Found ${semanticContext.totalResults} ` +
+            `relevant code contexts via LEANN`
+          );
+        }
+      } catch (error) {
+        // Log but don't fail - semantic context is optional enrichment
+        this.log(
+          `[Pipeline ${pipelineId}] Step ${stepIndex}: LEANN context search failed: ` +
+          `${(error as Error).message}`
+        );
+      }
+    }
+
+    // 3. Build prompt with workflow context (RULE-007)
     const promptContext: IPromptContext = {
       step: { ...step, agentKey }, // Ensure agentKey is set
       stepIndex,
       pipeline,
       pipelineId,
       initialInput,
+      previousOutput,
+      previousStepData,
+      semanticContext,
     };
 
     const builtPrompt = this.promptBuilder.buildPrompt(promptContext);
@@ -561,8 +641,15 @@ export class PipelineExecutor {
     }
 
     // 8. Provide step feedback if learning enabled
-    if (this.config.enableLearning && this.dependencies.reasoningBank) {
-      await this.provideStepFeedback(stepTrajectoryId, quality, agentKey, stepIndex);
+    if (this.config.enableLearning && (this.dependencies.sonaEngine || this.dependencies.reasoningBank)) {
+      // Construct RLM context for relay-race memory handoff tracking
+      const rlmContext: IRlmContext = {
+        injectionSuccess: previousOutput !== undefined && previousStepData !== undefined,
+        sourceAgentKey: previousStepData?.agentKey,
+        sourceStepIndex: previousStepData?.stepIndex,
+        sourceDomain: previousStepData?.domain,
+      };
+      await this.provideStepFeedback(stepTrajectoryId, quality, agentKey, stepIndex, rlmContext);
     }
 
     const stepDuration = Date.now() - stepStartTime;
@@ -728,18 +815,26 @@ export class PipelineExecutor {
   /**
    * Provide feedback to SonaEngine for a step (direct SQLite persistence).
    * Falls back to ReasoningBank if SonaEngine is not available.
+   *
+   * @param trajectoryId - The trajectory ID for this step
+   * @param quality - Quality score (0-1)
+   * @param agentKey - The agent key that executed the step
+   * @param stepIndex - The step index in the pipeline
+   * @param rlmContext - Optional RLM context for relay-race memory handoff tracking
    */
   private async provideStepFeedback(
     trajectoryId: string,
     quality: number,
     agentKey: string,
-    stepIndex: number
+    stepIndex: number,
+    rlmContext?: IRlmContext
   ): Promise<void> {
     // Prefer SonaEngine for direct SQLite persistence
     if (this.dependencies.sonaEngine) {
       try {
         await this.dependencies.sonaEngine.provideFeedback(trajectoryId, quality, {
           skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+          rlmContext, // Pass RLM context for relay-race memory tracking
         });
 
         this.emitEvent({
@@ -870,6 +965,8 @@ export function createPipelineExecutor(
     agentSelector: AgentSelector;
     interactionStore: InteractionStore;
     reasoningBank?: ReasoningBank;
+    sonaEngine?: SonaEngine;
+    leannContextService?: LeannContextService;
   },
   config?: IPipelineExecutorConfig
 ): PipelineExecutor {

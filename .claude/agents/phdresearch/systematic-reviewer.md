@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: systematic-reviewer
-type: meta-analyst
+type: researcher
 color: "#004D40"
 description: Use PROACTIVELY to conduct PRISMA-compliant systematic literature review with rigorous quality assessment. MUST BE USED when synthesizing research evidence from 300+ sources. Works for ANY domain - ensures methodological rigor, bias assessment, and evidence grading.
 capabilities:

@@ -34,7 +34,11 @@ import { getCoreDaemonClient } from '../cli/core-daemon-client.js';
 // DAI-001: Dynamic Agent Integration
 import { AgentRegistry, AgentSelector, TaskExecutor, } from '../core/agents/index.js';
 // DAI-002: Multi-Agent Sequential Pipeline Orchestration
-import { createPipelineExecutor, } from '../core/pipeline/index.js';
+import { createPipelineExecutor, createLeannContextService, } from '../core/pipeline/index.js';
+// LEANN: Semantic search adapter for context service initialization
+import { createLEANNAdapter } from '../core/search/adapters/leann-adapter.js';
+// LEANN: DualCodeEmbeddingProvider for optimized code search (NLP + Code fusion)
+import { createDualCodeEmbeddingProvider, createLEANNEmbedder } from '../core/search/dual-code-embedding.js';
 // TASK-PIPELINE-FIX: Import CommandTaskBridge for sophisticated task complexity analysis
 // Replaces weak regex-based isPipelineTask() with scoring-based analysis
 import { CommandTaskBridge, DEFAULT_PIPELINE_THRESHOLD, } from '../core/pipeline/command-task-bridge.js';
@@ -53,6 +57,8 @@ import { PHASE_ORDER, CHECKPOINT_PHASES, CODING_MEMORY_NAMESPACE, } from '../cor
 // CONSTITUTION COMPLIANCE: RULE-064 (symmetric chunking), RULE-008 (SQLite persistence)
 import { KnowledgeChunker, } from './knowledge-chunker.js';
 // ==================== Universal Agent ====================
+// Persistence path for LEANN vector index
+const LEANN_PERSISTENCE_PATH = './vector_db_leann';
 export class UniversalAgent {
     agent;
     config;
@@ -80,6 +86,8 @@ export class UniversalAgent {
     taskExecutor;
     // DAI-002: Multi-Agent Sequential Pipeline Orchestration
     pipelineExecutor;
+    // LEANN context service for semantic search (persistence-enabled)
+    leannContextService;
     // DAI-003: Intelligent Task Routing
     taskAnalyzer;
     capabilityIndex;
@@ -206,16 +214,89 @@ export class UniversalAgent {
         this.log(`DAI-001: AgentRegistry initialized with ${this.agentRegistry.size} agents`);
         // DAI-002: Initialize multi-agent sequential pipeline executor
         // Note: reuses reasoningBank from TrajectoryBridge initialization above
+        // Initialize LEANN semantic search for infinite context retrieval
+        // PRD: Use DualCodeEmbeddingProvider for optimized code search (NLP + Code fusion)
+        let leannContextService;
+        let dualEmbeddingProvider;
+        try {
+            leannContextService = createLeannContextService({
+                defaultMaxResults: 10,
+                minSimilarityThreshold: 0.5,
+            });
+            // Create DualCodeEmbeddingProvider for smart code/NLP embedding fusion
+            // 40% NLP weight (understand query intent) + 60% code weight (understand structure)
+            dualEmbeddingProvider = createDualCodeEmbeddingProvider({
+                dimension: this.embeddingProvider.getDimensions?.() ?? 1536,
+                nlpWeight: 0.4,
+                codeWeight: 0.6,
+                cacheEnabled: true,
+                cacheMaxSize: 1000,
+                provider: 'local', // Uses gte-Qwen2 underneath
+            });
+            // Create LEANN-compatible embedder using dual provider
+            const embeddingDimension = dualEmbeddingProvider.getDimensions();
+            const leannEmbedder = createLEANNEmbedder(dualEmbeddingProvider);
+            // Track embedding failures to prevent silent corruption
+            let embeddingFailures = 0;
+            let embeddingAttempts = 0;
+            const MAX_FAILURE_RATE = 0.3; // 30% failure rate threshold
+            const leannAdapter = createLEANNAdapter(
+            // Wrap with error handling and failure tracking
+            async (text) => {
+                embeddingAttempts++;
+                try {
+                    const result = await leannEmbedder(text);
+                    return result;
+                }
+                catch (error) {
+                    embeddingFailures++;
+                    const failureRate = embeddingFailures / embeddingAttempts;
+                    // If failure rate exceeds threshold, propagate error to prevent index corruption
+                    if (failureRate > MAX_FAILURE_RATE && embeddingAttempts > 10) {
+                        console.error(`[LEANN] Embedding failure rate ${(failureRate * 100).toFixed(1)}% exceeds threshold, propagating error`);
+                        throw error;
+                    }
+                    // Below threshold: log error but allow graceful degradation with zero vector
+                    console.error(`[LEANN] DualCodeEmbedding failed (${embeddingFailures}/${embeddingAttempts} = ${(failureRate * 100).toFixed(1)}%): ${error}`);
+                    return new Float32Array(embeddingDimension);
+                }
+            }, embeddingDimension);
+            await leannContextService.initialize(leannAdapter);
+            this.log(`LEANN: DualCodeEmbedding initialized (${embeddingDimension}D, 40% NLP + 60% Code fusion)`);
+            // Store as class member for persistence during shutdown
+            this.leannContextService = leannContextService;
+            // Load persisted vectors if available
+            try {
+                const loaded = await leannContextService.load(LEANN_PERSISTENCE_PATH);
+                if (loaded) {
+                    const vectorCount = leannContextService.getVectorCount();
+                    this.log(`LEANN: Loaded ${vectorCount} vectors from ${LEANN_PERSISTENCE_PATH}`);
+                }
+                else {
+                    this.log('LEANN: No persisted vectors found, starting fresh');
+                }
+            }
+            catch (error) {
+                this.log(`LEANN: Failed to load persisted vectors (non-fatal): ${error}`);
+            }
+        }
+        catch (error) {
+            this.log(`LEANN: Initialization failed (non-fatal): ${error}`);
+            leannContextService = undefined;
+            dualEmbeddingProvider = undefined;
+        }
         this.pipelineExecutor = createPipelineExecutor({
             agentRegistry: this.agentRegistry,
             agentSelector: this.agentSelector,
             interactionStore: this.interactionStore,
             reasoningBank: reasoningBank ?? undefined,
+            leannContextService,
         }, {
             verbose: this.config.verbose,
             enableLearning: true,
         });
         this.log('DAI-002: PipelineExecutor initialized - Sequential multi-agent pipelines enabled');
+        this.log('LEANN: Semantic context service ready for infinite context retrieval');
         // DAI-003: Initialize intelligent task routing system (AFTER agentRegistry)
         this.taskAnalyzer = new TaskAnalyzer({
             useLocalEmbedding: true,
@@ -3217,6 +3298,17 @@ Return ONLY code in markdown code blocks.`;
         // Save persisted state before shutdown
         if (this.config.enablePersistence) {
             await this.savePersistedState();
+        }
+        // Save LEANN vectors before shutdown
+        if (this.leannContextService) {
+            try {
+                await this.leannContextService.save(LEANN_PERSISTENCE_PATH);
+                const vectorCount = this.leannContextService.getVectorCount();
+                this.log(`LEANN: Saved ${vectorCount} vectors to ${LEANN_PERSISTENCE_PATH}`);
+            }
+            catch (error) {
+                this.log(`LEANN: Failed to save vectors: ${error}`);
+            }
         }
         // MEM-001: Disconnect memory client (daemon keeps running for other processes)
         if (this.memoryClient?.isConnected()) {

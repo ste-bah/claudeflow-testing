@@ -51,9 +51,15 @@ export declare class ContextService {
      * Build composed context for agent
      */
     private handleBuild;
+    /**
+     * Handle context.initSession method
+     * Initialize session state for a new conversation
+     */
+    private handleInitSession;
     private isEstimateParams;
     private isArchiveParams;
     private isBuildParams;
+    private isInitSessionParams;
     private successResponse;
     private errorResponse;
     private handleError;

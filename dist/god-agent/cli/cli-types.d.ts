@@ -217,14 +217,14 @@ export declare const PHASE_NAMES: readonly string[];
  * Get phase name by number (1-indexed)
  */
 export declare function getPhaseName(phase: number): string;
-/** Phase 1-5 agent count (indices 0-29) */
-export declare const PHASE_1_5_AGENT_COUNT = 30;
-/** Phase 6 starts at this index */
-export declare const PHASE_6_START_INDEX = 30;
+/** Phase 1-5 agent count (indices 0-28) */
+export declare const PHASE_1_5_AGENT_COUNT = 29;
+/** Phase 6 starts at this index (introduction-writer is at index 29) */
+export declare const PHASE_6_START_INDEX = 29;
 /** Static Phase 7 agent count */
-export declare const PHASE_7_AGENT_COUNT = 9;
-/** Index where static Phase 7 agents start in PipelineConfigLoader */
-export declare const STATIC_PHASE_7_START_INDEX = 36;
+export declare const PHASE_7_AGENT_COUNT = 11;
+/** Index where static Phase 7 agents start in PipelineConfigLoader (systematic-reviewer is at index 35) */
+export declare const STATIC_PHASE_7_START_INDEX = 35;
 /**
  * Options for the next command
  * [REQ-PIPE-002]
@@ -279,10 +279,12 @@ export interface NextResponse {
 /**
  * Options for the complete command
  * [REQ-PIPE-003]
+ * [BUG-FIX-001] Added force option for output verification bypass
  */
 export interface CompleteOptions {
     result?: string;
     file?: string;
+    force?: boolean;
     json?: boolean;
 }
 /**

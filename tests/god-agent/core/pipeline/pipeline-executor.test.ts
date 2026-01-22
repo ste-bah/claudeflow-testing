@@ -595,6 +595,248 @@ describe('PipelineExecutor', () => {
     });
   });
 
+  // ==================== Context Injection Tests ====================
+
+  describe('context injection', () => {
+    it('should NOT inject previousOutput for stepIndex=0 (first agent)', async () => {
+      const events: IPipelineEvent[] = [];
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore },
+        { stepExecutor: mockStepExecutor, onEvent: e => events.push(e) }
+      );
+
+      const pipeline = createValidPipeline('first-agent-test', 1);
+      await exec.execute(pipeline);
+
+      // First agent should NOT have MEMORY_RETRIEVED event
+      const memoryRetrievedEvents = events.filter(e => e.type === PipelineEventType.MEMORY_RETRIEVED);
+      expect(memoryRetrievedEvents.length).toBe(0);
+
+      // Prompt should indicate first agent
+      expect(mockStepExecutor.executionLog.length).toBe(1);
+      expect(mockStepExecutor.executionLog[0].prompt).toContain('N/A - first agent');
+    });
+
+    it('should inject previousOutput for stepIndex>0 (subsequent agents)', async () => {
+      const events: IPipelineEvent[] = [];
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore },
+        { stepExecutor: mockStepExecutor, onEvent: e => events.push(e) }
+      );
+
+      // Create pipeline with 2 steps
+      const pipeline = createValidPipeline('subsequent-agent-test', 2);
+
+      await exec.execute(pipeline);
+
+      // Second step should have MEMORY_RETRIEVED event
+      const memoryRetrievedEvents = events.filter(e => e.type === PipelineEventType.MEMORY_RETRIEVED);
+      expect(memoryRetrievedEvents.length).toBe(1);
+
+      // Verify event data
+      const retrieveEvent = memoryRetrievedEvents[0];
+      expect(retrieveEvent.data.stepIndex).toBe(1);
+      expect(retrieveEvent.data.hasOutput).toBe(true);
+      expect(retrieveEvent.data.sourceStepIndex).toBe(0);
+    });
+
+    it('should include injected data in prompt for subsequent agents', async () => {
+      const customOutput = { apiEndpoints: ['/users', '/posts'], schema: { version: 1 } };
+      let stepIndex = 0;
+
+      const trackingExecutor: IStepExecutor = {
+        async execute(agentKey, prompt) {
+          stepIndex++;
+          return {
+            output: customOutput,
+            quality: 0.9,
+            duration: 5,
+          };
+        },
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore },
+        { stepExecutor: trackingExecutor }
+      );
+
+      const pipeline = createValidPipeline('injected-data-test', 2);
+      await exec.execute(pipeline);
+
+      // Verify second step's prompt mentions injection
+      // We need a tracking executor that captures prompts
+      const promptCapture: string[] = [];
+      const capturingExecutor: IStepExecutor = {
+        async execute(agentKey, prompt) {
+          promptCapture.push(prompt);
+          return { output: { test: 'data' }, quality: 0.9, duration: 5 };
+        },
+      };
+
+      const exec2 = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore },
+        { stepExecutor: capturingExecutor }
+      );
+
+      // Clear store for fresh test
+      interactionStore.clear();
+
+      const pipeline2 = createValidPipeline('prompt-capture-test', 2);
+      await exec2.execute(pipeline2);
+
+      // Second prompt should contain INJECTED marker
+      expect(promptCapture.length).toBe(2);
+      expect(promptCapture[1]).toContain('INJECTED');
+      expect(promptCapture[1]).toContain('data from previous agent');
+    });
+
+    it('should emit MEMORY_RETRIEVED event with correct payload', async () => {
+      const events: IPipelineEvent[] = [];
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore },
+        { stepExecutor: mockStepExecutor, onEvent: e => events.push(e) }
+      );
+
+      const pipeline = createValidPipeline('memory-retrieved-event-test', 3);
+      await exec.execute(pipeline);
+
+      // Should have 2 MEMORY_RETRIEVED events (for steps 1 and 2)
+      const memoryRetrievedEvents = events.filter(e => e.type === PipelineEventType.MEMORY_RETRIEVED);
+      expect(memoryRetrievedEvents.length).toBe(2);
+
+      // Verify first retrieval event (step 1 retrieving from step 0)
+      const firstRetrieve = memoryRetrievedEvents[0];
+      expect(firstRetrieve.data).toMatchObject({
+        stepIndex: 1,
+        sourceStepIndex: 0,
+        hasOutput: true,
+      });
+      expect(firstRetrieve.data.agentKey).toBeDefined();
+      expect(firstRetrieve.data.sourceDomain).toBeDefined();
+      expect(firstRetrieve.data.sourceAgentKey).toBeDefined();
+
+      // Verify second retrieval event (step 2 retrieving from step 1)
+      const secondRetrieve = memoryRetrievedEvents[1];
+      expect(secondRetrieve.data).toMatchObject({
+        stepIndex: 2,
+        sourceStepIndex: 1,
+        hasOutput: true,
+      });
+    });
+
+    it('should show fallback retrieval instructions when retrieval fails', async () => {
+      // Create a pipeline where input domain does not match any stored output
+      const promptCapture: string[] = [];
+      const capturingExecutor: IStepExecutor = {
+        async execute(agentKey, prompt) {
+          promptCapture.push(prompt);
+          return { output: { result: 'success' }, quality: 0.9, duration: 5 };
+        },
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore },
+        { stepExecutor: capturingExecutor }
+      );
+
+      // Clear store
+      interactionStore.clear();
+
+      // Create pipeline with mismatched domains (step 1 expects domain that step 0 won't produce)
+      const pipeline = createValidPipeline('fallback-test', 2);
+      // Modify step 1 to look for a non-existent domain
+      pipeline.agents[1].inputDomain = 'project/non-existent-domain';
+
+      await exec.execute(pipeline);
+
+      // Second step prompt should contain fallback instructions (not INJECTED)
+      expect(promptCapture.length).toBe(2);
+      expect(promptCapture[1]).toContain('could not be pre-retrieved');
+      expect(promptCapture[1]).toContain('getKnowledgeByDomain');
+    });
+
+    it('should truncate large outputs (>10KB) with message', async () => {
+      // Create an executor that returns a very large output
+      const largeData = { data: 'x'.repeat(15000) }; // ~15KB of data
+      let callCount = 0;
+
+      const largeOutputExecutor: IStepExecutor = {
+        async execute() {
+          callCount++;
+          return { output: largeData, quality: 0.9, duration: 5 };
+        },
+      };
+
+      const promptCapture: string[] = [];
+      const capturingExecutor: IStepExecutor = {
+        async execute(agentKey, prompt) {
+          promptCapture.push(prompt);
+          if (promptCapture.length === 1) {
+            // First step returns large data
+            return { output: largeData, quality: 0.9, duration: 5 };
+          }
+          return { output: { small: 'data' }, quality: 0.9, duration: 5 };
+        },
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore },
+        { stepExecutor: capturingExecutor }
+      );
+
+      interactionStore.clear();
+
+      const pipeline = createValidPipeline('truncation-test', 2);
+      await exec.execute(pipeline);
+
+      // Second step should have truncated output
+      expect(promptCapture.length).toBe(2);
+      expect(promptCapture[1]).toContain('[truncated]');
+    });
+
+    it('should properly chain context through multi-step pipeline', async () => {
+      const events: IPipelineEvent[] = [];
+      const outputs: unknown[] = [];
+
+      const chainingExecutor: IStepExecutor = {
+        async execute(agentKey, prompt, timeout) {
+          const stepOutput = {
+            step: outputs.length,
+            agentKey,
+            processedAt: Date.now(),
+          };
+          outputs.push(stepOutput);
+          return { output: stepOutput, quality: 0.9, duration: 5 };
+        },
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore },
+        { stepExecutor: chainingExecutor, onEvent: e => events.push(e) }
+      );
+
+      const pipeline = createValidPipeline('chaining-test', 4);
+      const result = await exec.execute(pipeline);
+
+      expect(result.status).toBe('completed');
+      expect(result.steps.length).toBe(4);
+
+      // Verify MEMORY_RETRIEVED events for steps 1, 2, 3
+      const memoryRetrievedEvents = events.filter(e => e.type === PipelineEventType.MEMORY_RETRIEVED);
+      expect(memoryRetrievedEvents.length).toBe(3);
+
+      // Each subsequent step should retrieve from the previous step
+      expect(memoryRetrievedEvents[0].data.stepIndex).toBe(1);
+      expect(memoryRetrievedEvents[0].data.sourceStepIndex).toBe(0);
+
+      expect(memoryRetrievedEvents[1].data.stepIndex).toBe(2);
+      expect(memoryRetrievedEvents[1].data.sourceStepIndex).toBe(1);
+
+      expect(memoryRetrievedEvents[2].data.stepIndex).toBe(3);
+      expect(memoryRetrievedEvents[2].data.sourceStepIndex).toBe(2);
+    });
+  });
+
   // ==================== Options Tests ====================
 
   describe('execution options', () => {
@@ -622,6 +864,278 @@ describe('PipelineExecutor', () => {
 
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
+    });
+  });
+
+  // ==================== RLM-Learning Integration Tests ====================
+
+  describe('RLM-Learning integration', () => {
+    it('should pass RLM context to provideStepFeedback when injection succeeds', async () => {
+      // Create mock SonaEngine that captures feedback calls
+      const feedbackCalls: Array<{
+        trajectoryId: string;
+        quality: number;
+        options: { rlmContext?: { injectionSuccess: boolean; sourceAgentKey?: string; sourceStepIndex?: number; sourceDomain?: string } };
+      }> = [];
+
+      const mockSonaEngine = {
+        createTrajectoryWithId: vi.fn(),
+        provideFeedback: vi.fn().mockImplementation(async (trajectoryId, quality, options) => {
+          feedbackCalls.push({ trajectoryId, quality, options });
+          return { trajectoryId, patternsUpdated: 0, reward: 0, patternAutoCreated: false, elapsedMs: 1 };
+        }),
+        getWeight: vi.fn().mockResolvedValue(0),
+        getTrajectory: vi.fn().mockReturnValue(null),
+        hasTrajectoryInStorage: vi.fn().mockReturnValue(false),
+        getTrajectoryFromStorage: vi.fn().mockReturnValue(null),
+      };
+
+      // Need a mock reasoningBank to trigger the guard condition (enableLearning && reasoningBank)
+      const mockReasoningBank = {
+        provideFeedback: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore, sonaEngine: mockSonaEngine as any, reasoningBank: mockReasoningBank as any },
+        { stepExecutor: mockStepExecutor, enableLearning: true }
+      );
+
+      // Clear store and create a 2-step pipeline to test RLM context
+      interactionStore.clear();
+      const pipeline = createValidPipeline('rlm-context-test', 2);
+      await exec.execute(pipeline);
+
+      // Verify provideFeedback was called for step 1 (second step) with RLM context
+      // Step 0 has no previous output, step 1 should have RLM context
+      expect(feedbackCalls.length).toBeGreaterThanOrEqual(2);
+
+      // Find the feedback call for step 1 (the second step)
+      const stepOneFeedback = feedbackCalls.find(call =>
+        call.trajectoryId.includes('step_1')
+      );
+
+      expect(stepOneFeedback).toBeDefined();
+      expect(stepOneFeedback?.options.rlmContext).toBeDefined();
+      expect(stepOneFeedback?.options.rlmContext?.injectionSuccess).toBe(true);
+      expect(stepOneFeedback?.options.rlmContext?.sourceAgentKey).toBeDefined();
+      expect(stepOneFeedback?.options.rlmContext?.sourceStepIndex).toBe(0);
+      expect(stepOneFeedback?.options.rlmContext?.sourceDomain).toBeDefined();
+    });
+
+    it('should pass injectionSuccess=false when no previous output', async () => {
+      const feedbackCalls: Array<{
+        trajectoryId: string;
+        quality: number;
+        options: { rlmContext?: { injectionSuccess: boolean; sourceAgentKey?: string; sourceStepIndex?: number; sourceDomain?: string } };
+      }> = [];
+
+      const mockSonaEngine = {
+        createTrajectoryWithId: vi.fn(),
+        provideFeedback: vi.fn().mockImplementation(async (trajectoryId, quality, options) => {
+          feedbackCalls.push({ trajectoryId, quality, options });
+          return { trajectoryId, patternsUpdated: 0, reward: 0, patternAutoCreated: false, elapsedMs: 1 };
+        }),
+        getWeight: vi.fn().mockResolvedValue(0),
+        getTrajectory: vi.fn().mockReturnValue(null),
+        hasTrajectoryInStorage: vi.fn().mockReturnValue(false),
+        getTrajectoryFromStorage: vi.fn().mockReturnValue(null),
+      };
+
+      // Need a mock reasoningBank to trigger the guard condition (enableLearning && reasoningBank)
+      const mockReasoningBank = {
+        provideFeedback: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore, sonaEngine: mockSonaEngine as any, reasoningBank: mockReasoningBank as any },
+        { stepExecutor: mockStepExecutor, enableLearning: true }
+      );
+
+      // Clear store and create a single-step pipeline (first agent, no previous output)
+      interactionStore.clear();
+      const pipeline = createValidPipeline('rlm-no-previous-test', 1);
+      await exec.execute(pipeline);
+
+      // Verify provideFeedback was called with injectionSuccess=false for first step
+      expect(feedbackCalls.length).toBeGreaterThanOrEqual(1);
+      const stepZeroFeedback = feedbackCalls.find(call =>
+        call.trajectoryId.includes('step_0')
+      );
+
+      expect(stepZeroFeedback).toBeDefined();
+      expect(stepZeroFeedback?.options.rlmContext).toBeDefined();
+      expect(stepZeroFeedback?.options.rlmContext?.injectionSuccess).toBe(false);
+      expect(stepZeroFeedback?.options.rlmContext?.sourceAgentKey).toBeUndefined();
+      expect(stepZeroFeedback?.options.rlmContext?.sourceStepIndex).toBeUndefined();
+      expect(stepZeroFeedback?.options.rlmContext?.sourceDomain).toBeUndefined();
+    });
+
+    it('should include sourceAgentKey from previousStepData', async () => {
+      const feedbackCalls: Array<{
+        trajectoryId: string;
+        options: { rlmContext?: { sourceAgentKey?: string } };
+      }> = [];
+
+      const mockSonaEngine = {
+        createTrajectoryWithId: vi.fn(),
+        provideFeedback: vi.fn().mockImplementation(async (trajectoryId, quality, options) => {
+          feedbackCalls.push({ trajectoryId, options });
+          return { trajectoryId, patternsUpdated: 0, reward: 0, patternAutoCreated: false, elapsedMs: 1 };
+        }),
+        getWeight: vi.fn().mockResolvedValue(0),
+        getTrajectory: vi.fn().mockReturnValue(null),
+        hasTrajectoryInStorage: vi.fn().mockReturnValue(false),
+        getTrajectoryFromStorage: vi.fn().mockReturnValue(null),
+      };
+
+      // Need a mock reasoningBank to trigger the guard condition (enableLearning && reasoningBank)
+      const mockReasoningBank = {
+        provideFeedback: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore, sonaEngine: mockSonaEngine as any, reasoningBank: mockReasoningBank as any },
+        { stepExecutor: mockStepExecutor, enableLearning: true }
+      );
+
+      interactionStore.clear();
+      const pipeline = createValidPipeline('rlm-source-agent-test', 3);
+      await exec.execute(pipeline);
+
+      // Step 2 should have sourceAgentKey from step 1
+      const stepTwoFeedback = feedbackCalls.find(call =>
+        call.trajectoryId.includes('step_2')
+      );
+
+      expect(stepTwoFeedback).toBeDefined();
+      expect(stepTwoFeedback?.options.rlmContext?.sourceAgentKey).toBe(realAgentKeys[1 % realAgentKeys.length]);
+    });
+
+    it('should include sourceStepIndex from previousStepData', async () => {
+      const feedbackCalls: Array<{
+        trajectoryId: string;
+        options: { rlmContext?: { sourceStepIndex?: number } };
+      }> = [];
+
+      const mockSonaEngine = {
+        createTrajectoryWithId: vi.fn(),
+        provideFeedback: vi.fn().mockImplementation(async (trajectoryId, quality, options) => {
+          feedbackCalls.push({ trajectoryId, options });
+          return { trajectoryId, patternsUpdated: 0, reward: 0, patternAutoCreated: false, elapsedMs: 1 };
+        }),
+        getWeight: vi.fn().mockResolvedValue(0),
+        getTrajectory: vi.fn().mockReturnValue(null),
+        hasTrajectoryInStorage: vi.fn().mockReturnValue(false),
+        getTrajectoryFromStorage: vi.fn().mockReturnValue(null),
+      };
+
+      // Need a mock reasoningBank to trigger the guard condition (enableLearning && reasoningBank)
+      const mockReasoningBank = {
+        provideFeedback: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore, sonaEngine: mockSonaEngine as any, reasoningBank: mockReasoningBank as any },
+        { stepExecutor: mockStepExecutor, enableLearning: true }
+      );
+
+      interactionStore.clear();
+      const pipeline = createValidPipeline('rlm-source-step-test', 4);
+      await exec.execute(pipeline);
+
+      // Step 3 should have sourceStepIndex=2
+      const stepThreeFeedback = feedbackCalls.find(call =>
+        call.trajectoryId.includes('step_3')
+      );
+
+      expect(stepThreeFeedback).toBeDefined();
+      expect(stepThreeFeedback?.options.rlmContext?.sourceStepIndex).toBe(2);
+    });
+
+    it('should include sourceDomain from step.inputDomain', async () => {
+      const feedbackCalls: Array<{
+        trajectoryId: string;
+        options: { rlmContext?: { sourceDomain?: string } };
+      }> = [];
+
+      const mockSonaEngine = {
+        createTrajectoryWithId: vi.fn(),
+        provideFeedback: vi.fn().mockImplementation(async (trajectoryId, quality, options) => {
+          feedbackCalls.push({ trajectoryId, options });
+          return { trajectoryId, patternsUpdated: 0, reward: 0, patternAutoCreated: false, elapsedMs: 1 };
+        }),
+        getWeight: vi.fn().mockResolvedValue(0),
+        getTrajectory: vi.fn().mockReturnValue(null),
+        hasTrajectoryInStorage: vi.fn().mockReturnValue(false),
+        getTrajectoryFromStorage: vi.fn().mockReturnValue(null),
+      };
+
+      // Need a mock reasoningBank to trigger the guard condition (enableLearning && reasoningBank)
+      const mockReasoningBank = {
+        provideFeedback: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore, sonaEngine: mockSonaEngine as any, reasoningBank: mockReasoningBank as any },
+        { stepExecutor: mockStepExecutor, enableLearning: true }
+      );
+
+      interactionStore.clear();
+      const pipeline = createValidPipeline('rlm-source-domain-test', 2);
+      await exec.execute(pipeline);
+
+      // Step 1 should have sourceDomain matching step 0's outputDomain
+      const stepOneFeedback = feedbackCalls.find(call =>
+        call.trajectoryId.includes('step_1')
+      );
+
+      expect(stepOneFeedback).toBeDefined();
+      // sourceDomain should match the inputDomain configured for step 1 (which is step 0's outputDomain)
+      expect(stepOneFeedback?.options.rlmContext?.sourceDomain).toBe('project/step-0');
+    });
+
+    it('should pass injectionSuccess=false when retrieval from inputDomain fails', async () => {
+      const feedbackCalls: Array<{
+        trajectoryId: string;
+        options: { rlmContext?: { injectionSuccess: boolean } };
+      }> = [];
+
+      const mockSonaEngine = {
+        createTrajectoryWithId: vi.fn(),
+        provideFeedback: vi.fn().mockImplementation(async (trajectoryId, quality, options) => {
+          feedbackCalls.push({ trajectoryId, options });
+          return { trajectoryId, patternsUpdated: 0, reward: 0, patternAutoCreated: false, elapsedMs: 1 };
+        }),
+        getWeight: vi.fn().mockResolvedValue(0),
+        getTrajectory: vi.fn().mockReturnValue(null),
+        hasTrajectoryInStorage: vi.fn().mockReturnValue(false),
+        getTrajectoryFromStorage: vi.fn().mockReturnValue(null),
+      };
+
+      // Need a mock reasoningBank to trigger the guard condition (enableLearning && reasoningBank)
+      const mockReasoningBank = {
+        provideFeedback: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const exec = createPipelineExecutor(
+        { agentRegistry, agentSelector, interactionStore, sonaEngine: mockSonaEngine as any, reasoningBank: mockReasoningBank as any },
+        { stepExecutor: mockStepExecutor, enableLearning: true }
+      );
+
+      interactionStore.clear();
+
+      // Create pipeline with mismatched domains (step 1 looks for domain that step 0 doesn't produce)
+      const pipeline = createValidPipeline('rlm-failed-retrieval-test', 2);
+      pipeline.agents[1].inputDomain = 'project/non-existent-domain';
+      await exec.execute(pipeline);
+
+      // Step 1 should have injectionSuccess=false due to domain mismatch
+      const stepOneFeedback = feedbackCalls.find(call =>
+        call.trajectoryId.includes('step_1')
+      );
+
+      expect(stepOneFeedback).toBeDefined();
+      expect(stepOneFeedback?.options.rlmContext?.injectionSuccess).toBe(false);
     });
   });
 

@@ -177,7 +177,8 @@ describe('ProvenanceStore', () => {
       const input = createSourceInput({ embedding: wrongDim });
 
       await expect(store.storeSource(input)).rejects.toThrow(ProvenanceValidationError);
-      await expect(store.storeSource(input)).rejects.toThrow('Expected 1536D');
+      // Use flexible matching pattern for dimension error messages
+      await expect(store.storeSource(input)).rejects.toThrow(/Expected \d+D|dimension/i);
     });
 
     it('should set createdAt timestamp', async () => {

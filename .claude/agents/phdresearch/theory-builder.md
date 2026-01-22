@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: theory-builder
-type: theoretical-architect
+type: researcher
 color: "#3F51B5"
 description: Use PROACTIVELY after thematic synthesis to construct theoretical frameworks. MUST BE USED to integrate themes into coherent theory with explanatory mechanisms. Works for ANY domain (software, business, research, product).
 capabilities:

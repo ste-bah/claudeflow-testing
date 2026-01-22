@@ -156,6 +156,7 @@ export declare class ExpressServer implements IExpressServer {
     private getMemoryInteractions;
     /**
      * Get memory reasoning for ReasoningBank tab
+     * Queries both EventStore and learning.db for comprehensive stats
      */
     private getMemoryReasoning;
     /**

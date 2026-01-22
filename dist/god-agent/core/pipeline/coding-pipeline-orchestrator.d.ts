@@ -11,39 +11,10 @@
  * @see TASK-ORCH-004-pipeline-orchestration.md
  * @see SPEC-001-architecture.md
  */
+import { type ICheckpointData } from './coding-agent-executor.js';
 import type { CodingPipelinePhase, CodingPipelineAgent, IPipelineDAG, IPipelineExecutionConfig, IAgentExecutionResult, IPipelineExecutionResult } from './types.js';
-/**
- * Configuration for the pipeline orchestrator
- */
-export interface IOrchestratorConfig {
-    /** Maximum time for a single agent execution (ms) */
-    agentTimeoutMs: number;
-    /** Maximum time for a full phase execution (ms) */
-    phaseTimeoutMs: number;
-    /** Enable checkpoint creation for rollback */
-    enableCheckpoints: boolean;
-    /** Enable parallel execution of parallelizable agents */
-    enableParallelExecution: boolean;
-    /** Maximum agents to run in parallel within a phase */
-    maxParallelAgents: number;
-    /** Memory namespace for coordination */
-    memoryNamespace: string;
-    /** Path to agent markdown files */
-    agentMdPath: string;
-    /** Enable verbose logging */
-    verbose: boolean;
-}
-/**
- * Default orchestrator configuration
- */
-export declare const DEFAULT_ORCHESTRATOR_CONFIG: IOrchestratorConfig;
-interface ICheckpoint {
-    phase: CodingPipelinePhase;
-    timestamp: string;
-    memorySnapshot: Record<string, unknown>;
-    completedAgents: CodingPipelineAgent[];
-    totalXP: number;
-}
+import type { IStepExecutor, IOrchestratorDependencies, IOrchestratorConfig } from './coding-pipeline-types.js';
+import { DEFAULT_ORCHESTRATOR_CONFIG } from './coding-pipeline-constants.js';
 /**
  * Orchestrates the 40-agent coding pipeline execution
  *
@@ -55,12 +26,22 @@ interface ICheckpoint {
  * 5. Handles critical agent failures
  */
 export declare class CodingPipelineOrchestrator {
+    private readonly dependencies;
     private config;
     private dag;
-    private checkpoints;
-    private executionResults;
-    private totalXP;
-    constructor(config?: Partial<IOrchestratorConfig>);
+    private executionState;
+    private readonly validator;
+    private readonly promptBuilder;
+    private readonly memoryCoordinator;
+    private readonly configLoader;
+    private readonly integratedValidator;
+    /**
+     * Create a new CodingPipelineOrchestrator with dependency injection.
+     *
+     * @param dependencies - Required services for LEANN/RLM/Learning integration
+     * @param config - Optional orchestrator configuration
+     */
+    constructor(dependencies: IOrchestratorDependencies, config?: Partial<IOrchestratorConfig>);
     /**
      * Execute the full coding pipeline
      *
@@ -69,60 +50,27 @@ export declare class CodingPipelineOrchestrator {
      */
     execute(pipelineConfig: IPipelineExecutionConfig): Promise<IPipelineExecutionResult>;
     /**
-     * Execute a single phase of the pipeline
+     * Execute a single phase of the pipeline.
+     * Wrapper that builds dependencies and delegates to extracted function.
      */
-    private executePhase;
+    private executePhaseWrapper;
+    /** Build Sherlock wrapper dependencies for extracted functions */
+    private getSherlockDeps;
+    /** Validate phase with Sherlock-Quality Gate (delegates to factory function) */
+    private validatePhaseWithSherlockWrapper;
+    /** Handle GUILTY verdict (delegates to factory function) */
+    private handleSherlockGuiltyVerdictWrapper;
     /**
-     * Execute a single agent using ClaudeFlow subagent spawning
+     * Get agents for a phase from the dynamic loader.
+     * Converts CodingAgentConfig to IAgentMapping for orchestrator compatibility.
      */
-    private executeAgent;
+    private getAgentsForPhaseFromLoader;
     /**
-     * Execute agent using ClaudeFlow Task tool subprocess
-     *
-     * This replaces the mock implementation with actual ClaudeFlow integration.
-     * Uses npx claude-flow task_orchestrate for subagent execution.
+     * Get agent markdown content from loaded config.
+     * Falls back to file read if not in cache.
      */
-    private runAgentWithClaudeFlow;
-    /**
-     * Build ClaudeFlow prompt with mandatory 4-part context
-     */
-    private buildClaudeFlowPrompt;
-    /**
-     * Resolve execution order for agents within a phase
-     * Uses topological sort based on dependencies
-     */
-    private resolveExecutionOrder;
-    /**
-     * Batch agents for parallel execution where allowed
-     */
-    private batchAgentsForExecution;
-    /**
-     * Create a checkpoint at the current phase
-     */
-    private createCheckpoint;
-    /**
-     * Rollback to the last successful checkpoint
-     */
-    private rollbackToLastCheckpoint;
-    /**
-     * Store value in ClaudeFlow memory
-     */
-    private storeMemory;
-    /**
-     * Retrieve memory context for agent execution
-     */
-    private retrieveMemoryContext;
-    /**
-     * Load agent markdown file if it exists
-     */
-    private loadAgentMarkdown;
-    /**
-     * Check if agent is critical (halts pipeline on failure)
-     */
-    private isCriticalAgent;
-    /**
-     * Log message if verbose mode enabled
-     */
+    private getAgentMarkdownFromLoader;
+    /** Log message if verbose mode enabled */
     private log;
     /**
      * Get current total XP
@@ -135,19 +83,27 @@ export declare class CodingPipelineOrchestrator {
     /**
      * Get all checkpoints
      */
-    getCheckpoints(): Map<CodingPipelinePhase, ICheckpoint>;
+    getCheckpoints(): Map<CodingPipelinePhase, ICheckpointData>;
     /**
      * Get the DAG
      */
     getDAG(): IPipelineDAG;
 }
 /**
- * Create a new CodingPipelineOrchestrator instance
+ * Create a new CodingPipelineOrchestrator instance with dependency injection.
+ *
+ * @param dependencies - Required services for LEANN/RLM/Learning integration
+ * @param config - Optional orchestrator configuration
  */
-export declare function createOrchestrator(config?: Partial<IOrchestratorConfig>): CodingPipelineOrchestrator;
+export declare function createOrchestrator(dependencies: IOrchestratorDependencies, config?: Partial<IOrchestratorConfig>): CodingPipelineOrchestrator;
 /**
- * Execute a coding pipeline with default configuration
+ * Execute a coding pipeline with dependency injection.
+ *
+ * @param pipelineConfig - Pipeline configuration from prepareCodeTask()
+ * @param dependencies - Required services for LEANN/RLM/Learning integration
+ * @param orchestratorConfig - Optional orchestrator configuration
  */
-export declare function executePipeline(pipelineConfig: IPipelineExecutionConfig, orchestratorConfig?: Partial<IOrchestratorConfig>): Promise<IPipelineExecutionResult>;
-export {};
+export declare function executePipeline(pipelineConfig: IPipelineExecutionConfig, dependencies: IOrchestratorDependencies, orchestratorConfig?: Partial<IOrchestratorConfig>): Promise<IPipelineExecutionResult>;
+export type { IStepExecutor, IOrchestratorDependencies, IOrchestratorConfig };
+export { DEFAULT_ORCHESTRATOR_CONFIG };
 //# sourceMappingURL=coding-pipeline-orchestrator.d.ts.map

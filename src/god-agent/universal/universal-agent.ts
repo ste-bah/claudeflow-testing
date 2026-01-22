@@ -58,6 +58,7 @@ import {
   PipelineExecutor,
   createPipelineExecutor,
   createLeannContextService,
+  LeannContextService,
   type IPipelineDefinition,
   type IPipelineExecutorConfig,
   type DAI002PipelineResult,
@@ -517,6 +518,9 @@ export interface ITaskResult {
 
 // ==================== Universal Agent ====================
 
+// Persistence path for LEANN vector index
+const LEANN_PERSISTENCE_PATH = './vector_db_leann';
+
 export class UniversalAgent {
   private agent: GodAgent;
   private config: Required<UniversalConfig>;
@@ -553,6 +557,9 @@ export class UniversalAgent {
 
   // DAI-002: Multi-Agent Sequential Pipeline Orchestration
   private pipelineExecutor!: PipelineExecutor;
+
+  // LEANN context service for semantic search (persistence-enabled)
+  private leannContextService?: LeannContextService;
 
   // DAI-003: Intelligent Task Routing
   private taskAnalyzer!: TaskAnalyzer;
@@ -760,6 +767,22 @@ export class UniversalAgent {
       );
       await leannContextService.initialize(leannAdapter);
       this.log(`LEANN: DualCodeEmbedding initialized (${embeddingDimension}D, 40% NLP + 60% Code fusion)`);
+
+      // Store as class member for persistence during shutdown
+      this.leannContextService = leannContextService;
+
+      // Load persisted vectors if available
+      try {
+        const loaded = await leannContextService.load(LEANN_PERSISTENCE_PATH);
+        if (loaded) {
+          const vectorCount = leannContextService.getVectorCount();
+          this.log(`LEANN: Loaded ${vectorCount} vectors from ${LEANN_PERSISTENCE_PATH}`);
+        } else {
+          this.log('LEANN: No persisted vectors found, starting fresh');
+        }
+      } catch (error) {
+        this.log(`LEANN: Failed to load persisted vectors (non-fatal): ${error}`);
+      }
     } catch (error) {
       this.log(`LEANN: Initialization failed (non-fatal): ${error}`);
       leannContextService = undefined;
@@ -4359,6 +4382,17 @@ Return ONLY code in markdown code blocks.`;
     // Save persisted state before shutdown
     if (this.config.enablePersistence) {
       await this.savePersistedState();
+    }
+
+    // Save LEANN vectors before shutdown
+    if (this.leannContextService) {
+      try {
+        await this.leannContextService.save(LEANN_PERSISTENCE_PATH);
+        const vectorCount = this.leannContextService.getVectorCount();
+        this.log(`LEANN: Saved ${vectorCount} vectors to ${LEANN_PERSISTENCE_PATH}`);
+      } catch (error) {
+        this.log(`LEANN: Failed to save vectors: ${error}`);
+      }
     }
 
     // MEM-001: Disconnect memory client (daemon keeps running for other processes)

@@ -98,27 +98,6 @@ export declare class SherlockLearningError extends Error {
     readonly phase?: number | undefined;
     constructor(code: SherlockLearningErrorCode, message: string, phase?: number | undefined);
 }
-/**
- * Integrates Sherlock forensic verdicts with the learning system.
- *
- * When a Sherlock review completes:
- * 1. Creates trajectory for the forensic investigation
- * 2. Provides quality feedback based on verdict
- * 3. Stores high-quality patterns in pattern library
- *
- * CODING PIPELINE ONLY - PhD pipeline uses separate quality validation.
- *
- * @example
- * ```typescript
- * const integration = new SherlockLearningIntegration({
- *   sonaEngine,
- *   reasoningBank,
- * });
- *
- * // After Sherlock review completes
- * await integration.recordVerdict(reviewResult);
- * ```
- */
 export declare class SherlockLearningIntegration {
     private readonly _sonaEngine;
     private readonly _reasoningBank;
@@ -181,6 +160,10 @@ export declare class SherlockLearningIntegration {
      * Emit learning event.
      */
     private _emitEvent;
+    /**
+     * Trim patterns to bounded size (prevents memory leaks).
+     */
+    private _trimPatterns;
     /**
      * Log message if verbose mode enabled.
      */

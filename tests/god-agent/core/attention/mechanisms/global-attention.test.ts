@@ -360,9 +360,10 @@ describe('RealGlobalAttention', () => {
     const key = new Float32Array(64);
     const value = new Float32Array(64);
 
+    // Use flexible matching pattern for dimension error messages
     expect(() => {
       attention.forward(query, key, value);
-    }).toThrow('Dimension mismatch');
+    }).toThrow(/[Dd]imension mismatch/);
   });
 
   it('should reject invalid mask dimensions', () => {

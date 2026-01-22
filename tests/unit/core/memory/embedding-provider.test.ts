@@ -21,11 +21,12 @@ describe('MockEmbeddingProvider', () => {
       expect(embedding).toBeInstanceOf(Float32Array);
     });
 
-    it('should return 768-dimensional vector', async () => {
+    it('should return 1536-dimensional vector', async () => {
+      // TASK-VEC-001-008: Updated from 768D to 1536D per REQ-VEC-01
       const embedding = await provider.embed('test text');
 
       expect(embedding.length).toBe(VECTOR_DIM);
-      expect(embedding.length).toBe(768);
+      expect(embedding.length).toBe(1536);
     });
 
     it('should return L2-normalized vector', async () => {

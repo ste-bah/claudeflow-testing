@@ -18,142 +18,32 @@ import type {
   AlgorithmType,
 } from './types.js';
 
+// Import extracted modules
+import {
+  AGENTS_DIR,
+  TYPE_TO_PHASE,
+  PHASE_DEFAULT_ALGORITHM,
+  AGENT_ORDER,
+  CRITICAL_AGENT_KEYS,
+} from './coding-pipeline-constants.js';
+
+import {
+  parseYAML,
+  extractFrontmatter,
+} from './coding-pipeline-yaml-parser.js';
+
+import {
+  inferDependencies,
+  inferMemoryReads,
+  inferMemoryWrites,
+  calculateXPReward,
+  type PhaseAgentInfo,
+} from './coding-pipeline-inference.js';
+
 const logger = createComponentLogger('CodingPipelineConfigLoader', {
   minLevel: LogLevel.WARN,
   handlers: [new ConsoleLogHandler({ useStderr: true })]
 });
-
-const AGENTS_DIR = '.claude/agents/coding-pipeline';
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PHASE MAPPING
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Map agent `type` field to CodingPipelinePhase
- */
-const TYPE_TO_PHASE: Record<string, CodingPipelinePhase> = {
-  'understanding': 'understanding',
-  'exploration': 'exploration',
-  'architecture': 'architecture',
-  'implementation': 'implementation',
-  'testing': 'testing',
-  'optimization': 'optimization',
-  'delivery': 'delivery',
-  // Special agent types (CRITICAL-001 fix)
-  'approval': 'delivery',              // sign-off-approver
-  'validation': 'testing',             // quality-gate
-  'sherlock-reviewer': 'delivery',     // phase-N-reviewers
-  'sherlock-recovery': 'delivery',     // recovery-agent
-};
-
-/**
- * Default algorithm mapping by phase
- */
-const PHASE_DEFAULT_ALGORITHM: Record<CodingPipelinePhase, AlgorithmType> = {
-  'understanding': 'ReAct',
-  'exploration': 'LATS',
-  'architecture': 'ToT',
-  'implementation': 'Self-Debug',
-  'testing': 'Self-Debug',
-  'optimization': 'Reflexion',
-  'delivery': 'Reflexion',
-};
-
-/**
- * Agent ordering - canonical 47 agents
- * Derived from actual .md files in .claude/agents/coding-pipeline/
- */
-const AGENT_ORDER: Record<string, number> = {
-  // Phase 1: Understanding (6 agents, positions 1-6)
-  'task-analyzer': 1,           // CRITICAL: pipeline entry point
-  'requirement-extractor': 2,
-  'requirement-prioritizer': 3,
-  'scope-definer': 4,
-  'context-gatherer': 5,
-  'feasibility-analyzer': 6,
-
-  // Phase 2: Exploration (4 agents, positions 7-10)
-  'pattern-explorer': 7,
-  'technology-scout': 8,
-  'research-planner': 9,
-  'codebase-analyzer': 10,
-
-  // Phase 3: Architecture (5 agents, positions 11-15)
-  'system-designer': 11,
-  'component-designer': 12,
-  'interface-designer': 13,
-  'data-architect': 14,
-  'integration-architect': 15,
-
-  // Phase 4: Implementation (12 agents, positions 16-27)
-  'code-generator': 16,
-  'type-implementer': 17,
-  'unit-implementer': 18,
-  'service-implementer': 19,
-  'data-layer-implementer': 20,
-  'api-implementer': 21,
-  'frontend-implementer': 22,
-  'error-handler-implementer': 23,
-  'config-implementer': 24,
-  'logger-implementer': 25,
-  'dependency-manager': 26,
-  'implementation-coordinator': 27,
-
-  // Phase 5: Testing (7 agents, positions 28-34)
-  'test-generator': 28,
-  'test-runner': 29,
-  'integration-tester': 30,
-  'regression-tester': 31,
-  'security-tester': 32,
-  'coverage-analyzer': 33,
-  'quality-gate': 34,
-
-  // Phase 6: Optimization (5 agents, positions 35-39)
-  'performance-optimizer': 35,
-  'performance-architect': 36,
-  'code-quality-improver': 37,
-  'security-architect': 38,
-  'final-refactorer': 39,
-
-  // Phase 7: Delivery / Sherlock Reviewers (8 agents, positions 40-47)
-  'sign-off-approver': 40,      // CRITICAL: final approval
-  'phase-1-reviewer': 41,       // Sherlock: Understanding review
-  'phase-2-reviewer': 42,       // Sherlock: Exploration review
-  'phase-3-reviewer': 43,       // Sherlock: Architecture review
-  'phase-4-reviewer': 44,       // Sherlock: Implementation review
-  'phase-5-reviewer': 45,       // Sherlock: Testing review
-  'phase-6-reviewer': 46,       // Sherlock: Optimization review
-  'recovery-agent': 47,         // Sherlock: Recovery orchestration
-};
-
-/**
- * Critical agents that halt pipeline on failure
- * CRITICAL-003 fix: Aligned with types.ts CRITICAL_AGENTS and frontmatter priority:critical
- */
-const CRITICAL_AGENT_KEYS = new Set([
-  // From types.ts CRITICAL_AGENTS
-  'task-analyzer',              // #1 - Pipeline entry point
-  'interface-designer',         // #13 - API contract validation
-  'quality-gate',               // #34 - L-Score validation gateway
-  'sign-off-approver',          // #40 - Final approval
-  // Sherlock forensic reviewers (all critical)
-  'phase-1-reviewer',
-  'phase-2-reviewer',
-  'phase-3-reviewer',
-  'phase-4-reviewer',
-  'phase-5-reviewer',
-  'phase-6-reviewer',
-  'recovery-agent',
-  // From frontmatter priority:critical (additional)
-  'system-designer',            // Architecture critical
-  'code-generator',             // Implementation critical
-  'implementation-coordinator', // Implementation critical
-  'test-runner',                // Testing critical
-  'security-tester',            // Testing critical
-  'security-architect',         // Optimization critical
-  'feasibility-analyzer',       // Understanding critical
-]);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTERFACES
@@ -280,17 +170,15 @@ export class CodingPipelineConfigLoader {
    * Extract frontmatter and content
    */
   private parseAgentDefinition(content: string, filename: string): CodingAgentConfig {
-    // Extract YAML frontmatter
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    // Extract YAML frontmatter using extracted module
+    const extracted = extractFrontmatter(content);
 
-    if (!frontmatterMatch) {
+    if (!extracted) {
       throw new Error(`No frontmatter found in ${filename}`);
     }
 
-    const frontmatter = this.parseYAML(frontmatterMatch[1]);
-
-    // Extract description (content after frontmatter)
-    const fullContent = content.substring(frontmatterMatch[0].length).trim();
+    const [frontmatterYaml, fullContent] = extracted;
+    const frontmatter = parseYAML(frontmatterYaml);
 
     // Build agent key from filename
     const key = filename.replace('.md', '');
@@ -405,134 +293,6 @@ export class CodingPipelineConfigLoader {
   }
 
   /**
-   * Simple YAML parser for frontmatter
-   * Handles arrays, booleans, numbers, strings, and nested objects
-   */
-  private parseYAML(yaml: string): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-    const lines = yaml.split('\n');
-    let currentKey: string | null = null;
-    let currentArray: string[] | null = null;
-    let currentObject: Record<string, unknown> | null = null;
-    let objectKey: string | null = null;
-
-    for (const line of lines) {
-      // Check for array item
-      if (currentArray !== null && line.match(/^\s+-\s+(.+)$/)) {
-        const match = line.match(/^\s+-\s+(.+)$/);
-        if (match) {
-          currentArray.push(match[1].replace(/^["']|["']$/g, ''));
-        }
-        continue;
-      }
-
-      // Check for nested object value (with pipe for multiline)
-      if (currentObject !== null && objectKey !== null && line.match(/^\s+\w+:\s*\|$/)) {
-        const match = line.match(/^\s+(\w+):\s*\|$/);
-        if (match) {
-          const nestedKey = match[1];
-          // Collect multiline value
-          const multilineValue = this.collectMultilineValue(lines, lines.indexOf(line) + 1);
-          currentObject[nestedKey] = multilineValue;
-        }
-        continue;
-      }
-
-      // Check for nested object value
-      if (currentObject !== null && objectKey !== null && line.match(/^\s+\w+:\s*.+$/)) {
-        const match = line.match(/^\s+(\w+):\s*(.+)$/);
-        if (match) {
-          currentObject[match[1]] = match[2].replace(/^["']|["']$/g, '');
-        }
-        continue;
-      }
-
-      // End of array or object
-      if (currentArray !== null && !line.match(/^\s+-/)) {
-        result[currentKey!] = currentArray;
-        currentArray = null;
-        currentKey = null;
-      }
-
-      if (currentObject !== null && objectKey !== null && !line.match(/^\s+\w+:/)) {
-        result[objectKey] = currentObject;
-        currentObject = null;
-        objectKey = null;
-      }
-
-      // Check for key: value
-      const kvMatch = line.match(/^(\w+):\s*(.*)$/);
-      if (kvMatch) {
-        const [, key, value] = kvMatch;
-        currentKey = key;
-
-        // Check for array start
-        if (value === '' || value === undefined) {
-          // Peek next line to see if it's an array
-          const nextLineIdx = lines.indexOf(line) + 1;
-          if (nextLineIdx < lines.length && lines[nextLineIdx].match(/^\s+-/)) {
-            currentArray = [];
-            continue;
-          }
-          // Check for nested object
-          if (nextLineIdx < lines.length && lines[nextLineIdx].match(/^\s+\w+:/)) {
-            currentObject = {};
-            objectKey = key;
-            continue;
-          }
-        }
-
-        // Parse value
-        if (value.startsWith('[') && value.endsWith(']')) {
-          // Inline array
-          try {
-            result[key] = JSON.parse(value.replace(/'/g, '"'));
-          } catch {
-            result[key] = [];
-          }
-        } else if (value === 'true' || value === 'false') {
-          result[key] = value === 'true';
-        } else if (!isNaN(Number(value)) && value !== '') {
-          result[key] = Number(value);
-        } else if (value !== '') {
-          result[key] = value.replace(/^["']|["']$/g, '');
-        }
-      }
-    }
-
-    // Finalize any pending array or object
-    if (currentArray !== null && currentKey !== null) {
-      result[currentKey] = currentArray;
-    }
-    if (currentObject !== null && objectKey !== null) {
-      result[objectKey] = currentObject;
-    }
-
-    return result;
-  }
-
-  /**
-   * Collect multiline value (for YAML pipe syntax)
-   */
-  private collectMultilineValue(lines: string[], startIdx: number): string {
-    const valueLines: string[] = [];
-    for (let i = startIdx; i < lines.length; i++) {
-      const line = lines[i];
-      // Multiline content is indented
-      if (line.match(/^\s{4,}/)) {
-        valueLines.push(line.trim());
-      } else if (line.trim() === '') {
-        // Empty line within multiline
-        valueLines.push('');
-      } else {
-        // End of multiline
-        break;
-      }
-    }
-    return valueLines.join('\n');
-  }
-
-  /**
    * Get agent by index
    */
   async getAgentByIndex(index: number): Promise<CodingAgentConfig> {
@@ -583,6 +343,13 @@ export class CodingPipelineConfigLoader {
   async getAgentMappings(): Promise<IAgentMapping[]> {
     const config = await this.loadPipelineConfig();
 
+    // Build PhaseAgentInfo array for inference functions
+    const phaseAgents: PhaseAgentInfo[] = config.agents.map(a => ({
+      key: a.key,
+      phase: a.phase,
+      order: a.order,
+    }));
+
     return config.agents.map(agent => ({
       phase: agent.phase,
       agentKey: agent.key as CodingPipelineAgent,
@@ -590,105 +357,14 @@ export class CodingPipelineConfigLoader {
       category: agent.category,
       algorithm: agent.algorithm,
       fallbackAlgorithm: agent.fallbackAlgorithm,
-      dependsOn: this.inferDependencies(agent, config.agents),
-      memoryReads: this.inferMemoryReads(agent),
-      memoryWrites: this.inferMemoryWrites(agent),
-      xpReward: this.calculateXPReward(agent),
+      dependsOn: inferDependencies(agent.key, phaseAgents),
+      memoryReads: inferMemoryReads(agent.key, phaseAgents),
+      memoryWrites: inferMemoryWrites(agent.key),
+      xpReward: calculateXPReward(agent.key, agent.critical),
       parallelizable: !agent.critical && agent.priority !== 'critical',
       critical: agent.critical,
       description: agent.description,
     }));
-  }
-
-  /**
-   * Infer dependencies from agent position and phase
-   */
-  private inferDependencies(
-    agent: CodingAgentConfig,
-    allAgents: CodingAgentConfig[]
-  ): CodingPipelineAgent[] | undefined {
-    // First agent in phase depends on last agent of previous phase
-    const phaseAgents = allAgents.filter(a => a.phase === agent.phase);
-    const firstInPhase = phaseAgents.length > 0 && phaseAgents[0].key === agent.key;
-
-    if (firstInPhase && agent.order > 1) {
-      // Find last agent of previous phase
-      const prevAgent = allAgents.find(a => a.order === agent.order - 1);
-      if (prevAgent) {
-        return [prevAgent.key as CodingPipelineAgent];
-      }
-    }
-
-    // Non-first agents depend on previous agent
-    if (!firstInPhase) {
-      const prevInPhase = phaseAgents.find(a => a.order === agent.order - 1);
-      if (prevInPhase) {
-        return [prevInPhase.key as CodingPipelineAgent];
-      }
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Infer memory read keys from agent phase
-   */
-  private inferMemoryReads(agent: CodingAgentConfig): string[] {
-    const phasePrefix = `coding/${agent.phase}`;
-    const reads: string[] = [];
-
-    // Read from previous phases
-    const phaseOrder = ['understanding', 'exploration', 'architecture', 'implementation', 'testing', 'optimization', 'delivery'];
-    const currentIdx = phaseOrder.indexOf(agent.phase);
-
-    if (currentIdx > 0) {
-      reads.push(`coding/${phaseOrder[currentIdx - 1]}`);
-    }
-
-    // Read from input/context
-    if (agent.order === 1) {
-      reads.push('coding/input/task');
-      reads.push('coding/context/project');
-    }
-
-    return reads;
-  }
-
-  /**
-   * Infer memory write keys from agent
-   */
-  private inferMemoryWrites(agent: CodingAgentConfig): string[] {
-    return [`coding/${agent.phase}/${agent.key}`];
-  }
-
-  /**
-   * Calculate XP reward based on agent criticality and phase
-   */
-  private calculateXPReward(agent: CodingAgentConfig): number {
-    let baseXP = 50;
-
-    // Critical agents get more XP
-    if (agent.critical) {
-      baseXP += 50;
-    }
-
-    // Sherlock reviewers get bonus XP
-    if (agent.type === 'sherlock-reviewer') {
-      baseXP += 50;
-    }
-
-    // Later phases get slightly more XP
-    const phaseMultipliers: Record<CodingPipelinePhase, number> = {
-      'understanding': 1.0,
-      'exploration': 1.0,
-      'architecture': 1.1,
-      'implementation': 1.2,
-      'testing': 1.1,
-      'optimization': 1.1,
-      'delivery': 1.3,
-    };
-
-    return Math.round(baseXP * (phaseMultipliers[agent.phase] || 1.0));
   }
 
   /**

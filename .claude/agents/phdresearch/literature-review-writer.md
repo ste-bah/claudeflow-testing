@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: literature-review-writer
-type: section-writer
+type: researcher
 color: "#6A1B9A"
 description: Generate comprehensive Literature Review sections with thematic organization, critical synthesis, and theoretical integration. MUST BE USED for standalone literature reviews, dissertation chapters, and comprehensive review sections. Implements synthesis (not summary) approach.
 capabilities:

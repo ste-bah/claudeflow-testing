@@ -51,6 +51,8 @@ export declare class LEANNBackend implements IHNSWBackend {
     setEmbeddingGenerator(generator: (id: VectorID) => Promise<Float32Array>): void;
     /**
      * Insert a vector into the index
+     *
+     * @throws Error if vector dimension doesn't match expected dimension
      */
     insert(id: VectorID, vector: Float32Array): void;
     /**
@@ -70,13 +72,19 @@ export declare class LEANNBackend implements IHNSWBackend {
      */
     private getNodeDegree;
     /**
-     * Update hub cache with highest-degree nodes
+     * Update hub cache with highest-degree nodes.
+     * Uses atomic swap pattern to prevent concurrent access issues.
      */
     private updateHubCache;
     /**
      * Search for k nearest neighbors using two-level search
      */
     search(query: Float32Array, k: number, includeVectors?: boolean): SearchResult[];
+    /**
+     * Brute force search - guaranteed to find exact matches
+     * Used for small datasets where linear scan is efficient
+     */
+    private bruteForceSearch;
     /**
      * Search hub cache for nearest neighbors
      */

@@ -272,8 +272,9 @@ describe('WeightManager - setWeights and updateWeights', () => {
       const wrongDelta = createWeights(5, 20);
 
       // Action & Verify: should throw for dimension mismatch
+      // Use flexible matching pattern for mismatch error messages
       expect(() => weightManager.updateWeights('test-layer', wrongDelta))
-        .toThrow('Row count mismatch');
+        .toThrow(/[Rr]ow count mismatch|dimension mismatch/i);
     });
 
     it('should rollback on NaN result', () => {

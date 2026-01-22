@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: hypothesis-generator
-type: hypothesis-specialist
+type: researcher
 color: "#009688"
 description: Use PROACTIVELY after theory-building to generate testable hypotheses. MUST BE USED to translate theoretical propositions into empirically testable predictions. Works for ANY domain (software, business, research, product).
 capabilities:

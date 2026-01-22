@@ -12,7 +12,7 @@
  * - getWeights(): <5ms
  * - provideFeedback(): <15ms
  */
-import type { TrajectoryID, PatternID, Route, Weight, WeightStorage, ITrajectory, ISonaConfig, ILearningMetrics, IDriftMetrics, ISerializedSonaState, IWeightUpdateResult, CheckpointReason, ICheckpointFull, IReasoningStep } from './sona-types.js';
+import type { TrajectoryID, PatternID, Route, Weight, WeightStorage, ITrajectory, ISonaConfig, ILearningMetrics, IDriftMetrics, ISerializedSonaState, IWeightUpdateResult, CheckpointReason, ICheckpointFull, IReasoningStep, IRlmContext } from './sona-types.js';
 import type { ITrajectoryStreamConfig, IRollbackState } from '../types/trajectory-streaming-types.js';
 import { TrajectoryMetadataDAO } from '../database/dao/trajectory-metadata-dao.js';
 import { PatternDAO } from '../database/dao/pattern-dao.js';
@@ -75,6 +75,11 @@ export declare class SonaEngine {
     private patternDAO?;
     private learningFeedbackDAO?;
     private persistenceEnabled;
+    /**
+     * Map RLM context to feedback input format
+     * Extracts relay-race memory handoff fields for persistence
+     */
+    private mapRlmContextToFeedback;
     private metrics;
     constructor(config?: ISonaConfig);
     /**
@@ -267,6 +272,8 @@ export declare class SonaEngine {
         lScore?: number;
         similarities?: Map<PatternID, number>;
         skipAutoSave?: boolean;
+        /** RLM context for relay-race memory handoff tracking */
+        rlmContext?: IRlmContext;
     }): Promise<IWeightUpdateResult>;
     /**
      * Calculate average weight for a route (for observability)
@@ -539,7 +546,7 @@ export declare class SonaEngine {
      * then calls createPatternFromTrajectory for each eligible trajectory.
      *
      * Implements: TASK-PATTERN-CONVERT
-     * - Default threshold is AUTO_PATTERN_QUALITY_THRESHOLD (0.8)
+     * - Default threshold is AUTO_PATTERN_QUALITY_THRESHOLD (0.8) for pattern creation
      * - Supports dry-run mode for previewing without creating
      * - Skips trajectories that already have patterns
      * - Limits conversions per batch to prevent overwhelming the system
@@ -557,6 +564,46 @@ export declare class SonaEngine {
         patternsCreated: number;
         errors: string[];
     }>;
+    /**
+     * Process unprocessed feedback records for batch learning.
+     *
+     * Retrieves unprocessed feedback from SQLite, updates pattern success/failure counts,
+     * creates patterns from exceptional feedback (quality >= AUTO_PATTERN_QUALITY_THRESHOLD = 0.8),
+     * and marks records as processed.
+     *
+     * Implements: TASK-BATCH-LEARN-001
+     * - RULE-008: ALL learning data MUST be stored in SQLite
+     * - ERR-001: No silent failures - log all errors
+     * - Uses LearningFeedbackDAO.findUnprocessed() and markProcessed()
+     *
+     * @param limit - Maximum records to process per batch (default: 100)
+     * @returns Processing statistics including processed count, patterns created, and errors
+     *
+     * @example
+     * ```typescript
+     * const engine = createProductionSonaEngine();
+     * const stats = await engine.processUnprocessedFeedback(50);
+     * console.log(`Processed ${stats.processed} records, created ${stats.patternsCreated} patterns`);
+     * ```
+     */
+    processUnprocessedFeedback(limit?: number): Promise<{
+        processed: number;
+        patternsCreated: number;
+        errors: number;
+        details: Array<{
+            feedbackId: string;
+            trajectoryId: string;
+            quality: number;
+            status: 'processed' | 'pattern_created' | 'skipped' | 'error';
+            reason?: string;
+        }>;
+    }>;
+    /**
+     * Get count of unprocessed feedback records awaiting batch learning.
+     *
+     * @returns Number of unprocessed records, or 0 if persistence is disabled
+     */
+    getUnprocessedFeedbackCount(): number;
 }
 /**
  * Create a SonaEngine with database persistence REQUIRED

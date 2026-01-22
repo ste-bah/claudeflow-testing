@@ -52,6 +52,9 @@ export class ContextService {
                 case 'context.build':
                     result = await this.handleBuild(params);
                     break;
+                case 'context.initSession':
+                    result = await this.handleInitSession(params);
+                    break;
                 default:
                     return this.errorResponse(ERROR_CODES.METHOD_NOT_FOUND, `Method not found: ${method}`, id);
             }
@@ -109,6 +112,28 @@ export class ContextService {
         };
         return this.compositionEngine.compose(options);
     }
+    /**
+     * Handle context.initSession method
+     * Initialize session state for a new conversation
+     */
+    async handleInitSession(params) {
+        if (!this.isInitSessionParams(params)) {
+            throw new ServiceError(ERROR_CODES.INVALID_PARAMS, 'Invalid params: expected { sessionId: string, projectPath?: string, timestamp?: number, config?: object }');
+        }
+        const { sessionId, projectPath, config } = params;
+        // Configure composition engine with session settings if provided
+        if (config?.rollingWindowSize) {
+            // The composition engine handles rolling window internally
+            // This is a placeholder for future session-specific configuration
+        }
+        // Reset composition engine state for new session
+        this.compositionEngine.setPhase('init');
+        return {
+            success: true,
+            sessionId,
+            initialized: true
+        };
+    }
     // ============================================================================
     // Type Guards
     // ============================================================================
@@ -133,6 +158,12 @@ export class ContextService {
         const p = params;
         return (typeof p.contextWindow === 'number' &&
             typeof p.phase === 'string');
+    }
+    isInitSessionParams(params) {
+        if (!params || typeof params !== 'object')
+            return false;
+        const p = params;
+        return typeof p.sessionId === 'string';
     }
     // ============================================================================
     // Response Helpers

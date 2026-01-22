@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: source-tier-classifier
-type: meta-analyst
+type: researcher
 color: "#BF360C"
 description: Use PROACTIVELY to classify sources into Tier 1/2/3 based on peer review status, journal impact, and authoritativeness. MUST BE USED to ensure 80%+ high-quality sources (Tier 1/2). Works for ANY domain - prevents low-quality evidence from undermining research credibility.
 capabilities:

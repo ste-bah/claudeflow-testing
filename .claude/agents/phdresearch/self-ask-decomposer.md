@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: self-ask-decomposer
-type: meta-analyst
+type: researcher
 color: "#311B92"
 description: Universal essential question generator. Use PROACTIVELY to decompose ANY subject into 15-20 critical questions before analysis. Works across all domains (software/business/research/product). MUST BE USED to identify knowledge gaps and guide comprehensive investigation.
 capabilities:

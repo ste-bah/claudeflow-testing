@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: bias-detector
-type: bias-analyst
+type: researcher
 color: "#E65100"
 description: Use PROACTIVELY after quality assessment to identify publication bias, selection bias, and other systematic biases. MUST BE USED to detect 8+ bias types with statistical evidence. Works for ANY research domain.
 capabilities:

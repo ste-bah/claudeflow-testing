@@ -23,8 +23,8 @@ Core VectorDB CRUD operation tests:
 - Custom dimensions and metrics
 
 #### insert() Validation ✅
-- ✅ Accepts valid 768D L2-normalized vectors
-- ✅ Rejects 1536D vectors (dimension mismatch)
+- ✅ Accepts valid 1536D L2-normalized vectors (TASK-VEC-001-008: updated from 768D)
+- ✅ Rejects 768D vectors (legacy dimension mismatch)
 - ✅ Rejects 767D vectors
 - ✅ Rejects non-normalized vectors
 - ✅ Rejects NaN values
@@ -46,7 +46,7 @@ Core VectorDB CRUD operation tests:
 
 #### search() Validation ✅
 - ✅ Validates query vector dimensions
-- ✅ Rejects 1536D query vectors
+- ✅ Rejects 768D query vectors (legacy dimension)
 - ✅ Rejects non-normalized queries
 - ✅ Rejects queries with NaN values
 
@@ -157,7 +157,7 @@ All TASK-VDB-001 validation criteria are covered:
 
 | Criterion | Test File | Status |
 |-----------|-----------|--------|
-| VectorDB.insert() validates dimensions and rejects 1536D | vector-db.test.ts | ✅ |
+| VectorDB.insert() validates dimensions and rejects 768D (legacy) | vector-db.test.ts | ✅ |
 | VectorDB.insert() returns unique VectorID | vector-db.test.ts | ✅ |
 | VectorDB.search() returns k nearest neighbors sorted | vector-db.test.ts | ✅ |
 | VectorDB.search() validates query dimensions | vector-db.test.ts | ✅ |

@@ -13,7 +13,16 @@
 
 import type { AgentRegistry } from '../agents/agent-registry.js';
 import type { IPipelineDefinition, IPipelineStep } from './dai-002-types.js';
+import type { ISemanticContext } from './leann-context-service.js';
 import { DEFAULT_MIN_QUALITY } from './dai-002-types.js';
+
+// ==================== Constants ====================
+
+/**
+ * Maximum length for injected output in prompts.
+ * Prevents prompt explosion with very large outputs.
+ */
+const MAX_INJECTED_OUTPUT_LENGTH = 10000;
 
 // ==================== Prompt Context Interface ====================
 
@@ -31,6 +40,19 @@ export interface IPromptContext {
   pipelineId: string;
   /** Optional initial input for first agent */
   initialInput?: unknown;
+  /** Output retrieved from previous agent (injected by PipelineExecutor) */
+  previousOutput?: unknown;
+  /** Metadata about the previous step that produced the output */
+  previousStepData?: {
+    /** Agent key of the previous agent */
+    agentKey: string;
+    /** Step index of the previous step */
+    stepIndex: number;
+    /** Domain where the output was stored */
+    domain: string;
+  };
+  /** Semantic context from LEANN code search (optional) */
+  semanticContext?: ISemanticContext;
 }
 
 /**
@@ -81,7 +103,16 @@ export class PipelinePromptBuilder {
    * @returns Built prompt with metadata
    */
   buildPrompt(context: IPromptContext): IBuiltPrompt {
-    const { step, stepIndex, pipeline, pipelineId, initialInput } = context;
+    const {
+      step,
+      stepIndex,
+      pipeline,
+      pipelineId,
+      initialInput,
+      previousOutput,
+      previousStepData,
+      semanticContext,
+    } = context;
     const totalSteps = pipeline.agents.length;
     const previousStep = stepIndex > 0 ? pipeline.agents[stepIndex - 1] : undefined;
     const nextStep = stepIndex < totalSteps - 1 ? pipeline.agents[stepIndex + 1] : undefined;
@@ -101,6 +132,9 @@ export class PipelinePromptBuilder {
       previousStep,
       nextStep,
       initialInput,
+      previousOutput,
+      previousStepData,
+      semanticContext,
     });
 
     return {
@@ -125,6 +159,12 @@ export class PipelinePromptBuilder {
     previousStep?: IPipelineStep;
     nextStep?: IPipelineStep;
     initialInput?: unknown;
+    /** Retrieved output from previous agent */
+    previousOutput?: unknown;
+    /** Metadata about the previous step */
+    previousStepData?: { agentKey: string; stepIndex: number; domain: string };
+    /** Semantic context from LEANN code search */
+    semanticContext?: ISemanticContext;
   }): string {
     const {
       step,
@@ -136,6 +176,9 @@ export class PipelinePromptBuilder {
       previousStep,
       nextStep,
       initialInput,
+      previousOutput,
+      previousStepData,
+      semanticContext,
     } = params;
 
     const sections: string[] = [];
@@ -153,8 +196,20 @@ export class PipelinePromptBuilder {
       nextStep
     ));
 
-    // 3. Memory Retrieval Section
-    sections.push(this.buildMemoryRetrievalSection(step, pipelineId, initialInput, stepIndex));
+    // 3. Memory Retrieval Section (with injected previous output when available)
+    sections.push(this.buildMemoryRetrievalSection(
+      step,
+      pipelineId,
+      initialInput,
+      stepIndex,
+      previousOutput,
+      previousStepData
+    ));
+
+    // 3b. Semantic Context Section (from LEANN code search)
+    if (semanticContext && semanticContext.codeContext.length > 0) {
+      sections.push(this.buildSemanticContextSection(semanticContext));
+    }
 
     // 4. Task Section
     sections.push(this.buildTaskSection(step));
@@ -228,13 +283,26 @@ Next: ${this.formatNextContext(nextStep)}`;
   }
 
   /**
-   * Build memory retrieval section
+   * Build memory retrieval section.
+   * When previousOutput is provided, injects the ACTUAL data from the previous agent.
+   * Otherwise, shows fallback instructions for manual retrieval.
+   *
+   * @param step - Current pipeline step containing inputDomain and inputTags
+   * @param pipelineId - Unique pipeline execution ID used for filtering stored knowledge
+   * @param initialInput - Optional initial input for first agent (takes precedence at stepIndex=0)
+   * @param stepIndex - Current step index (0-based); determines if this is the first agent
+   * @param previousOutput - Actual output retrieved from previous agent; when provided, data is injected directly
+   * @param previousStepData - Metadata about the previous step (agentKey, stepIndex, domain) for context
+   * @returns Formatted markdown section for memory retrieval with either injected data,
+   *          fallback retrieval instructions, or N/A message for first agent
    */
   buildMemoryRetrievalSection(
     step: IPipelineStep,
     pipelineId: string,
     initialInput?: unknown,
-    stepIndex?: number
+    stepIndex?: number,
+    previousOutput?: unknown,
+    previousStepData?: { agentKey: string; stepIndex: number; domain: string }
   ): string {
     // First agent with initial input
     if (stepIndex === 0 && initialInput !== undefined) {
@@ -251,13 +319,100 @@ ${JSON.stringify(initialInput, null, 2)}
 No previous agent output to retrieve - you are the first agent.`;
     }
 
-    // Build retrieval code
+    // If previous output was successfully retrieved, inject the ACTUAL data
+    if (previousOutput !== undefined && previousStepData) {
+      return this.buildInjectedMemorySection(previousOutput, previousStepData);
+    }
+
+    // Fallback: show retrieval instructions (data could not be retrieved)
+    return this.buildFallbackRetrievalSection(step, pipelineId);
+  }
+
+  /**
+   * Build memory retrieval section with injected actual data.
+   * This is the preferred path - agents receive real data from previous agent.
+   */
+  private buildInjectedMemorySection(
+    previousOutput: unknown,
+    previousStepData: { agentKey: string; stepIndex: number; domain: string }
+  ): string {
+    const serializedOutput = this.safeStringify(previousOutput, 2);
+    // Truncate very large outputs to prevent prompt explosion
+    const truncatedOutput = this.safeTruncate(serializedOutput, MAX_INJECTED_OUTPUT_LENGTH);
+    // Escape backticks to prevent prompt injection / code block breakout
+    const escapedOutput = truncatedOutput.replace(/```/g, '\\`\\`\\`');
+
+    return `## MEMORY RETRIEVAL (INJECTED - data from previous agent)
+**Source:** Agent "${previousStepData.agentKey}" (step ${previousStepData.stepIndex})
+**Domain:** ${previousStepData.domain}
+
+Previous agent's output:
+\`\`\`json
+${escapedOutput}
+\`\`\`
+
+Use this data as input for your task. It has been automatically retrieved from the pipeline memory.`;
+  }
+
+  /**
+   * Safely stringify a value, handling circular references and BigInt.
+   * Prevents JSON.stringify from throwing on circular structures.
+   *
+   * @param value - Value to serialize
+   * @param indent - Indentation spaces (default 2)
+   * @returns JSON string with circular references marked as [Circular Reference]
+   */
+  private safeStringify(value: unknown, indent = 2): string {
+    const seen = new WeakSet();
+    return JSON.stringify(value, (_key, val) => {
+      if (typeof val === 'object' && val !== null) {
+        if (seen.has(val)) return '[Circular Reference]';
+        seen.add(val);
+      }
+      // Handle BigInt which JSON.stringify cannot serialize
+      if (typeof val === 'bigint') return val.toString() + 'n';
+      return val;
+    }, indent);
+  }
+
+  /**
+   * Safely truncate a string without splitting multibyte UTF-8 characters.
+   * Uses code points instead of code units for proper Unicode handling.
+   * Note: maxLength applies to the final string length (code units), not code points,
+   * but we truncate at code point boundaries to avoid corrupting characters.
+   *
+   * @param str - String to truncate
+   * @param maxLength - Maximum length in code units (bytes in output)
+   * @returns Truncated string with indicator if truncated
+   */
+  private safeTruncate(str: string, maxLength: number): string {
+    if (str.length <= maxLength) return str;
+    // Use spread to get code points, not code units (handles emoji, etc.)
+    const codePoints = [...str];
+    // Find how many code points we can include while staying under maxLength
+    let length = 0;
+    let i = 0;
+    while (i < codePoints.length && length + codePoints[i].length <= maxLength) {
+      length += codePoints[i].length;
+      i++;
+    }
+    return codePoints.slice(0, i).join('') + '\n... [truncated]';
+  }
+
+  /**
+   * Build fallback retrieval section when data could not be pre-retrieved.
+   * Shows instructions for manual retrieval.
+   */
+  private buildFallbackRetrievalSection(
+    step: IPipelineStep,
+    pipelineId: string
+  ): string {
     const tagsFilter = step.inputTags?.length
       ? ` &&\n  k.tags?.some(t => ['${step.inputTags!.join("', '")}'].includes(t))`
       : '';
 
     return `## MEMORY RETRIEVAL (from previous agent)
-Retrieve previous agent's output:
+**Note:** Previous agent's output could not be pre-retrieved. Use the following code to retrieve it:
 \`\`\`typescript
 const previousOutput = interactionStore.getKnowledgeByDomain('${step.inputDomain}');
 const filtered = previousOutput.filter(k =>
@@ -265,6 +420,42 @@ const filtered = previousOutput.filter(k =>
 );
 const data = JSON.parse(filtered[0]?.content || '{}');
 \`\`\``;
+  }
+
+  /**
+   * Build semantic context section from LEANN code search results.
+   * Provides relevant code snippets to help the agent understand the codebase.
+   *
+   * @param context - Semantic context containing code search results
+   * @returns Formatted markdown section with code context
+   */
+  private buildSemanticContextSection(context: ISemanticContext): string {
+    if (context.codeContext.length === 0) {
+      return '';
+    }
+
+    const maxContentLength = 2000; // Limit content length per result
+    const contextBlocks = context.codeContext.map((c, i) => {
+      const truncatedContent = c.content.length > maxContentLength
+        ? c.content.substring(0, maxContentLength) + '\n... [truncated]'
+        : c.content;
+
+      // Escape backticks to prevent code block breakout
+      const escapedContent = truncatedContent.replace(/```/g, '\\`\\`\\`');
+
+      return `### Context ${i + 1}: ${c.filePath} (${(c.similarity * 100).toFixed(1)}% relevant)
+\`\`\`${c.language ?? ''}
+${escapedContent}
+\`\`\``;
+    }).join('\n\n');
+
+    return `## SEMANTIC CONTEXT (from codebase search)
+**Query:** "${context.searchQuery}"
+**Found ${context.totalResults} relevant code sections:**
+
+${contextBlocks}
+
+**Note:** Use this context to understand existing patterns and conventions in the codebase.`;
   }
 
   /**

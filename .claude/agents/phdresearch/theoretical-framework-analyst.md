@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: theoretical-framework-analyst
-type: meta-analyst
+type: researcher
 color: "#4A148C"
 description: Use PROACTIVELY to identify and analyze theoretical frameworks underpinning research. MUST BE USED to map theories, assess theoretical contributions, and identify theoretical gaps. Works for ANY domain - ensures theoretical grounding and prevents atheoretical research.
 capabilities:

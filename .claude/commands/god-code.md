@@ -164,22 +164,39 @@ After the Task() subagent completes:
 
 ---
 
-## Phase 3.5: Auto-Feedback Submission (Required)
+## Phase 3.5: Auto-Feedback Submission (MANDATORY - Programmatic Enforcement)
 
-**CRITICAL**: After the Task() subagent returns, you MUST automatically submit quality feedback to close the learning loop. This is NOT optional.
+**CRITICAL - LEARNING LOOP CLOSURE**: After the Task() subagent returns, you MUST automatically submit quality feedback. This is NOT optional. Skipping this step causes orphaned trajectories that break the learning system.
 
-### Submit Auto-Feedback
+### Programmatic Feedback Command
 
-Using the subagent's output and the trajectoryId from Phase 1, run the CodingQualityCalculator:
+The CLI Phase 1 output includes `result.feedbackCommand` - a pre-built command with the correct trajectoryId and agentType. Use it directly:
+
+```bash
+# Replace [TASK_OUTPUT] with the first 5000 chars of the subagent's actual output
+${result.feedbackCommand}
+```
+
+### Fallback: Manual Feedback Command
+
+If `feedbackCommand` is not present, construct manually:
 
 ```bash
 npx tsx src/god-agent/universal/cli.ts code-feedback "[trajectoryId]" --output "[first 5000 chars of subagent output]" --agent "[result.agentType]" --phase 4
 ```
 
-**Alternative** (if code-feedback unavailable): Estimate quality and submit directly:
+### Alternative: Simple Rating (if code-feedback unavailable)
 
 ```bash
 npx tsx src/god-agent/universal/cli.ts feedback [trajectoryId] [quality_score] --trajectory --notes "Auto-assessed: [brief reason for score]"
+```
+
+### Orphan Detection
+
+If the CLI output includes `orphanWarning`, there are orphaned trajectories from previous runs. Consider running:
+
+```bash
+npx tsx src/god-agent/universal/cli.ts auto-complete-coding
 ```
 
 ### Quality Assessment Guidelines

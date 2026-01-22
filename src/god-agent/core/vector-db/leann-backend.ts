@@ -571,9 +571,14 @@ export class LEANNBackend implements IHNSWBackend {
       return false;
     }
 
-    // Read file
-    const json = await fs.readFile(filePath, 'utf-8');
-    const data: LEANNSerializedData = JSON.parse(json);
+    // Read and parse file with error handling
+    let data: LEANNSerializedData;
+    try {
+      const json = await fs.readFile(filePath, 'utf-8');
+      data = JSON.parse(json);
+    } catch (error) {
+      throw new Error(`Failed to read/parse LEANN index at ${filePath}: ${error}`);
+    }
 
     // Validate version
     if (data.version !== LEANN_STORAGE_VERSION) {

@@ -45,6 +45,14 @@ export interface ILearningFeedbackInput {
     hasCodeBlocks?: boolean;
     /** Unix timestamp in milliseconds */
     createdAt: number;
+    /** RLM: Whether context injection was successful */
+    rlmInjectionSuccess?: boolean;
+    /** RLM: Source agent key that produced the injected output */
+    rlmSourceAgent?: string;
+    /** RLM: Source step index in the pipeline */
+    rlmSourceStepIndex?: number;
+    /** RLM: Memory domain from which output was retrieved */
+    rlmSourceDomain?: string;
 }
 /**
  * Full learning feedback record including system fields
@@ -54,6 +62,14 @@ export interface ILearningFeedback extends ILearningFeedbackInput {
     version: number;
     /** Whether this feedback has been processed for learning */
     processed: boolean;
+    /** RLM: Whether context injection was successful (inherited from input) */
+    rlmInjectionSuccess?: boolean;
+    /** RLM: Source agent key that produced the injected output (inherited from input) */
+    rlmSourceAgent?: string;
+    /** RLM: Source step index in the pipeline (inherited from input) */
+    rlmSourceStepIndex?: number;
+    /** RLM: Memory domain from which output was retrieved (inherited from input) */
+    rlmSourceDomain?: string;
 }
 /**
  * LearningFeedbackDAO - SQLite-backed learning feedback persistence
@@ -96,6 +112,14 @@ export declare class LearningFeedbackDAO {
      * @throws Error if outcome is not a valid value
      */
     private validateOutcome;
+    /**
+     * Validate and truncate RLM string values
+     *
+     * @param value - String value to validate
+     * @param maxLength - Maximum allowed length (default: 256)
+     * @returns Validated/truncated string or null if undefined
+     */
+    private validateRlmString;
     /**
      * Insert learning feedback into SQLite
      *

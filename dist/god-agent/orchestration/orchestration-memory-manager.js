@@ -15,6 +15,7 @@ export class OrchestrationMemoryManager {
     config;
     interactionStore;
     reasoningBank;
+    sonaEngine;
     metrics;
     extractorService;
     contextInjector;
@@ -27,9 +28,10 @@ export class OrchestrationMemoryManager {
      * @param config - Configuration options
      * @param interactionStore - InteractionStore instance
      * @param reasoningBank - ReasoningBank instance
+     * @param sonaEngine - SonaEngine instance (optional, for direct feedback persistence)
      * @throws Error if dependencies are invalid
      */
-    constructor(config, interactionStore, reasoningBank) {
+    constructor(config, interactionStore, reasoningBank, sonaEngine) {
         // Validate dependencies
         if (!interactionStore) {
             throw new Error('InteractionStore is required');
@@ -40,6 +42,7 @@ export class OrchestrationMemoryManager {
         this.config = config;
         this.interactionStore = interactionStore;
         this.reasoningBank = reasoningBank;
+        this.sonaEngine = sonaEngine || null;
         // Initialize services
         this.extractorService = new ExtractorService();
         this.contextInjector = new ContextInjector(interactionStore, config.maxContextTokens);
@@ -405,14 +408,23 @@ export class OrchestrationMemoryManager {
             success: metadata.success,
             error: metadata.error
         });
-        // 2. Try submitting to ReasoningBank
+        // 2. Try submitting feedback - prefer SonaEngine for direct SQLite persistence
         try {
-            await this.reasoningBank.provideFeedback({
-                trajectoryId: metadata.trajectoryId,
-                quality: estimate.quality,
-                feedback: estimate.reasoning,
-                verdict: estimate.outcome === 'positive' ? 'correct' : estimate.outcome === 'negative' ? 'incorrect' : 'neutral'
-            });
+            if (this.sonaEngine) {
+                // Direct path to SonaEngine for guaranteed SQLite persistence
+                await this.sonaEngine.provideFeedback(metadata.trajectoryId, estimate.quality, {
+                    skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+                });
+            }
+            else {
+                // Fallback to ReasoningBank (indirect path)
+                await this.reasoningBank.provideFeedback({
+                    trajectoryId: metadata.trajectoryId,
+                    quality: estimate.quality,
+                    feedback: estimate.reasoning,
+                    verdict: estimate.outcome === 'positive' ? 'correct' : estimate.outcome === 'negative' ? 'incorrect' : 'neutral'
+                });
+            }
             // 3. Success - update metrics
             this.metrics.feedbackCount++;
             this.metrics.lastActivityAt = Date.now();
@@ -473,12 +485,20 @@ export class OrchestrationMemoryManager {
         const batch = entriesToRetry.slice(0, 10);
         for (const entry of batch) {
             try {
-                await this.reasoningBank.provideFeedback({
-                    trajectoryId: entry.trajectoryId,
-                    quality: entry.quality,
-                    feedback: entry.metadata.reasoning,
-                    verdict: entry.outcome === 'positive' ? 'correct' : entry.outcome === 'negative' ? 'incorrect' : 'neutral'
-                });
+                // Prefer SonaEngine for direct SQLite persistence
+                if (this.sonaEngine) {
+                    await this.sonaEngine.provideFeedback(entry.trajectoryId, entry.quality, {
+                        skipAutoSave: false, // CRITICAL: Ensure persistence to SQLite
+                    });
+                }
+                else {
+                    await this.reasoningBank.provideFeedback({
+                        trajectoryId: entry.trajectoryId,
+                        quality: entry.quality,
+                        feedback: entry.metadata.reasoning,
+                        verdict: entry.outcome === 'positive' ? 'correct' : entry.outcome === 'negative' ? 'incorrect' : 'neutral'
+                    });
+                }
                 // Success - remove from queue
                 this.feedbackQueue = this.feedbackQueue.filter(e => e.trajectoryId !== entry.trajectoryId);
                 this.metrics.feedbackCount++;

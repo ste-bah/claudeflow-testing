@@ -38,6 +38,8 @@ export interface DualCodeEmbeddingConfig {
     codeIndicators?: RegExp[];
     /** Minimum confidence for code detection (default: 0.6) */
     codeDetectionThreshold?: number;
+    /** Embedding timeout in ms (default: 5000ms per PRD LATENCY-EMBEDDING) */
+    embeddingTimeoutMs?: number;
 }
 /**
  * Cache statistics for monitoring
@@ -70,6 +72,12 @@ export interface EmbeddingResult {
  */
 export declare const DEFAULT_DUAL_CODE_CONFIG: DualCodeEmbeddingConfig;
 /**
+ * Timeout error for embedding operations
+ */
+export declare class EmbeddingTimeoutError extends Error {
+    constructor(timeoutMs: number);
+}
+/**
  * Dual Code Embedding Provider
  *
  * Provides optimized embeddings for code search by combining:
@@ -92,10 +100,21 @@ export declare class DualCodeEmbeddingProvider implements IEmbeddingProvider {
      */
     constructor(config?: Partial<DualCodeEmbeddingConfig>);
     /**
-     * Initialize the base embedding provider lazily
+     * Initialize the base embedding provider lazily.
+     * Thread-safe: uses promise caching pattern with error recovery.
      */
     private ensureInitialized;
     private initialize;
+    /**
+     * Get the base provider, throwing if not initialized.
+     * Call ensureInitialized() before this method.
+     */
+    private getProvider;
+    /**
+     * Embed text with timeout protection.
+     * Throws EmbeddingTimeoutError if operation exceeds configured timeout.
+     */
+    private embedWithTimeout;
     /**
      * Generate embedding for natural language query
      * Optimized for understanding user intent in search queries

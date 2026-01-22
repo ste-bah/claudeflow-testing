@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: validity-guardian
-type: validity-defender
+type: researcher
 color: "#1565C0"
 description: Protect internal, external, construct, and statistical conclusion validity throughout research lifecycle. MUST BE USED to identify threats and design mitigations. Works for experimental, quasi-experimental, and non-experimental designs.
 capabilities:

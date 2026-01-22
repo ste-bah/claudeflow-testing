@@ -1,6 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "conclusion-writer"
+type: researcher
 description: "Agent #38/43 - Conclusion section specialist | Synthesizes study contributions, final takeaways, and forward-looking vision for research area"
 triggers:
   - "write conclusion"

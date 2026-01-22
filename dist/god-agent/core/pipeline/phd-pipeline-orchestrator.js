@@ -214,7 +214,11 @@ export class PhDPipelineOrchestrator {
             if (this.verbose) {
                 console.error('[PhD Pipeline] Execution failed:', error);
             }
-            // RULE-070: Re-throw with pipeline context
+            // Preserve CriticalAgentError type for proper error handling chains
+            if (error instanceof CriticalAgentError) {
+                throw error;
+            }
+            // RULE-070: Re-throw with pipeline context (non-critical errors only)
             throw new Error(`PhD Pipeline "${this.config.pipeline.name}" (id: ${this.state.pipelineId}) failed at phase ${this.state.currentPhase}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
         }
         return this.state;

@@ -7,6 +7,7 @@
  *
  * @module src/god-agent/core/search/adapters/leann-adapter
  */
+import * as fs from 'fs/promises';
 import { withTimeout, TimeoutError, generateResultId } from '../utils.js';
 import { LEANNBackend } from '../../vector-db/leann-backend.js';
 import { DistanceMetric } from '../../vector-db/types.js';
@@ -39,6 +40,9 @@ export class LEANNSourceAdapter {
     hubIdsCache = new Set();
     lastHubCacheUpdate = 0;
     hubCacheUpdateIntervalMs = 5000;
+    /** Store original text for on-demand embedding recomputation (LRU eviction enabled) */
+    contentStore = new Map();
+    maxContentStoreSize;
     /**
      * Create LEANN source adapter
      *
@@ -48,6 +52,7 @@ export class LEANNSourceAdapter {
         this.dimension = config.dimension ?? DEFAULT_LEANN_ADAPTER_CONFIG.dimension;
         this.metric = config.metric ?? DEFAULT_LEANN_ADAPTER_CONFIG.metric;
         this.embedder = config.embeddingProvider;
+        this.maxContentStoreSize = config.maxContentStoreSize ?? 10000;
         // Use provided backend or create new one
         if (config.backend) {
             this.backend = config.backend;
@@ -59,10 +64,14 @@ export class LEANNSourceAdapter {
             // Set embedding generator if provided
             if (this.embedder) {
                 this.backend.setEmbeddingGenerator(async (id) => {
-                    // For recomputation, we need the original text
-                    // This is a simplified implementation - in production,
-                    // you'd store text alongside vectors or have a content retrieval system
-                    return new Float32Array(this.dimension);
+                    // Retrieve original text for on-demand recomputation
+                    const text = this.contentStore.get(id);
+                    if (!text) {
+                        console.warn(`[LEANNAdapter] No stored text for ID ${id}, returning zero vector`);
+                        return new Float32Array(this.dimension);
+                    }
+                    // Recompute embedding from original text
+                    return await this.embedder(text);
                 });
             }
         }
@@ -198,6 +207,8 @@ export class LEANNSourceAdapter {
         const embedding = await this.embedder(content);
         // Generate unique ID
         const id = this.generateVectorId(content, metadata);
+        // Store content for on-demand recomputation (with LRU eviction)
+        this.storeContentWithEviction(id, content);
         // Insert into backend
         this.backend.insert(id, embedding);
         return id;
@@ -207,9 +218,35 @@ export class LEANNSourceAdapter {
      *
      * @param id - Vector ID
      * @param embedding - Pre-computed embedding
+     * @param content - Optional original content for on-demand recomputation
      */
-    indexEmbedding(id, embedding) {
+    indexEmbedding(id, embedding, content) {
+        // Store content for recomputation if provided (with LRU eviction)
+        if (content) {
+            this.storeContentWithEviction(id, content);
+        }
         this.backend.insert(id, embedding);
+    }
+    /**
+     * Store content with LRU eviction when store exceeds maxContentStoreSize.
+     * Uses Map's insertion order for LRU - oldest entries are first.
+     *
+     * @param id - Content ID
+     * @param content - Content text to store
+     */
+    storeContentWithEviction(id, content) {
+        // If already exists, delete to refresh LRU position
+        if (this.contentStore.has(id)) {
+            this.contentStore.delete(id);
+        }
+        else if (this.contentStore.size >= this.maxContentStoreSize) {
+            // Evict oldest entry (first in iteration order)
+            const oldestKey = this.contentStore.keys().next().value;
+            if (oldestKey !== undefined) {
+                this.contentStore.delete(oldestKey);
+            }
+        }
+        this.contentStore.set(id, content);
     }
     /**
      * Delete a vector from the index
@@ -218,6 +255,7 @@ export class LEANNSourceAdapter {
      * @returns True if deleted, false if not found
      */
     delete(id) {
+        this.contentStore.delete(id);
         return this.backend.delete(id);
     }
     /**
@@ -240,21 +278,91 @@ export class LEANNSourceAdapter {
         return this.backend;
     }
     /**
-     * Save index to persistent storage
+     * Save index to persistent storage with atomic writes.
+     * Uses temp files and rename to prevent partial write corruption.
      *
      * @param filePath - Path to save the index
+     * @param timeoutMs - Timeout in milliseconds (default: 30000)
+     * @throws Error if save operation times out or fails
      */
-    async save(filePath) {
-        await this.backend.save(filePath);
+    async save(filePath, timeoutMs = 30000) {
+        const saveOp = async () => {
+            const tempVectorPath = filePath + '.tmp';
+            const tempContentPath = filePath + '.content.tmp';
+            const contentStorePath = filePath + '.content';
+            try {
+                // Write to temp files first (atomic write pattern)
+                await this.backend.save(tempVectorPath);
+                const contentData = {
+                    version: 1,
+                    entries: Array.from(this.contentStore.entries()),
+                };
+                await fs.writeFile(tempContentPath, JSON.stringify(contentData), 'utf-8');
+                // Atomic rename (both files)
+                await fs.rename(tempVectorPath, filePath);
+                await fs.rename(tempContentPath, contentStorePath);
+            }
+            catch (error) {
+                // Cleanup temp files on failure
+                await fs.unlink(tempVectorPath).catch(() => { });
+                await fs.unlink(tempContentPath).catch(() => { });
+                throw error;
+            }
+        };
+        await withTimeout(saveOp(), timeoutMs, 'leann-save');
     }
     /**
-     * Load index from persistent storage
+     * Load index from persistent storage with timeout and error handling.
+     * Distinguishes between ENOENT (file not found) and other errors.
+     * Warns on version mismatch instead of silent ignore.
      *
      * @param filePath - Path to load the index from
-     * @returns True if loaded successfully
+     * @param timeoutMs - Timeout in milliseconds (default: 30000)
+     * @returns True if loaded successfully, false if file doesn't exist
+     * @throws Error if load operation times out or fails (non-ENOENT)
      */
-    async load(filePath) {
-        return this.backend.load(filePath);
+    async load(filePath, timeoutMs = 30000) {
+        const loadOp = async () => {
+            const backendLoaded = await this.backend.load(filePath);
+            if (!backendLoaded)
+                return false;
+            // Load contentStore if exists
+            const contentStorePath = filePath + '.content';
+            try {
+                const data = await fs.readFile(contentStorePath, 'utf-8');
+                let parsed;
+                try {
+                    parsed = JSON.parse(data);
+                }
+                catch (parseError) {
+                    console.warn(`[LEANNAdapter] Failed to parse contentStore JSON: ${parseError}`);
+                    return true; // Backend loaded successfully, content store corrupted but non-fatal
+                }
+                if (parsed.version === 1 && Array.isArray(parsed.entries)) {
+                    this.contentStore.clear();
+                    for (const [id, content] of parsed.entries) {
+                        this.contentStore.set(id, content);
+                    }
+                }
+                else if (parsed.version !== undefined && parsed.version > 1) {
+                    // Warn on version mismatch instead of silent ignore
+                    console.warn(`[LEANNAdapter] ContentStore version ${parsed.version} not supported (max: 1), skipping content restore`);
+                }
+                else if (!Array.isArray(parsed.entries)) {
+                    console.warn('[LEANNAdapter] ContentStore missing entries array, skipping content restore');
+                }
+            }
+            catch (error) {
+                // Only ignore ENOENT (file not found), warn on other errors
+                const errCode = error.code;
+                if (errCode !== 'ENOENT') {
+                    console.warn(`[LEANNAdapter] Failed to load contentStore: ${error}`);
+                }
+                // Backend loaded successfully, content store missing is acceptable
+            }
+            return true;
+        };
+        return withTimeout(loadOp(), timeoutMs, 'leann-load');
     }
     /**
      * Clear all vectors from the index
@@ -262,6 +370,7 @@ export class LEANNSourceAdapter {
     clear() {
         this.backend.clear();
         this.hubIdsCache.clear();
+        this.contentStore.clear();
         this.lastHubCacheUpdate = 0;
     }
     /**

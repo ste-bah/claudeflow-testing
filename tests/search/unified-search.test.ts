@@ -178,7 +178,7 @@ describe('UnifiedSearch', () => {
     });
 
     it('should accept optional embedding parameter', async () => {
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       const result = await unifiedSearch.search('test', embedding);
 
       expect(result.results).toBeDefined();
@@ -213,7 +213,7 @@ describe('UnifiedSearch', () => {
   describe('parallel execution', () => {
     it('should execute all sources in parallel', async () => {
       // Provide embedding so vector adapter calls search
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       const startTime = Date.now();
       await unifiedSearch.search('test', embedding);
       const duration = Date.now() - startTime;
@@ -325,7 +325,7 @@ describe('UnifiedSearch', () => {
 
     it('should deduplicate identical content from multiple sources', async () => {
       // Setup: same content from multiple sources with proper structure
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       (mockVectorDb.search as ReturnType<typeof vi.fn>).mockResolvedValue([
         { id: 0, distance: 0.1, data: { content: 'duplicate content' } },
       ]);
@@ -434,7 +434,7 @@ describe('UnifiedSearch', () => {
         mockReasoningBank
       );
 
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       const result = await search.search('test', embedding);
 
       // Vector should respond successfully but with no results
@@ -463,7 +463,7 @@ describe('UnifiedSearch', () => {
         mockReasoningBank
       );
 
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       const result = await search.search('test', embedding);
 
       // Graph and pattern should still work
@@ -589,7 +589,7 @@ describe('UnifiedSearch', () => {
     });
 
     it('should work with only embedding (no text query needed for vector)', async () => {
-      const embedding = new Float32Array(768).fill(0.1);
+      const embedding = new Float32Array(1536).fill(0.1);
       // Use 'test' as query to also match graph nodes
       const result = await unifiedSearch.search('test', embedding);
 

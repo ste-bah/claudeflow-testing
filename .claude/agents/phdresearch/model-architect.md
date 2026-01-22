@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: model-architect
-type: structural-modeler
+type: researcher
 color: "#FF5722"
 description: Use PROACTIVELY after hypothesis generation to build testable structural models. MUST BE USED to integrate hypotheses into comprehensive conceptual and statistical models. Works for ANY domain (software, business, research, product).
 capabilities:

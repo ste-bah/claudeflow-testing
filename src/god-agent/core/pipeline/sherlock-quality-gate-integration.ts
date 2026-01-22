@@ -7,7 +7,6 @@
  * @module src/god-agent/core/pipeline/sherlock-quality-gate-integration
  * @see docs/god-agent-coding-pipeline/PRD-god-agent-coding-pipeline.md Section 2.3
  */
-
 import { z } from 'zod';
 import {
   CodingQualityGateValidator,
@@ -39,13 +38,13 @@ import {
   SherlockLearningIntegration,
   createSherlockLearningIntegration,
   type ISherlockLearningConfig,
+  SherlockLearningConfigSchema,
 } from './sherlock-learning-integration.js';
 
 import type { ISonaEngine } from '../learning/sona-types.js';
 import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
 
 // TYPE DEFINITIONS
-
 /**
  * Supported pipeline types for isolation validation.
  * This module is ONLY for /god-code pipeline, NOT PhD pipeline.
@@ -86,6 +85,10 @@ const IntegratedValidatorConfigSchema = z.object({
   autoTriggerSherlock: z.boolean().optional().default(true),
   defaultTier: z.nativeEnum(InvestigationTier).optional(),
   pipelineType: z.enum(['coding', 'phd']).optional().default('coding'),
+  // TS-004: Added missing fields to match IIntegratedValidatorConfig interface
+  sonaEngine: z.any().nullable().optional(),
+  reasoningBank: z.any().nullable().optional(),
+  learningConfig: SherlockLearningConfigSchema.partial().optional(),
 });
 
 /**
@@ -125,7 +128,6 @@ const PHASE_GATE_MAP: Record<number, { gateId: string; phase: PipelinePhase }> =
 };
 
 // ERROR CLASS (ERR-002 Compliance)
-
 /**
  * Error codes for integration errors.
  */
@@ -151,7 +153,6 @@ export class IntegratedValidatorError extends Error {
 }
 
 // INTEGRATED VALIDATOR CLASS
-
 /**
  * Integrated validator combining Quality Gate and Sherlock Phase Review.
  *
@@ -349,19 +350,24 @@ export class IntegratedValidator {
 
   /**
    * Determine if Sherlock review should be triggered.
+   *
+   * Per PRD Section 2.3: "Each phase concludes with a **mandatory forensic review**
+   * by the sherlock-holmes agent before proceeding to the next phase."
+   *
+   * This implements the "Guilty Until Proven Innocent" verification model where
+   * ALL phases are reviewed, not just failures. The investigation tier is
+   * selected based on gate result severity via _selectTier().
+   *
    * @private
    */
-  private _shouldTriggerSherlock(gateResult: IGateValidationResult): boolean {
+  private _shouldTriggerSherlock(_gateResult: IGateValidationResult): boolean {
     if (!this._autoTriggerSherlock) {
       return false;
     }
 
-    // Trigger on rejection or conditional pass
-    return (
-      gateResult.result === GateResult.SOFT_REJECT ||
-      gateResult.result === GateResult.HARD_REJECT ||
-      gateResult.result === GateResult.CONDITIONAL_PASS
-    );
+    // MANDATORY review after EVERY phase per PRD Section 2.3
+    // Investigation tier escalates based on gate result (see _selectTier)
+    return true;
   }
 
   /**
@@ -465,7 +471,6 @@ export class IntegratedValidator {
 }
 
 // FACTORY FUNCTIONS
-
 /**
  * Create an integrated validator instance.
  *
@@ -478,12 +483,7 @@ export function createIntegratedValidator(
   return new IntegratedValidator(config);
 }
 
-/**
- * Create a minimal integrated validator for testing.
- *
- * @param memoryRetriever - Memory retriever implementation
- * @returns New IntegratedValidator instance
- */
+/** Create a minimal integrated validator for testing. */
 export function createTestIntegratedValidator(
   memoryRetriever: IMemoryRetriever
 ): IntegratedValidator {

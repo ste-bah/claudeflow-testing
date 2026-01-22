@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: consistency-validator
-type: qa-validator
+type: researcher
 color: "#D32F2F"
 description: "Agent #44/43 - Post-production consistency checker | Validates all chapter cross-references match actual document structure. Runs AFTER writing phase to catch inconsistencies."
 triggers:

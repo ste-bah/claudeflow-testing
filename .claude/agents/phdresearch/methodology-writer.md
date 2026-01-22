@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: methodology-writer
-type: section-writer
+type: researcher
 color: "#D84315"
 description: Generate comprehensive Methodology/Methods sections with full replicability details per APA 7th standards. MUST BE USED for empirical research manuscripts ensuring complete transparency. Covers participants, materials, procedure, data analysis.
 capabilities:

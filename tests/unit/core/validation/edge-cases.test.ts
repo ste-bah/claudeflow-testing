@@ -278,7 +278,8 @@ describe('Edge Cases - Error Properties', () => {
     } catch (e) {
       const err = e as GraphDimensionMismatchError;
       expect(err.name).toBe('GraphDimensionMismatchError');
-      expect(err.expected).toBe(768);
+      // TASK-VEC-001-008: Updated from 768 to 1536 per REQ-VEC-01
+      expect(err.expected).toBe(1536);
       expect(err.actual).toBe(100);
       expect(err.context).toBe('TestContext');
     }

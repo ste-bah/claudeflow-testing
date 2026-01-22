@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: instrument-developer
-type: measurement-specialist
+type: researcher
 color: "#4CAF50"
 description: Use PROACTIVELY after sampling strategy to develop/adapt measurement instruments. MUST BE USED to create validated scales, observation protocols, and measurement tools. Works for ANY domain (software, business, research, product).
 capabilities:

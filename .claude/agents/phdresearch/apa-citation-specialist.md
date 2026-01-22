@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: apa-citation-specialist
-type: citation-expert
+type: researcher
 color: "#4A148C"
 description: Full APA 7th edition formatting specialist for citations, references, tables, figures, and manuscript structure. MUST BE USED to ensure publication-ready formatting. Works for journal articles, dissertations, and technical reports.
 capabilities:

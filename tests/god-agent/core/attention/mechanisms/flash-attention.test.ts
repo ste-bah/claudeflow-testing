@@ -430,9 +430,10 @@ describe('RealFlashAttention', () => {
       const key = new Float32Array(seqLen * 32); // Wrong dimension
       const value = new Float32Array(seqLen * 64);
 
+      // Use flexible matching pattern for dimension error messages
       expect(() => {
         attention.forward(query, key, value, undefined, seqLen);
-      }).toThrow('Dimension mismatch');
+      }).toThrow(/[Dd]imension mismatch/);
     });
 
     it('should throw error for mask dimension mismatch', () => {

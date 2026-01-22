@@ -788,6 +788,133 @@ describe('SonaEngine', () => {
   });
 });
 
+// ==================== RLM Context Tests ====================
+
+describe('provideFeedback with rlmContext', () => {
+  let engine: SonaEngine;
+
+  beforeEach(() => {
+    engine = new SonaEngine();
+  });
+
+  it('should accept rlmContext in options', async () => {
+    // Create a trajectory first
+    const trajectoryId = engine.createTrajectory('test.route', ['pattern1'], ['context1']);
+
+    // Provide feedback with RLM context - should not throw
+    const result = await engine.provideFeedback(trajectoryId, 0.8, {
+      rlmContext: {
+        injectionSuccess: true,
+        sourceAgentKey: 'test-agent',
+        sourceStepIndex: 0,
+        sourceDomain: 'project/test',
+      },
+    });
+
+    expect(result).toBeDefined();
+    expect(result.trajectoryId).toBe(trajectoryId);
+  });
+
+  it('should handle undefined rlmContext gracefully', async () => {
+    // Create a trajectory first
+    const trajectoryId = engine.createTrajectory('test.route', ['pattern1'], ['context1']);
+
+    // Provide feedback without RLM context - should not throw
+    const result = await engine.provideFeedback(trajectoryId, 0.8, {});
+
+    expect(result).toBeDefined();
+    expect(result.trajectoryId).toBe(trajectoryId);
+  });
+
+  it('should handle partial rlmContext (only injectionSuccess)', async () => {
+    const trajectoryId = engine.createTrajectory('test.route', ['pattern1'], ['context1']);
+
+    // Provide feedback with only injectionSuccess
+    const result = await engine.provideFeedback(trajectoryId, 0.7, {
+      rlmContext: {
+        injectionSuccess: false,
+        // No sourceAgentKey, sourceStepIndex, or sourceDomain
+      },
+    });
+
+    expect(result).toBeDefined();
+    expect(result.trajectoryId).toBe(trajectoryId);
+  });
+
+  it('should accept rlmContext with all fields populated', async () => {
+    const trajectoryId = engine.createTrajectory('test.route', ['pattern1', 'pattern2'], []);
+
+    const rlmContext = {
+      injectionSuccess: true,
+      sourceAgentKey: 'backend-dev',
+      sourceStepIndex: 2,
+      sourceDomain: 'project/api/endpoints',
+    };
+
+    const result = await engine.provideFeedback(trajectoryId, 0.95, {
+      rlmContext,
+      lScore: 0.9,
+    });
+
+    expect(result).toBeDefined();
+    expect(result.trajectoryId).toBe(trajectoryId);
+  });
+
+  it('should accept rlmContext with injectionSuccess=false when retrieval failed', async () => {
+    const trajectoryId = engine.createTrajectory('failure.test', [], []);
+
+    const result = await engine.provideFeedback(trajectoryId, 0.6, {
+      rlmContext: {
+        injectionSuccess: false,
+        // These fields are undefined when injection fails
+        sourceAgentKey: undefined,
+        sourceStepIndex: undefined,
+        sourceDomain: undefined,
+      },
+    });
+
+    expect(result).toBeDefined();
+    expect(result.trajectoryId).toBe(trajectoryId);
+  });
+
+  it('should work with empty patterns trajectory and rlmContext', async () => {
+    // Empty patterns trajectory (first agent in pipeline scenario)
+    const trajectoryId = engine.createTrajectory('first.agent', [], []);
+
+    const result = await engine.provideFeedback(trajectoryId, 0.85, {
+      rlmContext: {
+        injectionSuccess: false, // First agent has no previous output
+      },
+    });
+
+    expect(result).toBeDefined();
+    expect(result.patternsUpdated).toBe(0);
+  });
+
+  it('should combine rlmContext with other options', async () => {
+    const trajectoryId = engine.createTrajectory('combined.test', ['p1'], []);
+    engine.setWeight('p1', 'combined.test', 0.5);
+
+    const similarities = new Map<string, number>();
+    similarities.set('p1', 0.95);
+
+    const result = await engine.provideFeedback(trajectoryId, 0.9, {
+      lScore: 0.85,
+      similarities,
+      skipAutoSave: true,
+      rlmContext: {
+        injectionSuccess: true,
+        sourceAgentKey: 'analyzer',
+        sourceStepIndex: 1,
+        sourceDomain: 'project/analysis',
+      },
+    });
+
+    expect(result).toBeDefined();
+    expect(result.trajectoryId).toBe(trajectoryId);
+  });
+});
+
 // ==================== Constants Tests ====================
 
 describe('Constants', () => {

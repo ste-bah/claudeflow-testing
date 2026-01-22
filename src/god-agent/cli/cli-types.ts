@@ -260,17 +260,17 @@ export function getPhaseName(phase: number): string {
   return PHASE_NAMES[phase - 1];
 }
 
-/** Phase 1-5 agent count (indices 0-29) */
-export const PHASE_1_5_AGENT_COUNT = 30;
+/** Phase 1-5 agent count (indices 0-28) */
+export const PHASE_1_5_AGENT_COUNT = 29;
 
-/** Phase 6 starts at this index */
-export const PHASE_6_START_INDEX = 30;
+/** Phase 6 starts at this index (introduction-writer is at index 29) */
+export const PHASE_6_START_INDEX = 29;
 
 /** Static Phase 7 agent count */
-export const PHASE_7_AGENT_COUNT = 9;
+export const PHASE_7_AGENT_COUNT = 11;
 
-/** Index where static Phase 7 agents start in PipelineConfigLoader */
-export const STATIC_PHASE_7_START_INDEX = 36;
+/** Index where static Phase 7 agents start in PipelineConfigLoader (systematic-reviewer is at index 35) */
+export const STATIC_PHASE_7_START_INDEX = 35;
 
 // ============================================================================
 // TASK-PIPE-004: Next Command Types
@@ -338,10 +338,12 @@ export interface NextResponse {
 /**
  * Options for the complete command
  * [REQ-PIPE-003]
+ * [BUG-FIX-001] Added force option for output verification bypass
  */
 export interface CompleteOptions {
   result?: string;
   file?: string;
+  force?: boolean;
   json?: boolean;
 }
 

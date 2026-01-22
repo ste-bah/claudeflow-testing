@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: sampling-strategist
-type: sampling-specialist
+type: researcher
 color: "#00BCD4"
 description: Use PROACTIVELY after method design to create detailed sampling strategies. MUST BE USED to specify recruitment, eligibility, stratification, and power-based sample sizes. Works for ANY domain (software, business, research, product).
 capabilities:

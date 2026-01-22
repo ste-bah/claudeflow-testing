@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: ambiguity-clarifier
-type: meta-analyst
+type: researcher
 color: "#4A148C"
 description: Use PROACTIVELY to identify and resolve terminology and requirement ambiguities before analysis. MUST BE USED when subject description contains potentially multi-interpretable terms to prevent analytical errors. Works for ANY domain.
 capabilities:

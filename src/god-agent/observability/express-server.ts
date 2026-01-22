@@ -834,10 +834,11 @@ export class ExpressServer implements IExpressServer {
 
   /**
    * Get memory reasoning for ReasoningBank tab
+   * Queries both EventStore and learning.db for comprehensive stats
    */
   private async getMemoryReasoning(req: Request, res: Response): Promise<void> {
     try {
-      // Query reasoning and sona events (actual component names used by God Agent)
+      // Query reasoning, sona, and learning events (all relevant components)
       const reasoningEvents = await this.eventStore.query({
         component: 'reasoning',
         limit: 100,
@@ -846,32 +847,84 @@ export class ExpressServer implements IExpressServer {
         component: 'sona',
         limit: 100,
       });
-      const events = [...reasoningEvents, ...sonaEvents];
+      const learningEvents = await this.eventStore.query({
+        component: 'learning',
+        limit: 100,
+      });
+      const events = [...reasoningEvents, ...sonaEvents, ...learningEvents];
 
-      // Include trajectory and pattern events as "feedback" equivalent
+      // Include all feedback-related events (fixed operation names)
       const feedbackEvents = events.filter(e =>
+        e.operation === 'learning_feedback' ||           // Actual operation name used
         e.operation === 'sona_feedback_processed' ||
         e.operation === 'reasoning_pattern_matched' ||
+        e.operation === 'reasoning_trajectory_stored' ||
         e.operation === 'sona_trajectory_created'
       );
-      const totalFeedback = feedbackEvents.length;
-      const avgQuality = totalFeedback > 0 
-        ? feedbackEvents.reduce((sum, e) => sum + Number(e.metadata?.quality || 0), 0) / totalFeedback
+
+      // Calculate feedback stats from events
+      const totalFeedbackEvents = feedbackEvents.length;
+      const avgQualityFromEvents = totalFeedbackEvents > 0
+        ? feedbackEvents.reduce((sum, e) => sum + Number(e.metadata?.quality || 0), 0) / totalFeedbackEvents
         : 0;
-      
+
+      // Query actual pattern data from learning.db for accurate counts
+      let totalPatterns = 0;
+      let avgPatternWeight = 0;
+      let trajectoryCount = 0;
+      let avgTrajectoryQuality = 0;
+
+      if (fs.existsSync(LEARNING_DB_PATH)) {
+        try {
+          const db = new Database(LEARNING_DB_PATH, { readonly: true });
+
+          // Get pattern count and avg weight (deprecated=0 means active)
+          const patternStats = db.prepare(`
+            SELECT COUNT(*) as count, AVG(weight) as avgWeight
+            FROM patterns WHERE deprecated = 0
+          `).get() as { count: number; avgWeight: number } | undefined;
+
+          if (patternStats) {
+            totalPatterns = patternStats.count || 0;
+            avgPatternWeight = patternStats.avgWeight || 0;
+          }
+
+          // Get trajectory count and avg quality from learning_feedback table
+          const feedbackStats = db.prepare(`
+            SELECT COUNT(*) as count, AVG(quality) as avgQuality
+            FROM learning_feedback
+          `).get() as { count: number; avgQuality: number } | undefined;
+
+          if (feedbackStats) {
+            trajectoryCount = feedbackStats.count || 0;
+            avgTrajectoryQuality = feedbackStats.avgQuality || 0;
+          }
+
+          db.close();
+        } catch (dbError) {
+          // Fallback to event-based stats if DB query fails
+          console.warn('[getMemoryReasoning] learning.db query failed:', dbError);
+        }
+      }
+
+      // Use learning.db quality if available, otherwise fall back to events
+      const avgQuality = avgTrajectoryQuality > 0 ? avgTrajectoryQuality : avgQualityFromEvents;
+      const totalFeedback = trajectoryCount > 0 ? trajectoryCount : totalFeedbackEvents;
+
       const recentPatterns = feedbackEvents.slice(0, 20).map(e => ({
         id: e.metadata?.trajectoryId || e.id,
         quality: e.metadata?.quality || 0,
         outcome: e.metadata?.outcome || 'unknown',
         timestamp: e.timestamp,
       }));
-      
+
       res.setHeader('Content-Type', 'application/json');
       res.json({
         stats: {
-          totalPatterns: totalFeedback,
+          totalPatterns,
           avgQuality: parseFloat(avgQuality.toFixed(3)),
           totalFeedback,
+          avgPatternWeight: parseFloat(avgPatternWeight.toFixed(3)),
         },
         recentPatterns,
       });

@@ -10,6 +10,7 @@
  */
 import type { InteractionStore } from '../universal/interaction-store.js';
 import type { ReasoningBank } from '../core/reasoning/reasoning-bank.js';
+import type { SonaEngine } from '../core/learning/sona-engine.js';
 import type { IWorkflowState, IStorageResult, IContextInjection, IQualityEstimate, IOrchestrationMetrics } from './types.js';
 /**
  * Configuration for OrchestrationMemoryManager
@@ -87,6 +88,7 @@ export declare class OrchestrationMemoryManager {
     private config;
     private interactionStore;
     private reasoningBank;
+    private sonaEngine;
     private metrics;
     private extractorService;
     private contextInjector;
@@ -99,9 +101,10 @@ export declare class OrchestrationMemoryManager {
      * @param config - Configuration options
      * @param interactionStore - InteractionStore instance
      * @param reasoningBank - ReasoningBank instance
+     * @param sonaEngine - SonaEngine instance (optional, for direct feedback persistence)
      * @throws Error if dependencies are invalid
      */
-    constructor(config: IOrchestrationMemoryConfig, interactionStore: InteractionStore, reasoningBank: ReasoningBank);
+    constructor(config: IOrchestrationMemoryConfig, interactionStore: InteractionStore, reasoningBank: ReasoningBank, sonaEngine?: SonaEngine);
     /**
      * Wrap Task() execution with automatic memory operations
      *

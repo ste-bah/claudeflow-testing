@@ -3,8 +3,17 @@
 # Only docs/ and docs2/ directories will be tracked for documentation
 # All other blueprint structure is ignored for new projects
 
+# Backup directories (large binary files)
+backups/
+
 # Ignore all blueprint directories
 .agentdb/
+.agentdb-test/
+
+# Vector databases (large binary files - regenerated from source)
+vector_db_1536/
+vector_db_leann/
+vector_db_leann.content/
 .claude/settings.local.json
 .claude-flow/
 .hive-mind/

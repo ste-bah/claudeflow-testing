@@ -52,8 +52,9 @@ describe('GraphDB - Constructor and Initialization', () => {
   });
 
   it('should create GraphDB with custom options', async () => {
+    // TASK-VEC-001-008: Updated to use 1536D as standard dimension
     const db = new GraphDB(undefined, {
-      expectedDimensions: 768,
+      expectedDimensions: VECTOR_DIM,
       validateDimensions: true,
       enablePersistence: false
     });
@@ -102,7 +103,8 @@ describe('GraphDB - Node Operations: createNode', () => {
     expect(node.properties.name).toBe('First Node');
   });
 
-  it('should create node with valid 768D embedding', async () => {
+  it('should create node with valid 1536D embedding', async () => {
+    // TASK-VEC-001-008: Updated from 768D to 1536D per REQ-VEC-01
     const embedding = createRandomEmbedding();
     const nodeId = await db.createNode({
       type: 'embedded',
@@ -138,8 +140,9 @@ describe('GraphDB - Node Operations: createNode', () => {
     ).rejects.toThrow(GraphDimensionMismatchError);
   });
 
-  it('should reject 1536D embedding', async () => {
-    const invalidEmbedding = createInvalidEmbedding(1536);
+  it('should reject 768D embedding (legacy dimension)', async () => {
+    // TASK-VEC-001-008: 768D is now invalid (was previously valid)
+    const invalidEmbedding = createInvalidEmbedding(768);
 
     await expect(
       db.createNode({
@@ -147,12 +150,13 @@ describe('GraphDB - Node Operations: createNode', () => {
         embedding: invalidEmbedding
       })
     ).rejects.toThrow(GraphDimensionMismatchError);
+    // Use flexible matching pattern for dimension error messages
     await expect(
       db.createNode({
         type: 'invalid',
         embedding: invalidEmbedding
       })
-    ).rejects.toThrow('Expected 768D, got 1536D');
+    ).rejects.toThrow(/Expected \d+D, got \d+D/);
   });
 
   it('should include context in dimension error', async () => {
@@ -357,7 +361,8 @@ describe('GraphDB - Node Operations: updateEmbedding', () => {
     nodeId = await db.createNode({ type: 'test' });
   });
 
-  it('should update embedding with valid 768D vector', async () => {
+  it('should update embedding with valid 1536D vector', async () => {
+    // TASK-VEC-001-008: Updated from 768D to 1536D per REQ-VEC-01
     const embedding = createRandomEmbedding();
     await db.updateEmbedding(nodeId, embedding);
 

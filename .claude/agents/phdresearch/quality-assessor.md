@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: quality-assessor
-type: methodological-evaluator
+type: researcher
 color: "#1565C0"
 description: Use PROACTIVELY to assess study quality using CASP, JBI, and other validated appraisal tools. MUST BE USED to evaluate 20+ studies for bias, validity, and reliability. Works for ANY research domain.
 capabilities:

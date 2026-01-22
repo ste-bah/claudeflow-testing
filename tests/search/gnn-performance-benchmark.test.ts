@@ -31,7 +31,7 @@ describe('GNN Performance Benchmarks', () => {
 
     // Act - Cold enhancements (different embeddings)
     for (let i = 0; i < iterations; i++) {
-      const embedding = new Float32Array(768).fill(Math.random());
+      const embedding = new Float32Array(1536).fill(Math.random());
       const query = `unique query ${i}`;
 
       const start = performance.now();
@@ -55,7 +55,7 @@ describe('GNN Performance Benchmarks', () => {
 
   it('PERF-002: Warm enhancement <2ms P95 (cache hit)', async () => {
     // Arrange
-    const embedding = new Float32Array(768).fill(0.5);
+    const embedding = new Float32Array(1536).fill(0.5);
     const query = 'cached query';
     const iterations = 100;
     const durations: number[] = [];
@@ -89,7 +89,7 @@ describe('GNN Performance Benchmarks', () => {
 
     // Act - Simulate GNN + search pipeline
     for (let i = 0; i < iterations; i++) {
-      const embedding = new Float32Array(768).fill(Math.random());
+      const embedding = new Float32Array(1536).fill(Math.random());
       const query = `search query ${i}`;
 
       const start = performance.now();
@@ -115,7 +115,7 @@ describe('GNN Performance Benchmarks', () => {
 
   it('PERF-004: Circuit breaker overhead <1ms', async () => {
     // Arrange
-    const embedding = new Float32Array(768).fill(0.5);
+    const embedding = new Float32Array(1536).fill(0.5);
     const query = 'overhead test';
 
     // With circuit breaker
@@ -170,7 +170,7 @@ describe('GNN Performance Benchmarks', () => {
 
     // Act - Create repeated query pattern
     for (let i = 0; i < uniqueQueries; i++) {
-      const embedding = new Float32Array(768).fill(i * 0.1);
+      const embedding = new Float32Array(1536).fill(i * 0.1);
       const query = `query ${i}`;
 
       for (let j = 0; j < repeats; j++) {

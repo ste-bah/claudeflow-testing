@@ -50,5 +50,13 @@ export interface ICLIJsonOutput {
     trajectoryId?: string;
     /** Quality score from the response (0-1 range) */
     qualityScore?: number;
+    /**
+     * TASK-LOOPFIX-001: Orphan warning if orphaned trajectories exist.
+     * Included to notify programmatic consumers about learning loop gaps.
+     */
+    orphanWarning?: {
+        orphanCount: number;
+        warning: string;
+    };
 }
 //# sourceMappingURL=cli.d.ts.map

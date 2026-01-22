@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: gap-hunter
-type: analytical-specialist
+type: researcher
 color: "#D84315"
 description: Use PROACTIVELY after construct definition to identify ALL types of research gaps systematically. MUST BE USED to discover 15+ high-value gaps across multiple dimensions. Works for ANY domain (STEM, social science, humanities, business).
 capabilities:

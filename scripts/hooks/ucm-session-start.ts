@@ -110,7 +110,8 @@ async function callDaemon(socketPath: string, method: string, params: any, timeo
 async function isDaemonHealthy(socketPath: string): Promise<boolean> {
   try {
     const result = await callDaemon(socketPath, 'health.check', {});
-    return result?.healthy || false;
+    // Main daemon returns {status: "ok"}, UCM daemon returns {status: "healthy"}
+    return result?.status === 'healthy' || result?.status === 'ok' || false;
   } catch (error) {
     return false;
   }

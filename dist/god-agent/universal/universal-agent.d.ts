@@ -365,6 +365,7 @@ export declare class UniversalAgent {
     private agentSelector;
     private taskExecutor;
     private pipelineExecutor;
+    private leannContextService?;
     private taskAnalyzer;
     private capabilityIndex;
     private routingEngine;

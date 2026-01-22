@@ -1,6 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "results-writer"
+type: researcher
 description: "Agent #36/43 - Results section specialist | Presents findings with statistical rigor, visual clarity, and direct linkage to research questions"
 triggers:
   - "write results section"

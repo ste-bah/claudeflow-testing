@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: evidence-synthesizer
-type: synthesis-specialist
+type: researcher
 color: "#00695C"
 description: Use PROACTIVELY after bias detection to synthesize evidence across studies using meta-analysis, narrative synthesis, or thematic analysis. MUST BE USED to create comprehensive evidence synthesis. Works for ANY research domain.
 capabilities:

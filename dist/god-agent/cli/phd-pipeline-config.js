@@ -19,20 +19,15 @@
 /**
  * Complete array of all 46 PhD Pipeline agents.
  * Agents are ordered by phase and execution sequence.
+ *
+ * CANONICAL ORDER: Matches successful run from pipeline-loader.ts AGENT_ORDER
+ * Phase counts: 7+4+4+5+9+6+11=46
  */
 export const PHD_AGENTS = [
     // =========================================================================
-    // PHASE 1: FOUNDATION (6 agents)
+    // PHASE 1: FOUNDATION (7 agents, indices 0-6)
     // Initial problem analysis, decomposition, and research planning
     // =========================================================================
-    {
-        key: 'self-ask-decomposer',
-        displayName: 'Self-Ask Decomposer',
-        phase: 1,
-        file: 'self-ask-decomposer.md',
-        memoryKeys: ['research/meta/questions', 'research/foundation/decomposition'],
-        outputArtifacts: ['essential-questions.md', 'knowledge-gaps.md'],
-    },
     {
         key: 'step-back-analyzer',
         displayName: 'Step-Back Analyzer',
@@ -40,6 +35,14 @@ export const PHD_AGENTS = [
         file: 'step-back-analyzer.md',
         memoryKeys: ['research/foundation/framing', 'research/meta/perspective'],
         outputArtifacts: ['high-level-framing.md', 'abstraction-analysis.md'],
+    },
+    {
+        key: 'self-ask-decomposer',
+        displayName: 'Self-Ask Decomposer',
+        phase: 1,
+        file: 'self-ask-decomposer.md',
+        memoryKeys: ['research/meta/questions', 'research/foundation/decomposition'],
+        outputArtifacts: ['essential-questions.md', 'knowledge-gaps.md'],
     },
     {
         key: 'ambiguity-clarifier',
@@ -50,6 +53,14 @@ export const PHD_AGENTS = [
         outputArtifacts: ['term-definitions.md', 'clarified-scope.md'],
     },
     {
+        key: 'research-planner',
+        displayName: 'Research Planner',
+        phase: 1,
+        file: 'research-planner.md',
+        memoryKeys: ['research/foundation/plan', 'research/meta/strategy'],
+        outputArtifacts: ['research-plan.md', 'timeline.md'],
+    },
+    {
         key: 'construct-definer',
         displayName: 'Construct Definer',
         phase: 1,
@@ -58,24 +69,24 @@ export const PHD_AGENTS = [
         outputArtifacts: ['construct-definitions.md', 'operationalizations.md'],
     },
     {
-        key: 'theoretical-framework-analyst',
-        displayName: 'Theoretical Framework Analyst',
+        key: 'dissertation-architect',
+        displayName: 'Dissertation Architect',
         phase: 1,
-        file: 'theoretical-framework-analyst.md',
-        memoryKeys: ['research/foundation/framework', 'research/theory/analysis'],
-        outputArtifacts: ['theoretical-framework.md', 'framework-map.md'],
+        file: 'dissertation-architect.md',
+        memoryKeys: ['research/writing/structure', 'research/document/architecture'],
+        outputArtifacts: ['dissertation-outline.md', 'chapter-structure.md'],
     },
     {
-        key: 'research-planner',
-        displayName: 'Research Planner',
+        key: 'chapter-synthesizer',
+        displayName: 'Chapter Synthesizer',
         phase: 1,
-        file: 'research-planner.md',
-        memoryKeys: ['research/foundation/plan', 'research/meta/strategy'],
-        outputArtifacts: ['research-plan.md', 'timeline.md'],
+        file: 'chapter-synthesizer.md',
+        memoryKeys: ['research/quality/synthesis', 'research/document/final'],
+        outputArtifacts: ['final-synthesis.md', 'dissertation-complete.md'],
     },
     // =========================================================================
-    // PHASE 2: LITERATURE (5 agents)
-    // Literature review, source classification, methodology scanning, and systematic review
+    // PHASE 2: DISCOVERY (4 agents, indices 7-10)
+    // Literature review, source classification, citation extraction
     // =========================================================================
     {
         key: 'literature-mapper',
@@ -94,12 +105,12 @@ export const PHD_AGENTS = [
         outputArtifacts: ['source-tiers.md', 'credibility-assessment.md'],
     },
     {
-        key: 'methodology-scanner',
-        displayName: 'Methodology Scanner',
+        key: 'citation-extractor',
+        displayName: 'Citation Extractor',
         phase: 2,
-        file: 'methodology-scanner.md',
-        memoryKeys: ['research/literature/methods', 'research/methodology/survey'],
-        outputArtifacts: ['methodology-survey.md', 'method-comparison.md'],
+        file: 'citation-extractor.md',
+        memoryKeys: ['research/quality/extraction', 'research/sources/citations'],
+        outputArtifacts: ['extracted-citations.md', 'reference-list.md'],
     },
     {
         key: 'context-tier-manager',
@@ -109,25 +120,17 @@ export const PHD_AGENTS = [
         memoryKeys: ['research/literature/context', 'research/meta/tiers'],
         outputArtifacts: ['context-hierarchy.md', 'tier-mappings.md'],
     },
-    {
-        key: 'systematic-reviewer',
-        displayName: 'Systematic Reviewer',
-        phase: 2,
-        file: 'systematic-reviewer.md',
-        memoryKeys: ['research/literature/systematic', 'research/synthesis/systematic-review'],
-        outputArtifacts: ['systematic-review.md', 'prisma-flowchart.md'],
-    },
     // =========================================================================
-    // PHASE 3: ANALYSIS (6 agents)
-    // Quality assessment, contradiction detection, evidence synthesis
+    // PHASE 3: ARCHITECTURE (4 agents, indices 11-14)
+    // Theoretical framework, contradiction analysis, gap hunting, risk analysis
     // =========================================================================
     {
-        key: 'quality-assessor',
-        displayName: 'Quality Assessor',
+        key: 'theoretical-framework-analyst',
+        displayName: 'Theoretical Framework Analyst',
         phase: 3,
-        file: 'quality-assessor.md',
-        memoryKeys: ['research/analysis/quality', 'research/meta/assessment'],
-        outputArtifacts: ['quality-assessment.md', 'quality-scores.md'],
+        file: 'theoretical-framework-analyst.md',
+        memoryKeys: ['research/foundation/framework', 'research/theory/analysis'],
+        outputArtifacts: ['theoretical-framework.md', 'framework-map.md'],
     },
     {
         key: 'contradiction-analyzer',
@@ -138,12 +141,12 @@ export const PHD_AGENTS = [
         outputArtifacts: ['contradictions-report.md', 'resolution-proposals.md'],
     },
     {
-        key: 'bias-detector',
-        displayName: 'Bias Detector',
+        key: 'gap-hunter',
+        displayName: 'Gap Hunter',
         phase: 3,
-        file: 'bias-detector.md',
-        memoryKeys: ['research/analysis/bias', 'research/quality/bias'],
-        outputArtifacts: ['bias-analysis.md', 'bias-mitigation.md'],
+        file: 'gap-hunter.md',
+        memoryKeys: ['research/analysis/gaps', 'research/findings/gaps'],
+        outputArtifacts: ['research-gaps.md', 'gap-priorities.md'],
     },
     {
         key: 'risk-analyst',
@@ -153,26 +156,18 @@ export const PHD_AGENTS = [
         memoryKeys: ['research/analysis/risks', 'research/meta/risks'],
         outputArtifacts: ['risk-assessment.md', 'risk-mitigation.md'],
     },
+    // =========================================================================
+    // PHASE 4: SYNTHESIS (5 agents, indices 15-19)
+    // Evidence synthesis, pattern analysis, theory building
+    // =========================================================================
     {
         key: 'evidence-synthesizer',
         displayName: 'Evidence Synthesizer',
-        phase: 3,
+        phase: 4,
         file: 'evidence-synthesizer.md',
         memoryKeys: ['research/analysis/evidence', 'research/synthesis/evidence'],
         outputArtifacts: ['evidence-synthesis.md', 'evidence-matrix.md'],
     },
-    {
-        key: 'gap-hunter',
-        displayName: 'Gap Hunter',
-        phase: 3,
-        file: 'gap-hunter.md',
-        memoryKeys: ['research/analysis/gaps', 'research/findings/gaps'],
-        outputArtifacts: ['research-gaps.md', 'gap-priorities.md'],
-    },
-    // =========================================================================
-    // PHASE 4: SYNTHESIS (6 agents)
-    // Pattern analysis, theory building, hypothesis generation
-    // =========================================================================
     {
         key: 'pattern-analyst',
         displayName: 'Pattern Analyst',
@@ -198,22 +193,6 @@ export const PHD_AGENTS = [
         outputArtifacts: ['theory-development.md', 'theoretical-model.md'],
     },
     {
-        key: 'hypothesis-generator',
-        displayName: 'Hypothesis Generator',
-        phase: 4,
-        file: 'hypothesis-generator.md',
-        memoryKeys: ['research/synthesis/hypotheses', 'research/theory/hypotheses'],
-        outputArtifacts: ['hypotheses.md', 'testable-predictions.md'],
-    },
-    {
-        key: 'model-architect',
-        displayName: 'Model Architect',
-        phase: 4,
-        file: 'model-architect.md',
-        memoryKeys: ['research/synthesis/models', 'research/theory/models'],
-        outputArtifacts: ['conceptual-model.md', 'model-specifications.md'],
-    },
-    {
         key: 'opportunity-identifier',
         displayName: 'Opportunity Identifier',
         phase: 4,
@@ -222,8 +201,8 @@ export const PHD_AGENTS = [
         outputArtifacts: ['research-opportunities.md', 'opportunity-matrix.md'],
     },
     // =========================================================================
-    // PHASE 5: METHODS (6 agents)
-    // Research design, sampling, instrumentation, ethics
+    // PHASE 5: DESIGN (9 agents, indices 20-28)
+    // Research design, hypothesis, model architecture, methodology
     // =========================================================================
     {
         key: 'method-designer',
@@ -232,6 +211,30 @@ export const PHD_AGENTS = [
         file: 'method-designer.md',
         memoryKeys: ['research/methods/design', 'research/methodology/approach'],
         outputArtifacts: ['research-design.md', 'method-rationale.md'],
+    },
+    {
+        key: 'hypothesis-generator',
+        displayName: 'Hypothesis Generator',
+        phase: 5,
+        file: 'hypothesis-generator.md',
+        memoryKeys: ['research/synthesis/hypotheses', 'research/theory/hypotheses'],
+        outputArtifacts: ['hypotheses.md', 'testable-predictions.md'],
+    },
+    {
+        key: 'model-architect',
+        displayName: 'Model Architect',
+        phase: 5,
+        file: 'model-architect.md',
+        memoryKeys: ['research/synthesis/models', 'research/theory/models'],
+        outputArtifacts: ['conceptual-model.md', 'model-specifications.md'],
+    },
+    {
+        key: 'analysis-planner',
+        displayName: 'Analysis Planner',
+        phase: 5,
+        file: 'analysis-planner.md',
+        memoryKeys: ['research/methods/analysis', 'research/methodology/analysis'],
+        outputArtifacts: ['analysis-plan.md', 'statistical-approach.md'],
     },
     {
         key: 'sampling-strategist',
@@ -250,22 +253,6 @@ export const PHD_AGENTS = [
         outputArtifacts: ['research-instruments.md', 'instrument-validation.md'],
     },
     {
-        key: 'analysis-planner',
-        displayName: 'Analysis Planner',
-        phase: 5,
-        file: 'analysis-planner.md',
-        memoryKeys: ['research/methods/analysis', 'research/methodology/analysis'],
-        outputArtifacts: ['analysis-plan.md', 'statistical-approach.md'],
-    },
-    {
-        key: 'ethics-reviewer',
-        displayName: 'Ethics Reviewer',
-        phase: 5,
-        file: 'ethics-reviewer.md',
-        memoryKeys: ['research/methods/ethics', 'research/compliance/ethics'],
-        outputArtifacts: ['ethics-review.md', 'irb-protocol.md'],
-    },
-    {
         key: 'validity-guardian',
         displayName: 'Validity Guardian',
         phase: 5,
@@ -273,26 +260,26 @@ export const PHD_AGENTS = [
         memoryKeys: ['research/methods/validity', 'research/quality/validity'],
         outputArtifacts: ['validity-assessment.md', 'threat-mitigation.md'],
     },
-    // =========================================================================
-    // PHASE 6: WRITING (8 agents)
-    // Dissertation chapter writing and document architecture
-    // =========================================================================
     {
-        key: 'dissertation-architect',
-        displayName: 'Dissertation Architect',
-        phase: 6,
-        file: 'dissertation-architect.md',
-        memoryKeys: ['research/writing/structure', 'research/document/architecture'],
-        outputArtifacts: ['dissertation-outline.md', 'chapter-structure.md'],
+        key: 'methodology-scanner',
+        displayName: 'Methodology Scanner',
+        phase: 5,
+        file: 'methodology-scanner.md',
+        memoryKeys: ['research/literature/methods', 'research/methodology/survey'],
+        outputArtifacts: ['methodology-survey.md', 'method-comparison.md'],
     },
     {
-        key: 'abstract-writer',
-        displayName: 'Abstract Writer',
-        phase: 6,
-        file: 'abstract-writer.md',
-        memoryKeys: ['research/writing/abstract', 'research/document/abstract'],
-        outputArtifacts: ['abstract.md', 'executive-summary.md'],
+        key: 'methodology-writer',
+        displayName: 'Methodology Writer',
+        phase: 5,
+        file: 'methodology-writer.md',
+        memoryKeys: ['research/writing/methodology', 'research/document/chapter3'],
+        outputArtifacts: ['methodology-chapter.md', 'method-details.md'],
     },
+    // =========================================================================
+    // PHASE 6: WRITING (6 agents, indices 29-34)
+    // Dissertation chapter writing
+    // =========================================================================
     {
         key: 'introduction-writer',
         displayName: 'Introduction Writer',
@@ -308,14 +295,6 @@ export const PHD_AGENTS = [
         file: 'literature-review-writer.md',
         memoryKeys: ['research/writing/literature', 'research/document/chapter2'],
         outputArtifacts: ['literature-review.md', 'synthesis-narrative.md'],
-    },
-    {
-        key: 'methodology-writer',
-        displayName: 'Methodology Writer',
-        phase: 6,
-        file: 'methodology-writer.md',
-        memoryKeys: ['research/writing/methodology', 'research/document/chapter3'],
-        outputArtifacts: ['methodology-chapter.md', 'method-details.md'],
     },
     {
         key: 'results-writer',
@@ -341,33 +320,33 @@ export const PHD_AGENTS = [
         memoryKeys: ['research/writing/conclusion', 'research/document/chapter6'],
         outputArtifacts: ['conclusion-chapter.md', 'future-directions.md'],
     },
+    {
+        key: 'abstract-writer',
+        displayName: 'Abstract Writer',
+        phase: 6,
+        file: 'abstract-writer.md',
+        memoryKeys: ['research/writing/abstract', 'research/document/abstract'],
+        outputArtifacts: ['abstract.md', 'executive-summary.md'],
+    },
     // =========================================================================
-    // PHASE 7: QUALITY (9 agents)
-    // Citation management, validation, review, and final quality assurance
+    // PHASE 7: VALIDATION (11 agents, indices 35-45)
+    // Systematic review, ethics, citation validation, quality assurance
     // =========================================================================
     {
-        key: 'apa-citation-specialist',
-        displayName: 'APA Citation Specialist',
+        key: 'systematic-reviewer',
+        displayName: 'Systematic Reviewer',
         phase: 7,
-        file: 'apa-citation-specialist.md',
-        memoryKeys: ['research/quality/citations', 'research/document/references'],
-        outputArtifacts: ['citation-audit.md', 'apa-compliance.md'],
+        file: 'systematic-reviewer.md',
+        memoryKeys: ['research/literature/systematic', 'research/synthesis/systematic-review'],
+        outputArtifacts: ['systematic-review.md', 'prisma-flowchart.md'],
     },
     {
-        key: 'citation-extractor',
-        displayName: 'Citation Extractor',
+        key: 'ethics-reviewer',
+        displayName: 'Ethics Reviewer',
         phase: 7,
-        file: 'citation-extractor.md',
-        memoryKeys: ['research/quality/extraction', 'research/sources/citations'],
-        outputArtifacts: ['extracted-citations.md', 'reference-list.md'],
-    },
-    {
-        key: 'citation-validator',
-        displayName: 'Citation Validator',
-        phase: 7,
-        file: 'citation-validator.md',
-        memoryKeys: ['research/quality/validation', 'research/sources/verified'],
-        outputArtifacts: ['citation-validation.md', 'source-verification.md'],
+        file: 'ethics-reviewer.md',
+        memoryKeys: ['research/methods/ethics', 'research/compliance/ethics'],
+        outputArtifacts: ['ethics-review.md', 'irb-protocol.md'],
     },
     {
         key: 'adversarial-reviewer',
@@ -386,12 +365,28 @@ export const PHD_AGENTS = [
         outputArtifacts: ['confidence-scores.md', 'uncertainty-analysis.md'],
     },
     {
+        key: 'citation-validator',
+        displayName: 'Citation Validator',
+        phase: 7,
+        file: 'citation-validator.md',
+        memoryKeys: ['research/quality/validation', 'research/sources/verified'],
+        outputArtifacts: ['citation-validation.md', 'source-verification.md'],
+    },
+    {
         key: 'reproducibility-checker',
         displayName: 'Reproducibility Checker',
         phase: 7,
         file: 'reproducibility-checker.md',
         memoryKeys: ['research/quality/reproducibility', 'research/meta/replication'],
         outputArtifacts: ['reproducibility-report.md', 'replication-guide.md'],
+    },
+    {
+        key: 'apa-citation-specialist',
+        displayName: 'APA Citation Specialist',
+        phase: 7,
+        file: 'apa-citation-specialist.md',
+        memoryKeys: ['research/quality/citations', 'research/document/references'],
+        outputArtifacts: ['citation-audit.md', 'apa-compliance.md'],
     },
     {
         key: 'consistency-validator',
@@ -402,20 +397,28 @@ export const PHD_AGENTS = [
         outputArtifacts: ['consistency-report.md', 'coherence-audit.md'],
     },
     {
+        key: 'quality-assessor',
+        displayName: 'Quality Assessor',
+        phase: 7,
+        file: 'quality-assessor.md',
+        memoryKeys: ['research/analysis/quality', 'research/meta/assessment'],
+        outputArtifacts: ['quality-assessment.md', 'quality-scores.md'],
+    },
+    {
+        key: 'bias-detector',
+        displayName: 'Bias Detector',
+        phase: 7,
+        file: 'bias-detector.md',
+        memoryKeys: ['research/analysis/bias', 'research/quality/bias'],
+        outputArtifacts: ['bias-analysis.md', 'bias-mitigation.md'],
+    },
+    {
         key: 'file-length-manager',
         displayName: 'File Length Manager',
         phase: 7,
         file: 'file-length-manager.md',
         memoryKeys: ['research/quality/structure', 'research/document/formatting'],
         outputArtifacts: ['structure-audit.md', 'length-compliance.md'],
-    },
-    {
-        key: 'chapter-synthesizer',
-        displayName: 'Chapter Synthesizer',
-        phase: 7,
-        file: 'chapter-synthesizer.md',
-        memoryKeys: ['research/quality/synthesis', 'research/document/final'],
-        outputArtifacts: ['final-synthesis.md', 'dissertation-complete.md'],
     },
 ];
 // ============================================================================
@@ -427,99 +430,113 @@ export const PHD_AGENTS = [
  * following dependency ordering.
  */
 export const PHD_PHASES = [
+    // PHASE 1: FOUNDATION (7 agents, indices 0-6)
+    // Establishes research direction, decomposes questions, and creates chapter structure
     {
         id: 1,
         name: 'Foundation',
-        description: 'Initial problem analysis, question decomposition, theoretical framing, and research planning. Establishes the conceptual groundwork for the entire research endeavor.',
+        description: 'Initial problem analysis, step-back reasoning, question decomposition, ambiguity resolution, research planning, construct definition, dissertation architecture, and chapter synthesis framework.',
         agentKeys: [
-            'self-ask-decomposer',
             'step-back-analyzer',
+            'self-ask-decomposer',
             'ambiguity-clarifier',
-            'construct-definer',
-            'theoretical-framework-analyst',
             'research-planner',
+            'construct-definer',
+            'dissertation-architect',
+            'chapter-synthesizer',
         ],
     },
+    // PHASE 2: DISCOVERY (4 agents, indices 7-10)
+    // Literature mapping and source management
     {
         id: 2,
-        name: 'Literature',
-        description: 'Comprehensive literature review, source classification by credibility tiers, methodology scanning, context management, and PRISMA-compliant systematic review. Maps the existing knowledge landscape.',
+        name: 'Discovery',
+        description: 'Comprehensive literature mapping, source classification by credibility tiers, citation extraction, and context tier management.',
         agentKeys: [
             'literature-mapper',
             'source-tier-classifier',
-            'methodology-scanner',
+            'citation-extractor',
             'context-tier-manager',
-            'systematic-reviewer',
         ],
     },
+    // PHASE 3: ARCHITECTURE (4 agents, indices 11-14)
+    // Theoretical framework and analysis structure
     {
         id: 3,
-        name: 'Analysis',
-        description: 'Critical analysis of evidence quality, contradiction detection, bias identification, risk assessment, evidence synthesis, and research gap identification.',
+        name: 'Architecture',
+        description: 'Theoretical framework analysis, contradiction detection, gap identification, and risk assessment.',
         agentKeys: [
-            'quality-assessor',
+            'theoretical-framework-analyst',
             'contradiction-analyzer',
-            'bias-detector',
-            'risk-analyst',
-            'evidence-synthesizer',
             'gap-hunter',
+            'risk-analyst',
         ],
     },
+    // PHASE 4: SYNTHESIS (5 agents, indices 15-19)
+    // Pattern recognition and theory building
     {
         id: 4,
         name: 'Synthesis',
-        description: 'Pattern recognition, thematic synthesis, theory building, hypothesis generation, conceptual model architecture, and opportunity identification.',
+        description: 'Evidence synthesis, pattern recognition, thematic synthesis, theory building, and opportunity identification.',
         agentKeys: [
+            'evidence-synthesizer',
             'pattern-analyst',
             'thematic-synthesizer',
             'theory-builder',
-            'hypothesis-generator',
-            'model-architect',
             'opportunity-identifier',
         ],
     },
+    // PHASE 5: DESIGN (9 agents, indices 20-28)
+    // Research methodology and instrument development
     {
         id: 5,
-        name: 'Methods',
-        description: 'Research methodology design, sampling strategy, instrument development, analysis planning, ethics review, and validity assurance.',
+        name: 'Design',
+        description: 'Research methodology design, hypothesis generation, model architecture, analysis planning, sampling strategy, instrument development, validity assurance, methodology scanning, and methodology writing.',
         agentKeys: [
             'method-designer',
+            'hypothesis-generator',
+            'model-architect',
+            'analysis-planner',
             'sampling-strategist',
             'instrument-developer',
-            'analysis-planner',
-            'ethics-reviewer',
             'validity-guardian',
+            'methodology-scanner',
+            'methodology-writer',
         ],
     },
+    // PHASE 6: WRITING (6 agents, indices 29-34)
+    // Document creation - all chapter writers
     {
         id: 6,
         name: 'Writing',
-        description: 'Dissertation document creation including structural architecture, abstract, introduction, literature review, methodology, results, discussion, and conclusion chapters.',
+        description: 'Document creation including introduction, literature review, results, discussion, conclusion, and abstract chapters.',
         agentKeys: [
-            'dissertation-architect',
-            'abstract-writer',
             'introduction-writer',
             'literature-review-writer',
-            'methodology-writer',
             'results-writer',
             'discussion-writer',
             'conclusion-writer',
+            'abstract-writer',
         ],
     },
+    // PHASE 7: VALIDATION (11 agents, indices 35-45)
+    // Quality assurance and final validation
     {
         id: 7,
-        name: 'Quality',
-        description: 'Final quality assurance including citation management (APA), validation, adversarial review, confidence quantification, reproducibility checking, consistency validation, and final synthesis.',
+        name: 'Validation',
+        description: 'Final quality assurance including systematic review, ethics review, adversarial review, confidence quantification, citation validation, reproducibility checking, APA formatting, consistency validation, quality assessment, bias detection, and file length management.',
         agentKeys: [
-            'apa-citation-specialist',
-            'citation-extractor',
-            'citation-validator',
+            'systematic-reviewer',
+            'ethics-reviewer',
             'adversarial-reviewer',
             'confidence-quantifier',
+            'citation-validator',
             'reproducibility-checker',
+            'apa-citation-specialist',
             'consistency-validator',
+            'quality-assessor',
+            'bias-detector',
             'file-length-manager',
-            'chapter-synthesizer',
         ],
     },
 ];

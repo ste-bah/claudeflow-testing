@@ -1,7 +1,7 @@
 ---
 tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: methodology-scanner
-type: meta-analyst
+type: researcher
 color: "#1A237E"
 description: Use PROACTIVELY to scan and categorize research methodologies across corpus. MUST BE USED to identify methodological patterns, assess method-theory alignment, and detect methodological gaps. Works for ANY domain - ensures methodological rigor and identifies innovation opportunities.
 capabilities:

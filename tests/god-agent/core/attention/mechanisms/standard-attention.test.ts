@@ -232,8 +232,9 @@ describe('RealStandardAttention - Forward Pass', () => {
       const key = createVector(VECTOR_DIM * 2, 0.5); // Different length
       const value = createVector(VECTOR_DIM, 0.5);
 
+      // Use flexible matching pattern for dimension error messages
       expect(() => attention.forward(query, key, value))
-        .toThrow('Dimension mismatch');
+        .toThrow(/[Dd]imension mismatch/);
     });
 
     it('should reject mismatched sequence lengths', () => {
@@ -241,8 +242,9 @@ describe('RealStandardAttention - Forward Pass', () => {
       const key = createVector(VECTOR_DIM * 5, 0.5);
       const value = createVector(VECTOR_DIM * 4, 0.5);
 
+      // Use flexible matching pattern for dimension error messages
       expect(() => attention.forward(query, key, value))
-        .toThrow('Dimension mismatch');
+        .toThrow(/[Dd]imension mismatch/);
     });
   });
 

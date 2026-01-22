@@ -27,7 +27,17 @@ export const DEFAULT_DUAL_CODE_CONFIG = {
     cacheMaxSize: 1000,
     provider: 'local',
     codeDetectionThreshold: 0.6,
+    embeddingTimeoutMs: 5000, // PRD LATENCY-EMBEDDING p99 requirement
 };
+/**
+ * Timeout error for embedding operations
+ */
+export class EmbeddingTimeoutError extends Error {
+    constructor(timeoutMs) {
+        super(`Embedding operation timed out after ${timeoutMs}ms`);
+        this.name = 'EmbeddingTimeoutError';
+    }
+}
 // ==================== Code Detection Patterns ====================
 /**
  * Default patterns that indicate code content
@@ -166,13 +176,21 @@ export class DualCodeEmbeddingProvider {
         this.codeIndicators = config.codeIndicators ?? DEFAULT_CODE_INDICATORS;
     }
     /**
-     * Initialize the base embedding provider lazily
+     * Initialize the base embedding provider lazily.
+     * Thread-safe: uses promise caching pattern with error recovery.
      */
     async ensureInitialized() {
+        // Fast path: already initialized
         if (this.baseProvider)
             return;
+        // Synchronous check-and-set to prevent race condition
+        // (JavaScript is single-threaded, so no race between check and assignment)
         if (!this.initPromise) {
-            this.initPromise = this.initialize();
+            this.initPromise = this.initialize().catch((error) => {
+                // Reset promise on failure to allow retry
+                this.initPromise = null;
+                throw error;
+            });
         }
         await this.initPromise;
     }
@@ -185,6 +203,27 @@ export class DualCodeEmbeddingProvider {
             // Currently fallback to local
             this.baseProvider = await EmbeddingProviderFactory.getProvider(false);
         }
+    }
+    /**
+     * Get the base provider, throwing if not initialized.
+     * Call ensureInitialized() before this method.
+     */
+    getProvider() {
+        if (!this.baseProvider) {
+            throw new Error('DualCodeEmbeddingProvider not initialized. Call ensureInitialized() first.');
+        }
+        return this.baseProvider;
+    }
+    /**
+     * Embed text with timeout protection.
+     * Throws EmbeddingTimeoutError if operation exceeds configured timeout.
+     */
+    async embedWithTimeout(text) {
+        const timeoutMs = this.config.embeddingTimeoutMs ?? 5000;
+        return Promise.race([
+            this.getProvider().embed(text),
+            new Promise((_, reject) => setTimeout(() => reject(new EmbeddingTimeoutError(timeoutMs)), timeoutMs)),
+        ]);
     }
     /**
      * Generate embedding for natural language query
@@ -205,7 +244,7 @@ export class DualCodeEmbeddingProvider {
         // Preprocess for NLP: enhance query understanding
         const processedQuery = this.preprocessForNLP(query);
         // Generate embedding
-        const embedding = await this.baseProvider.embed(processedQuery);
+        const embedding = await this.embedWithTimeout(processedQuery);
         // Cache result
         if (this.config.cacheEnabled) {
             this.cache.set(cacheKey, embedding);
@@ -231,7 +270,7 @@ export class DualCodeEmbeddingProvider {
         // Preprocess for code: preserve structure, extract identifiers
         const processedCode = this.preprocessForCode(code);
         // Generate embedding
-        const embedding = await this.baseProvider.embed(processedCode);
+        const embedding = await this.embedWithTimeout(processedCode);
         // Cache result
         if (this.config.cacheEnabled) {
             this.cache.set(cacheKey, embedding);
@@ -369,14 +408,14 @@ export class DualCodeEmbeddingProvider {
      */
     async generateNLPEmbedding(content) {
         const processed = this.preprocessForNLP(content);
-        return this.baseProvider.embed(processed);
+        return this.embedWithTimeout(processed);
     }
     /**
      * Generate code-focused embedding
      */
     async generateCodeEmbedding(content) {
         const processed = this.preprocessForCode(content);
-        return this.baseProvider.embed(processed);
+        return this.embedWithTimeout(processed);
     }
     /**
      * Preprocess content for NLP embedding

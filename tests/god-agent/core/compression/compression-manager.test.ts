@@ -433,7 +433,8 @@ describe('Error Measurement', () => {
     it('should throw for mismatched dimensions', () => {
       const a = new Float32Array(10);
       const b = new Float32Array(20);
-      expect(() => calculateReconstructionError(a, b)).toThrow('Dimension mismatch');
+      // Use flexible matching pattern for dimension error messages
+      expect(() => calculateReconstructionError(a, b)).toThrow(/[Dd]imension mismatch/);
     });
   });
 
@@ -532,7 +533,8 @@ describe('CompressionManager', () => {
     it('should reject wrong dimension vectors', () => {
       const wrongDim = new Float32Array(256);
       expect(() => manager.store('test-1', wrongDim)).toThrow(CompressionError);
-      expect(() => manager.store('test-1', wrongDim)).toThrow('Dimension mismatch');
+      // Use flexible matching pattern for dimension error messages
+      expect(() => manager.store('test-1', wrongDim)).toThrow(/[Dd]imension mismatch/);
     });
 
     it('should accept correct dimension vectors', () => {

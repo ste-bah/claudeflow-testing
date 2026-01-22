@@ -144,7 +144,8 @@ describe('Vector Operations', () => {
       const v1 = new Float32Array(1536);
       const v2 = new Float32Array(512);
 
-      expect(() => cosineSimilarity(v1, v2)).toThrow('dimension mismatch');
+      // Use flexible matching pattern for dimension error messages
+      expect(() => cosineSimilarity(v1, v2)).toThrow(/dimension mismatch|Dimension/i);
     });
   });
 

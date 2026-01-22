@@ -54,6 +54,14 @@ export interface ILearningFeedbackInput {
   hasCodeBlocks?: boolean;
   /** Unix timestamp in milliseconds */
   createdAt: number;
+  /** RLM: Whether context injection was successful */
+  rlmInjectionSuccess?: boolean;
+  /** RLM: Source agent key that produced the injected output */
+  rlmSourceAgent?: string;
+  /** RLM: Source step index in the pipeline */
+  rlmSourceStepIndex?: number;
+  /** RLM: Memory domain from which output was retrieved */
+  rlmSourceDomain?: string;
 }
 
 /**
@@ -64,6 +72,14 @@ export interface ILearningFeedback extends ILearningFeedbackInput {
   version: number;
   /** Whether this feedback has been processed for learning */
   processed: boolean;
+  /** RLM: Whether context injection was successful (inherited from input) */
+  rlmInjectionSuccess?: boolean;
+  /** RLM: Source agent key that produced the injected output (inherited from input) */
+  rlmSourceAgent?: string;
+  /** RLM: Source step index in the pipeline (inherited from input) */
+  rlmSourceStepIndex?: number;
+  /** RLM: Memory domain from which output was retrieved (inherited from input) */
+  rlmSourceDomain?: string;
 }
 
 /**
@@ -81,6 +97,10 @@ interface ILearningFeedbackRow {
   agent_id: string;
   result_length: number | null;
   has_code_blocks: number;
+  rlm_injection_success: number | null;
+  rlm_source_agent: string | null;
+  rlm_source_step_index: number | null;
+  rlm_source_domain: string | null;
   created_at: number;
   version: number;
   processed: number;
@@ -165,12 +185,14 @@ export class LearningFeedbackDAO {
     this.insertStmt = this.db.prepare(`
       INSERT INTO learning_feedback (
         id, trajectory_id, episode_id, pattern_id, quality, outcome,
-        task_type, agent_id, result_length, has_code_blocks, created_at,
-        version, processed
+        task_type, agent_id, result_length, has_code_blocks,
+        rlm_injection_success, rlm_source_agent, rlm_source_step_index, rlm_source_domain,
+        created_at, version, processed
       ) VALUES (
         @id, @trajectoryId, @episodeId, @patternId, @quality, @outcome,
-        @taskType, @agentId, @resultLength, @hasCodeBlocks, @createdAt,
-        @version, @processed
+        @taskType, @agentId, @resultLength, @hasCodeBlocks,
+        @rlmInjectionSuccess, @rlmSourceAgent, @rlmSourceStepIndex, @rlmSourceDomain,
+        @createdAt, @version, @processed
       )
     `);
 
@@ -237,6 +259,19 @@ export class LearningFeedbackDAO {
   }
 
   /**
+   * Validate and truncate RLM string values
+   *
+   * @param value - String value to validate
+   * @param maxLength - Maximum allowed length (default: 256)
+   * @returns Validated/truncated string or null if undefined
+   */
+  private validateRlmString(value: string | undefined, maxLength = 256): string | null {
+    if (value === undefined || value === null) return null;
+    if (value.length > maxLength) return value.substring(0, maxLength);
+    return value;
+  }
+
+  /**
    * Insert learning feedback into SQLite
    *
    * Implements: RULE-008 (SQLite storage), RULE-072 (retry), RULE-088 (validation)
@@ -261,6 +296,12 @@ export class LearningFeedbackDAO {
       agentId: feedback.agentId,
       resultLength: feedback.resultLength ?? null,
       hasCodeBlocks: feedback.hasCodeBlocks ? 1 : 0,
+      rlmInjectionSuccess: feedback.rlmInjectionSuccess !== undefined
+        ? (feedback.rlmInjectionSuccess ? 1 : 0)
+        : null,
+      rlmSourceAgent: this.validateRlmString(feedback.rlmSourceAgent),
+      rlmSourceStepIndex: feedback.rlmSourceStepIndex ?? null,
+      rlmSourceDomain: this.validateRlmString(feedback.rlmSourceDomain),
       createdAt: feedback.createdAt,
       version: 1,
       processed: 0
@@ -441,6 +482,12 @@ export class LearningFeedbackDAO {
       agentId: row.agent_id,
       resultLength: row.result_length ?? undefined,
       hasCodeBlocks: row.has_code_blocks === 1,
+      rlmInjectionSuccess: row.rlm_injection_success !== null
+        ? row.rlm_injection_success === 1
+        : undefined,
+      rlmSourceAgent: row.rlm_source_agent ?? undefined,
+      rlmSourceStepIndex: row.rlm_source_step_index ?? undefined,
+      rlmSourceDomain: row.rlm_source_domain ?? undefined,
       createdAt: row.created_at,
       version: row.version,
       processed: row.processed === 1
