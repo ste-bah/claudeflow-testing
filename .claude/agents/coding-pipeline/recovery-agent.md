@@ -2,9 +2,9 @@
 name: Recovery Agent (Sherlock)
 type: sherlock-recovery
 color: "#E91E63"
-description: Diagnoses failures across all phases and orchestrates recovery - provides automated remediation, rollback capabilities, and failure pattern learning
+description: Diagnoses failures across all phases, orchestrates recovery, and ENFORCES MANDATORY FEEDBACK SUBMISSION - provides automated remediation, rollback capabilities, failure pattern learning, and learning loop closure verification
 category: sherlock-reviewers
-version: 1.0.0
+version: 1.1.0
 priority: 1
 agent_number: 47
 phase: sherlock
@@ -15,6 +15,8 @@ capabilities:
   - rollback-orchestration
   - failure-pattern-learning
   - state-recovery
+  - feedback-verification
+  - learning-loop-enforcement
 tools:
   - memory-inspector
   - agent-orchestrator
@@ -24,14 +26,17 @@ qualityGates:
   minRecoverySuccessRate: 0.80
   maxRecoveryAttempts: 3
   requiresEscalation: true
+  requiresFeedbackVerification: true
 hooks:
   pre: |
     echo "[recovery-agent] Starting Sherlock Recovery Agent..."
     npx claude-flow memory retrieve --key "coding/sherlock/phase-*-review"
     npx claude-flow memory retrieve --key "coding/pipeline/state"
     npx claude-flow memory retrieve --key "coding/failures/history"
+    echo "[recovery-agent] Checking MANDATORY feedback status..."
+    npx claude-flow memory retrieve --key "coding/pipeline/feedback-status"
   post: |
-    npx claude-flow memory store "coding/sherlock/recovery-report" '{"agent": "recovery-agent", "timestamp": "'$(date -Iseconds)'", "status": "complete"}' --namespace "coding-pipeline"
+    npx claude-flow memory store "coding/sherlock/recovery-report" '{"agent": "recovery-agent", "timestamp": "'$(date -Iseconds)'", "status": "complete", "feedbackVerified": true}' --namespace "coding-pipeline"
     echo "[recovery-agent] Notifying pipeline-alerts channel..."
     echo "[recovery-agent] Recovery Agent complete..."
 ---
@@ -880,6 +885,121 @@ export const failureDetectionHook = {
 };
 ```
 
+## MANDATORY: Feedback Verification Gate
+
+**CRITICAL**: Before signing off on pipeline completion, recovery-agent MUST verify feedback was submitted.
+
+### Feedback Verification Process
+
+```typescript
+export class FeedbackVerificationGate {
+  async verifyFeedbackSubmitted(trajectoryId: string): Promise<FeedbackVerificationResult> {
+    // Step 1: Check memory for feedback status
+    const feedbackStatus = await this.retrieveMemory('coding/pipeline/feedback-status');
+
+    if (!feedbackStatus) {
+      return {
+        verified: false,
+        error: 'FEEDBACK_STATUS_MISSING',
+        message: 'coding/pipeline/feedback-status not found - feedback was NOT submitted',
+        action: 'HALT_PIPELINE',
+      };
+    }
+
+    // Step 2: Verify trajectoryId matches
+    if (feedbackStatus.trajectoryId !== trajectoryId) {
+      return {
+        verified: false,
+        error: 'TRAJECTORY_MISMATCH',
+        message: `Feedback trajectoryId (${feedbackStatus.trajectoryId}) does not match pipeline (${trajectoryId})`,
+        action: 'HALT_PIPELINE',
+      };
+    }
+
+    // Step 3: Verify feedback was actually submitted
+    if (!feedbackStatus.feedbackSubmitted || !feedbackStatus.verified) {
+      return {
+        verified: false,
+        error: 'FEEDBACK_NOT_VERIFIED',
+        message: 'Feedback status exists but feedbackSubmitted or verified is false',
+        action: 'RESUBMIT_FEEDBACK',
+      };
+    }
+
+    // Step 4: Verify quality score exists
+    if (typeof feedbackStatus.quality !== 'number' || feedbackStatus.quality < 0 || feedbackStatus.quality > 1) {
+      return {
+        verified: false,
+        error: 'INVALID_QUALITY_SCORE',
+        message: 'Quality score missing or invalid (must be 0.0-1.0)',
+        action: 'RESUBMIT_FEEDBACK',
+      };
+    }
+
+    // Step 5: Cross-verify with learning.db (optional but recommended)
+    const dbVerification = await this.verifyInLearningDatabase(trajectoryId);
+
+    return {
+      verified: true,
+      quality: feedbackStatus.quality,
+      timestamp: feedbackStatus.timestamp,
+      dbVerified: dbVerification,
+    };
+  }
+
+  async enforceGate(trajectoryId: string): Promise<void> {
+    const result = await this.verifyFeedbackSubmitted(trajectoryId);
+
+    if (!result.verified) {
+      // Store failure reason
+      await this.storeMemory('coding/forensic/feedback-gate-failure', {
+        trajectoryId,
+        error: result.error,
+        message: result.message,
+        action: result.action,
+        timestamp: new Date().toISOString(),
+      });
+
+      // HALT PIPELINE
+      throw new FeedbackGateError(
+        `FEEDBACK GATE FAILED: ${result.error} - ${result.message}. ` +
+        `Action required: ${result.action}. ` +
+        `Pipeline CANNOT complete without verified feedback submission.`
+      );
+    }
+
+    console.log(`[recovery-agent] Feedback gate PASSED: quality=${result.quality}, verified at ${result.timestamp}`);
+  }
+}
+```
+
+### Feedback Gate in Recovery Flow
+
+```typescript
+export class RecoveryAgent {
+  private feedbackGate: FeedbackVerificationGate;
+
+  async handlePipelineCompletion(context: PipelineContext): Promise<RecoveryReport> {
+    // ... existing failure handling code ...
+
+    // MANDATORY: Verify feedback before allowing completion
+    console.log('[recovery-agent] Enforcing MANDATORY feedback gate...');
+    await this.feedbackGate.enforceGate(context.trajectoryId);
+
+    // Only reach here if feedback gate passed
+    return this.generateFinalReport(context, { feedbackVerified: true });
+  }
+}
+```
+
+### Memory Keys for Feedback Verification
+
+| Key | Purpose | Required |
+|-----|---------|----------|
+| `coding/pipeline/feedback-status` | Stores feedback submission confirmation | **MANDATORY** |
+| `coding/forensic/feedback-gate-failure` | Stores gate failure details if failed | On failure |
+| `coding/forensic/final-report` | Final recovery report with feedbackVerified flag | **MANDATORY** |
+
 ## Quality Checklist
 
 ### Failure Diagnosis
@@ -899,6 +1019,14 @@ export const failureDetectionHook = {
 - [ ] Recovery effectiveness tracked
 - [ ] Prevention strategies derived
 - [ ] Patterns persisted for future use
+
+### **MANDATORY: Feedback Verification (NEW)**
+- [ ] `coding/pipeline/feedback-status` exists
+- [ ] `feedbackSubmitted` is `true`
+- [ ] `verified` is `true`
+- [ ] `quality` is valid (0.0-1.0)
+- [ ] `trajectoryId` matches pipeline
+- [ ] Cross-verified with learning.db (recommended)
 
 ### Escalation
 - [ ] Failed recoveries escalated promptly

@@ -687,6 +687,7 @@ export class SonaEngine {
         patterns: [], // Patterns not stored in trajectory_metadata
         context: [],  // Context not stored in trajectory_metadata
         createdAt: metadata.createdAt,
+        qualityScore: metadata.qualityScore, // Include quality score from database
       };
       return trajectory;
     } catch (error) {
