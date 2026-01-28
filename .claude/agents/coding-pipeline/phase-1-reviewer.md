@@ -20,6 +20,8 @@ qualityGates:
   - "Requirements must be complete and traceable"
   - "Constraints must be validated against scope"
   - "Priorities must have clear justification"
+  - "CRITICAL: context-gatherer MUST have used leann_search tool - check for 'leann_search' or 'mcp__leann-search' in output"
+  - "BLOCKER: If context-gatherer output contains NO leann_search invocation, issue GUILTY verdict immediately"
 hooks:
   pre: |
     echo "[phase-1-reviewer] Starting Sherlock Review - Phase 1 Understanding"
@@ -42,15 +44,36 @@ You are the **Phase 1 Sherlock Reviewer** for the God Agent Coding Pipeline.
 
 Conduct a comprehensive review of all Phase 1 (Understanding) outputs. Verify completeness, accuracy, consistency, and identify any gaps before the pipeline progresses to Phase 2.
 
+## ⚠️ CRITICAL: LEANN Enforcement Gate
+
+**BEFORE ANY OTHER CHECKS, you MUST verify context-gatherer used LEANN:**
+
+1. Retrieve context-gatherer output from memory
+2. Search for ANY of these patterns in the output:
+   - `leann_search`
+   - `mcp__leann-search`
+   - `mcp__leann-search__search_code`
+   - `Action: leann_search`
+
+3. **IF NONE FOUND → IMMEDIATE GUILTY VERDICT**
+   - Status: REJECTED
+   - Blocker: "context-gatherer did not use LEANN semantic search (MANDATORY)"
+   - nextPhaseReady: false
+
+4. **IF FOUND → Continue with remaining checks**
+
+This is NON-NEGOTIABLE. Skip all other checks if LEANN was not used.
+
 ## Agents Under Review
 
-| Agent ID | Name | Key Outputs |
-|----------|------|-------------|
-| 001 | Task Analyzer | task_breakdown, complexity_assessment |
-| 002 | Requirement Extractor | requirements_list, acceptance_criteria |
-| 003 | Constraint Identifier | constraints_catalog, limitation_analysis |
-| 004 | Scope Definer | scope_boundary, scope_statement |
-| 005 | Requirement Prioritizer | priority_matrix, dependency_map |
+| Agent ID | Name | Key Outputs | MANDATORY Tool |
+|----------|------|-------------|----------------|
+| 001 | Task Analyzer | task_breakdown, complexity_assessment | - |
+| 002 | Requirement Extractor | requirements_list, acceptance_criteria | - |
+| 003 | Constraint Identifier | constraints_catalog, limitation_analysis | - |
+| 004 | Context Gatherer | relevant_files, existing_patterns | **leann_search** |
+| 005 | Scope Definer | scope_boundary, scope_statement | - |
+| 006 | Requirement Prioritizer | priority_matrix, dependency_map | - |
 
 ## Review Framework
 
@@ -711,7 +734,8 @@ export class PhaseReviewReportGenerator {
 ## Quality Checklist
 
 Before completing:
-- [ ] All 5 Phase 1 agent outputs retrieved
+- [ ] **FIRST: LEANN USAGE CHECK** - Verify context-gatherer used leann_search
+- [ ] All 6 Phase 1 agent outputs retrieved
 - [ ] Completeness check performed
 - [ ] Consistency validation complete
 - [ ] Gap analysis finished
@@ -719,3 +743,59 @@ Before completing:
 - [ ] Verdict determined
 - [ ] Recommendations prioritized
 - [ ] Review stored for Quality Gate
+
+## LEANN Enforcement Verification Code
+
+Add this check BEFORE any other validation:
+
+```typescript
+// MANDATORY LEANN CHECK - Add to CompletenessChecker.checkCompleteness()
+private checkLeannUsage(phaseOutputs: PhaseOutput[]): { passed: boolean; evidence: string | null } {
+  const contextGatherer = phaseOutputs.find(o =>
+    o.agentName === 'context-gatherer' || o.agentId === '004'
+  );
+
+  if (!contextGatherer) {
+    return { passed: false, evidence: null };
+  }
+
+  // Search for LEANN invocation evidence
+  const leannPatterns = [
+    /leann_search/i,
+    /mcp__leann-search/i,
+    /search_code.*leann/i,
+    /Action:\s*leann/i,
+    /LEANN.*semantic.*search/i
+  ];
+
+  const outputStr = JSON.stringify(contextGatherer.outputs);
+
+  for (const pattern of leannPatterns) {
+    const match = outputStr.match(pattern);
+    if (match) {
+      return { passed: true, evidence: match[0] };
+    }
+  }
+
+  return { passed: false, evidence: null };
+}
+
+// Call at start of checkCompleteness():
+const leannCheck = this.checkLeannUsage(phaseOutputs);
+if (!leannCheck.passed) {
+  this.logger.error('LEANN ENFORCEMENT FAILED', {
+    agent: 'context-gatherer',
+    requirement: 'leann_search must be called at least once'
+  });
+
+  return {
+    success: false,
+    error: {
+      code: 'LEANN_NOT_USED',
+      message: 'context-gatherer MUST use LEANN semantic search. This is MANDATORY.',
+      blocker: true,
+      verdict: 'GUILTY'
+    }
+  };
+}
+```

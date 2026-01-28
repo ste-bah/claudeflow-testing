@@ -526,6 +526,7 @@ export class SonaEngine {
                 patterns: [], // Patterns not stored in trajectory_metadata
                 context: [], // Context not stored in trajectory_metadata
                 createdAt: metadata.createdAt,
+                quality: metadata.qualityScore, // Include quality score from database
             };
             return trajectory;
         }
@@ -701,7 +702,26 @@ export class SonaEngine {
         // 1. Validate quality
         validateFeedbackQuality(quality);
         // 2. Retrieve trajectory (with SQLite fallback per FIX-PLAN.md)
-        const trajectory = this.getTrajectory(trajectoryId);
+        let trajectory = this.getTrajectory(trajectoryId);
+        // FIX: Create trajectory on-demand for hook-generated IDs (TRAJECTORY-ORPHAN-FIX)
+        // Hook-generated trajectories (from post-task.ts, god-agent-save.sh) are never
+        // registered in SonaEngine, causing 100% feedback failure. Create them on-demand.
+        if (!trajectory && trajectoryId.startsWith('hook-')) {
+            console.log(`[SonaEngine] Creating on-demand trajectory for hook ID: ${trajectoryId}`);
+            // Create trajectory with default route for hook-based auto-learning
+            const hookRoute = 'auto-learning.hook';
+            this.createTrajectoryWithId(trajectoryId, hookRoute, [], // Empty patterns - will be auto-created if quality > threshold
+            ['auto-learning-hook', `created-on-demand-${Date.now()}`]);
+            // Retrieve the newly created trajectory
+            trajectory = this.getTrajectory(trajectoryId);
+        }
+        // Also handle session-end trajectories from god-agent-save.sh
+        if (!trajectory && trajectoryId.startsWith('session-end-')) {
+            console.log(`[SonaEngine] Creating on-demand trajectory for session-end ID: ${trajectoryId}`);
+            const sessionRoute = 'auto-learning.session-end';
+            this.createTrajectoryWithId(trajectoryId, sessionRoute, [], ['session-end-hook', `created-on-demand-${Date.now()}`]);
+            trajectory = this.getTrajectory(trajectoryId);
+        }
         if (!trajectory) {
             throw new FeedbackValidationError(`Trajectory ${trajectoryId} not found`);
         }
@@ -1271,6 +1291,75 @@ export class SonaEngine {
             routeCount: routes.length,
             totalPatterns,
             avgPatternsPerRoute: routes.length > 0 ? totalPatterns / routes.length : 0,
+        };
+    }
+    /**
+     * Get feedback health diagnostics (TRAJECTORY-ORPHAN-FIX diagnostic)
+     *
+     * Checks the health of the feedback system, specifically tracking:
+     * - Hook-generated trajectories created on-demand
+     * - Session-end trajectories created on-demand
+     * - Overall feedback success rate
+     *
+     * @returns Feedback health metrics
+     */
+    getFeedbackHealth() {
+        let hookTrajectories = 0;
+        let sessionEndTrajectories = 0;
+        let onDemandCreated = 0;
+        // Count trajectory types
+        for (const [id, trajectory] of this.trajectories) {
+            if (id.startsWith('hook-')) {
+                hookTrajectories++;
+                // Check if created on-demand via context
+                if (trajectory.context?.some(c => c.startsWith('created-on-demand-'))) {
+                    onDemandCreated++;
+                }
+            }
+            else if (id.startsWith('session-end-')) {
+                sessionEndTrajectories++;
+                if (trajectory.context?.some(c => c.startsWith('created-on-demand-'))) {
+                    onDemandCreated++;
+                }
+            }
+        }
+        // Calculate feedback success rate from database
+        let feedbackSuccessRate = 0;
+        if (this.persistenceEnabled && this.learningFeedbackDAO) {
+            const stats = this.learningFeedbackDAO.getStats();
+            const positiveCount = stats.outcomeBreakdown?.positive ?? 0;
+            const neutralCount = stats.outcomeBreakdown?.neutral ?? 0;
+            const negativeCount = stats.outcomeBreakdown?.negative ?? 0;
+            const total = positiveCount + neutralCount + negativeCount;
+            if (total > 0) {
+                feedbackSuccessRate = (positiveCount + neutralCount) / total;
+            }
+        }
+        // Determine health status
+        const recommendations = [];
+        let status = 'healthy';
+        if (feedbackSuccessRate < 0.5) {
+            status = 'critical';
+            recommendations.push('Feedback success rate below 50% - check trajectory registration');
+        }
+        else if (feedbackSuccessRate < 0.7) {
+            status = 'degraded';
+            recommendations.push('Feedback success rate below 70% - review learning parameters');
+        }
+        if (onDemandCreated > 0 && hookTrajectories > 0) {
+            const onDemandRatio = onDemandCreated / (hookTrajectories + sessionEndTrajectories);
+            if (onDemandRatio > 0.9) {
+                recommendations.push('High on-demand trajectory creation - consider pre-registering trajectories in post-task hook');
+            }
+        }
+        return {
+            totalTrajectories: this.trajectories.size,
+            hookTrajectories,
+            sessionEndTrajectories,
+            onDemandCreatedCount: onDemandCreated,
+            feedbackSuccessRate,
+            status,
+            recommendations,
         };
     }
     // ==================== TASK-SON-003: Drift Detection and Checkpointing ====================

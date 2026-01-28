@@ -23,6 +23,7 @@ import { ReasoningBank } from '../../src/god-agent/core/reasoning/reasoning-bank
 import { OutputExtractor } from './output-extractor.js';
 import { FeedbackSubmitter } from './feedback-submitter.js';
 import { handlePostTask as completePipelineStep } from './pipeline-event-emitter.js';
+import { execSync, spawn } from 'child_process';
 import {
   type IHookConfig,
   type KnowledgeEntry,
@@ -436,6 +437,166 @@ async function main(): Promise<void> {
     completePipelineStep().catch(err => {
       logger.debug('Pipeline step completion skipped', { error: (err as Error).message });
     });
+
+    // 9.6. MANDATORY: Submit to God Agent Learning CLI (AUTO-LEARNING HOOK)
+    // This ensures learning happens AUTOMATICALLY without relying on LLM
+    try {
+      const trajectoryId = summary?.reasoningBankFeedback?.trajectoryId ||
+        `hook-auto-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+      // Get quality from earlier calculation or default
+      const quality = summary?.reasoningBankFeedback?.quality ?? 0.7;
+
+      // Truncate output to 4000 chars for CLI (single truncation, not double!)
+      // This preserves more context than the previous 5000->2000 double truncation
+      const truncatedOutput = output.substring(0, 4000)
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, ' ')  // Flatten newlines for CLI safety
+        .trim();
+
+      // Extract agent type from output if available
+      const agentMatch = output.match(/Agent\s+#?\d+(?:\/\d+)?\s*[:\-]?\s*(\w+-?\w*)/i);
+      const rawAgentType = agentMatch?.[1] || 'unknown-agent';
+
+      // Validate agent type against whitelist (security: prevent injection)
+      const validAgentTypes = [
+        'task-analyzer', 'requirement-extractor', 'requirement-prioritizer', 'scope-definer',
+        'context-gatherer', 'feasibility-analyzer', 'pattern-explorer', 'technology-scout',
+        'research-planner', 'codebase-analyzer', 'system-designer', 'component-designer',
+        'interface-designer', 'data-architect', 'integration-architect', 'code-generator',
+        'type-implementer', 'unit-implementer', 'service-implementer', 'data-layer-implementer',
+        'api-implementer', 'frontend-implementer', 'error-handler-implementer', 'config-implementer',
+        'logger-implementer', 'dependency-manager', 'implementation-coordinator', 'test-generator',
+        'test-runner', 'integration-tester', 'regression-tester', 'security-tester',
+        'coverage-analyzer', 'quality-gate', 'performance-optimizer', 'performance-architect',
+        'code-quality-improver', 'security-architect', 'final-refactorer', 'sign-off-approver',
+        'recovery-agent', 'phase-1-reviewer', 'phase-2-reviewer', 'phase-3-reviewer',
+        'phase-4-reviewer', 'phase-5-reviewer', 'phase-6-reviewer', 'unknown-agent'
+      ];
+      const agentType = validAgentTypes.includes(rawAgentType) ? rawAgentType : 'unknown-agent';
+
+      // Extract phase from output if available
+      const phaseMatch = output.match(/Phase\s+(\d+)/i);
+      const phase = phaseMatch ? parseInt(phaseMatch[1], 10) : 4;
+
+      // Log truncation if significant data was lost
+      if (output.length > 4000) {
+        logger.warn('Output truncated for learning CLI', {
+          originalLength: output.length,
+          truncatedLength: truncatedOutput.length,
+          lossPercentage: Math.round((1 - 4000 / output.length) * 100)
+        });
+      }
+
+      logger.info('Submitting to God Agent Learning CLI (AUTO)', {
+        trajectoryId,
+        agentType,
+        phase,
+        quality,
+        outputLength: truncatedOutput.length
+      });
+
+      // Use spawn with rate limiting (atomic lock to prevent races)
+      const lockFile = path.join(PROJECT_ROOT, '.claude', 'runtime', '.learning-lock');
+
+      try {
+        // Ensure runtime directory exists
+        await fs.mkdir(path.dirname(lockFile), { recursive: true });
+
+        // ATOMIC LOCK: Use exclusive file creation (O_CREAT | O_EXCL via 'wx' flag)
+        // This is race-condition free - fs.open with 'wx' fails if file exists
+        let lockHandle: import('fs/promises').FileHandle | null = null;
+        let lockAcquired = false;
+
+        try {
+          // Try atomic exclusive create
+          lockHandle = await fs.open(lockFile, 'wx');
+          await lockHandle.write(`${process.pid}:${Date.now()}`);
+          await lockHandle.close();
+          lockHandle = null;
+          lockAcquired = true;
+        } catch (atomicError) {
+          // Lock file exists - check if stale
+          if ((atomicError as NodeJS.ErrnoException).code === 'EEXIST') {
+            try {
+              const lockContent = await fs.readFile(lockFile, 'utf-8');
+              const [, lockTimestamp] = lockContent.split(':');
+              const lockAge = Date.now() - (parseInt(lockTimestamp, 10) || 0);
+
+              if (lockAge > 30000) {
+                // Stale lock (> 30s) - attempt to steal it
+                logger.info('Removing stale learning lock', { lockAge });
+                await fs.unlink(lockFile);
+
+                // Re-try atomic create after removing stale lock
+                try {
+                  lockHandle = await fs.open(lockFile, 'wx');
+                  await lockHandle.write(`${process.pid}:${Date.now()}`);
+                  await lockHandle.close();
+                  lockHandle = null;
+                  lockAcquired = true;
+                } catch {
+                  // Another process beat us - that's OK
+                  logger.warn('Lost race to acquire lock after stale removal');
+                }
+              } else {
+                logger.warn('Learning process already running, skipping', { lockAge });
+              }
+            } catch {
+              // Can't read lock file - skip this run
+              logger.warn('Cannot read lock file, skipping');
+            }
+          } else {
+            throw atomicError;
+          }
+        } finally {
+          // Ensure handle is closed on error
+          if (lockHandle) {
+            await lockHandle.close().catch(() => {});
+          }
+        }
+
+        if (!lockAcquired) {
+          return;
+        }
+
+        // Spawn the learning process
+        const godAgentProcess = spawn('npx', [
+          'tsx',
+          'src/god-agent/universal/cli.ts',
+          'code-feedback',
+          trajectoryId,
+          '--output', truncatedOutput,
+          '--agent', agentType,
+          '--phase', String(phase)
+        ], {
+          cwd: PROJECT_ROOT,
+          detached: true,
+          stdio: 'ignore'
+        });
+
+        godAgentProcess.unref();
+
+        // Schedule lock cleanup after 30 seconds
+        setTimeout(async () => {
+          try {
+            await fs.unlink(lockFile);
+          } catch {
+            // Lock already removed
+          }
+        }, 30000);
+
+        logger.info('God Agent Learning CLI spawned (AUTO-LEARNING)', { trajectoryId });
+      } catch (lockError) {
+        logger.warn('Failed to acquire learning lock', { error: (lockError as Error).message });
+      }
+    } catch (godAgentError) {
+      // Non-fatal - log and continue
+      logger.warn('God Agent Learning CLI failed (non-fatal)', {
+        error: (godAgentError as Error).message
+      });
+    }
 
     // 10. Log performance metrics
     const duration = Date.now() - startTime;

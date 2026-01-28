@@ -335,6 +335,25 @@ export declare class SonaEngine {
         avgPatternsPerRoute: number;
     };
     /**
+     * Get feedback health diagnostics (TRAJECTORY-ORPHAN-FIX diagnostic)
+     *
+     * Checks the health of the feedback system, specifically tracking:
+     * - Hook-generated trajectories created on-demand
+     * - Session-end trajectories created on-demand
+     * - Overall feedback success rate
+     *
+     * @returns Feedback health metrics
+     */
+    getFeedbackHealth(): {
+        totalTrajectories: number;
+        hookTrajectories: number;
+        sessionEndTrajectories: number;
+        onDemandCreatedCount: number;
+        feedbackSuccessRate: number;
+        status: 'healthy' | 'degraded' | 'critical';
+        recommendations: string[];
+    };
+    /**
      * Set the checkpoints directory path
      */
     setCheckpointsDir(path: string): void;

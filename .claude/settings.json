@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; SKILL=$(cat | jq -r \".tool_input.skill // empty\"); if [ \"$SKILL\" = \"god-code\" ] && [ -x \"$ROOT/.claude/hooks/coding-pipeline-pre.sh\" ]; then \"$ROOT/.claude/hooks/coding-pipeline-pre.sh\"; fi || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; SKILL=$(cat | jq -r \".tool_input.skill // empty\"); if [ \"$SKILL\" = \"god-code\" ]; then echo \"0\" > \"$ROOT/.claude/runtime/.god-code-active\"; echo \"🔒 GOD-CODE PIPELINE MODE ACTIVATED - Direct Write/Edit blocked until Task agents spawned\"; [ -x \"$ROOT/.claude/hooks/coding-pipeline-pre.sh\" ] && \"$ROOT/.claude/hooks/coding-pipeline-pre.sh\"; fi || true'"
           }
         ]
       },
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/pre-task.sh\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; \"$ROOT/.claude/hooks/pre-task.sh\" || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null); if [ -n \"$ROOT\" ] && [ -f \"$ROOT/.claude/runtime/.god-code-active\" ]; then COUNT=$(cat \"$ROOT/.claude/runtime/.god-code-active\" 2>/dev/null || echo 0); echo $((COUNT + 1)) > \"$ROOT/.claude/runtime/.god-code-active\"; echo \"📊 Pipeline Task #$((COUNT + 1)) spawned\"; fi; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/pre-task.sh\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; \"$ROOT/.claude/hooks/pre-task.sh\" || true'"
           },
           {
             "type": "command",
@@ -102,7 +102,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-edit --file \"{}\" --auto-assign-agents true --load-context true || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; if [ -f \"$ROOT/.claude/runtime/.god-code-active\" ]; then TASK_COUNT=$(cat \"$ROOT/.claude/runtime/.god-code-active\" 2>/dev/null || echo 0); if [ \"$TASK_COUNT\" -lt 7 ]; then echo \"═══════════════════════════════════════════════════════════════════\"; echo \"🚫 BLOCKED: /god-code Pipeline Violation\"; echo \"═══════════════════════════════════════════════════════════════════\"; echo \"You tried to use Write/Edit directly.\"; echo \"Task agents spawned: $TASK_COUNT (minimum required: 7)\"; echo \"\"; echo \"REQUIRED: Use Task(\\\"task-analyzer\\\", ...) first!\"; echo \"Pipeline must reach Phase 4 before writing files.\"; echo \"═══════════════════════════════════════════════════════════════════\"; exit 1; fi; fi; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-edit --file \"{}\" --auto-assign-agents true --load-context true || true'"
           }
         ]
       }
@@ -174,7 +174,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx claude-flow@alpha hooks session-end --generate-summary true --persist-state true --export-metrics true || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$ROOT\" ] && rm -f \"$ROOT/.claude/runtime/.god-code-active\" 2>/dev/null; echo \"🔓 God-code pipeline mode cleared\"; [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx claude-flow@alpha hooks session-end --generate-summary true --persist-state true --export-metrics true || true'"
           },
           {
             "type": "command",

@@ -511,6 +511,183 @@ async function main() {
         }
         process.exit(0);
     }
+    // ==================== Handle commands that don't need full agent ====================
+    // These commands only need SonaEngine, not the full agent with CapabilityIndex/embeddings
+    const lightweightCommands = ['code-feedback', 'cf', 'verify-feedback', 'vf', 'auto-complete-coding', 'acc'];
+    if (lightweightCommands.includes(command.toLowerCase())) {
+        // Handle lightweight commands without full agent initialization
+        switch (command.toLowerCase()) {
+            case 'code-feedback':
+            case 'cf': {
+                const trajectoryId = positional[0];
+                if (!trajectoryId) {
+                    if (jsonMode) {
+                        outputJson({
+                            command: 'code-feedback',
+                            selectedAgent: 'code-feedback-agent',
+                            prompt: '',
+                            isPipeline: false,
+                            result: null,
+                            success: false,
+                            error: 'Trajectory ID required',
+                        });
+                    }
+                    else {
+                        console.error('Error: Please provide trajectory ID');
+                        console.error('Usage: code-feedback <trajectoryId> [--output <code>] [--file <path>] [--agent <key>] [--phase <num>]');
+                    }
+                    process.exit(1);
+                }
+                let codeOutput;
+                const outputFlag = getFlag(flags, 'output', 'o');
+                const fileFlag = getFlag(flags, 'file', 'f');
+                if (outputFlag) {
+                    codeOutput = outputFlag;
+                }
+                else if (fileFlag) {
+                    try {
+                        const filePath = path.resolve(fileFlag);
+                        codeOutput = await fs.readFile(filePath, 'utf-8');
+                        if (!jsonMode)
+                            console.log(`Reading output from: ${filePath}`);
+                    }
+                    catch (err) {
+                        if (jsonMode) {
+                            outputJson({
+                                command: 'code-feedback',
+                                selectedAgent: 'code-feedback-agent',
+                                prompt: trajectoryId,
+                                isPipeline: false,
+                                result: null,
+                                success: false,
+                                error: `Error reading file: ${fileFlag}`,
+                            });
+                        }
+                        else {
+                            console.error(`Error reading file: ${fileFlag}`);
+                        }
+                        process.exit(1);
+                    }
+                }
+                else {
+                    codeOutput = positional.slice(1).join(' ') || '';
+                }
+                const agentKey = getFlag(flags, 'agent', 'a');
+                const phaseStr = getFlag(flags, 'phase', 'p');
+                const phase = phaseStr ? parseInt(phaseStr, 10) : undefined;
+                try {
+                    const result = await submitCodeFeedback(trajectoryId, codeOutput, { agentKey, phase });
+                    if (jsonMode) {
+                        outputJson({
+                            command: 'code-feedback',
+                            selectedAgent: 'code-feedback-agent',
+                            prompt: trajectoryId,
+                            isPipeline: false,
+                            result: {
+                                trajectoryId: result.trajectoryId,
+                                quality: result.quality,
+                                tier: result.assessment.tier,
+                                breakdown: result.assessment.breakdown,
+                                summary: result.assessment.summary,
+                                meetsPatternThreshold: result.assessment.meetsPatternThreshold,
+                                weightUpdates: result.weightUpdates,
+                                patternCreated: result.patternCreated,
+                            },
+                            success: true,
+                            qualityScore: result.quality,
+                        });
+                    }
+                    else {
+                        console.log(`\n--- Code Feedback Recorded ---`);
+                        console.log(`Trajectory: ${result.trajectoryId}`);
+                        console.log(`Quality: ${(result.quality * 100).toFixed(1)}% (${result.assessment.tier})`);
+                        console.log(`Summary: ${result.assessment.summary}`);
+                        console.log(`Weight updates: ${result.weightUpdates}`);
+                        console.log(`Pattern created: ${result.patternCreated}`);
+                    }
+                    process.exit(0);
+                }
+                catch (error) {
+                    if (jsonMode) {
+                        outputJson({
+                            command: 'code-feedback',
+                            selectedAgent: 'code-feedback-agent',
+                            prompt: trajectoryId,
+                            isPipeline: false,
+                            result: null,
+                            success: false,
+                            error: error instanceof Error ? error.message : String(error),
+                        });
+                    }
+                    else {
+                        console.error(`Error submitting code feedback: ${error}`);
+                    }
+                    process.exit(1);
+                }
+            }
+            case 'verify-feedback':
+            case 'vf': {
+                const trajectoryId = positional[0];
+                if (!trajectoryId) {
+                    console.error('Error: Please provide trajectory ID');
+                    process.exit(1);
+                }
+                const engine = getSonaEngine();
+                if (!engine) {
+                    console.error('SonaEngine not available');
+                    process.exit(1);
+                }
+                const trajectory = engine.getTrajectory(trajectoryId);
+                if (trajectory && trajectory.quality !== undefined) {
+                    console.log(`VERIFIED: Trajectory ${trajectoryId} has feedback (quality: ${(trajectory.quality * 100).toFixed(1)}%)`);
+                    process.exit(0);
+                }
+                else {
+                    console.error(`FEEDBACK_VERIFICATION_FAILED: No feedback found for ${trajectoryId}`);
+                    process.exit(1);
+                }
+            }
+            case 'feedback-health':
+            case 'fh': {
+                // Diagnostic command to check feedback system health (TRAJECTORY-ORPHAN-FIX)
+                const engine = getSonaEngine();
+                if (!engine) {
+                    console.error('SonaEngine not available');
+                    process.exit(1);
+                }
+                const health = engine.getFeedbackHealth();
+                if (jsonMode) {
+                    outputJson({
+                        command: 'feedback-health',
+                        selectedAgent: getSelectedAgent(command),
+                        prompt: '',
+                        isPipeline: false,
+                        result: health,
+                        success: true,
+                    });
+                }
+                else {
+                    console.log('\n--- Feedback System Health ---\n');
+                    console.log(`Status: ${health.status.toUpperCase()}`);
+                    console.log(`Total Trajectories: ${health.totalTrajectories}`);
+                    console.log(`Hook Trajectories: ${health.hookTrajectories}`);
+                    console.log(`Session-End Trajectories: ${health.sessionEndTrajectories}`);
+                    console.log(`On-Demand Created: ${health.onDemandCreatedCount}`);
+                    console.log(`Feedback Success Rate: ${(health.feedbackSuccessRate * 100).toFixed(1)}%`);
+                    if (health.recommendations.length > 0) {
+                        console.log('\nRecommendations:');
+                        health.recommendations.forEach((rec, i) => {
+                            console.log(`  ${i + 1}. ${rec}`);
+                        });
+                    }
+                }
+                break;
+            }
+            default:
+                // Fall through to full agent initialization for other lightweight commands
+                break;
+        }
+    }
     // Suppress verbose output in JSON mode
     const agent = new UniversalAgent({ verbose: !jsonMode });
     try {

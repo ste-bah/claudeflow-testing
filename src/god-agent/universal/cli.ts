@@ -802,13 +802,49 @@ async function main() {
           process.exit(1);
         }
         const trajectory = engine.getTrajectory(trajectoryId);
-        if (trajectory && trajectory.qualityScore !== undefined) {
-          console.log(`VERIFIED: Trajectory ${trajectoryId} has feedback (quality: ${(trajectory.qualityScore * 100).toFixed(1)}%)`);
+        if (trajectory && trajectory.quality !== undefined) {
+          console.log(`VERIFIED: Trajectory ${trajectoryId} has feedback (quality: ${(trajectory.quality * 100).toFixed(1)}%)`);
           process.exit(0);
         } else {
           console.error(`FEEDBACK_VERIFICATION_FAILED: No feedback found for ${trajectoryId}`);
           process.exit(1);
         }
+      }
+
+      case 'feedback-health':
+      case 'fh': {
+        // Diagnostic command to check feedback system health (TRAJECTORY-ORPHAN-FIX)
+        const engine = getSonaEngine();
+        if (!engine) {
+          console.error('SonaEngine not available');
+          process.exit(1);
+        }
+        const health = engine.getFeedbackHealth();
+        if (jsonMode) {
+          outputJson({
+            command: 'feedback-health',
+            selectedAgent: getSelectedAgent(command),
+            prompt: '',
+            isPipeline: false,
+            result: health,
+            success: true,
+          });
+        } else {
+          console.log('\n--- Feedback System Health ---\n');
+          console.log(`Status: ${health.status.toUpperCase()}`);
+          console.log(`Total Trajectories: ${health.totalTrajectories}`);
+          console.log(`Hook Trajectories: ${health.hookTrajectories}`);
+          console.log(`Session-End Trajectories: ${health.sessionEndTrajectories}`);
+          console.log(`On-Demand Created: ${health.onDemandCreatedCount}`);
+          console.log(`Feedback Success Rate: ${(health.feedbackSuccessRate * 100).toFixed(1)}%`);
+          if (health.recommendations.length > 0) {
+            console.log('\nRecommendations:');
+            health.recommendations.forEach((rec, i) => {
+              console.log(`  ${i + 1}. ${rec}`);
+            });
+          }
+        }
+        break;
       }
 
       default:
