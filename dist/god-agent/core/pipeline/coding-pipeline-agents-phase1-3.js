@@ -116,6 +116,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_1_3 = [
     },
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 2: EXPLORATION (4 agents)
+    // CRITICAL: First agent must depend on phase-1-reviewer (Sherlock gate)
     // ═══════════════════════════════════════════════════════════════════════════
     {
         phase: 'exploration',
@@ -124,7 +125,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_1_3 = [
         category: 'exploration',
         algorithm: 'LATS',
         fallbackAlgorithm: 'ToT',
-        dependsOn: ['feasibility-analyzer'],
+        dependsOn: ['phase-1-reviewer'], // CRITICAL: Must pass Sherlock gate before Phase 2
         memoryReads: ['coding/understanding/requirements', 'coding/understanding/constraints'],
         memoryWrites: ['coding/exploration/patterns', 'coding/exploration/best-practices'],
         xpReward: 45,
@@ -179,6 +180,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_1_3 = [
     },
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 3: ARCHITECTURE (5 agents)
+    // CRITICAL: First agent must depend on phase-2-reviewer (Sherlock gate)
     // ═══════════════════════════════════════════════════════════════════════════
     {
         phase: 'architecture',
@@ -187,7 +189,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_1_3 = [
         category: 'design',
         algorithm: 'ToT',
         fallbackAlgorithm: 'LATS',
-        dependsOn: ['codebase-analyzer'],
+        dependsOn: ['phase-2-reviewer'], // CRITICAL: Must pass Sherlock gate before Phase 3
         memoryReads: ['coding/exploration/codebase-analysis', 'coding/understanding/requirements'],
         memoryWrites: ['coding/architecture/design', 'coding/architecture/structure'],
         xpReward: 60,

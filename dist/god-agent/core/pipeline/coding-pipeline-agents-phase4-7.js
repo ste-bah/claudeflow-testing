@@ -25,6 +25,7 @@
 export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 4: IMPLEMENTATION (12 agents)
+    // CRITICAL: First agent must depend on phase-3-reviewer (Sherlock gate)
     // ═══════════════════════════════════════════════════════════════════════════
     {
         phase: 'implementation',
@@ -33,7 +34,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         category: 'implementation',
         algorithm: 'Self-Debug',
         fallbackAlgorithm: 'ReAct',
-        dependsOn: ['integration-architect'],
+        dependsOn: ['phase-3-reviewer'], // CRITICAL: Must pass Sherlock gate before Phase 4
         memoryReads: ['coding/architecture/design', 'coding/architecture/interfaces'],
         memoryWrites: ['coding/implementation/generated-code', 'coding/implementation/core-files'],
         xpReward: 70,
@@ -208,6 +209,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
     },
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 5: TESTING (7 agents)
+    // CRITICAL: First agent must depend on phase-4-reviewer (Sherlock gate)
     // ═══════════════════════════════════════════════════════════════════════════
     {
         phase: 'testing',
@@ -216,7 +218,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         category: 'testing',
         algorithm: 'ToT',
         fallbackAlgorithm: 'Self-Debug',
-        dependsOn: ['implementation-coordinator'],
+        dependsOn: ['phase-4-reviewer'], // CRITICAL: Must pass Sherlock gate before Phase 5
         memoryReads: ['coding/implementation/services', 'coding/understanding/requirements'],
         memoryWrites: ['coding/testing/generated-tests', 'coding/testing/test-files'],
         xpReward: 55,
@@ -316,6 +318,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
     },
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 6: OPTIMIZATION (5 agents)
+    // CRITICAL: First agent must depend on phase-5-reviewer (Sherlock gate)
     // ═══════════════════════════════════════════════════════════════════════════
     {
         phase: 'optimization',
@@ -324,7 +327,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         category: 'optimization',
         algorithm: 'PoT',
         fallbackAlgorithm: 'Reflexion',
-        dependsOn: ['quality-gate'],
+        dependsOn: ['phase-5-reviewer'], // CRITICAL: Must pass Sherlock gate before Phase 6
         memoryReads: ['coding/implementation/services', 'coding/testing/results'],
         memoryWrites: ['coding/optimization/performance', 'coding/optimization/benchmarks'],
         xpReward: 60,
@@ -394,6 +397,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
     },
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 7: DELIVERY (1 core agent)
+    // CRITICAL: First agent must depend on phase-6-reviewer (Sherlock gate)
     // ═══════════════════════════════════════════════════════════════════════════
     {
         phase: 'delivery',
@@ -402,7 +406,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         category: 'approval',
         algorithm: 'Reflexion',
         fallbackAlgorithm: 'ReAct',
-        dependsOn: ['final-refactorer'],
+        dependsOn: ['phase-6-reviewer'], // CRITICAL: Must pass Sherlock gate before Phase 7
         memoryReads: ['coding/optimization/final-code', 'coding/testing/coverage-report', 'coding/testing/quality-verdict'],
         memoryWrites: ['coding/delivery/sign-off', 'coding/delivery/approval-status'],
         xpReward: 75,
@@ -479,6 +483,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         description: 'Sherlock #46: Phase 6 Optimization forensic review. CRITICAL: Gates progression to Phase 7.',
     },
     // #47 - Phase 7 Delivery Forensic Review / Recovery Agent
+    // CRITICAL: Enforces MANDATORY feedback verification gate
     {
         phase: 'delivery',
         agentKey: 'recovery-agent',
@@ -495,12 +500,19 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
             'coding/forensic/phase-4-verdict',
             'coding/forensic/phase-5-verdict',
             'coding/forensic/phase-6-verdict',
+            'coding/pipeline/feedback-status', // MANDATORY: Must verify feedback was submitted
+            'coding/pipeline/status', // Pipeline metadata including trajectoryId
         ],
-        memoryWrites: ['coding/forensic/phase-7-verdict', 'coding/forensic/final-report', 'coding/forensic/recovery-plan'],
+        memoryWrites: [
+            'coding/forensic/phase-7-verdict',
+            'coding/forensic/final-report',
+            'coding/forensic/recovery-plan',
+            'coding/forensic/feedback-gate-result', // NEW: Stores feedback gate verification result
+        ],
         xpReward: 150,
         parallelizable: false,
         critical: true,
-        description: 'Sherlock #47: Phase 7 Delivery forensic review and recovery orchestration. CRITICAL: Final pipeline gate.',
+        description: 'Sherlock #47: Phase 7 Delivery forensic review, recovery orchestration, and MANDATORY feedback gate enforcement. CRITICAL: Final pipeline gate - verifies learning loop closure.',
     },
 ];
 //# sourceMappingURL=coding-pipeline-agents-phase4-7.js.map
