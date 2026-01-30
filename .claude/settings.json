@@ -145,6 +145,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks post-edit --file \"{}\" --format true --update-memory true || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; FILE=$(cat | jq -r \".tool_input.file_path // .tool_input.path // empty\"); [ -n \"$FILE\" ] && [ -x \"$ROOT/.claude/hooks/leann-index-file.sh\" ] && \"$ROOT/.claude/hooks/leann-index-file.sh\" \"$FILE\" || true'"
           }
         ]
       }
@@ -183,6 +187,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-session-start.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\" --action=stop || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/leann-process-queue.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; echo \"[LEANN] Processing index queue...\"; timeout 120 npx tsx \"$ROOT/scripts/hooks/leann-process-queue.ts\" 2>/dev/null || echo \"[LEANN] Queue processing skipped or timed out\"'"
           }
         ]
       }

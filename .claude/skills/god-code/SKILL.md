@@ -1055,6 +1055,32 @@ This agent is the FINAL GATE. It enforces:
 npx claude-flow@alpha memory store -k "coding/pipeline/result" -v '{"success":true,"phases_completed":7,"totalAgents":47,"trajectoryId":"[trajectoryId]","endTime":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
 ```
 
+### Step Final.1: LEANN Index Update (MANDATORY)
+
+**Index all created/modified files into LEANN semantic search for future context-gathering.**
+
+1. **Read the queue file**:
+```bash
+cat .claude/runtime/leann-index-queue.json
+```
+
+2. **For each file in the queue**, call LEANN index_code MCP tool in parallel batches (max 5 at a time):
+```
+mcp__leann-search__index_code({
+  code: [file content],
+  filePath: [absolute path],
+  repository: [target repo name],
+  replaceExisting: true
+})
+```
+
+3. **Clear the queue after indexing**:
+```bash
+echo '{"files":[],"lastUpdated":""}' > .claude/runtime/leann-index-queue.json
+```
+
+**WHY THIS MATTERS**: Without LEANN indexing, the context-gatherer agent in future pipeline runs cannot find code created in previous runs. This breaks the learning loop.
+
 ---
 
 ## Phase 3: Present Results
