@@ -8,6 +8,32 @@ Generate code using the **MANDATORY 47-Agent Coding Pipeline**. This command ALW
 
 ---
 
+## ⚠️ CRITICAL: TASK CONTENT HANDLING
+
+**YOU (the orchestrator) MUST read task files FIRST before spawning agents.**
+
+Agents CANNOT reliably read task files - they will hallucinate paths. YOU must:
+1. Use the `Read` tool to read task file content
+2. Store the content in memory AND pass it directly in agent prompts
+3. NEVER pass just a file path expecting agents to read it
+
+**Available Variables:**
+- `$ARGUMENTS` = Raw command line arguments (e.g., `-batch "path/to/tasks"`)
+- `$TASK_CONTENT` = **YOU MUST SET THIS** by reading task files with `Read` tool
+- `$TASK_FILE` = Current task file path (batch mode)
+- `$TARGET_DIR` = Target directory from `--target` flag (default: current working directory)
+
+**Variable Extraction:**
+```
+# Extract --target if present
+if $ARGUMENTS contains "--target":
+  $TARGET_DIR = value after "--target"
+else:
+  $TARGET_DIR = current working directory
+```
+
+---
+
 ## Phase 0: Batch Mode Detection
 
 **Check if `-batch` flag is present in arguments.**
@@ -90,13 +116,17 @@ Generate code using the **MANDATORY 47-Agent Coding Pipeline**. This command ALW
      a. Update current task in memory:
         npx claude-flow@alpha memory store -k "coding/batch/current-task" -v '"'$TASK_FILE'"'
 
-     b. Read task content:
-        TASK_CONTENT=$(cat "$TASK_FILE")
+     b. **⚠️ CRITICAL: YOU (orchestrator) MUST read task file content using Read tool:**
+        Use: Read(file_path=$TASK_FILE)
+        Store result in $TASK_CONTENT variable
 
-     c. Store task as pipeline input:
-        npx claude-flow@alpha memory store -k "coding/input/task" -v '"Implement: '$TASK_FILE' - '$TASK_CONTENT'"'
+        DO NOT use cat or expect agents to read - they will hallucinate paths!
 
-     d. **EXECUTE FULL 47-AGENT PIPELINE** (Phase 1 through Phase 3.5 below)
+     c. Store task content in memory for agents that need it:
+        npx claude-flow@alpha memory store -k "coding/input/task" -v '"$TASK_CONTENT"'
+
+     d. **EXECUTE FULL 47-AGENT PIPELINE** passing $TASK_CONTENT directly in prompts
+        (Phase 1 through Phase 3.5 below)
 
      e. On pipeline completion, update batch progress:
         - Add task to completed list
@@ -198,15 +228,20 @@ Execute this complete pipeline sequentially using ClaudeFlow methodology. NO EXC
 
 ### Step 0: Initialize Pipeline Memory
 
-```bash
-# Initialize task input (CRITICAL: task-analyzer reads from coding/input/task)
-npx claude-flow@alpha memory store -k "coding/input/task" -v '"$ARGUMENTS"'
+**⚠️ CRITICAL: Before this step, YOU (the orchestrator) MUST have already:**
+1. Read the task file(s) using the `Read` tool
+2. Set `$TASK_CONTENT` to the actual file content
+3. Set `$TARGET_DIR` from `--target` flag or current working directory
 
-# Initialize project context (if available)
-npx claude-flow@alpha memory store -k "coding/context/project" -v '{"cwd": "'$(pwd)'", "initialized": true}'
+```bash
+# Initialize task input with ACTUAL CONTENT (not file path!)
+npx claude-flow@alpha memory store -k "coding/input/task" -v '"$TASK_CONTENT"'
+
+# Initialize project context
+npx claude-flow@alpha memory store -k "coding/context/project" -v '{"cwd": "'$(pwd)'", "targetDir": "$TARGET_DIR", "initialized": true}'
 
 # Initialize pipeline tracking
-npx claude-flow@alpha memory store -k "coding/pipeline/status" -v '{"task": "$ARGUMENTS", "trajectoryId": "[trajectoryId]", "startTime": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "status": "running", "currentPhase": 1}'
+npx claude-flow@alpha memory store -k "coding/pipeline/status" -v '{"taskFile": "$TASK_FILE", "targetDir": "$TARGET_DIR", "trajectoryId": "[trajectoryId]", "startTime": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "status": "running", "currentPhase": 1}'
 ```
 
 ---
@@ -221,7 +256,10 @@ Task("task-analyzer", `
 ## YOUR TASK
 Parse and structure the coding request into actionable components.
 
-**Original Task:** $ARGUMENTS
+**Task Content (from file - DO NOT try to Read files):**
+$TASK_CONTENT
+
+**Target Directory:** $TARGET_DIR
 
 ## WORKFLOW CONTEXT
 Agent #1 of 47 | Phase 1: Understanding | CRITICAL: Pipeline entry point
@@ -247,7 +285,10 @@ Task("requirement-extractor", `
 ## YOUR TASK
 Extract functional and non-functional requirements from the parsed task analysis.
 
-**Original Task:** $ARGUMENTS
+**Task Content (from file - DO NOT try to Read files):**
+$TASK_CONTENT
+
+**Target Directory:** $TARGET_DIR
 
 ## WORKFLOW CONTEXT
 Agent #2 of 47 | Phase 1: Understanding
@@ -272,7 +313,10 @@ Task("requirement-prioritizer", `
 ## YOUR TASK
 Apply MoSCoW prioritization to requirements.
 
-**Original Task:** $ARGUMENTS
+**Task Content (from file - DO NOT try to Read files):**
+$TASK_CONTENT
+
+**Target Directory:** $TARGET_DIR
 
 ## WORKFLOW CONTEXT
 Agent #3 of 47 | Phase 1: Understanding
@@ -296,7 +340,10 @@ Task("scope-definer", `
 ## YOUR TASK
 Define clear boundaries, deliverables, and milestones.
 
-**Original Task:** $ARGUMENTS
+**Task Content (from file - DO NOT try to Read files):**
+$TASK_CONTENT
+
+**Target Directory:** $TARGET_DIR
 
 ## WORKFLOW CONTEXT
 Agent #4 of 47 | Phase 1: Understanding
@@ -322,7 +369,10 @@ Task("context-gatherer", `
 ## YOUR TASK
 Gather codebase context via semantic search using LEANN.
 
-**Original Task:** $ARGUMENTS
+**Task Content (from file - DO NOT try to Read files):**
+$TASK_CONTENT
+
+**Target Directory:** $TARGET_DIR
 
 ## WORKFLOW CONTEXT
 Agent #5 of 47 | Phase 1: Understanding
@@ -348,7 +398,10 @@ Task("feasibility-analyzer", `
 ## YOUR TASK
 Assess technical, resource, and timeline feasibility.
 
-**Original Task:** $ARGUMENTS
+**Task Content (from file - DO NOT try to Read files):**
+$TASK_CONTENT
+
+**Target Directory:** $TARGET_DIR
 
 ## WORKFLOW CONTEXT
 Agent #6 of 47 | Phase 1: Understanding (FINAL core agent in phase)
@@ -375,7 +428,10 @@ Task("phase-1-reviewer", `
 ## YOUR TASK
 FORENSIC REVIEW of Phase 1 Understanding. Issue verdict: INNOCENT, GUILTY, or INSUFFICIENT_EVIDENCE.
 
-**Original Task:** $ARGUMENTS
+**Task Content (from file - DO NOT try to Read files):**
+$TASK_CONTENT
+
+**Target Directory:** $TARGET_DIR
 
 ## WORKFLOW CONTEXT
 Sherlock #41 | Phase 1 Gate | ALL CODE IS GUILTY UNTIL PROVEN INNOCENT
@@ -418,7 +474,10 @@ Task("pattern-explorer", `
 ## YOUR TASK
 Explore existing code patterns that can guide implementation.
 
-**Original Task:** $ARGUMENTS
+**Task Content (from file - DO NOT try to Read files):**
+$TASK_CONTENT
+
+**Target Directory:** $TARGET_DIR
 
 ## WORKFLOW CONTEXT
 Agent #8 of 47 | Phase 2: Exploration
