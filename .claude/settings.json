@@ -200,6 +200,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && [ -f \".swarm/memory.db\" ] && sqlite3 .swarm/memory.db \"DELETE FROM memory_entries WHERE status=\\\"deleted\\\";\" 2>/dev/null && echo \"[memory-fix] Purged ghost entries\" || true'"
+          },
+          {
+            "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npm run god-agent:start 2>/dev/null || true'"
           },
           {
