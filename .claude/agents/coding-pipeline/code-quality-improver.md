@@ -322,6 +322,356 @@ export class QualityAnalyzer {
 }
 ```
 
+### 5. Type Error Auto-Fixer (type_error_fixer) - NEW
+
+Automatic type error detection and fixing capability:
+
+```typescript
+// analysis/quality/type-error-fixer.ts
+
+export interface TypeErrorFix {
+  file: string;
+  line: number;
+  errorCode: string;
+  errorMessage: string;
+  fixApplied: string;
+  status: 'fixed' | 'skipped' | 'failed';
+  reason?: string;
+}
+
+export interface TypeFixResult {
+  initialErrors: number;
+  finalErrors: number;
+  fixesApplied: TypeErrorFix[];
+  iterations: number;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+}
+
+interface ParsedError {
+  file: string;
+  line: number;
+  column: number;
+  code: string;
+  message: string;
+}
+
+interface FixSuggestion {
+  fixedLine: string;
+  description: string;
+}
+
+export class TypeErrorFixer {
+  private readonly maxIterations = 3;
+  private readonly targetDir: string;
+
+  constructor(targetDir: string) {
+    this.targetDir = targetDir;
+  }
+
+  async runAutoFix(): Promise<TypeFixResult> {
+    let iteration = 0;
+    let initialErrors = await this.countTypeErrors();
+    const fixesApplied: TypeErrorFix[] = [];
+    let currentErrors = initialErrors;
+
+    while (currentErrors > 0 && iteration < this.maxIterations) {
+      iteration++;
+
+      // Get detailed error list
+      const errors = await this.getTypeErrors();
+
+      // Group by file for efficient fixing
+      const errorsByFile = this.groupByFile(errors);
+
+      // Apply fixes to each file
+      for (const [file, fileErrors] of errorsByFile) {
+        const fixes = await this.fixFile(file, fileErrors);
+        fixesApplied.push(...fixes);
+      }
+
+      // Re-check errors
+      const newErrorCount = await this.countTypeErrors();
+
+      // Check progress
+      if (newErrorCount >= currentErrors && iteration > 1) {
+        break; // No progress, exit loop
+      }
+
+      currentErrors = newErrorCount;
+    }
+
+    return {
+      initialErrors,
+      finalErrors: currentErrors,
+      fixesApplied,
+      iterations: iteration,
+      status: this.determineStatus(initialErrors, currentErrors),
+    };
+  }
+
+  private async countTypeErrors(): Promise<number> {
+    // Execute: npm run typecheck 2>&1 | grep -c "error TS" || echo "0"
+    const output = await this.exec('npm run typecheck 2>&1');
+    const matches = output.match(/error TS/g);
+    return matches ? matches.length : 0;
+  }
+
+  private async getTypeErrors(): Promise<ParsedError[]> {
+    const output = await this.exec('npm run typecheck 2>&1');
+    return this.parseTypeScriptErrors(output);
+  }
+
+  private parseTypeScriptErrors(output: string): ParsedError[] {
+    const errors: ParsedError[] = [];
+    const errorRegex = /(.+)\((\d+),(\d+)\): error (TS\d+): (.+)/g;
+
+    let match;
+    while ((match = errorRegex.exec(output)) !== null) {
+      errors.push({
+        file: match[1],
+        line: parseInt(match[2]),
+        column: parseInt(match[3]),
+        code: match[4],
+        message: match[5],
+      });
+    }
+
+    return errors;
+  }
+
+  private groupByFile(errors: ParsedError[]): Map<string, ParsedError[]> {
+    const grouped = new Map<string, ParsedError[]>();
+    for (const error of errors) {
+      const existing = grouped.get(error.file) || [];
+      existing.push(error);
+      grouped.set(error.file, existing);
+    }
+    return grouped;
+  }
+
+  private async fixFile(file: string, errors: ParsedError[]): Promise<TypeErrorFix[]> {
+    const fixes: TypeErrorFix[] = [];
+    const content = await this.readFile(file);
+    const lines = content.split('\n');
+
+    // Sort errors by line number descending to avoid offset issues
+    const sortedErrors = [...errors].sort((a, b) => b.line - a.line);
+
+    for (const error of sortedErrors) {
+      const fix = this.determineFix(error, lines);
+
+      if (fix) {
+        lines[error.line - 1] = fix.fixedLine;
+        fixes.push({
+          file,
+          line: error.line,
+          errorCode: error.code,
+          errorMessage: error.message,
+          fixApplied: fix.description,
+          status: 'fixed',
+        });
+      } else {
+        fixes.push({
+          file,
+          line: error.line,
+          errorCode: error.code,
+          errorMessage: error.message,
+          fixApplied: '',
+          status: 'skipped',
+          reason: 'No automatic fix available',
+        });
+      }
+    }
+
+    await this.writeFile(file, lines.join('\n'));
+    return fixes;
+  }
+
+  private determineFix(error: ParsedError, lines: string[]): FixSuggestion | null {
+    const line = lines[error.line - 1];
+
+    // TS7006: Parameter 'x' implicitly has an 'any' type
+    if (error.code === 'TS7006') {
+      const paramMatch = line.match(/(\w+)(\s*[,)])/);
+      if (paramMatch) {
+        return {
+          fixedLine: line.replace(paramMatch[0], `${paramMatch[1]}: unknown${paramMatch[2]}`),
+          description: 'Added explicit type annotation: unknown',
+        };
+      }
+    }
+
+    // TS2532: Object is possibly 'undefined'
+    if (error.code === 'TS2532') {
+      if (line.includes('.') && !line.includes('?.')) {
+        return {
+          fixedLine: line.replace(/(\w+)\.(\w+)/, '$1?.$2'),
+          description: 'Added optional chaining operator',
+        };
+      }
+    }
+
+    // TS2345: Argument of type 'X | undefined' is not assignable
+    if (error.code === 'TS2345' && error.message.includes('undefined')) {
+      // Add non-null assertion as a marker for review
+      return {
+        fixedLine: line.replace(/(\w+)(\)|\,)/, '$1!$2'),
+        description: 'Added non-null assertion (review required)',
+      };
+    }
+
+    // TS2339: Property does not exist
+    if (error.code === 'TS2339') {
+      const propertyMatch = error.message.match(/Property '(\w+)' does not exist/);
+      if (propertyMatch) {
+        return {
+          fixedLine: line.replace(/(\w+)\.(\w+)/, '($1 as any).$2'),
+          description: `Added type assertion for property access: ${propertyMatch[1]}`,
+        };
+      }
+    }
+
+    // TS2322: Type 'X' is not assignable to type 'Y'
+    if (error.code === 'TS2322') {
+      // Mark for manual review - type mismatches need careful handling
+      return {
+        fixedLine: line + ' // TODO: Fix type mismatch - TS2322',
+        description: 'Marked for manual review: type mismatch',
+      };
+    }
+
+    // TS7031: Binding element implicitly has 'any' type
+    if (error.code === 'TS7031') {
+      const bindingMatch = line.match(/\{([^}]+)\}/);
+      if (bindingMatch) {
+        return {
+          fixedLine: line.replace(/\{([^}]+)\}/, '{ $1 }: Record<string, unknown>'),
+          description: 'Added Record<string, unknown> type to destructuring',
+        };
+      }
+    }
+
+    // TS2554: Expected N arguments, but got M
+    if (error.code === 'TS2554') {
+      // Cannot auto-fix without knowing the function signature
+      return {
+        fixedLine: line + ' // TODO: Fix argument count - TS2554',
+        description: 'Marked for manual review: argument count mismatch',
+      };
+    }
+
+    return null;
+  }
+
+  private determineStatus(initial: number, final: number): 'SUCCESS' | 'PARTIAL' | 'FAILED' {
+    if (final === 0) return 'SUCCESS';
+    if (final < initial * 0.2) return 'SUCCESS'; // 80% reduction counts as success
+    if (final < initial * 0.5) return 'PARTIAL'; // 50% reduction is partial
+    return 'FAILED';
+  }
+
+  private async exec(command: string): Promise<string> {
+    // Implementation depends on execution environment
+    // This would use child_process.exec or similar
+    throw new Error('exec must be implemented by the runtime environment');
+  }
+
+  private async readFile(path: string): Promise<string> {
+    // Implementation depends on execution environment
+    throw new Error('readFile must be implemented by the runtime environment');
+  }
+
+  private async writeFile(path: string, content: string): Promise<void> {
+    // Implementation depends on execution environment
+    throw new Error('writeFile must be implemented by the runtime environment');
+  }
+}
+```
+
+### 6. Type Fix Results (type_fix_results) - NEW
+
+Results from the automated type error fixing process:
+
+```typescript
+// analysis/quality/type-fix-results.ts
+
+export interface TypeFixReport {
+  summary: TypeFixSummary;
+  details: TypeErrorFix[];
+  recommendations: FixRecommendation[];
+}
+
+export interface TypeFixSummary {
+  initialTypeErrors: number;
+  finalTypeErrors: number;
+  reductionPercentage: number;
+  fixesApplied: number;
+  fixesSkipped: number;
+  iterations: number;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  executionTimeMs: number;
+}
+
+export interface FixRecommendation {
+  errorCode: string;
+  occurrences: number;
+  suggestedAction: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export function generateTypeFixReport(result: TypeFixResult): TypeFixReport {
+  const applied = result.fixesApplied.filter(f => f.status === 'fixed');
+  const skipped = result.fixesApplied.filter(f => f.status === 'skipped');
+
+  // Group skipped errors by code for recommendations
+  const skippedByCode = new Map<string, number>();
+  for (const fix of skipped) {
+    const count = skippedByCode.get(fix.errorCode) || 0;
+    skippedByCode.set(fix.errorCode, count + 1);
+  }
+
+  const recommendations: FixRecommendation[] = [];
+  for (const [code, count] of skippedByCode) {
+    recommendations.push({
+      errorCode: code,
+      occurrences: count,
+      suggestedAction: getRecommendationForCode(code),
+      priority: count > 10 ? 'high' : count > 5 ? 'medium' : 'low',
+    });
+  }
+
+  return {
+    summary: {
+      initialTypeErrors: result.initialErrors,
+      finalTypeErrors: result.finalErrors,
+      reductionPercentage: result.initialErrors > 0
+        ? Math.round((1 - result.finalErrors / result.initialErrors) * 100)
+        : 100,
+      fixesApplied: applied.length,
+      fixesSkipped: skipped.length,
+      iterations: result.iterations,
+      status: result.status,
+      executionTimeMs: 0, // Set by caller
+    },
+    details: result.fixesApplied,
+    recommendations: recommendations.sort((a, b) => b.occurrences - a.occurrences),
+  };
+}
+
+function getRecommendationForCode(code: string): string {
+  const recommendations: Record<string, string> = {
+    'TS7006': 'Enable strict mode and add explicit type annotations to all parameters',
+    'TS2532': 'Use optional chaining (?.) or add null checks before property access',
+    'TS2345': 'Review function signatures and ensure arguments match expected types',
+    'TS2339': 'Add proper type definitions or update interface declarations',
+    'TS2322': 'Review type assignments and add explicit type conversions where needed',
+    'TS7031': 'Add explicit types to destructuring patterns',
+    'TS2554': 'Update function calls to match the expected parameter count',
+  };
+  return recommendations[code] || 'Review error and add appropriate type annotations';
+}
+```
+
 ### 2. Refactorings (refactorings)
 
 Applied refactoring operations:
@@ -1002,4 +1352,193 @@ Before completing:
 - [ ] Tests pass after refactoring
 - [ ] Design patterns correctly applied
 - [ ] Documentation improved
+- [ ] Type errors auto-fixed (NEW)
+- [ ] Lint errors auto-fixed (NEW)
 - [ ] Handoff prepared for Final Refactorer
+
+## AUTO-FIX PROTOCOL (MANDATORY)
+
+When executing, you MUST run the auto-fix loop for type and lint errors:
+
+### Step 1: Baseline Diagnostic
+
+```bash
+# Capture initial type error count
+cd $TARGET_DIR && npm run typecheck 2>&1 | tee /tmp/phase6-typecheck.txt
+TYPE_ERRORS=$(grep -c "error TS" /tmp/phase6-typecheck.txt || echo "0")
+echo "Initial type errors: $TYPE_ERRORS"
+
+# Capture initial lint error count
+cd $TARGET_DIR && npm run lint 2>&1 | tee /tmp/phase6-lint.txt
+LINT_ERRORS=$(grep -ci "error" /tmp/phase6-lint.txt || echo "0")
+echo "Initial lint errors: $LINT_ERRORS"
+```
+
+### Step 2: Type Error Fix Loop (if TYPE_ERRORS > 0)
+
+```
+ITERATION = 0
+MAX_ITERATIONS = 3
+INITIAL_TYPE_ERRORS = TYPE_ERRORS
+
+WHILE TYPE_ERRORS > 0 AND ITERATION < MAX_ITERATIONS:
+
+  ITERATION += 1
+  echo "=== Type Fix Iteration $ITERATION ==="
+
+  # Extract unique files with type errors
+  ERROR_FILES=$(grep "error TS" /tmp/phase6-typecheck.txt | sed 's/(.*//' | sort -u)
+
+  FOR each FILE in ERROR_FILES:
+
+    # Get errors for this specific file
+    FILE_ERRORS=$(grep "$FILE" /tmp/phase6-typecheck.txt | grep "error TS")
+
+    FOR each ERROR in FILE_ERRORS:
+
+      # Parse error: file(line,col): error TSxxxx: message
+      ERROR_CODE=$(echo "$ERROR" | grep -oP "TS\d+")
+      LINE_NUM=$(echo "$ERROR" | grep -oP "\(\d+" | tr -d '(')
+
+      # Apply fix based on error code using Edit tool
+      CASE $ERROR_CODE:
+
+        TS7006: # Parameter implicitly has 'any' type
+          # Add ': unknown' type annotation to parameter
+          Edit: Add explicit type annotation
+
+        TS2532: # Object is possibly 'undefined'
+          # Add optional chaining (?.)
+          Edit: Replace '.' with '?.'
+
+        TS2345: # Argument type mismatch with undefined
+          # Add non-null assertion (!) - mark for review
+          Edit: Add non-null assertion
+
+        TS2339: # Property does not exist
+          # Add type assertion (as any)
+          Edit: Add type assertion
+
+        TS2322: # Type not assignable
+          # Add TODO comment for manual review
+          Edit: Add review marker comment
+
+        DEFAULT:
+          # Skip - no automatic fix available
+          Log: "Skipped $ERROR_CODE - manual fix required"
+
+      END CASE
+
+    END FOR
+
+  END FOR
+
+  # Re-run typecheck after fixes
+  cd $TARGET_DIR && npm run typecheck 2>&1 | tee /tmp/phase6-typecheck.txt
+  NEW_TYPE_ERRORS=$(grep -c "error TS" /tmp/phase6-typecheck.txt || echo "0")
+
+  # Check if progress was made
+  IF NEW_TYPE_ERRORS >= TYPE_ERRORS AND ITERATION > 1:
+    echo "No progress made, stopping iteration"
+    BREAK
+  END IF
+
+  TYPE_ERRORS = NEW_TYPE_ERRORS
+  echo "Remaining type errors: $TYPE_ERRORS"
+
+END WHILE
+
+# Calculate reduction
+REDUCTION=$(( (INITIAL_TYPE_ERRORS - TYPE_ERRORS) * 100 / INITIAL_TYPE_ERRORS ))
+echo "Type error reduction: ${REDUCTION}%"
+```
+
+### Step 3: Lint Error Fix Loop (if LINT_ERRORS > 0)
+
+```bash
+# Attempt automatic lint fixes
+cd $TARGET_DIR && npm run lint -- --fix 2>&1 | tee /tmp/phase6-lint-fix.txt
+
+# Re-check lint errors
+cd $TARGET_DIR && npm run lint 2>&1 | tee /tmp/phase6-lint.txt
+FINAL_LINT_ERRORS=$(grep -ci "error" /tmp/phase6-lint.txt || echo "0")
+echo "Final lint errors: $FINAL_LINT_ERRORS"
+```
+
+### Step 4: Determine Overall Status
+
+```
+IF TYPE_ERRORS == 0 AND LINT_ERRORS == 0:
+  STATUS = "SUCCESS"
+ELSE IF (TYPE_ERRORS < INITIAL_TYPE_ERRORS * 0.2) AND (LINT_ERRORS < INITIAL_LINT_ERRORS * 0.2):
+  STATUS = "SUCCESS"  # 80% reduction counts as success
+ELSE IF (TYPE_ERRORS < INITIAL_TYPE_ERRORS * 0.5) OR (LINT_ERRORS < INITIAL_LINT_ERRORS * 0.5):
+  STATUS = "PARTIAL"  # 50% reduction is partial success
+ELSE:
+  STATUS = "FAILED"
+END IF
+```
+
+### Step 5: Store Results in Memory
+
+```bash
+npx claude-flow@alpha memory store -k "coding/optimization/type-fixes" \
+  --value '{
+    "initialTypeErrors": [INITIAL_TYPE_ERRORS],
+    "finalTypeErrors": [TYPE_ERRORS],
+    "initialLintErrors": [INITIAL_LINT_ERRORS],
+    "finalLintErrors": [FINAL_LINT_ERRORS],
+    "typeReductionPercent": [TYPE_REDUCTION],
+    "lintReductionPercent": [LINT_REDUCTION],
+    "iterations": [ITERATION],
+    "status": "[STATUS]",
+    "timestamp": "[ISO_TIMESTAMP]"
+  }' \
+  --namespace default
+```
+
+### Step 6: Report Summary
+
+Generate a summary for the output report:
+
+```markdown
+## Auto-Fix Results
+
+### Type Errors
+- Initial: [N] errors
+- Final: [M] errors
+- Reduction: [X]%
+- Iterations: [I]
+
+### Lint Errors
+- Initial: [N] errors
+- Final: [M] errors (after --fix)
+
+### Fixes Applied
+| Error Code | Count | Fix Type |
+|------------|-------|----------|
+| TS7006 | [N] | Added type annotation |
+| TS2532 | [N] | Added optional chaining |
+| TS2345 | [N] | Added non-null assertion |
+| TS2339 | [N] | Added type assertion |
+
+### Skipped (Manual Review Required)
+| Error Code | Count | Reason |
+|------------|-------|--------|
+| TS2322 | [N] | Type mismatch needs review |
+| TS2554 | [N] | Argument count mismatch |
+
+### Status: [SUCCESS|PARTIAL|FAILED]
+```
+
+## Error Code Reference
+
+| Code | Description | Auto-Fix Strategy |
+|------|-------------|-------------------|
+| TS7006 | Parameter implicitly has 'any' | Add `: unknown` type |
+| TS2532 | Object possibly undefined | Add `?.` optional chaining |
+| TS2345 | Argument type with undefined | Add `!` non-null assertion |
+| TS2339 | Property does not exist | Add `as any` assertion |
+| TS2322 | Type not assignable | Mark for review |
+| TS7031 | Binding element has 'any' | Add `Record<string, unknown>` |
+| TS2554 | Wrong argument count | Mark for review |

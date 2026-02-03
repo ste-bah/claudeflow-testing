@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.1.1 | **Status**: Production-Ready | **Last Updated**: January 2025
+**Version**: 2.1.2 | **Status**: Production-Ready | **Last Updated**: February 2025
 
 ## Table of Contents
 
@@ -23,6 +23,29 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.1.2
+
+### Phase 5 Self-Correction Loop
+
+Enhanced the coding pipeline's Phase 5 (Testing) with a self-correction subsystem that automatically fixes failing tests:
+
+| Feature | Description |
+|---------|-------------|
+| **test-execution-verifier (#38.1)** | Executes actual test suite and captures real results - estimation is forbidden |
+| **regression-detector (#38.2)** | Compares test results against baseline, blocks pipeline on regressions |
+| **test-fixer (#38.3)** | Analyzes failures, reads stack traces, fixes code, triggers re-test |
+| **Bounded Loop** | Maximum 3 fix-retest iterations before escalating to recovery-agent |
+| **No Estimation Policy** | Agents MUST run actual commands, never guess or approximate results |
+
+### Enhanced Agent Prompts
+
+- **quality-gate**: Now includes explicit execution steps with actual command parsing
+- **code-quality-improver**: Comprehensive refactoring and code improvement prompts
+- **final-refactorer**: Detailed final polish and consistency check procedures
+- **phase-6-reviewer**: Enhanced Sherlock forensic review for optimization phase
+
+---
 
 ## What's New in v2.1.1
 
@@ -765,6 +788,63 @@ Each phase is gated by a Sherlock forensic reviewer that performs quality verifi
 | #47 | recovery-agent | Delivery + Recovery | Orchestrates remediation on failures |
 
 All forensic reviewers are **CRITICAL** - they gate pipeline progression to ensure quality.
+
+### Phase 5 Self-Correction Loop (v2.1.2)
+
+Phase 5 includes a self-correction subsystem with three specialized sub-agents that work together to ensure tests pass before proceeding:
+
+| Sub-Agent | Position | Role |
+|-----------|----------|------|
+| **test-execution-verifier** | #38.1 | Executes actual test suite, captures real results. NEVER estimates. |
+| **regression-detector** | #38.2 | Compares results against baseline, fails pipeline on regressions. |
+| **test-fixer** | #38.3 | Reads failures, fixes code, triggers re-test until pass. |
+
+#### Self-Correction Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 PHASE 5 SELF-CORRECTION LOOP                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  quality-gate (#38) orchestrates:                                │
+│                                                                  │
+│  ┌──────────────────────┐                                        │
+│  │ test-execution-verifier │ ← Runs npm test, captures output    │
+│  │        (#38.1)          │                                     │
+│  └──────────┬───────────┘                                        │
+│             │ verified results                                   │
+│             ▼                                                    │
+│  ┌──────────────────────┐                                        │
+│  │  regression-detector  │ ← Compares vs baseline                │
+│  │        (#38.2)        │                                       │
+│  └──────────┬───────────┘                                        │
+│             │                                                    │
+│     ┌───────┴───────┐                                            │
+│     │               │                                            │
+│  PASS ✓          FAIL ✗                                          │
+│     │               │                                            │
+│     │               ▼                                            │
+│     │    ┌──────────────────┐                                    │
+│     │    │    test-fixer     │ ← Analyzes failures, fixes code   │
+│     │    │      (#38.3)      │                                   │
+│     │    └──────────┬───────┘                                    │
+│     │               │ re-test                                    │
+│     │               └──────────────────┐                         │
+│     │                                  │                         │
+│     │    ┌─────────────────────────────┘                         │
+│     │    │ (loop until pass or max iterations)                   │
+│     │    ▼                                                       │
+│     └────► phase-5-reviewer (Sherlock #45)                       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Key Guarantees
+
+- **No Estimation**: test-execution-verifier MUST run actual tests, never guess counts
+- **Regression Prevention**: regression-detector blocks pipeline if pass rate decreases
+- **Self-Healing**: test-fixer reads stack traces, identifies root cause, applies fix
+- **Bounded Loops**: Maximum 3 fix-retest iterations before escalating to recovery-agent
 
 ### USACF Algorithms
 

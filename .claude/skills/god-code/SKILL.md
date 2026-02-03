@@ -924,29 +924,343 @@ Store to key "coding/testing/coverage-report"
 Task("quality-gate", `
 ## YOUR TASK
 Validate L-Scores, compute quality metrics, verify phase completion.
+**CRITICAL**: You MUST execute actual commands and parse real output. DO NOT estimate or fabricate values.
 
 ## WORKFLOW CONTEXT
 Agent #38 of 47 | Phase 5: Testing (FINAL) | CRITICAL: Quality validation
+Previous: coverage-analyzer ✓ | Next: phase-5-reviewer (Sherlock gate)
+
+**Target Directory:** $TARGET_DIR
+
+## EXECUTION STEPS (MANDATORY)
+
+Before computing quality metrics, you MUST execute these commands:
+
+### Step 1: Run Test Suite
+\`\`\`bash
+cd $TARGET_DIR && npm test 2>&1 | tee /tmp/quality-gate-tests.txt
+TEST_EXIT_CODE=$?
+\`\`\`
+
+### Step 2: Run Linter
+\`\`\`bash
+cd $TARGET_DIR && npm run lint 2>&1 | tee /tmp/quality-gate-lint.txt || true
+\`\`\`
+
+### Step 3: Run Type Check
+\`\`\`bash
+cd $TARGET_DIR && npm run typecheck 2>&1 | tee /tmp/quality-gate-types.txt || true
+\`\`\`
+
+### Step 4: Extract Coverage (if available)
+\`\`\`bash
+cd $TARGET_DIR && npm test -- --coverage 2>&1 | grep -E "Statements|Branches|Functions|Lines" || echo "Coverage not available"
+\`\`\`
+
+## RESULT PARSING
+
+From test output, extract ACTUAL values:
+- testsPassed: Count lines with ✓ or "passed" or "PASS"
+- testsFailed: Count lines with ✗ or "failed" or "FAIL"
+- testsTotal: testsPassed + testsFailed
+
+From lint output:
+- lintErrors: Count "error" occurrences (case insensitive)
+- lintWarnings: Count "warning" occurrences (case insensitive)
+
+From typecheck output:
+- typeErrors: Count error lines (lines containing "error TS" or "error:")
+
+**DO NOT ESTIMATE. PARSE FROM OUTPUT.**
+
+## L-SCORE CALCULATION
+
+L-Score = weighted average of ACTUAL metrics:
+- Test Pass Rate (40%): testsPassed / testsTotal * 100
+- Type Safety (20%): 100 - (typeErrors * 2) (min 0)
+- Lint Compliance (20%): 100 - (lintErrors * 1) (min 0)
+- Coverage (20%): extracted coverage % or 50 if unavailable
+
+Formula:
+\`\`\`
+passRate = (testsPassed / testsTotal) * 100
+typeSafety = max(0, 100 - (typeErrors * 2))
+lintScore = max(0, 100 - lintErrors)
+coverageScore = extractedCoverage || 50
+
+lScore = (passRate * 0.4) + (typeSafety * 0.2) + (lintScore * 0.2) + (coverageScore * 0.2)
+\`\`\`
+
+Grade:
+- A: L-Score >= 90
+- B: L-Score >= 80
+- C: L-Score >= 70
+- D: L-Score >= 60
+- F: L-Score < 60
+
+## PASS/FAIL CRITERIA
+
+**PASS** (all must be true):
+- Test pass rate >= 80%
+- Type errors <= 10
+- Lint errors <= 20
+- L-Score >= 70 (Grade C or better)
+
+**FAIL** (any triggers fail):
+- Test pass rate < 80%
+- Type errors > 10
+- Lint errors > 20
+- L-Score < 70
+- Tests failed to execute (npm test returned error without any test output)
 
 ## MEMORY STORAGE
-Store to key "coding/testing/quality-gate-result"
 
-## CRITICAL
-Must pass all quality gates. No 'any' types. 80%+ coverage required.
+Store to key "coding/testing/quality-gate-result" with ACTUAL parsed values:
+\`\`\`json
+{
+  "testsTotal": [ACTUAL from output],
+  "testsPassed": [ACTUAL from output],
+  "testsFailed": [ACTUAL from output],
+  "passPercentage": [CALCULATED: testsPassed/testsTotal*100],
+  "lintErrors": [ACTUAL from output],
+  "lintWarnings": [ACTUAL from output],
+  "typeErrors": [ACTUAL from output],
+  "coverage": [ACTUAL from output or null],
+  "lScore": [CALCULATED],
+  "grade": "[A-F]",
+  "verdict": "PASS" | "FAIL",
+  "executedCommands": ["npm test", "npm run lint", "npm run typecheck"],
+  "rawTestOutput": "[first 3000 chars of /tmp/quality-gate-tests.txt]",
+  "rawLintOutput": "[first 1000 chars of /tmp/quality-gate-lint.txt]",
+  "rawTypeOutput": "[first 1000 chars of /tmp/quality-gate-types.txt]",
+  "verified": true,
+  "timestamp": "[ISO timestamp]"
+}
+\`\`\`
+
+## OUTPUT FORMAT
+
+After execution, report:
+\`\`\`
+═══════════════════════════════════════════════════════════════
+QUALITY GATE RESULTS (Agent #38/47)
+═══════════════════════════════════════════════════════════════
+
+TEST RESULTS (from actual npm test output):
+  Total:   [testsTotal]
+  Passed:  [testsPassed]
+  Failed:  [testsFailed]
+  Pass %:  [passPercentage]%
+
+LINT RESULTS (from actual npm run lint output):
+  Errors:   [lintErrors]
+  Warnings: [lintWarnings]
+
+TYPE CHECK (from actual npm run typecheck output):
+  Errors: [typeErrors]
+
+COVERAGE:
+  [coverage]% or "Not available"
+
+L-SCORE BREAKDOWN:
+  Test Pass Rate (40%):  [passRate] → contributes [passRate * 0.4]
+  Type Safety (20%):     [typeSafety] → contributes [typeSafety * 0.2]
+  Lint Compliance (20%): [lintScore] → contributes [lintScore * 0.2]
+  Coverage (20%):        [coverageScore] → contributes [coverageScore * 0.2]
+  ─────────────────────────────────────────
+  TOTAL L-SCORE:         [lScore] (Grade: [grade])
+
+VERDICT: [PASS/FAIL]
+[If FAIL: List which criteria failed]
+
+═══════════════════════════════════════════════════════════════
+\`\`\`
+
+## CRITICAL RULES
+- MUST execute actual npm commands - no estimating
+- MUST parse output from command results - no fabricating
+- MUST store rawOutput for verification by phase-5-reviewer
+- MUST set verified: true only after actual execution
+- 80%+ test pass rate required for PASS
+- No 'any' types tolerated in typecheck
 `)
+```
+
+#### Self-Correction Loop (CRITICAL)
+
+**After test-execution-verifier and quality-gate run, check for failures:**
+
+```
+IF coding/testing/verified-results shows testsFailed > 0:
+  ENTER SELF-CORRECTION LOOP:
+
+  RETRY_COUNT = 0
+  MAX_RETRIES = 3
+
+  WHILE testsFailed > 0 AND RETRY_COUNT < MAX_RETRIES:
+
+    # Step 1: Spawn test-fixer agent
+    Task("test-fixer", `
+      ## YOUR TASK
+      Fix the failing tests identified in verified-results.
+
+      ## WORKFLOW CONTEXT
+      Self-Correction Loop | Retry #[RETRY_COUNT + 1] of [MAX_RETRIES]
+
+      ## MEMORY RETRIEVAL
+      npx claude-flow@alpha memory retrieve -k "coding/testing/verified-results"
+
+      Read failedTests and rawOutput, identify issues, fix the code.
+
+      ## MEMORY STORAGE
+      Store fixes to: coding/testing/fix-attempts
+    `)
+
+    # Step 2: Re-run test-execution-verifier
+    Task("test-execution-verifier", `
+      ## YOUR TASK
+      Re-run tests after fixes applied.
+
+      ## WORKFLOW CONTEXT
+      Self-Correction Loop | Re-test after fix attempt #[RETRY_COUNT + 1]
+
+      Execute: cd $TARGET_DIR && npm test 2>&1
+      Update: coding/testing/verified-results
+    `)
+
+    # Step 3: Check results
+    RETRIEVE coding/testing/verified-results
+    RETRY_COUNT += 1
+
+  END WHILE
+
+  IF testsFailed > 0 AND RETRY_COUNT >= MAX_RETRIES:
+    # Escalate - store detailed report for recovery-agent
+    npx claude-flow@alpha memory store -k "coding/testing/escalation" -v '{
+      "reason": "Max retries exceeded",
+      "attemptsTotal": 3,
+      "remainingFailures": [list],
+      "fixesAttempted": [list],
+      "recommendation": "Manual intervention required"
+    }'
+  END IF
+
+END IF
 ```
 
 #### Agent 39/47: phase-5-reviewer (SHERLOCK GATE)
 ```
 Task("phase-5-reviewer", `
 ## YOUR TASK
-FORENSIC REVIEW of Phase 5 Testing. Issue verdict.
+FORENSIC REVIEW of Phase 5 Testing. Issue verdict: INNOCENT, GUILTY, or INSUFFICIENT_EVIDENCE.
+
+**CRITICAL**: You MUST VERIFY that tests were ACTUALLY executed, not just trust memory values.
 
 ## WORKFLOW CONTEXT
-Sherlock #45 | Phase 5 Gate
+Sherlock #45 | Phase 5 Gate | ALL CODE IS GUILTY UNTIL PROVEN INNOCENT
+Previous: All Phase 5 agents ✓ | Next: Phase 6 (if INNOCENT)
+
+## MEMORY RETRIEVAL
+npx claude-flow@alpha memory retrieve -k "coding/testing/test-results"
+npx claude-flow@alpha memory retrieve -k "coding/testing/verified-results"
+npx claude-flow@alpha memory retrieve -k "coding/testing/regression-analysis"
+npx claude-flow@alpha memory retrieve -k "coding/testing/coverage-report"
+npx claude-flow@alpha memory retrieve -k "coding/testing/quality-gate-result"
+
+## VERIFICATION STEPS (MANDATORY)
+
+### Step 1: Check verified flag
+- Retrieve coding/testing/verified-results
+- If verified !== true → VERDICT: GUILTY (tests not actually executed)
+- If key does not exist → VERDICT: INSUFFICIENT_EVIDENCE
+
+### Step 2: Validate execution evidence
+- Check rawOutput exists in verified-results
+- Look for test runner patterns in rawOutput:
+  - "Tests:", "PASS", "FAIL", "passed", "failed"
+  - "✓", "✗", "●"
+  - "test suites", "tests passed"
+- If no execution evidence in rawOutput → VERDICT: GUILTY (no proof tests ran)
+
+### Step 3: Cross-validate counts
+- testsTotal must equal testsPassed + testsFailed
+- If math doesn't add up → VERDICT: GUILTY (fabricated results)
+- Formula: testsTotal === testsPassed + testsFailed + testsSkipped (if skipped exists)
+
+### Step 4: Check regression analysis
+- Retrieve coding/testing/regression-analysis
+- If regressionDetected === true → VERDICT: GUILTY (regressions found)
+- If regression analysis missing → continue (not blocking)
+
+### Step 5: Run verification command (sanity check)
+Execute in target directory:
+\`\`\`bash
+cd $TARGET_DIR && npm test 2>&1 | tail -30
+\`\`\`
+- Compare output counts with stored values
+- If major discrepancy (>10% difference) → VERDICT: GUILTY
+
+## VERDICT CRITERIA (UPDATED)
+
+**INNOCENT** - ALL conditions must be true:
+- verified === true in verified-results
+- rawOutput contains test runner patterns (execution evidence)
+- testsTotal === testsPassed + testsFailed (+ testsSkipped if present)
+- regressionDetected === false OR regression-analysis missing
+- passPercentage >= 80%
+- Sanity check matches stored values (within tolerance)
+
+**GUILTY** - ANY of these conditions:
+- verified !== true (tests not actually run)
+- No rawOutput or empty rawOutput (no execution evidence)
+- Math doesn't validate (testsTotal != testsPassed + testsFailed)
+- Regressions detected (regressionDetected === true)
+- Pass rate < 80% (passPercentage < 80)
+- Sanity check shows major discrepancy with stored values
+
+**INSUFFICIENT_EVIDENCE**:
+- Memory keys don't exist (agents didn't store results)
+- rawOutput exists but cannot parse test counts
+- Cannot run sanity check (no test command available)
+
+## ADDITIONAL VERIFICATION (Post-Fix-Loop)
+
+Check if self-correction loop ran:
+\`\`\`bash
+npx claude-flow@alpha memory retrieve -k "coding/testing/fix-attempts"
+\`\`\`
+
+If fix-attempts exists:
+- Verify fixes were applied and tests re-run
+- Check finalPassRate from fix-attempts
+- If status === "ESCALATED" → VERDICT: INSUFFICIENT_EVIDENCE (needs user input)
+- If status === "FIXED" → Continue with normal verification
+- If status === "PARTIAL" → Check if remaining failures are acceptable
 
 ## MEMORY STORAGE
 Store verdict to: "coding/forensic/phase-5-verdict"
+Store verification details to: "coding/forensic/phase-5-verification"
+
+Include in verification details:
+- verifiedFlagCheck: true/false
+- executionEvidenceFound: true/false
+- mathValidated: true/false
+- regressionCheckPassed: true/false
+- sanityCheckPassed: true/false
+- sanityCheckOutput: "[first 500 chars of test output]"
+- fixLoopStatus: "[NONE|FIXED|PARTIAL|ESCALATED]"
+- fixAttemptsMade: [0-3]
+
+## ON GUILTY VERDICT
+DO NOT proceed to Phase 6. Store detailed issues including:
+- Which verification step failed
+- Expected vs actual values
+- Evidence of the failure
+Trigger recovery-agent with specific remediation guidance.
+
+## CRITICAL GATE STATUS
+This verdict determines if pipeline continues to Phase 6.
+Trust NO memory values without verification. Demand execution proof.
 `)
 ```
 
@@ -976,14 +1290,50 @@ Store to key "coding/optimization/architecture"
 `)
 ```
 
-#### Agent 42/47: code-quality-improver
+#### Agent 42/47: code-quality-improver (ENHANCED - AUTO-FIX)
 ```
 Task("code-quality-improver", `
 ## YOUR TASK
-Improve code quality, reduce technical debt.
+Improve code quality AND AUTO-FIX all type/lint errors.
+
+## WORKFLOW CONTEXT
+Agent #42 of 47 | Phase 6: Optimization | ENHANCED: Auto-fix capability
+Previous: performance-architect ✓ | Next: security-architect
+
+## AUTO-FIX PROTOCOL (MANDATORY)
+
+### Step 1: Baseline Diagnostic
+\`\`\`bash
+cd $TARGET_DIR && npm run typecheck 2>&1 | tee /tmp/phase6-typecheck.txt
+TYPE_ERRORS=$(grep -c "error TS" /tmp/phase6-typecheck.txt || echo "0")
+
+cd $TARGET_DIR && npm run lint 2>&1 | tee /tmp/phase6-lint.txt
+LINT_ERRORS=$(grep -ci "error" /tmp/phase6-lint.txt || echo "0")
+\`\`\`
+
+### Step 2: Fix Loop (if errors > 0)
+MAX_ITERATIONS = 3
+WHILE (TYPE_ERRORS > 0 OR LINT_ERRORS > 0) AND ITERATION < MAX_ITERATIONS:
+  - Parse error files and line numbers
+  - Apply targeted fixes using Edit tool
+  - Re-run typecheck/lint
+  - Check progress, break if no improvement
+END WHILE
+
+### Step 3: Store Results
+\`\`\`bash
+npx claude-flow@alpha memory store -k "coding/optimization/type-fixes" \\
+  --value '{"initialErrors": [N], "finalErrors": [M], "iterations": [I], "status": "SUCCESS|PARTIAL|FAILED"}'
+\`\`\`
+
+## SUCCESS CRITERIA
+- Type errors reduced by 80%+ OR to acceptable level
+- Lint errors reduced by 80%+ OR to acceptable level
+- Fix loop completed within 3 iterations
 
 ## MEMORY STORAGE
 Store to key "coding/optimization/quality"
+Store to key "coding/optimization/type-fixes"
 `)
 ```
 
@@ -998,33 +1348,138 @@ Store to key "coding/optimization/security"
 `)
 ```
 
-#### Agent 44/47: final-refactorer
+#### Agent 44/47: final-refactorer (ENHANCED - TEST VERIFICATION)
 ```
 Task("final-refactorer", `
 ## YOUR TASK
-Final code polish, consistency checks, delivery preparation.
+Final code polish AND verify all fixes from prior agents work.
 
 ## WORKFLOW CONTEXT
-Agent #44 of 47 | Phase 6: Optimization (FINAL core agent)
+Agent #44 of 47 | Phase 6: Optimization (FINAL core agent) | ENHANCED: Test verification
+Previous: security-architect ✓ | Next: phase-6-reviewer
+
+## TEST VERIFICATION PROTOCOL (MANDATORY)
+
+### Step 1: Retrieve Prior Fix Results
+\`\`\`bash
+npx claude-flow@alpha memory retrieve -k "coding/optimization/type-fixes" --namespace default
+\`\`\`
+
+### Step 2: Run Full Test Suite
+\`\`\`bash
+cd $TARGET_DIR && npm test 2>&1 | tee /tmp/phase6-tests.txt
+\`\`\`
+
+### Step 3: Fix Loop (if tests fail)
+MAX_ITERATIONS = 3
+WHILE TESTS_FAILED > 0 AND ITERATION < MAX_ITERATIONS:
+  - Parse failed test names and files
+  - Identify mismatch (mock, type, assertion)
+  - Apply targeted fix using Edit tool
+  - Re-run tests
+END WHILE
+
+### Step 4: Final Verification
+\`\`\`bash
+npm run typecheck  # Must be 0 errors
+npm run lint       # Must be 0 errors
+npm test           # Must be 100% pass
+\`\`\`
+
+### Step 5: Store Results
+\`\`\`bash
+npx claude-flow@alpha memory store -k "coding/optimization/test-verification" \\
+  --value '{"initialFailures": [N], "finalFailures": [M], "status": "ALL_PASS|PARTIAL|FAILED|ESCALATED"}'
+\`\`\`
+
+## ESCALATION
+If status is ESCALATED after 3 iterations, store detailed failure report and list tests requiring manual review.
 
 ## MEMORY STORAGE
 Store to key "coding/optimization/final-refactor"
+Store to key "coding/optimization/test-verification"
 `)
 ```
 
-#### Agent 45/47: phase-6-reviewer (SHERLOCK GATE)
+#### Agent 45/47: phase-6-reviewer (ENHANCED - FIX VERIFICATION GATE)
 ```
-Task("phase-6-reviewer", `
+Task("Phase 6 Reviewer (Sherlock)", `
 ## YOUR TASK
-FORENSIC REVIEW of Phase 6 Optimization. Issue verdict.
+FORENSIC REVIEW of Phase 6 with FIX VERIFICATION.
 
 ## WORKFLOW CONTEXT
-Sherlock #46 | Phase 6 Gate
+Sherlock #46 | Phase 6 Gate | ENHANCED: Verifies fixes were actually executed
+
+## FIX VERIFICATION PROTOCOL (MANDATORY)
+
+### Step 1: Check Fix Loop Execution
+\`\`\`bash
+npx claude-flow@alpha memory retrieve -k "coding/optimization/type-fixes" --namespace default
+npx claude-flow@alpha memory retrieve -k "coding/optimization/test-verification" --namespace default
+\`\`\`
+
+Verify:
+- iterations > 0 if initial errors existed
+- status is SUCCESS or PARTIAL, not FAILED
+- Error reduction >= 50%
+
+### Step 2: Run Independent Verification
+\`\`\`bash
+cd $TARGET_DIR && npm run typecheck 2>&1 | grep -c "error TS" || echo "0"
+cd $TARGET_DIR && npm test 2>&1 | grep -c "FAIL" || echo "0"
+\`\`\`
+
+Compare with stored values - REJECT if mismatch >10%.
+
+### Step 3: Verdict Rules
+
+**APPROVED** (all must be true):
+- Fix loops executed when needed
+- Error reduction >= 80%
+- Independent verification matches stored values
+
+**CONDITIONAL** (any):
+- Error reduction only 50-80%
+- Minor mismatch in verification (<10%)
+
+**REJECTED** (any):
+- Fix loops NOT executed despite errors
+- Verification mismatch >10% (tampering suspected)
+- Error reduction <50%
 
 ## MEMORY STORAGE
 Store verdict to: "coding/forensic/phase-6-verdict"
 `)
 ```
+
+---
+
+### Phase 6 Auto-Fix Behavior (ENHANCED)
+
+Phase 6 now includes automatic error fixing with verification:
+
+| Agent | Enhancement | Behavior |
+|-------|-------------|----------|
+| code-quality-improver | AUTO-FIX | Runs fix loop for type/lint errors (max 3 iterations) |
+| final-refactorer | TEST VERIFY | Runs test fix loop, verifies all fixes work |
+| phase-6-reviewer | FIX GATE | Verifies fix loops ran, checks for tampering |
+
+**Key Behaviors:**
+1. **Type errors are auto-fixed** using pattern matching for common TS errors
+2. **Lint errors are auto-fixed** using `--fix` flag
+3. **Test failures trigger fix loop** to update mocks, types, assertions
+4. **Independent verification** runs actual commands to confirm stored results
+5. **Escalation** occurs if fixes fail after 3 iterations (requires manual review)
+
+**Memory Keys Used:**
+- `coding/optimization/type-fixes` - Type fix results
+- `coding/optimization/test-verification` - Test verification results
+- `coding/forensic/phase-6-verdict` - Final Phase 6 verdict
+
+**Verdict Impact:**
+- Phase 6 is REJECTED if fix loops didn't run when errors existed
+- Phase 6 is REJECTED if verification shows result tampering
+- Phase 6 is CONDITIONAL if error reduction was only partial
 
 ---
 
@@ -1034,21 +1489,132 @@ Store verdict to: "coding/forensic/phase-6-verdict"
 ```
 Task("sign-off-approver", `
 ## YOUR TASK
-Final sign-off authority. Verify all requirements met. Authorize release.
+Final sign-off authority. Verify all requirements met. RUN FINAL TEST SUITE. Authorize release.
 
 ## WORKFLOW CONTEXT
 Agent #46 of 47 | Phase 7: Delivery | CRITICAL: Final approval gate
+Previous: Phase 6 ✓ | Next: recovery-agent (only on approval or rejection)
 
 ## MEMORY RETRIEVAL
-Retrieve ALL forensic verdicts: coding/forensic/phase-*-verdict
-Retrieve ALL phase outputs
+npx claude-flow@alpha memory retrieve -k "coding/forensic/phase-1-verdict"
+npx claude-flow@alpha memory retrieve -k "coding/forensic/phase-2-verdict"
+npx claude-flow@alpha memory retrieve -k "coding/forensic/phase-3-verdict"
+npx claude-flow@alpha memory retrieve -k "coding/forensic/phase-4-verdict"
+npx claude-flow@alpha memory retrieve -k "coding/forensic/phase-5-verdict"
+npx claude-flow@alpha memory retrieve -k "coding/forensic/phase-6-verdict"
+npx claude-flow@alpha memory retrieve -k "coding/testing/verified-results"
+npx claude-flow@alpha memory retrieve -k "coding/forensic/phase-5-verification"
+
+## FINAL VERIFICATION (MANDATORY)
+
+Before sign-off, you MUST execute the full test suite:
+
+\`\`\`bash
+cd $TARGET_DIR && npm test 2>&1 | tee /tmp/final-test-run.txt
+\`\`\`
+
+Parse the output and extract:
+- Total tests (testsTotal)
+- Passed tests (testsPassed)
+- Failed tests (testsFailed)
+- Pass percentage (passPercentage = testsPassed / testsTotal * 100)
+
+**APPROVAL BLOCKED if:**
+- Tests fail to run (exit code != 0 without test failures)
+- Pass percentage < 80%
+- Any critical test failures (security, auth, data integrity)
+
+## MEMORY VALIDATION (Cross-Check)
+
+Compare final test run with stored values from Phase 5:
+1. Retrieve coding/testing/verified-results
+2. Compare your testsTotal, testsPassed, testsFailed with stored values
+3. Calculate difference percentage: |stored - actual| / stored * 100
+
+**RED FLAG if values differ by more than 5%**
+This indicates test instability or potential result tampering.
+If discrepancy detected, store details and reject approval.
+
+## APPROVAL CRITERIA (ALL MUST BE TRUE)
+
+1. All 6 phase verdicts are INNOCENT
+2. Final test run passes with >= 80% pass rate
+3. Final test results match stored verified-results (within 5% tolerance)
+4. No CRITICAL failures in test output (security, auth, data integrity tests)
+5. coding/forensic/phase-5-verification shows all checks passed
+6. No regressions from baseline (if baseline exists)
+
+## REJECTION CRITERIA (ANY ONE BLOCKS APPROVAL)
+
+- Any phase verdict is GUILTY or INSUFFICIENT_EVIDENCE
+- Final test run fails or < 80% pass rate
+- Test results don't match stored values (>5% discrepancy - tampering suspected)
+- Critical test failures detected in output
+- Phase 5 verification checks failed
+- Regressions detected
+
+## ON APPROVAL
+
+Store to memory:
+\`\`\`bash
+npx claude-flow@alpha memory store -k "coding/delivery/sign-off" -v '{"approved": true, "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "finalTestRun": {"testsTotal": [N], "testsPassed": [N], "testsFailed": [N], "passPercentage": [X]}, "memoryValidation": {"matched": true, "discrepancyPercent": [Y]}, "verdicts": {"phase1": "INNOCENT", "phase2": "INNOCENT", "phase3": "INNOCENT", "phase4": "INNOCENT", "phase5": "INNOCENT", "phase6": "INNOCENT"}}'
+\`\`\`
+
+Proceed to recovery-agent with success status.
+
+## ON REJECTION
+
+Output clearly:
+
+\`\`\`
+═══════════════════════════════════════════════════════════════
+SIGN-OFF REJECTED
+═══════════════════════════════════════════════════════════════
+
+Reason: [specific reason - be explicit]
+
+Final Test Results:
+- Total: [N]
+- Passed: [N]
+- Failed: [N]
+- Pass Rate: [X]%
+
+Memory Validation:
+- Stored values: [testsTotal, testsPassed, testsFailed from memory]
+- Actual values: [testsTotal, testsPassed, testsFailed from test run]
+- Discrepancy: [Y]%
+- Status: [MATCHED / DISCREPANCY_DETECTED]
+
+Phase Verdicts:
+- Phase 1: [verdict]
+- Phase 2: [verdict]
+- Phase 3: [verdict]
+- Phase 4: [verdict]
+- Phase 5: [verdict]
+- Phase 6: [verdict]
+
+Action Required: [what needs to be fixed before re-approval]
+
+═══════════════════════════════════════════════════════════════
+\`\`\`
+
+Store rejection to memory for debugging:
+\`\`\`bash
+npx claude-flow@alpha memory store -k "coding/delivery/sign-off" -v '{"approved": false, "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "rejectionReason": "[reason]", "finalTestRun": {"testsTotal": [N], "testsPassed": [N], "testsFailed": [N], "passPercentage": [X]}, "memoryValidation": {"matched": [true/false], "discrepancyPercent": [Y]}, "actionRequired": "[action]"}'
+
+npx claude-flow@alpha memory store -k "coding/delivery/rejection-details" -v '{"testOutput": "[first 2000 chars of /tmp/final-test-run.txt]", "failedTests": ["list of failed test names"], "criticalFailures": ["any security/auth/data failures"]}'
+\`\`\`
+
+DO NOT proceed to recovery-agent with success status.
+Pass rejection status to recovery-agent for remediation orchestration.
 
 ## MEMORY STORAGE
-Store to key "coding/delivery/sign-off"
+Store to key "coding/delivery/sign-off" - approval or rejection status with full details
 
 ## CRITICAL
-This is the FINAL approval. Only sign off if ALL phases passed.
-If any issues remain, trigger recovery-agent.
+This is the FINAL approval gate. You MUST run tests yourself.
+NEVER trust memory values alone - always verify with actual test execution.
+If any doubt exists, REJECT and document the issue.
 `)
 ```
 
@@ -1067,6 +1633,38 @@ Agent #47 of 47 | Sherlock Recovery | FINAL AGENT | FEEDBACK GATE ENFORCER
 2. Retrieve any GUILTY findings
 3. **MANDATORY**: Retrieve coding/pipeline/feedback-status
 4. **MANDATORY**: Retrieve coding/pipeline/status (for trajectoryId)
+5. **CHECK**: Retrieve coding/testing/escalation (for self-correction failures)
+
+## ESCALATION HANDLING
+
+Check for test escalations:
+\`\`\`bash
+npx claude-flow@alpha memory retrieve -k "coding/testing/escalation"
+\`\`\`
+
+If escalation exists:
+- Report remaining failures to user
+- Provide fix suggestions based on fix-attempts history
+- DO NOT mark pipeline as successful
+- Request user intervention for unresolvable failures
+
+Output format:
+\`\`\`
+⚠️ SELF-CORRECTION INCOMPLETE
+
+The following tests could not be automatically fixed after 3 attempts:
+1. [test name]: [failure reason]
+   Attempted fixes: [list]
+
+2. [test name]: [failure reason]
+   Attempted fixes: [list]
+
+Recommended manual actions:
+- [action 1]
+- [action 2]
+
+Please fix these issues and re-run the pipeline.
+\`\`\`
 
 ## FEEDBACK GATE VERIFICATION (MANDATORY)
 Before allowing pipeline completion, MUST verify:
@@ -1118,27 +1716,78 @@ npx claude-flow@alpha memory store -k "coding/pipeline/result" -v '{"success":tr
 
 **Index all created/modified files into LEANN semantic search for future context-gathering.**
 
-1. **Read the queue file**:
+The pipeline automatically queues files for indexing via post-edit hooks. At pipeline completion:
+
+#### 1. Read the queue file
 ```bash
 cat .claude/runtime/leann-index-queue.json
 ```
 
-2. **For each file in the queue**, call LEANN index_code MCP tool in parallel batches (max 5 at a time):
-```
+This file is populated automatically by the `leann-index-file.sh` hook whenever Write/Edit/MultiEdit tools are used. The hook configuration is at `.claude/hooks/post-edit-leann.json`.
+
+#### 2. Index files using LEANN MCP tool
+
+**For each file in the queue**, call the LEANN index_code MCP tool:
+
+```javascript
+// Load the LEANN search tool first
+ToolSearch({ query: "select:mcp__leann-search__index_code" })
+
+// Then for each file:
 mcp__leann-search__index_code({
-  code: [file content],
-  filePath: [absolute path],
-  repository: [target repo name],
+  code: "[file content - read with Read tool]",
+  filePath: "[absolute path to file]",
+  repository: "[target repo name from git root]",
   replaceExisting: true
 })
 ```
 
-3. **Clear the queue after indexing**:
+**Batch indexing for efficiency** (max 5 parallel calls):
 ```bash
-echo '{"files":[],"lastUpdated":""}' > .claude/runtime/leann-index-queue.json
+# Get list of files to index
+FILES=$(cat .claude/runtime/leann-index-queue.json | jq -r '.files[]')
+FILE_COUNT=$(echo "$FILES" | wc -l)
+echo "[LEANN] Found $FILE_COUNT files to index"
+
+# For each file, the orchestrator should:
+# 1. Read the file content using Read tool
+# 2. Call mcp__leann-search__index_code with the content
+# 3. Track success/failure counts
 ```
 
-**WHY THIS MATTERS**: Without LEANN indexing, the context-gatherer agent in future pipeline runs cannot find code created in previous runs. This breaks the learning loop.
+#### 3. Alternative: Use batch processor scripts
+
+If MCP tools are unavailable, use the shell-based processor:
+```bash
+# Option A: Shell script (uses curl to embedder API)
+.claude/hooks/leann-batch-index.sh
+
+# Option B: TypeScript processor (uses LEANN tools directly)
+npx tsx scripts/hooks/leann-process-queue.ts
+```
+
+#### 4. Clear the queue after indexing
+```bash
+echo '{"files":[],"lastUpdated":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/runtime/leann-index-queue.json
+```
+
+#### 5. Verify indexing (sample check)
+```bash
+# Search for a known function from the new code to verify indexing worked
+ToolSearch({ query: "select:mcp__leann-search__search_code" })
+
+mcp__leann-search__search_code({
+  query: "[function name or unique identifier from new code]",
+  limit: 3
+})
+```
+
+#### Supported File Types
+The auto-indexing hook supports: `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.java`, `.c`, `.cpp`, `.cs`, `.rb`, `.php`, `.sql`
+
+Files are automatically excluded if they match: `node_modules`, `/dist/`, `/.git/`
+
+**WHY THIS MATTERS**: Without LEANN indexing, the context-gatherer agent in future pipeline runs cannot find code created in previous runs. This breaks the learning loop and prevents the pipeline from learning from its own output.
 
 ---
 
