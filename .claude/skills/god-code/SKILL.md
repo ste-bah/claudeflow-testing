@@ -34,6 +34,201 @@ else:
 
 ---
 
+## Phase -1: Enforcement Initialization (AUTOMATIC)
+
+**This phase runs automatically via hooks. You do NOT need to call it manually.**
+
+When `/god-code` is invoked, the enforcement hook automatically:
+1. Activates pipeline mode in ClaudeFlow memory
+2. Blocks Write/Edit/MultiEdit until sufficient agents have been spawned (minimum 7)
+3. Tracks agent count as Task() calls are made
+4. Validates that the pipeline structure is being followed
+
+### Enforcement State
+
+**Memory Key**: `enforcement/pipeline/active`
+
+**Runtime File**: `.claude/runtime/.god-code-active` (contains agent spawn count)
+
+**Enforcement Script**: `.claude/hooks/god-code-enforcement-v2.sh`
+
+### Hook Triggers
+
+| Hook Type | Tool Matcher | Action |
+|-----------|--------------|--------|
+| PreToolUse | Skill (god-code) | `activate_pipeline` - Initializes enforcement |
+| PostToolUse | Task | `increment_agent_count` - Tracks agent spawns |
+| PreToolUse | Write/Edit/MultiEdit | `check_write_permission` - Blocks until Phase 4 |
+
+### Manual Override (Emergency Only)
+
+If enforcement needs to be deactivated (e.g., for debugging), use:
+
+```bash
+source .claude/hooks/god-code-enforcement-v2.sh
+deactivate_pipeline  # Removes enforcement and clears state
+```
+
+**Warning**: This bypasses pipeline protection. Only use if you understand the consequences.
+
+### Check Status
+
+To verify enforcement state:
+
+```bash
+source .claude/hooks/god-code-enforcement-v2.sh
+check_pipeline_status  # Shows current enforcement state
+```
+
+Or manually check:
+
+```bash
+# Check if pipeline is active
+cat .claude/runtime/.god-code-active 2>/dev/null && echo " agents spawned" || echo "Pipeline not active"
+
+# Check memory state
+npx claude-flow@alpha memory retrieve -k "enforcement/pipeline/active" --namespace default
+```
+
+### Why Enforcement Exists
+
+The enforcement mechanism prevents a common failure mode where the orchestrator attempts to implement code directly instead of spawning the 47-agent pipeline. This ensures:
+
+- **Quality**: All code goes through forensic review (Sherlock gates)
+- **Consistency**: Standard pipeline phases are always executed
+- **Traceability**: All work is logged and can be audited
+- **Learning**: Feedback loop captures outcomes for model improvement
+
+---
+
+## Phase -0.5: Checkpoint/Resume (Compaction Survival)
+
+**This phase handles pipeline continuity across context compactions.**
+
+The 47-agent pipeline can take significant time, and context compaction may occur mid-execution. The checkpoint system ensures the pipeline can resume from where it left off.
+
+### Checkpoint Architecture
+
+**Checkpoint File**: `.god-agent/pipeline-checkpoint.json`
+
+**Memory Backup**: `enforcement/checkpoint/current` (redundancy)
+
+### Checkpoint Schema
+
+```json
+{
+  "version": "1.0.0",
+  "pipelineId": "uuid",
+  "taskFile": "path/to/TASK-XXX.md",
+  "targetDir": "/output/path",
+  "startedAt": "ISO timestamp",
+  "lastCheckpoint": "ISO timestamp",
+  "status": "running|paused|completed|failed",
+  "currentPhase": 1-7,
+  "currentAgent": 1-47,
+  "lastAgentName": "agent-name",
+  "completedAgents": ["task-analyzer", "requirement-extractor", ...],
+  "pendingAgents": ["requirement-prioritizer", ...],
+  "phaseVerdicts": {
+    "phase1": "INNOCENT|GUILTY|PENDING",
+    "phase2": "PENDING",
+    ...
+  },
+  "memoryKeys": ["coding/understanding/task-analysis", ...],
+  "batchMode": {
+    "enabled": true|false,
+    "taskList": ["TASK-001.md", ...],
+    "currentIndex": 0,
+    "completedTasks": []
+  }
+}
+```
+
+### Automatic Checkpointing
+
+Checkpoints are created automatically after each agent completes via the `increment_agent_count` hook. No manual intervention required.
+
+### Resume Protocol (After Compaction)
+
+**When context is restored after compaction:**
+
+1. **Check for existing checkpoint:**
+   ```bash
+   source .claude/hooks/god-code-enforcement-v2.sh
+   resume_from_checkpoint
+   ```
+
+2. **If checkpoint found**, the command outputs:
+   - Pipeline progress summary
+   - Next agent to spawn
+   - Memory keys to retrieve
+   - Resume instructions
+
+3. **Resume execution** by spawning the next pending agent with appropriate context.
+
+### Checkpoint Commands
+
+| Command | Description |
+|---------|-------------|
+| `resume` | Check for and display resume instructions |
+| `checkpoint <agent> <phase> [verdict]` | Manually create checkpoint |
+| `verify-checkpoint` | Verify checkpoint file integrity |
+| `complete-checkpoint [verdict]` | Mark pipeline as completed |
+| `clear-checkpoint` | Clear checkpoint to start fresh |
+
+**Example usage:**
+```bash
+# Check for existing checkpoint and get resume instructions
+.claude/hooks/god-code-enforcement-v2.sh resume
+
+# Verify checkpoint integrity
+.claude/hooks/god-code-enforcement-v2.sh verify-checkpoint
+
+# Clear checkpoint to start fresh
+.claude/hooks/god-code-enforcement-v2.sh clear-checkpoint
+```
+
+### Post-Compaction Orchestrator Protocol
+
+**After context compaction, the orchestrator MUST:**
+
+1. State: "Context was restored. Checking for pipeline checkpoint..."
+
+2. Run: `source .claude/hooks/god-code-enforcement-v2.sh && resume_from_checkpoint`
+
+3. If checkpoint found with status "running":
+   - Ask user: "Found pipeline checkpoint at agent #N. Resume or start fresh?"
+   - Wait for explicit confirmation before proceeding
+
+4. If no checkpoint or user chooses fresh start:
+   - Run `clear_checkpoint` if needed
+   - Proceed with new `/god-code` invocation
+
+### Dual Storage Redundancy
+
+Checkpoints are stored in two locations for reliability:
+
+1. **File**: `.god-agent/pipeline-checkpoint.json`
+   - Fast local access
+   - Survives process restarts
+
+2. **Memory**: `enforcement/checkpoint/current` in ClaudeFlow
+   - Survives file system issues
+   - Accessible across sessions
+
+If the file is missing, the resume function automatically restores from memory backup.
+
+### Integration with Batch Mode
+
+When running in batch mode (`-batch`), the checkpoint includes:
+- Current batch task list
+- Completed tasks
+- Current task index
+
+This allows batch execution to resume from the exact task that was interrupted.
+
+---
+
 ## Phase 0: Batch Mode Detection
 
 **Check if `-batch` flag is present in arguments.**

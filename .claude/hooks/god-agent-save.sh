@@ -130,7 +130,7 @@ if [ -f "$QUEUE_FILE" ]; then
                         FAILED=$((FAILED + 1))
                     fi
                 fi
-            done < <(cat "$QUEUE_FILE" | jq -c '.' 2>/dev/null || cat "$QUEUE_FILE")
+            done < <(jq -c '.[]' "$QUEUE_FILE" 2>/dev/null)
 
             echo "[God Agent] Retry complete: $PROCESSED processed, $FAILED failed"
 
