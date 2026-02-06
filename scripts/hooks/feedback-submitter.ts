@@ -17,6 +17,11 @@ import type { ITaskSummary, IHookConfig, IHookLogger, IFeedbackQueueEntry, ILear
 import { createHookLogger } from './hook-logger.js';
 // Implements [REQ-QUAL-001]: Import universal quality estimator (RULE-034)
 import { assessQuality, type QualityInteraction } from '../../src/god-agent/universal/quality-estimator.js';
+// FIX: Import CodingQualityCalculator for proper code-specific quality assessment
+import {
+  CodingQualityCalculator,
+  createCodingQualityContext,
+} from '../../src/god-agent/cli/coding-quality-calculator.js';
 import type { IPostToolUseContext } from '../../src/god-agent/core/hooks/types.js';
 import type { AgentMode } from '../../src/god-agent/universal/universal-agent.js';
 
@@ -36,6 +41,7 @@ export class FeedbackSubmitter {
   private readonly config: IHookConfig;
   private readonly logger: IHookLogger;
   private readonly storageDir: string;
+  private readonly codingCalculator: CodingQualityCalculator;
 
   /**
    * Create a FeedbackSubmitter instance
@@ -54,6 +60,7 @@ export class FeedbackSubmitter {
     this.config = config;
     this.logger = createHookLogger('post-task', config.verbose);
     this.storageDir = storageDir;
+    this.codingCalculator = new CodingQualityCalculator();
   }
 
   /**
@@ -113,7 +120,9 @@ export class FeedbackSubmitter {
   /**
    * Estimate quality score from task summary and output
    *
-   * Implements: REQ-HKS-008, [REQ-QUAL-003]: Delegate to universal assessQuality (RULE-033, RULE-034)
+   * Implements: REQ-HKS-008, [REQ-QUAL-003]: Mode-aware quality assessment
+   * - Uses CodingQualityCalculator for 'code' mode (proper 5-factor scoring)
+   * - Falls back to generic assessQuality for other modes
    *
    * @param summary - Parsed task summary (may be null)
    * @param output - Raw task output
@@ -121,7 +130,6 @@ export class FeedbackSubmitter {
    * @returns Quality score 0-1
    */
   estimateQuality(summary: ITaskSummary | null, output: string, context?: IPostToolUseContext): number {
-    // Implements [REQ-QUAL-003]: Delegate to universal assessQuality (RULE-033, RULE-034)
     try {
       // If explicit quality provided in summary, trust it
       if (summary?.reasoningBankFeedback?.quality !== undefined) {
@@ -132,7 +140,30 @@ export class FeedbackSubmitter {
         }
       }
 
-      // Build QualityInteraction and delegate to universal estimator
+      // Detect mode
+      const mode = context ? this.detectMode(context) : 'general';
+
+      // FIX: Use CodingQualityCalculator for code mode (proper 5-factor scoring)
+      if (mode === 'code') {
+        const agentKey = (context?.metadata?.agentType as string) ||
+                         (context?.metadata?.agentKey as string) || '';
+        const phase = this.extractPhase(agentKey);
+
+        const codingContext = createCodingQualityContext(agentKey, phase);
+        const assessment = this.codingCalculator.assessQuality(output, codingContext);
+
+        this.logger.info('Quality assessed via CodingQualityCalculator', {
+          quality: assessment.score,
+          tier: assessment.tier,
+          agentKey,
+          phase,
+          meetsPatternThreshold: assessment.meetsPatternThreshold
+        });
+
+        return assessment.score;
+      }
+
+      // Fallback to generic for non-code modes (research, write, general)
       const defaultContext: IPostToolUseContext = {
         timestamp: Date.now(),
         toolName: 'Task',
@@ -147,18 +178,15 @@ export class FeedbackSubmitter {
         context || defaultContext
       );
 
-      // Use universal assessQuality with RULE-035 compliant threshold (0.5)
       const assessment = assessQuality(interaction, 0.5);
-
-      this.logger.info('Quality assessed via universal estimator', {
+      this.logger.info('Quality assessed via generic estimator', {
         quality: assessment.score,
-        factors: assessment.factors,
-        meetsThreshold: assessment.meetsThreshold
+        mode: mode,
+        factors: assessment.factors
       });
 
       return assessment.score;
     } catch (error) {
-      // Implements RULE-069, RULE-070: Log errors with context
       this.logger.error('Quality assessment failed, returning default 0.5', {
         error: (error as Error).message,
         summaryPresent: summary !== null,
@@ -166,6 +194,37 @@ export class FeedbackSubmitter {
       });
       return 0.5;
     }
+  }
+
+  /**
+   * Extract phase number from agent key for the 47-agent coding pipeline
+   */
+  private extractPhase(agentKey: string): number {
+    // Phase 1: Understanding
+    if (['task-analyzer', 'requirement-extractor', 'requirement-prioritizer',
+         'scope-definer', 'context-gatherer', 'phase-1-reviewer'].includes(agentKey)) return 1;
+    // Phase 2: Exploration
+    if (['codebase-analyzer', 'pattern-explorer', 'technology-scout',
+         'feasibility-analyzer', 'phase-2-reviewer'].includes(agentKey)) return 2;
+    // Phase 3: Architecture
+    if (['system-designer', 'component-designer', 'interface-designer',
+         'data-architect', 'security-architect', 'integration-architect',
+         'performance-architect', 'phase-3-reviewer'].includes(agentKey)) return 3;
+    // Phase 4: Implementation (default for unknown coding agents)
+    if (['code-generator', 'type-implementer', 'api-implementer',
+         'frontend-implementer', 'data-layer-implementer', 'service-implementer',
+         'unit-implementer', 'error-handler-implementer', 'config-implementer',
+         'logger-implementer', 'dependency-manager', 'phase-4-reviewer'].includes(agentKey)) return 4;
+    // Phase 5: Testing
+    if (['test-generator', 'test-runner', 'integration-tester', 'security-tester',
+         'coverage-analyzer', 'regression-tester', 'phase-5-reviewer'].includes(agentKey)) return 5;
+    // Phase 6: Optimization
+    if (['code-quality-improver', 'performance-optimizer', 'final-refactorer',
+         'phase-6-reviewer'].includes(agentKey)) return 6;
+    // Phase 7: Delivery
+    if (['implementation-coordinator', 'sign-off-approver', 'recovery-agent'].includes(agentKey)) return 7;
+
+    return 4; // Default to implementation phase
   }
 
   /**
