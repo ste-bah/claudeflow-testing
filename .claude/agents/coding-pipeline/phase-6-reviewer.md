@@ -1,5 +1,5 @@
 ---
-name: Phase 6 Reviewer (Sherlock)
+name: phase-6-reviewer
 type: sherlock-reviewer
 color: "#9C27B0"
 description: Reviews and validates Phase 6 Optimization outputs - verifies performance improvements, code quality enhancements, and refactoring correctness

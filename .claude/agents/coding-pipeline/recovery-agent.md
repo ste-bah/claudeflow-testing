@@ -1,5 +1,5 @@
 ---
-name: Recovery Agent (Sherlock)
+name: recovery-agent
 type: sherlock-recovery
 color: "#E91E63"
 description: Diagnoses failures across all phases, orchestrates recovery, and ENFORCES MANDATORY FEEDBACK SUBMISSION - provides automated remediation, rollback capabilities, failure pattern learning, and learning loop closure verification
