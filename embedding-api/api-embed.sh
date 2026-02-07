@@ -1,15 +1,17 @@
 #!/bin/bash
 #===============================================================================
-# God Agent Embedding API Service Controller (1536D - gte-Qwen2-1.5B-instruct)
+# God Agent Embedding API Service Controller (1536D - Dual Backend)
 #
 # Manages ChromaDB and the Embedding API server for God Agent.
-# Uses the high-quality gte-Qwen2-1.5B-instruct model (1536 dimensions).
+# Supports both LOCAL (gte-Qwen2-1.5B-instruct) and OPENAI (text-embedding-ada-002).
 #
 # Usage: ./api-embed.sh {start|stop|status|restart|logs}
 #
-# Environment Variables (optional):
-#   PROJECT_DIR  - Base directory (default: script's parent's parent)
-#   VENV_DIR     - Python venv directory (default: $HOME/.venv)
+# Environment Variables:
+#   EMBEDDING_BACKEND  - "local" (default) or "openai"
+#   OPENAI_API_KEY     - Required if using openai backend
+#   PROJECT_DIR        - Base directory (default: script's parent's parent)
+#   VENV_DIR           - Python venv directory (default: $HOME/.venv)
 #===============================================================================
 
 set -e
@@ -18,6 +20,9 @@ set -e
 # Auto-detect project directory (parent of embedding-api)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+# Embedding backend (default: local)
+EMBEDDING_BACKEND="${EMBEDDING_BACKEND:-local}"
 
 # Virtual environment - check multiple locations
 if [ -n "$VENV_DIR" ] && [ -d "$VENV_DIR" ]; then
@@ -52,6 +57,7 @@ CHROMA_LOG="$LOG_DIR/chroma.log"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Ensure directories exist
@@ -59,6 +65,17 @@ mkdir -p "$PID_DIR" "$LOG_DIR" "$DB_DIR"
 
 start_services() {
     echo -e "${YELLOW}Starting God Agent Embedding Services (1536D)...${NC}"
+    echo -e "Backend: ${CYAN}${EMBEDDING_BACKEND}${NC}"
+
+    # Validate OpenAI backend requirements
+    if [ "$EMBEDDING_BACKEND" = "openai" ]; then
+        if [ -z "$OPENAI_API_KEY" ]; then
+            echo -e "${RED}Error: OPENAI_API_KEY not set but EMBEDDING_BACKEND=openai${NC}"
+            echo "Set it with: export OPENAI_API_KEY=sk-your-key-here"
+            exit 1
+        fi
+        echo -e "OpenAI API Key: ${GREEN}configured${NC}"
+    fi
 
     # 1. Start ChromaDB Server
     if [ -f "$CHROMA_PID" ] && kill -0 $(cat "$CHROMA_PID") 2>/dev/null; then
@@ -80,17 +97,27 @@ start_services() {
         done
     fi
 
-    # 2. Start API Server
+    # 2. Start API Server with backend environment
     if [ -f "$API_PID" ] && kill -0 $(cat "$API_PID") 2>/dev/null; then
         echo -e "${GREEN}Embedding API already running (PID: $(cat $API_PID))${NC}"
     else
-        echo "Starting Embedding API (gte-Qwen2-1.5B-instruct)..."
+        MODEL_NAME="gte-Qwen2-1.5B-instruct"
+        [ "$EMBEDDING_BACKEND" = "openai" ] && MODEL_NAME="text-embedding-ada-002"
+        echo "Starting Embedding API ($MODEL_NAME)..."
+
+        # Export environment variables for the Python process
+        export EMBEDDING_BACKEND
+        export OPENAI_API_KEY
+
         nohup "$VENV_BIN/python3" -u "$SCRIPT" > "$API_LOG" 2>&1 &
         echo $! > "$API_PID"
 
-        # Wait for API to be ready (model loading takes time)
-        echo -n "Waiting for Embedding API (loading model)..."
-        for i in {1..30}; do
+        # Wait time depends on backend (local needs model loading)
+        WAIT_TIME=30
+        [ "$EMBEDDING_BACKEND" = "openai" ] && WAIT_TIME=10
+
+        echo -n "Waiting for Embedding API..."
+        for i in $(seq 1 $WAIT_TIME); do
             if curl -s "http://127.0.0.1:8000/" > /dev/null 2>&1; then
                 echo -e " ${GREEN}Ready${NC}"
                 break
@@ -142,11 +169,14 @@ show_status() {
     if [ -f "$API_PID" ] && kill -0 $(cat "$API_PID") 2>/dev/null; then
         echo -e "Embedding API: ${GREEN}Running${NC} (PID: $(cat $API_PID), Port: 8000)"
 
-        # Try to get health info
+        # Try to get health info including backend
         INFO=$(curl -s "http://127.0.0.1:8000/" 2>/dev/null)
         if [ -n "$INFO" ]; then
+            BACKEND=$(echo "$INFO" | grep -o '"backend":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+            MODEL=$(echo "$INFO" | grep -o '"model":"[^"]*"' | cut -d'"' -f4 || echo "?")
             ITEMS=$(echo "$INFO" | grep -o '"database_items":[0-9]*' | cut -d: -f2 || echo "?")
-            echo "  Model: gte-Qwen2-1.5B-instruct (1536D)"
+            echo -e "  Backend: ${CYAN}$BACKEND${NC}"
+            echo "  Model: $MODEL"
             echo "  Vector Items: $ITEMS"
         fi
     else
@@ -156,11 +186,16 @@ show_status() {
     echo ""
     echo "Endpoints:"
     echo "  Embedding API: http://127.0.0.1:8000"
+    echo "  Backend Info:  http://127.0.0.1:8000/backend"
     echo "  ChromaDB:      http://127.0.0.1:8001"
     echo ""
     echo "Logs:"
     echo "  API:    $API_LOG"
     echo "  Chroma: $CHROMA_LOG"
+    echo ""
+    echo "Switch Backend:"
+    echo "  Local:  EMBEDDING_BACKEND=local ./api-embed.sh restart"
+    echo "  OpenAI: EMBEDDING_BACKEND=openai OPENAI_API_KEY=sk-... ./api-embed.sh restart"
 }
 
 show_logs() {
@@ -201,7 +236,14 @@ case "$1" in
         echo "  status  - Show service status"
         echo "  logs    - Show recent log output"
         echo ""
-        echo "Model: gte-Qwen2-1.5B-instruct (1536 dimensions)"
+        echo "Backends (1536 dimensions):"
+        echo "  local  - gte-Qwen2-1.5B-instruct (default, runs on GPU/CPU)"
+        echo "  openai - text-embedding-ada-002 (requires OPENAI_API_KEY)"
+        echo ""
+        echo "Examples:"
+        echo "  ./api-embed.sh start                                    # Use local model"
+        echo "  EMBEDDING_BACKEND=openai OPENAI_API_KEY=sk-... ./api-embed.sh start"
+        echo ""
         echo "Database: $DB_DIR"
         exit 1
         ;;
