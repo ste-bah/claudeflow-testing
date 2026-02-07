@@ -1911,78 +1911,63 @@ npx claude-flow@alpha memory store -k "coding/pipeline/result" -v '{"success":tr
 
 **Index all created/modified files into LEANN semantic search for future context-gathering.**
 
-The pipeline automatically queues files for indexing via post-edit hooks. At pipeline completion:
+The pipeline automatically queues files for indexing via post-edit hooks. At pipeline completion, run the TypeScript processor with semantic chunking:
 
-#### 1. Read the queue file
+#### Run the TypeScript Processor (PRIMARY METHOD)
+
 ```bash
-cat .claude/runtime/leann-index-queue.json
-```
-
-This file is populated automatically by the `leann-index-file.sh` hook whenever Write/Edit/MultiEdit tools are used. The hook configuration is at `.claude/hooks/post-edit-leann.json`.
-
-#### 2. Index files using LEANN MCP tool
-
-**For each file in the queue**, call the LEANN index_code MCP tool:
-
-```javascript
-// Load the LEANN search tool first
-ToolSearch({ query: "select:mcp__leann-search__index_code" })
-
-// Then for each file:
-mcp__leann-search__index_code({
-  code: "[file content - read with Read tool]",
-  filePath: "[absolute path to file]",
-  repository: "[target repo name from git root]",
-  replaceExisting: true
-})
-```
-
-**Batch indexing for efficiency** (max 5 parallel calls):
-```bash
-# Get list of files to index
-FILES=$(cat .claude/runtime/leann-index-queue.json | jq -r '.files[]')
-FILE_COUNT=$(echo "$FILES" | wc -l)
-echo "[LEANN] Found $FILE_COUNT files to index"
-
-# For each file, the orchestrator should:
-# 1. Read the file content using Read tool
-# 2. Call mcp__leann-search__index_code with the content
-# 3. Track success/failure counts
-```
-
-#### 3. Alternative: Use batch processor scripts
-
-If MCP tools are unavailable, use the shell-based processor:
-```bash
-# Option A: Shell script (uses curl to embedder API)
-.claude/hooks/leann-batch-index.sh
-
-# Option B: TypeScript processor (uses LEANN tools directly)
 npx tsx scripts/hooks/leann-process-queue.ts
 ```
 
-#### 4. Clear the queue after indexing
-```bash
-echo '{"files":[],"lastUpdated":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/runtime/leann-index-queue.json
+This processor:
+- Reads queued files from `.claude/runtime/leann-index-queue.json`
+- **Chunks large files** using `parseCodeIntoChunks` (semantic splitting by functions/classes/methods)
+- Indexes each chunk with metadata (symbolName, symbolType, startLine, endLine)
+- Includes rate limiting and health checks for embedder stability
+- Clears the queue on success
+
+**Example output:**
+```
+[LEANN] Processing 5 files in batches of 3
+[LEANN] Health check...
+[LEANN] large-file.ts: 42 chunks
+[LEANN] [1/5] OK: large-file.ts
+[LEANN] Complete: 67 chunks indexed, 0 failed from 5 files
+[LEANN] Queue cleared
 ```
 
-#### 5. Verify indexing (sample check)
+#### Verify indexing
 ```bash
-# Search for a known function from the new code to verify indexing worked
-ToolSearch({ query: "select:mcp__leann-search__search_code" })
+# Check vector count
+curl -s http://localhost:8000/ | jq '.database_items'
 
-mcp__leann-search__search_code({
-  query: "[function name or unique identifier from new code]",
-  limit: 3
-})
+# Search for a function from the new code
+curl -s -X POST 'http://localhost:8000/search' \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"[function name]","n_results":3}' | jq '.results[0].metadata'
+```
+
+#### Chunk Metadata Structure
+Each chunk includes traceability metadata:
+```json
+{
+  "filePath": "/path/to/file.ts",
+  "startLine": 42,
+  "endLine": 67,
+  "symbolType": "function",
+  "symbolName": "processData",
+  "chunkIndex": 3,
+  "totalChunks": 12,
+  "language": "typescript"
+}
 ```
 
 #### Supported File Types
-The auto-indexing hook supports: `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.java`, `.c`, `.cpp`, `.cs`, `.rb`, `.php`, `.sql`
+`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.java`, `.c`, `.cpp`, `.cs`, `.rb`, `.php`, `.sql`
 
 Files are automatically excluded if they match: `node_modules`, `/dist/`, `/.git/`
 
-**WHY THIS MATTERS**: Without LEANN indexing, the context-gatherer agent in future pipeline runs cannot find code created in previous runs. This breaks the learning loop and prevents the pipeline from learning from its own output.
+**WHY THIS MATTERS**: Large files (>20KB) are now chunked into semantic segments, enabling context-gatherer to find code in any file regardless of size. Without this, the learning loop breaks and the pipeline cannot learn from its own output.
 
 ---
 

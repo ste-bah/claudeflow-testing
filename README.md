@@ -24,6 +24,54 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 
+## What's New in v2.1.3
+
+### LEANN Semantic Chunking for Large Files
+
+Large files (>20KB) are now automatically chunked into semantic segments before indexing, enabling the context-gatherer agent to find code in any file regardless of size.
+
+| Feature | Description |
+|---------|-------------|
+| **Semantic Chunking** | Uses `parseCodeIntoChunks` to split code by functions, classes, methods |
+| **Chunk Metadata** | Each chunk includes `symbolName`, `symbolType`, `startLine`, `endLine` |
+| **TypeScript Processor** | New `scripts/hooks/leann-process-queue.ts` replaces shell-based indexing |
+| **Increased Limits** | `maxChunkSize: 4000` (from 2000), `maxFileSize: 512KB` |
+| **Rate Limiting** | Built-in health checks and pauses prevent embedder overload |
+
+#### How It Works
+
+```
+Pipeline creates/modifies files
+    ↓
+Post-edit hook queues files to leann-index-queue.json (automatic)
+    ↓
+Step Final.1: TypeScript processor runs
+    ↓
+Large files chunked by function/class/method
+    ↓
+Each chunk indexed with traceability metadata
+    ↓
+context-gatherer can find code from any file size
+```
+
+#### Chunk Metadata Example
+
+```json
+{
+  "filePath": "/path/to/file.ts",
+  "startLine": 42,
+  "endLine": 67,
+  "symbolType": "function",
+  "symbolName": "processData",
+  "chunkIndex": 3,
+  "totalChunks": 12,
+  "language": "typescript",
+  "contentHash": "1ab02786ad947dfe"
+}
+```
+
+---
+
 ## What's New in v2.1.2
 
 ### Phase 5 Self-Correction Loop

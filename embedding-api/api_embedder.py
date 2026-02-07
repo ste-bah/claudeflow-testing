@@ -107,7 +107,8 @@ async def search(request: SearchRequest):
         
         results = collection.query(
             query_embeddings=query_vector,
-            n_results=request.n_results
+            n_results=request.n_results,
+            include=["metadatas", "documents", "distances"]
         )
         
         return {"results": results}

@@ -76,7 +76,7 @@ export interface IndexRepositoryOutput {
 /**
  * Parsed code chunk from a file
  */
-interface CodeChunk {
+export interface CodeChunk {
   /** The code content */
   content: string;
   /** Starting line number (1-indexed) */
@@ -175,7 +175,7 @@ const DEFAULT_EXCLUDE_PATTERNS = [
 /**
  * Detect language from file extension
  */
-function detectLanguage(filePath: string): SupportedLanguage {
+export function detectLanguage(filePath: string): SupportedLanguage {
   const ext = path.extname(filePath).toLowerCase();
   return EXTENSION_TO_LANGUAGE[ext] || 'unknown';
 }
@@ -239,7 +239,7 @@ function computeContentHash(content: string): string {
 /**
  * Parse code into chunks based on language-specific patterns
  */
-function parseCodeIntoChunks(
+export function parseCodeIntoChunks(
   content: string,
   language: SupportedLanguage,
   maxChunkSize: number
@@ -334,7 +334,7 @@ function parseCodeIntoChunks(
 /**
  * Get language-specific parsing patterns
  */
-function getLanguagePatterns(
+export function getLanguagePatterns(
   language: SupportedLanguage
 ): Array<{ regex: RegExp; type: CodeSymbolType }> {
   const commonPatterns: Array<{ regex: RegExp; type: CodeSymbolType }> = [
