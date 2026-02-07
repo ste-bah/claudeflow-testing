@@ -1,8 +1,16 @@
-# God Agent Embedding API Dependencies (1536D - gte-Qwen2-1.5B-instruct)
+# God Agent Embedding API Dependencies (1536D - Dual Backend)
+# Supports: LOCAL (gte-Qwen2-1.5B-instruct) and OPENAI (text-embedding-ada-002)
+
+# Core API
 fastapi>=0.104.0
 uvicorn>=0.24.0
-sentence-transformers>=2.2.2
-chromadb>=0.4.0
 pydantic>=2.0.0
+chromadb>=0.4.0
+
+# Local embedding backend (default)
+sentence-transformers>=2.2.2
 transformers>=5.0.0rc1
 torch>=2.0.0
+
+# OpenAI embedding backend (optional)
+openai>=1.0.0

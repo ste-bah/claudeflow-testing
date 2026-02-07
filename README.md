@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.1.2 | **Status**: Production-Ready | **Last Updated**: February 2025
+**Version**: 2.1.4 | **Status**: Production-Ready | **Last Updated**: February 2025
 
 ## Table of Contents
 
@@ -23,6 +23,49 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.1.4
+
+### Dual Embedding Backend Support
+
+The embedder API now supports both local and OpenAI embedding backends, configurable via environment variable. Both produce 1536-dimensional vectors, maintaining full compatibility with existing ChromaDB collections.
+
+| Backend | Model | Pros | Cons |
+|---------|-------|------|------|
+| **local** (default) | gte-Qwen2-1.5B-instruct | Free, offline, privacy | Requires GPU/CPU resources |
+| **openai** | text-embedding-ada-002 | Fast, consistent, no local resources | Costs ~$0.0001/1K tokens, requires internet |
+
+#### Usage
+
+```bash
+# Use local model (default)
+export EMBEDDING_BACKEND=local
+python embedding-api/api_embedder.py
+
+# Use OpenAI
+export EMBEDDING_BACKEND=openai
+export OPENAI_API_KEY=sk-...
+python embedding-api/api_embedder.py
+```
+
+#### API Changes
+
+```bash
+# Check current backend
+curl http://localhost:8000/backend
+
+# Response includes backend info
+{
+  "backend": "openai",
+  "ready": true,
+  "dimensions": 1536,
+  "switch_command": "export EMBEDDING_BACKEND=openai"
+}
+```
+
+All downstream code (god-agent, LEANN, pipelines) works unchanged since they call the embedder API at `http://localhost:8000`.
+
+---
 
 ## What's New in v2.1.3
 
