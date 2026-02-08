@@ -27,7 +27,7 @@ export type CodingPipelinePhase =
 
 // ═════════════════════════════════════════════════════════════════════════
 // AGENT TYPES BY PHASE (Matches actual .claude/agents/coding-pipeline/*.md files)
-// REQ-PIPE-047: 47 agents total
+// REQ-PIPE-048: 48 agents total
 // ═════════════════════════════════════════════════════════════════════════
 /** Phase 1: Understanding - 6 agents */
 export type Phase1Agent =
@@ -68,7 +68,7 @@ export type Phase4Agent =
   | 'dependency-manager'       // #26
   | 'implementation-coordinator'; // #27
 
-/** Phase 5: Testing - 7 agents */
+/** Phase 5: Testing - 8 agents */
 export type Phase5Agent =
   | 'test-generator'          // #28
   | 'test-runner'             // #29
@@ -76,36 +76,37 @@ export type Phase5Agent =
   | 'regression-tester'       // #31
   | 'security-tester'         // #32
   | 'coverage-analyzer'       // #33
-  | 'quality-gate';           // #34
+  | 'quality-gate'            // #34
+  | 'test-fixer';             // #35 - Self-correction loop for test failures
 
 /** Phase 6: Optimization - 5 agents */
 export type Phase6Agent =
-  | 'performance-optimizer'   // #35
-  | 'performance-architect'   // #36
-  | 'code-quality-improver'   // #37
-  | 'security-architect'      // #38
-  | 'final-refactorer';       // #39
+  | 'performance-optimizer'   // #36
+  | 'performance-architect'   // #37
+  | 'code-quality-improver'   // #38
+  | 'security-architect'      // #39
+  | 'final-refactorer';       // #40
 
 /** Phase 7: Delivery - 1 core agent */
 export type Phase7Agent =
-  | 'sign-off-approver';      // #40 - CRITICAL: Must pass for pipeline completion
+  | 'sign-off-approver';      // #41 - CRITICAL: Must pass for pipeline completion
 
 // ═════════════════════════════════════════════════════════════════════════
-// SHERLOCK FORENSIC AGENTS (41-47)
+// SHERLOCK FORENSIC AGENTS (42-48)
 // ═════════════════════════════════════════════════════════════════════════
 /** Sherlock Forensic Review Agents - 7 agents (one per phase + recovery)
  * Verdicts: INNOCENT (passed), GUILTY (failed), INSUFFICIENT_EVIDENCE (needs more data)
  * All forensic reviewers are CRITICAL - they gate pipeline progression. */
 export type SherlockForensicAgent =
-  | 'phase-1-reviewer'    // #41 - CRITICAL: Phase 1 Understanding forensic review
-  | 'phase-2-reviewer'    // #42 - CRITICAL: Phase 2 Exploration forensic review
-  | 'phase-3-reviewer'    // #43 - CRITICAL: Phase 3 Architecture forensic review
-  | 'phase-4-reviewer'    // #44 - CRITICAL: Phase 4 Implementation forensic review
-  | 'phase-5-reviewer'    // #45 - CRITICAL: Phase 5 Testing forensic review
-  | 'phase-6-reviewer'    // #46 - CRITICAL: Phase 6 Optimization forensic review
-  | 'recovery-agent';     // #47 - CRITICAL: Phase 7 Forensic Review / Recovery orchestration
+  | 'phase-1-reviewer'    // #42 - CRITICAL: Phase 1 Understanding forensic review
+  | 'phase-2-reviewer'    // #43 - CRITICAL: Phase 2 Exploration forensic review
+  | 'phase-3-reviewer'    // #44 - CRITICAL: Phase 3 Architecture forensic review
+  | 'phase-4-reviewer'    // #45 - CRITICAL: Phase 4 Implementation forensic review
+  | 'phase-5-reviewer'    // #46 - CRITICAL: Phase 5 Testing forensic review
+  | 'phase-6-reviewer'    // #47 - CRITICAL: Phase 6 Optimization forensic review
+  | 'recovery-agent';     // #48 - CRITICAL: Phase 7 Forensic Review / Recovery orchestration
 
-/** Union type of all 47 coding pipeline agents (40 core + 7 Sherlock) */
+/** Union type of all 48 coding pipeline agents (41 core + 7 Sherlock) */
 export type CodingPipelineAgent =
   | Phase1Agent
   | Phase2Agent
@@ -243,6 +244,9 @@ export interface IPipelineExecutionConfig {
 
   /** End phase (for partial execution) */
   endPhase?: number;
+
+  /** Original user task text for embedding-backed trajectory creation */
+  taskText?: string;
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -342,43 +346,43 @@ export const SHERLOCK_AGENT_COUNT = 7;
 
 /**
  * Total number of agents in the pipeline
- * 40 core + 7 Sherlock = 47
+ * 41 core + 7 Sherlock = 48
  */
-export const TOTAL_AGENTS = 47;
+export const TOTAL_AGENTS = 48;
 
 /**
- * Sherlock Forensic Review agents (41-47)
+ * Sherlock Forensic Review agents (42-48)
  * All are CRITICAL - they gate pipeline phase progression
  */
 export const SHERLOCK_AGENTS: SherlockForensicAgent[] = [
-  'phase-1-reviewer',    // #41 - Understanding review
-  'phase-2-reviewer',    // #42 - Exploration review
-  'phase-3-reviewer',    // #43 - Architecture review
-  'phase-4-reviewer',    // #44 - Implementation review
-  'phase-5-reviewer',    // #45 - Testing review
-  'phase-6-reviewer',    // #46 - Optimization review
-  'recovery-agent',      // #47 - Phase 7 / Recovery
+  'phase-1-reviewer',    // #42 - Understanding review
+  'phase-2-reviewer',    // #43 - Exploration review
+  'phase-3-reviewer',    // #44 - Architecture review
+  'phase-4-reviewer',    // #45 - Implementation review
+  'phase-5-reviewer',    // #46 - Testing review
+  'phase-6-reviewer',    // #47 - Optimization review
+  'recovery-agent',      // #48 - Phase 7 / Recovery
 ];
 
 /**
  * Critical agents that halt pipeline on failure
  * Includes core critical agents AND all Sherlock forensic reviewers
- * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
+ * REQ-PIPE-048: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export const CRITICAL_AGENTS: CodingPipelineAgent[] = [
   // Core critical agents
   'task-analyzer',       // #1 - Phase 1: Pipeline entry point (CRITICAL in frontmatter)
   'interface-designer',  // #13 - Phase 3: API contract validation
   'quality-gate',        // #34 - Phase 5: L-Score validation gateway
-  'sign-off-approver',   // #40 - Phase 7: Final approval
+  'sign-off-approver',   // #41 - Phase 7: Final approval
   // Sherlock forensic reviewers (all critical - gate phase progression)
-  'phase-1-reviewer',    // #41 - Understanding forensic review
-  'phase-2-reviewer',    // #42 - Exploration forensic review
-  'phase-3-reviewer',    // #43 - Architecture forensic review
-  'phase-4-reviewer',    // #44 - Implementation forensic review
-  'phase-5-reviewer',    // #45 - Testing forensic review
-  'phase-6-reviewer',    // #46 - Optimization forensic review
-  'recovery-agent',      // #47 - Phase 7 forensic review / Recovery
+  'phase-1-reviewer',    // #42 - Understanding forensic review
+  'phase-2-reviewer',    // #43 - Exploration forensic review
+  'phase-3-reviewer',    // #44 - Architecture forensic review
+  'phase-4-reviewer',    // #45 - Implementation forensic review
+  'phase-5-reviewer',    // #46 - Testing forensic review
+  'phase-6-reviewer',    // #47 - Optimization forensic review
+  'recovery-agent',      // #48 - Phase 7 forensic review / Recovery
 ];
 
 /**

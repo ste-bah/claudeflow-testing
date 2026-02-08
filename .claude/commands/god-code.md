@@ -1,8 +1,8 @@
 ---
-description: Generate code using the 47-Agent Coding Pipeline with Sherlock forensic gates (ALWAYS uses full pipeline). Supports -batch mode for multiple tasks.
+description: Generate code using the 48-Agent Coding Pipeline with Sherlock forensic gates (ALWAYS uses full pipeline). Supports -batch mode for multiple tasks.
 ---
 
-Generate code using the **MANDATORY 47-Agent Coding Pipeline**. This command ALWAYS executes the full pipeline with all phases and Sherlock gates. There is NO single-agent bypass mode.
+Generate code using the **MANDATORY 48-Agent Coding Pipeline**. This command ALWAYS executes the full pipeline with all phases and Sherlock gates. There is NO single-agent bypass mode.
 
 **Arguments:** $ARGUMENTS
 
@@ -96,7 +96,7 @@ Generate code using the **MANDATORY 47-Agent Coding Pipeline**. This command ALW
      c. Store task as pipeline input:
         npx claude-flow@alpha memory store -k "coding/input/task" -v '"Implement: '$TASK_FILE' - '$TASK_CONTENT'"'
 
-     d. **EXECUTE FULL 47-AGENT PIPELINE** (Phase 1 through Phase 3.5 below)
+     d. **EXECUTE FULL 48-AGENT PIPELINE** (Phase 1 through Phase 3.5 below)
 
      e. On pipeline completion, update batch progress:
         - Add task to completed list
@@ -161,9 +161,9 @@ The CLI returns JSON with the selected agent and complete prompt:
 
 ---
 
-## Phase 2: Task Execution - MANDATORY 47-AGENT PIPELINE
+## Phase 2: Task Execution - MANDATORY 48-AGENT PIPELINE
 
-**CRITICAL RULE**: When `/god-code` is invoked, you MUST ALWAYS execute the full 47-agent pipeline below. There is NO single-agent mode. The `isPipeline` value from CLI is IGNORED - pipeline execution is MANDATORY.
+**CRITICAL RULE**: When `/god-code` is invoked, you MUST ALWAYS execute the full 48-agent pipeline below. There is NO single-agent mode. The `isPipeline` value from CLI is IGNORED - pipeline execution is MANDATORY.
 
 **DO NOT**:
 - Skip the pipeline based on `isPipeline: false`
@@ -172,14 +172,14 @@ The CLI returns JSON with the selected agent and complete prompt:
 - Override this behavior for any reason
 
 **ALWAYS**:
-- Execute all 47 agents in sequence
+- Execute all 48 agents in sequence
 - Use ClaudeFlow memory coordination
 - Pass through all Sherlock gates
 - Complete feedback loop
 
 ---
 
-## 47-AGENT CODING PIPELINE ORCHESTRATION
+## 48-AGENT CODING PIPELINE ORCHESTRATION
 
 Execute this complete pipeline sequentially using ClaudeFlow methodology. NO EXCEPTIONS.
 
@@ -194,7 +194,7 @@ Execute this complete pipeline sequentially using ClaudeFlow methodology. NO EXC
 | 5 | Testing | 7 agents | phase-5-reviewer |
 | 6 | Optimization | 5 agents | phase-6-reviewer |
 | 7 | Delivery | 1 agent | recovery-agent |
-| **TOTAL** | | **40 core + 7 Sherlock = 47** | |
+| **TOTAL** | | **41 core + 7 Sherlock = 48** | |
 
 ### Step 0: Initialize Pipeline Memory
 
@@ -215,7 +215,7 @@ npx claude-flow@alpha memory store -k "coding/pipeline/status" -v '{"task": "$AR
 
 Execute these agents SEQUENTIALLY, waiting for each to complete:
 
-#### Agent 1/47: task-analyzer (CRITICAL - Pipeline Entry)
+#### Agent 1/48: task-analyzer (CRITICAL - Pipeline Entry)
 ```
 Task("task-analyzer", `
 ## YOUR TASK
@@ -224,7 +224,7 @@ Parse and structure the coding request into actionable components.
 **Original Task:** $ARGUMENTS
 
 ## WORKFLOW CONTEXT
-Agent #1 of 47 | Phase 1: Understanding | CRITICAL: Pipeline entry point
+Agent #1 of 48 | Phase 1: Understanding | CRITICAL: Pipeline entry point
 Previous: None (pipeline entry) | Next: requirement-extractor, requirement-prioritizer, scope-definer, context-gatherer, feasibility-analyzer
 
 ## MEMORY RETRIEVAL
@@ -241,7 +241,7 @@ No prior memories - you are the entry point.
 `)
 ```
 
-#### Agent 2/47: requirement-extractor
+#### Agent 2/48: requirement-extractor
 ```
 Task("requirement-extractor", `
 ## YOUR TASK
@@ -250,7 +250,7 @@ Extract functional and non-functional requirements from the parsed task analysis
 **Original Task:** $ARGUMENTS
 
 ## WORKFLOW CONTEXT
-Agent #2 of 47 | Phase 1: Understanding
+Agent #2 of 48 | Phase 1: Understanding
 Previous: task-analyzer ✓ | Next: requirement-prioritizer
 
 ## MEMORY RETRIEVAL
@@ -266,7 +266,7 @@ Store to key "coding/understanding/functional-requirements" - functional require
 `)
 ```
 
-#### Agent 3/47: requirement-prioritizer
+#### Agent 3/48: requirement-prioritizer
 ```
 Task("requirement-prioritizer", `
 ## YOUR TASK
@@ -275,7 +275,7 @@ Apply MoSCoW prioritization to requirements.
 **Original Task:** $ARGUMENTS
 
 ## WORKFLOW CONTEXT
-Agent #3 of 47 | Phase 1: Understanding
+Agent #3 of 48 | Phase 1: Understanding
 Previous: requirement-extractor ✓ | Next: scope-definer
 
 ## MEMORY RETRIEVAL
@@ -290,7 +290,7 @@ Store to key "coding/understanding/prioritized-requirements" - MoSCoW prioritize
 `)
 ```
 
-#### Agent 4/47: scope-definer
+#### Agent 4/48: scope-definer
 ```
 Task("scope-definer", `
 ## YOUR TASK
@@ -299,7 +299,7 @@ Define clear boundaries, deliverables, and milestones.
 **Original Task:** $ARGUMENTS
 
 ## WORKFLOW CONTEXT
-Agent #4 of 47 | Phase 1: Understanding
+Agent #4 of 48 | Phase 1: Understanding
 Previous: requirement-prioritizer ✓ | Next: context-gatherer, feasibility-analyzer
 
 ## MEMORY RETRIEVAL
@@ -316,7 +316,7 @@ Store to key "coding/understanding/boundaries" - explicit in/out of scope
 `)
 ```
 
-#### Agent 5/47: context-gatherer
+#### Agent 5/48: context-gatherer
 ```
 Task("context-gatherer", `
 ## YOUR TASK
@@ -325,7 +325,7 @@ Gather codebase context via semantic search using LEANN.
 **Original Task:** $ARGUMENTS
 
 ## WORKFLOW CONTEXT
-Agent #5 of 47 | Phase 1: Understanding
+Agent #5 of 48 | Phase 1: Understanding
 Previous: task-analyzer ✓ | Next: feasibility-analyzer
 
 ## MEMORY RETRIEVAL
@@ -342,7 +342,7 @@ Store to key "coding/understanding/existing-code" - relevant existing code
 `)
 ```
 
-#### Agent 6/47: feasibility-analyzer
+#### Agent 6/48: feasibility-analyzer
 ```
 Task("feasibility-analyzer", `
 ## YOUR TASK
@@ -351,7 +351,7 @@ Assess technical, resource, and timeline feasibility.
 **Original Task:** $ARGUMENTS
 
 ## WORKFLOW CONTEXT
-Agent #6 of 47 | Phase 1: Understanding (FINAL core agent in phase)
+Agent #6 of 48 | Phase 1: Understanding (FINAL core agent in phase)
 Previous: scope-definer ✓, context-gatherer ✓ | Next: phase-1-reviewer (Sherlock gate)
 
 ## MEMORY RETRIEVAL
@@ -369,7 +369,7 @@ Store to key "coding/understanding/constraints" - identified constraints
 `)
 ```
 
-#### Agent 7/47: phase-1-reviewer (SHERLOCK GATE - CRITICAL)
+#### Agent 7/48: phase-1-reviewer (SHERLOCK GATE - CRITICAL)
 ```
 Task("phase-1-reviewer", `
 ## YOUR TASK
@@ -378,7 +378,7 @@ FORENSIC REVIEW of Phase 1 Understanding. Issue verdict: INNOCENT, GUILTY, or IN
 **Original Task:** $ARGUMENTS
 
 ## WORKFLOW CONTEXT
-Sherlock #41 | Phase 1 Gate | ALL CODE IS GUILTY UNTIL PROVEN INNOCENT
+Sherlock #42 | Phase 1 Gate | ALL CODE IS GUILTY UNTIL PROVEN INNOCENT
 Previous: All Phase 1 agents ✓ | Next: Phase 2 (if INNOCENT)
 
 ## MEMORY RETRIEVAL
@@ -412,7 +412,7 @@ This verdict determines if pipeline continues to Phase 2.
 
 **Only proceed if Phase 1 verdict is INNOCENT.**
 
-#### Agent 8/47: pattern-explorer
+#### Agent 8/48: pattern-explorer
 ```
 Task("pattern-explorer", `
 ## YOUR TASK
@@ -421,7 +421,7 @@ Explore existing code patterns that can guide implementation.
 **Original Task:** $ARGUMENTS
 
 ## WORKFLOW CONTEXT
-Agent #8 of 47 | Phase 2: Exploration
+Agent #8 of 48 | Phase 2: Exploration
 Previous: Phase 1 ✓ | Next: technology-scout, research-planner
 
 ## MEMORY RETRIEVAL
@@ -434,14 +434,14 @@ Store to key "coding/exploration/best-practices" - applicable best practices
 `)
 ```
 
-#### Agent 9/47: technology-scout
+#### Agent 9/48: technology-scout
 ```
 Task("technology-scout", `
 ## YOUR TASK
 Evaluate technology options and external solutions.
 
 ## WORKFLOW CONTEXT
-Agent #9 of 47 | Phase 2: Exploration
+Agent #9 of 48 | Phase 2: Exploration
 Previous: pattern-explorer ✓ | Next: codebase-analyzer
 
 ## MEMORY RETRIEVAL
@@ -453,14 +453,14 @@ Store to key "coding/exploration/recommendations" - recommended stack
 `)
 ```
 
-#### Agent 10/47: research-planner
+#### Agent 10/48: research-planner
 ```
 Task("research-planner", `
 ## YOUR TASK
 Create structured research plan for unknowns.
 
 ## WORKFLOW CONTEXT
-Agent #10 of 47 | Phase 2: Exploration
+Agent #10 of 48 | Phase 2: Exploration
 Previous: pattern-explorer ✓ | Next: codebase-analyzer
 
 ## MEMORY RETRIEVAL
@@ -473,14 +473,14 @@ Store to key "coding/exploration/unknowns"
 `)
 ```
 
-#### Agent 11/47: codebase-analyzer
+#### Agent 11/48: codebase-analyzer
 ```
 Task("codebase-analyzer", `
 ## YOUR TASK
 Deep analysis of relevant code sections for implementation context.
 
 ## WORKFLOW CONTEXT
-Agent #11 of 47 | Phase 2: Exploration (FINAL core agent)
+Agent #11 of 48 | Phase 2: Exploration (FINAL core agent)
 Previous: technology-scout ✓, research-planner ✓ | Next: phase-2-reviewer
 
 ## MEMORY RETRIEVAL
@@ -493,14 +493,14 @@ Store to key "coding/exploration/integration-points"
 `)
 ```
 
-#### Agent 12/47: phase-2-reviewer (SHERLOCK GATE)
+#### Agent 12/48: phase-2-reviewer (SHERLOCK GATE)
 ```
 Task("phase-2-reviewer", `
 ## YOUR TASK
 FORENSIC REVIEW of Phase 2 Exploration. Issue verdict.
 
 ## WORKFLOW CONTEXT
-Sherlock #42 | Phase 2 Gate
+Sherlock #43 | Phase 2 Gate
 
 ## MEMORY RETRIEVAL
 Retrieve all coding/exploration/* keys
@@ -517,14 +517,14 @@ HALT pipeline. Trigger recovery-agent.
 
 ### PHASE 3: ARCHITECTURE (5 agents + Sherlock gate)
 
-#### Agent 13/47: system-designer
+#### Agent 13/48: system-designer
 ```
 Task("system-designer", `
 ## YOUR TASK
 Design high-level system architecture, module boundaries, component relationships.
 
 ## WORKFLOW CONTEXT
-Agent #13 of 47 | Phase 3: Architecture
+Agent #13 of 48 | Phase 3: Architecture
 
 ## MEMORY RETRIEVAL
 npx claude-flow@alpha memory retrieve -k "coding/exploration/codebase-analysis"
@@ -536,14 +536,14 @@ Store to key "coding/architecture/structure"
 `)
 ```
 
-#### Agent 14/47: component-designer
+#### Agent 14/48: component-designer
 ```
 Task("component-designer", `
 ## YOUR TASK
 Design internal component structure, class hierarchies.
 
 ## WORKFLOW CONTEXT
-Agent #14 of 47 | Phase 3: Architecture
+Agent #14 of 48 | Phase 3: Architecture
 
 ## MEMORY RETRIEVAL
 npx claude-flow@alpha memory retrieve -k "coding/architecture/design"
@@ -554,14 +554,14 @@ Store to key "coding/architecture/modules"
 `)
 ```
 
-#### Agent 15/47: interface-designer (CRITICAL)
+#### Agent 15/48: interface-designer (CRITICAL)
 ```
 Task("interface-designer", `
 ## YOUR TASK
 Design API contracts, type definitions, interface specifications.
 
 ## WORKFLOW CONTEXT
-Agent #15 of 47 | Phase 3: Architecture | CRITICAL: API contracts
+Agent #15 of 48 | Phase 3: Architecture | CRITICAL: API contracts
 
 ## MEMORY RETRIEVAL
 npx claude-flow@alpha memory retrieve -k "coding/architecture/components"
@@ -575,14 +575,14 @@ API contracts MUST be complete. No 'any' types. Full type safety required.
 `)
 ```
 
-#### Agent 16/47: data-architect
+#### Agent 16/48: data-architect
 ```
 Task("data-architect", `
 ## YOUR TASK
 Design data models, database schemas, persistence strategies.
 
 ## WORKFLOW CONTEXT
-Agent #16 of 47 | Phase 3: Architecture
+Agent #16 of 48 | Phase 3: Architecture
 
 ## MEMORY RETRIEVAL
 npx claude-flow@alpha memory retrieve -k "coding/architecture/components"
@@ -594,14 +594,14 @@ Store to key "coding/architecture/schemas"
 `)
 ```
 
-#### Agent 17/47: integration-architect
+#### Agent 17/48: integration-architect
 ```
 Task("integration-architect", `
 ## YOUR TASK
 Design integration patterns, external API connections, interoperability.
 
 ## WORKFLOW CONTEXT
-Agent #17 of 47 | Phase 3: Architecture (FINAL core agent)
+Agent #17 of 48 | Phase 3: Architecture (FINAL core agent)
 
 ## MEMORY RETRIEVAL
 npx claude-flow@alpha memory retrieve -k "coding/architecture/interfaces"
@@ -613,14 +613,14 @@ Store to key "coding/architecture/dependencies"
 `)
 ```
 
-#### Agent 18/47: phase-3-reviewer (SHERLOCK GATE)
+#### Agent 18/48: phase-3-reviewer (SHERLOCK GATE)
 ```
 Task("phase-3-reviewer", `
 ## YOUR TASK
 FORENSIC REVIEW of Phase 3 Architecture. Issue verdict.
 
 ## WORKFLOW CONTEXT
-Sherlock #43 | Phase 3 Gate
+Sherlock #44 | Phase 3 Gate
 
 ## MEMORY RETRIEVAL
 Retrieve all coding/architecture/* keys
@@ -634,14 +634,14 @@ Store verdict to: "coding/forensic/phase-3-verdict"
 
 ### PHASE 4: IMPLEMENTATION (12 agents + Sherlock gate)
 
-#### Agent 19/47: code-generator
+#### Agent 19/48: code-generator
 ```
 Task("code-generator", `
 ## YOUR TASK
 Generate clean, production-ready code following architecture specifications.
 
 ## WORKFLOW CONTEXT
-Agent #19 of 47 | Phase 4: Implementation
+Agent #19 of 48 | Phase 4: Implementation
 
 ## MEMORY RETRIEVAL
 npx claude-flow@alpha memory retrieve -k "coding/architecture/design"
@@ -652,7 +652,7 @@ Store to key "coding/implementation/generated-code"
 `)
 ```
 
-#### Agent 20/47: type-implementer
+#### Agent 20/48: type-implementer
 ```
 Task("type-implementer", `
 ## YOUR TASK
@@ -663,7 +663,7 @@ Store to key "coding/implementation/types"
 `)
 ```
 
-#### Agent 21/47: unit-implementer
+#### Agent 21/48: unit-implementer
 ```
 Task("unit-implementer", `
 ## YOUR TASK
@@ -674,7 +674,7 @@ Store to key "coding/implementation/units"
 `)
 ```
 
-#### Agent 22/47: service-implementer
+#### Agent 22/48: service-implementer
 ```
 Task("service-implementer", `
 ## YOUR TASK
@@ -685,7 +685,7 @@ Store to key "coding/implementation/services"
 `)
 ```
 
-#### Agent 23/47: data-layer-implementer
+#### Agent 23/48: data-layer-implementer
 ```
 Task("data-layer-implementer", `
 ## YOUR TASK
@@ -696,7 +696,7 @@ Store to key "coding/implementation/data-layer"
 `)
 ```
 
-#### Agent 24/47: api-implementer
+#### Agent 24/48: api-implementer
 ```
 Task("api-implementer", `
 ## YOUR TASK
@@ -707,7 +707,7 @@ Store to key "coding/implementation/api"
 `)
 ```
 
-#### Agent 25/47: frontend-implementer
+#### Agent 25/48: frontend-implementer
 ```
 Task("frontend-implementer", `
 ## YOUR TASK
@@ -718,7 +718,7 @@ Store to key "coding/implementation/frontend"
 `)
 ```
 
-#### Agent 26/47: error-handler-implementer
+#### Agent 26/48: error-handler-implementer
 ```
 Task("error-handler-implementer", `
 ## YOUR TASK
@@ -729,7 +729,7 @@ Store to key "coding/implementation/error-handling"
 `)
 ```
 
-#### Agent 27/47: config-implementer
+#### Agent 27/48: config-implementer
 ```
 Task("config-implementer", `
 ## YOUR TASK
@@ -740,7 +740,7 @@ Store to key "coding/implementation/config"
 `)
 ```
 
-#### Agent 28/47: logger-implementer
+#### Agent 28/48: logger-implementer
 ```
 Task("logger-implementer", `
 ## YOUR TASK
@@ -751,7 +751,7 @@ Store to key "coding/implementation/logging"
 `)
 ```
 
-#### Agent 29/47: dependency-manager
+#### Agent 29/48: dependency-manager
 ```
 Task("dependency-manager", `
 ## YOUR TASK
@@ -762,28 +762,28 @@ Store to key "coding/implementation/dependencies"
 `)
 ```
 
-#### Agent 30/47: implementation-coordinator
+#### Agent 30/48: implementation-coordinator
 ```
 Task("implementation-coordinator", `
 ## YOUR TASK
 Coordinate implementation, ensure consistency, manage dependencies.
 
 ## WORKFLOW CONTEXT
-Agent #30 of 47 | Phase 4: Implementation (FINAL core agent)
+Agent #30 of 48 | Phase 4: Implementation (FINAL core agent)
 
 ## MEMORY STORAGE
 Store to key "coding/implementation/coordination-report"
 `)
 ```
 
-#### Agent 31/47: phase-4-reviewer (SHERLOCK GATE)
+#### Agent 31/48: phase-4-reviewer (SHERLOCK GATE)
 ```
 Task("phase-4-reviewer", `
 ## YOUR TASK
 FORENSIC REVIEW of Phase 4 Implementation. Issue verdict.
 
 ## WORKFLOW CONTEXT
-Sherlock #44 | Phase 4 Gate
+Sherlock #45 | Phase 4 Gate
 
 ## MEMORY STORAGE
 Store verdict to: "coding/forensic/phase-4-verdict"
@@ -794,7 +794,7 @@ Store verdict to: "coding/forensic/phase-4-verdict"
 
 ### PHASE 5: TESTING (7 agents + Sherlock gate)
 
-#### Agent 32/47: test-generator
+#### Agent 32/48: test-generator
 ```
 Task("test-generator", `
 ## YOUR TASK
@@ -805,7 +805,7 @@ Store to key "coding/testing/generated-tests"
 `)
 ```
 
-#### Agent 33/47: test-runner
+#### Agent 33/48: test-runner
 ```
 Task("test-runner", `
 ## YOUR TASK
@@ -816,7 +816,7 @@ Store to key "coding/testing/test-results"
 `)
 ```
 
-#### Agent 34/47: integration-tester
+#### Agent 34/48: integration-tester
 ```
 Task("integration-tester", `
 ## YOUR TASK
@@ -827,7 +827,7 @@ Store to key "coding/testing/integration-tests"
 `)
 ```
 
-#### Agent 35/47: regression-tester
+#### Agent 35/48: regression-tester
 ```
 Task("regression-tester", `
 ## YOUR TASK
@@ -838,7 +838,7 @@ Store to key "coding/testing/regression-results"
 `)
 ```
 
-#### Agent 36/47: security-tester
+#### Agent 36/48: security-tester
 ```
 Task("security-tester", `
 ## YOUR TASK
@@ -849,7 +849,7 @@ Store to key "coding/testing/security-results"
 `)
 ```
 
-#### Agent 37/47: coverage-analyzer
+#### Agent 37/48: coverage-analyzer
 ```
 Task("coverage-analyzer", `
 ## YOUR TASK
@@ -860,14 +860,14 @@ Store to key "coding/testing/coverage-report"
 `)
 ```
 
-#### Agent 38/47: quality-gate (CRITICAL)
+#### Agent 38/48: quality-gate (CRITICAL)
 ```
 Task("quality-gate", `
 ## YOUR TASK
 Validate L-Scores, compute quality metrics, verify phase completion.
 
 ## WORKFLOW CONTEXT
-Agent #38 of 47 | Phase 5: Testing (FINAL) | CRITICAL: Quality validation
+Agent #38 of 48 | Phase 5: Testing | CRITICAL: Quality validation
 
 ## MEMORY STORAGE
 Store to key "coding/testing/quality-gate-result"
@@ -877,14 +877,31 @@ Must pass all quality gates. No 'any' types. 80%+ coverage required.
 `)
 ```
 
-#### Agent 39/47: phase-5-reviewer (SHERLOCK GATE)
+#### Agent 39/48: test-fixer
+```
+Task("test-fixer", `
+## YOUR TASK
+Self-correction loop: read test failures, fix code, re-test until pass (max 3 retries). Escalate unfixable failures.
+
+## WORKFLOW CONTEXT
+Agent #39 of 48 | Phase 5: Testing (FINAL core agent)
+
+## MEMORY RETRIEVAL
+Retrieve: coding/testing/results, coding/testing/failures, coding/testing/quality-verdict
+
+## MEMORY STORAGE
+Store to key "coding/testing/fix-attempts" and "coding/testing/final-status"
+`)
+```
+
+#### Agent 40/48: phase-5-reviewer (SHERLOCK GATE)
 ```
 Task("phase-5-reviewer", `
 ## YOUR TASK
 FORENSIC REVIEW of Phase 5 Testing. Issue verdict.
 
 ## WORKFLOW CONTEXT
-Sherlock #45 | Phase 5 Gate
+Sherlock #46 | Phase 5 Gate
 
 ## MEMORY STORAGE
 Store verdict to: "coding/forensic/phase-5-verdict"
@@ -895,7 +912,7 @@ Store verdict to: "coding/forensic/phase-5-verdict"
 
 ### PHASE 6: OPTIMIZATION (5 agents + Sherlock gate)
 
-#### Agent 40/47: performance-optimizer
+#### Agent 41/48: performance-optimizer
 ```
 Task("performance-optimizer", `
 ## YOUR TASK
@@ -906,7 +923,7 @@ Store to key "coding/optimization/performance"
 `)
 ```
 
-#### Agent 41/47: performance-architect
+#### Agent 42/48: performance-architect
 ```
 Task("performance-architect", `
 ## YOUR TASK
@@ -917,7 +934,7 @@ Store to key "coding/optimization/architecture"
 `)
 ```
 
-#### Agent 42/47: code-quality-improver
+#### Agent 43/48: code-quality-improver
 ```
 Task("code-quality-improver", `
 ## YOUR TASK
@@ -928,7 +945,7 @@ Store to key "coding/optimization/quality"
 `)
 ```
 
-#### Agent 43/47: security-architect
+#### Agent 44/48: security-architect
 ```
 Task("security-architect", `
 ## YOUR TASK
@@ -939,28 +956,28 @@ Store to key "coding/optimization/security"
 `)
 ```
 
-#### Agent 44/47: final-refactorer
+#### Agent 45/48: final-refactorer
 ```
 Task("final-refactorer", `
 ## YOUR TASK
 Final code polish, consistency checks, delivery preparation.
 
 ## WORKFLOW CONTEXT
-Agent #44 of 47 | Phase 6: Optimization (FINAL core agent)
+Agent #45 of 48 | Phase 6: Optimization (FINAL core agent)
 
 ## MEMORY STORAGE
 Store to key "coding/optimization/final-refactor"
 `)
 ```
 
-#### Agent 45/47: phase-6-reviewer (SHERLOCK GATE)
+#### Agent 46/48: phase-6-reviewer (SHERLOCK GATE)
 ```
 Task("phase-6-reviewer", `
 ## YOUR TASK
 FORENSIC REVIEW of Phase 6 Optimization. Issue verdict.
 
 ## WORKFLOW CONTEXT
-Sherlock #46 | Phase 6 Gate
+Sherlock #47 | Phase 6 Gate
 
 ## MEMORY STORAGE
 Store verdict to: "coding/forensic/phase-6-verdict"
@@ -971,14 +988,14 @@ Store verdict to: "coding/forensic/phase-6-verdict"
 
 ### PHASE 7: DELIVERY (1 agent + Recovery)
 
-#### Agent 46/47: sign-off-approver (CRITICAL - FINAL APPROVAL)
+#### Agent 47/48: sign-off-approver (CRITICAL - FINAL APPROVAL)
 ```
 Task("sign-off-approver", `
 ## YOUR TASK
 Final sign-off authority. Verify all requirements met. Authorize release.
 
 ## WORKFLOW CONTEXT
-Agent #46 of 47 | Phase 7: Delivery | CRITICAL: Final approval gate
+Agent #47 of 48 | Phase 7: Delivery | CRITICAL: Final approval gate
 
 ## MEMORY RETRIEVAL
 Retrieve ALL forensic verdicts: coding/forensic/phase-*-verdict
@@ -993,7 +1010,7 @@ If any issues remain, trigger recovery-agent.
 `)
 ```
 
-#### Agent 47/47: recovery-agent (SHERLOCK RECOVERY + FEEDBACK GATE)
+#### Agent 48/48: recovery-agent (SHERLOCK RECOVERY + FEEDBACK GATE)
 ```
 Task("recovery-agent", `
 ## YOUR TASK
@@ -1001,7 +1018,7 @@ Task("recovery-agent", `
 2. **MANDATORY**: Enforce feedback verification gate before pipeline completion
 
 ## WORKFLOW CONTEXT
-Agent #47 of 47 | Sherlock Recovery | FINAL AGENT | FEEDBACK GATE ENFORCER
+Agent #48 of 48 | Sherlock Recovery | FINAL AGENT | FEEDBACK GATE ENFORCER
 
 ## MEMORY RETRIEVAL (CRITICAL ORDER)
 1. Retrieve all forensic verdicts: coding/forensic/phase-*-verdict
@@ -1052,7 +1069,7 @@ This agent is the FINAL GATE. It enforces:
 ### Step Final: Pipeline Completion
 
 ```bash
-npx claude-flow@alpha memory store -k "coding/pipeline/result" -v '{"success":true,"phases_completed":7,"totalAgents":47,"trajectoryId":"[trajectoryId]","endTime":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
+npx claude-flow@alpha memory store -k "coding/pipeline/result" -v '{"success":true,"phases_completed":7,"totalAgents":48,"trajectoryId":"[trajectoryId]","endTime":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
 ```
 
 ---
@@ -1115,7 +1132,7 @@ npx claude-flow@alpha memory store -k "coding/pipeline/feedback-status" -v '{"tr
 - [ ] `coding/pipeline/feedback-status` stored with `verified: true`
 - [ ] Quality score recorded
 
-**GATE RULE**: recovery-agent (#47) WILL FAIL the pipeline if `coding/pipeline/feedback-status` does not exist or has `verified: false`.
+**GATE RULE**: recovery-agent (#48) WILL FAIL the pipeline if `coding/pipeline/feedback-status` does not exist or has `verified: false`.
 
 ---
 
@@ -1150,7 +1167,7 @@ npx claude-flow@alpha memory store -k "coding/batch/status" -v '{"mode":"batch",
 # 1. Submit code feedback to learning database (REQUIRED)
 npx tsx src/god-agent/universal/cli.ts code-feedback "$TRAJECTORY_ID" \
   --output "$SHERLOCK_SUMMARY" \
-  --agent "47-agent-pipeline" \
+  --agent "48-agent-pipeline" \
   --phase 4
 
 # 2. Verify feedback was stored (REQUIRED - must succeed)
@@ -1252,15 +1269,15 @@ These agents HALT the pipeline on failure:
 | 1 | task-analyzer | 1 | Pipeline entry point |
 | 15 | interface-designer | 3 | API contract validation |
 | 38 | quality-gate | 5 | L-Score validation |
-| 46 | sign-off-approver | 7 | Final approval |
-| 7,12,18,31,39,45 | phase-N-reviewer | All | Sherlock gates |
-| 47 | recovery-agent | 7 | Recovery orchestration |
+| 41 | sign-off-approver | 7 | Final approval |
+| 7,12,18,31,40,46 | phase-N-reviewer | All | Sherlock gates |
+| 48 | recovery-agent | 7 | Recovery orchestration |
 
 ---
 
 ## Agent File Location
 
-All 47 agents are defined in: `.claude/agents/coding-pipeline/*.md`
+All 48 agents are defined in: `.claude/agents/coding-pipeline/*.md`
 
 Agent-to-file mapping: `agentKey` → `.claude/agents/coding-pipeline/${agentKey}.md`
 
@@ -1271,12 +1288,12 @@ Agent-to-file mapping: `agentKey` → `.claude/agents/coding-pipeline/${agentKey
 This skill implements the **DAI-001 Pipeline Execution Model**:
 
 1. **Phase 1 (CLI)**: God Agent initializes trajectory tracking and retrieves learning context
-2. **Phase 2 (Pipeline)**: Execute FULL 47-agent pipeline - ALWAYS, NO EXCEPTIONS
+2. **Phase 2 (Pipeline)**: Execute FULL 48-agent pipeline - ALWAYS, NO EXCEPTIONS
 
 **MANDATORY RULES**:
-- `/god-code` ALWAYS executes the full 47-agent pipeline
+- `/god-code` ALWAYS executes the full 48-agent pipeline
 - There is NO single-agent bypass mode
-- ALL 47 agents must run in sequence
+- ALL 48 agents must run in sequence
 - Do NOT skip agents. Do NOT parallelize (ClaudeFlow 99.9% sequential rule)
 - Ignoring the pipeline and implementing directly is a CRITICAL FAILURE
 
@@ -1314,7 +1331,7 @@ This skill implements the **DAI-001 Pipeline Execution Model**:
 
 ### Batch Behavior
 
-1. Each task runs through the FULL 47-agent pipeline
+1. Each task runs through the FULL 48-agent pipeline
 2. Progress is saved after each task (resumable)
 3. Memory is cleared between tasks (no contamination)
 4. Cross-task learnings are preserved

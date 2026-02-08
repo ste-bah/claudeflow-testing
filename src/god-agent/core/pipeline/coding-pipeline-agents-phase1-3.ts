@@ -1,9 +1,9 @@
 /**
  * DAI-002: Coding Pipeline Agent Mappings - Phases 1-3
  *
- * Phase 1: Understanding (6 agents + Sherlock #41)
- * Phase 2: Exploration (4 agents + Sherlock #42)
- * Phase 3: Architecture (5 agents + Sherlock #43)
+ * Phase 1: Understanding (6 agents + Sherlock #42)
+ * Phase 2: Exploration (4 agents + Sherlock #43)
+ * Phase 3: Architecture (5 agents + Sherlock #44)
  *
  * Total: 15 core agents + 3 Sherlock = 18 agents in this file.
  *
@@ -264,11 +264,11 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_1_3: ICodingAgentMapping[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SHERLOCK FORENSIC REVIEW AGENTS (#41-43)
+  // SHERLOCK FORENSIC REVIEW AGENTS (#42-44)
   // Phase 1-3 forensic reviewers - CRITICAL: Gates phase progression
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // #41 - Phase 1 Understanding Forensic Review
+  // #42 - Phase 1 Understanding Forensic Review
   {
     phase: 'understanding',
     agentKey: 'phase-1-reviewer',
@@ -288,10 +288,10 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_1_3: ICodingAgentMapping[] = [
     xpReward: 100,
     parallelizable: false,
     critical: true,
-    description: 'Sherlock #41: Phase 1 Understanding forensic review. CRITICAL: Gates progression to Phase 2.',
+    description: 'Sherlock #42: Phase 1 Understanding forensic review. CRITICAL: Gates progression to Phase 2.',
   },
 
-  // #42 - Phase 2 Exploration Forensic Review
+  // #43 - Phase 2 Exploration Forensic Review
   {
     phase: 'exploration',
     agentKey: 'phase-2-reviewer',
@@ -310,10 +310,10 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_1_3: ICodingAgentMapping[] = [
     xpReward: 100,
     parallelizable: false,
     critical: true,
-    description: 'Sherlock #42: Phase 2 Exploration forensic review. CRITICAL: Gates progression to Phase 3.',
+    description: 'Sherlock #43: Phase 2 Exploration forensic review. CRITICAL: Gates progression to Phase 3.',
   },
 
-  // #43 - Phase 3 Architecture Forensic Review
+  // #44 - Phase 3 Architecture Forensic Review
   {
     phase: 'architecture',
     agentKey: 'phase-3-reviewer',
@@ -333,6 +333,6 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_1_3: ICodingAgentMapping[] = [
     xpReward: 100,
     parallelizable: false,
     critical: true,
-    description: 'Sherlock #43: Phase 3 Architecture forensic review. CRITICAL: Gates progression to Phase 4.',
+    description: 'Sherlock #44: Phase 3 Architecture forensic review. CRITICAL: Gates progression to Phase 4.',
   },
 ];

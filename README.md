@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.1.4 | **Status**: Production-Ready | **Last Updated**: February 2025
+**Version**: 2.1.5 | **Status**: Production-Ready | **Last Updated**: February 2026
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Configuration](#configuration)
 - [Daemon Services](#daemon-services)
 - [PhD Research Pipeline (45 Agents)](#phd-research-pipeline-45-agents)
-- [Coding Pipeline (47 Agents)](#coding-pipeline-47-agents)
+- [Coding Pipeline (48 Agents)](#coding-pipeline-48-agents)
 - [Observability Dashboard](#observability-dashboard)
 - [Memory Visualization Tool](#memory-visualization-tool)
 - [Learning System](#learning-system)
@@ -23,6 +23,51 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.1.5
+
+### Learning Loop Fix (Pipeline Trajectory Persistence)
+
+The coding pipeline's learning loop was completely dead — trajectories were generated as string IDs but never persisted to `learning.db`, making feedback and pattern matching silently fail. This release fixes all three root causes:
+
+| Fix | Description |
+|-----|-------------|
+| **Trajectory Persistence** | `CodingPipelineOrchestrator` and per-agent executor now call `createTrajectoryWithId()` to persist trajectories before feedback |
+| **Embedding-Backed Creation** | When available, trajectories are created via `ReasoningBank.reason()` with task embeddings for similarity search |
+| **Simple Fallback** | Falls back to `SonaEngine.createTrajectoryWithId()` when embeddings unavailable |
+| **Failure Path Tracking** | Failed agent executions also persist trajectories with `'failed'` tags for learning avoidance |
+
+### test-fixer Agent (#35)
+
+Added a self-correction agent to Phase 5 (Testing), growing the pipeline from 47 to **48 agents**:
+
+| Feature | Description |
+|---------|-------------|
+| **Self-Debug Algorithm** | Reads test failures, fixes code, re-tests until pass |
+| **Bounded Loop** | Maximum 3 fix-retest iterations before escalating to recovery-agent |
+| **Dependency Chain** | Depends on `quality-gate`; `phase-5-reviewer` now depends on `test-fixer` |
+| **Reflexion Fallback** | Falls back to Reflexion algorithm if Self-Debug fails |
+
+### Pipeline Orchestrator CLI (`code-pipeline`)
+
+New CLI subcommand that executes the full pipeline through the orchestrator (not manual instruction-based agent spawning):
+
+```bash
+npx tsx src/god-agent/universal/cli.ts code-pipeline "Implement feature X" --json
+```
+
+The orchestrator handles all 7 phases internally with trajectory persistence, Sherlock quality gates, and embedding-backed pattern matching.
+
+### ClaudeCodeStepExecutor
+
+New `IStepExecutor` implementation that uses the `claude -p` CLI for agent execution:
+
+- Pipes prompts via stdin (handles arbitrarily long LEANN + RLM context)
+- Timeout guard with SIGTERM → SIGKILL escalation
+- Heuristic quality baseline before Sherlock gates
+- Uses existing Claude Code subscription (no ANTHROPIC_API_KEY needed)
+
+---
 
 ## What's New in v2.1.4
 
@@ -816,9 +861,9 @@ cd docs/research/<your-topic>/final
 md-to-pdf final-paper.md --pdf-options '{"format": "A4", "margin": {"top": "20mm", "bottom": "20mm", "left": "25mm", "right": "25mm"}}'
 ```
 
-## Coding Pipeline (47 Agents)
+## Coding Pipeline (48 Agents)
 
-The God Agent includes a comprehensive 47-agent coding pipeline for software development tasks. The pipeline uses a 7-phase DAG-based architecture with forensic review agents that gate phase progression.
+The God Agent includes a comprehensive 48-agent coding pipeline for software development tasks. The pipeline uses a 7-phase DAG-based architecture with forensic review agents that gate phase progression.
 
 ### Running the Pipeline
 
@@ -831,7 +876,7 @@ The God Agent includes a comprehensive 47-agent coding pipeline for software dev
 
 ### Pipeline Architecture
 
-The pipeline consists of **40 core development agents** plus **7 Sherlock forensic reviewers** (47 total):
+The pipeline consists of **41 core development agents** plus **7 Sherlock forensic reviewers** (48 total):
 
 | Phase | Core Agents | Description |
 |-------|-------------|-------------|
@@ -839,7 +884,7 @@ The pipeline consists of **40 core development agents** plus **7 Sherlock forens
 | **Phase 2: Exploration (4)** | pattern-explorer, technology-scout, research-planner, codebase-analyzer | Solution space exploration, pattern matching |
 | **Phase 3: Architecture (5)** | system-designer*, component-designer, interface-designer*, data-architect, integration-architect | System design, interface contracts |
 | **Phase 4: Implementation (12)** | code-generator*, type-implementer, unit-implementer, service-implementer, data-layer-implementer, api-implementer, frontend-implementer, error-handler-implementer, config-implementer, logger-implementer, dependency-manager, implementation-coordinator* | Code generation, API implementation |
-| **Phase 5: Testing (7)** | test-generator, test-runner*, integration-tester, regression-tester, security-tester*, coverage-analyzer, quality-gate* | Test creation, execution, coverage |
+| **Phase 5: Testing (8)** | test-generator, test-runner*, integration-tester, regression-tester, security-tester*, coverage-analyzer, quality-gate*, test-fixer | Test creation, execution, coverage, self-correction |
 | **Phase 6: Optimization (5)** | performance-optimizer, performance-architect, code-quality-improver, security-architect*, final-refactorer | Performance tuning, security audit |
 | **Phase 7: Delivery (1)** | sign-off-approver* | Final approval gate |
 
@@ -854,8 +899,8 @@ Agent definitions are loaded dynamically from `.claude/agents/coding-pipeline/*.
 const loader = createCodingPipelineConfigLoader();
 const config = await loader.loadPipelineConfig();
 
-// Returns 47 agents with phase, order, algorithm, dependencies
-console.log(config.agents.length); // 47
+// Returns 48 agents with phase, order, algorithm, dependencies
+console.log(config.agents.length); // 48
 ```
 
 Key features:
@@ -870,13 +915,13 @@ Each phase is gated by a Sherlock forensic reviewer that performs quality verifi
 
 | Agent # | Agent | Phase Reviewed | Verdict Types |
 |---------|-------|----------------|---------------|
-| #41 | phase-1-reviewer | Understanding | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #42 | phase-2-reviewer | Exploration | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #43 | phase-3-reviewer | Architecture | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #44 | phase-4-reviewer | Implementation | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #45 | phase-5-reviewer | Testing | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #46 | phase-6-reviewer | Optimization | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #47 | recovery-agent | Delivery + Recovery | Orchestrates remediation on failures |
+| #42 | phase-1-reviewer | Understanding | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #43 | phase-2-reviewer | Exploration | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #44 | phase-3-reviewer | Architecture | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #45 | phase-4-reviewer | Implementation | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #46 | phase-5-reviewer | Testing | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #47 | phase-6-reviewer | Optimization | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| #48 | recovery-agent | Delivery + Recovery | Orchestrates remediation on failures |
 
 All forensic reviewers are **CRITICAL** - they gate pipeline progression to ensure quality.
 
@@ -993,20 +1038,20 @@ coding/
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    47-AGENT CODING PIPELINE                      │
+│                    48-AGENT CODING PIPELINE                      │
 ├─────────────────────────────────────────────────────────────────┤
-│  Phase 1 (6 agents) → Sherlock #41 → Phase 2 (4 agents)        │
+│  Phase 1 (6 agents) → Sherlock #42 → Phase 2 (4 agents)        │
 │           ↓                                    ↓                │
-│  Sherlock #42 → Phase 3 (5 agents) → Sherlock #43              │
+│  Sherlock #43 → Phase 3 (5 agents) → Sherlock #44              │
 │           ↓                                    ↓                │
-│  Phase 4 (12 agents) → Sherlock #44 → Phase 5 (7 agents)       │
+│  Phase 4 (12 agents) → Sherlock #45 → Phase 5 (8 agents)       │
 │           ↓                                    ↓                │
-│  Sherlock #45 → Phase 6 (5 agents) → Sherlock #46              │
+│  Sherlock #46 → Phase 6 (5 agents) → Sherlock #47              │
 │           ↓                                    ↓                │
-│  Phase 7 (1 agent) → Sherlock #47 (Recovery) → COMPLETE        │
+│  Phase 7 (1 agent) → Sherlock #48 (Recovery) → COMPLETE        │
 └─────────────────────────────────────────────────────────────────┘
 
-On GUILTY verdict: Recovery Agent (#47) orchestrates remediation
+On GUILTY verdict: Recovery Agent (#48) orchestrates remediation
 Checkpoints created at: Understanding, Exploration, Architecture,
                         Implementation, Testing (for rollback support)
 

@@ -18,6 +18,7 @@ import type { InteractionStore } from '../../universal/interaction-store.js';
 import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
 import type { SonaEngine } from '../learning/sona-engine.js';
 import type { LeannContextService } from './leann-context-service.js';
+import type { IEmbeddingProvider } from '../memory/types.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP EXECUTOR INTERFACE
@@ -50,6 +51,7 @@ export interface IOrchestratorDependencies {
   reasoningBank?: ReasoningBank;
   sonaEngine?: SonaEngine;
   leannContextService?: LeannContextService;
+  embeddingProvider?: IEmbeddingProvider;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

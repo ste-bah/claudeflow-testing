@@ -268,7 +268,21 @@ export async function executeAgent(
       sourceDomain: memoryReads[0],
     };
 
-    // 8. Provide feedback to SonaEngine if learning enabled
+    // 8. Persist agent trajectory so feedback succeeds (PRD Section 5.1)
+    if (config.enableLearning && deps.sonaEngine) {
+      try {
+        deps.sonaEngine.createTrajectoryWithId(
+          trajectoryId,
+          'reasoning.pattern',
+          [],
+          [`agent:${agentKey}`, `phase:${phase}`, `pipeline:${pipelineId}`]
+        );
+      } catch (trajError) {
+        log(`Warning: Agent trajectory creation failed for ${agentKey}: ${trajError}`);
+      }
+    }
+
+    // 9. Provide feedback to SonaEngine if learning enabled
     if (config.enableLearning) {
       await provideStepFeedbackFn(
         { sonaEngine: deps.sonaEngine, reasoningBank: deps.reasoningBank },
@@ -329,11 +343,26 @@ export async function executeAgent(
       },
     });
 
+    // Persist failure trajectory so feedback succeeds (PRD Section 5.1)
+    const failTrajectoryId = `trajectory_coding_${pipelineId}_${agentKey}`;
+    if (config.enableLearning && deps.sonaEngine) {
+      try {
+        deps.sonaEngine.createTrajectoryWithId(
+          failTrajectoryId,
+          'reasoning.pattern',
+          [],
+          [`agent:${agentKey}`, `phase:${phase}`, `pipeline:${pipelineId}`, 'failed']
+        );
+      } catch (trajError) {
+        log(`Warning: Failed agent trajectory creation failed for ${agentKey}: ${trajError}`);
+      }
+    }
+
     // Provide failure feedback if learning enabled
     if (config.enableLearning) {
       await provideStepFeedbackFn(
         { sonaEngine: deps.sonaEngine, reasoningBank: deps.reasoningBank },
-        `trajectory_coding_${pipelineId}_${agentKey}`,
+        failTrajectoryId,
         0,
         agentKey,
         phase,

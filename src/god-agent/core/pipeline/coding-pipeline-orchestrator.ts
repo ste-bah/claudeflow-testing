@@ -73,6 +73,7 @@ import { buildPipelineDAG } from './command-task-bridge.js';
 
 // Extracted types and constants [REQ-REFACTOR-004]
 import type { IStepExecutor, IOrchestratorDependencies, IOrchestratorConfig } from './coding-pipeline-types.js';
+import { ReasoningMode } from '../reasoning/reasoning-types.js';
 import { DEFAULT_ORCHESTRATOR_CONFIG } from './coding-pipeline-constants.js';
 
 // Extracted factory functions [REQ-REFACTOR-005]
@@ -178,7 +179,51 @@ export class CodingPipelineOrchestrator {
 
     // [REQ-REFACTOR-003] Use extracted initialization function
     const initResult = initializePipelineExecution(pipelineConfig, this.validator, this.log.bind(this));
-    const { pipelineId, trajectoryId, totalAgentCount } = initResult;
+    const { pipelineId, totalAgentCount } = initResult;
+    let trajectoryId = initResult.trajectoryId;
+
+    // Persist trajectory to learning.db so feedback calls succeed (PRD Section 5.1)
+    if (this.dependencies.embeddingProvider && this.dependencies.reasoningBank && pipelineConfig.taskText) {
+      try {
+        const embedding = await this.dependencies.embeddingProvider.embed(pipelineConfig.taskText);
+        const response = await this.dependencies.reasoningBank.reason({
+          query: embedding,
+          type: ReasoningMode.PATTERN_MATCH,
+          applyLearning: true,
+          enhanceWithGNN: false,
+          maxResults: 5,
+          confidenceThreshold: 0.5,
+          metadata: {
+            source: 'coding-pipeline-orchestrator',
+            pipelineId,
+            queryText: pipelineConfig.taskText,
+          },
+        });
+        trajectoryId = response.trajectoryId;
+        this.log(`Embedding-backed trajectory created: ${trajectoryId}`);
+      } catch (error) {
+        this.log(`Warning: Embedding trajectory failed, falling back to simple: ${error}`);
+        if (this.dependencies.sonaEngine) {
+          try {
+            this.dependencies.sonaEngine.createTrajectoryWithId(
+              trajectoryId, 'reasoning.pattern', [], [`pipeline:${pipelineId}`]
+            );
+            this.log(`Simple trajectory created: ${trajectoryId}`);
+          } catch (fallbackError) {
+            this.log(`Warning: Simple trajectory also failed: ${fallbackError}`);
+          }
+        }
+      }
+    } else if (this.dependencies.sonaEngine) {
+      try {
+        this.dependencies.sonaEngine.createTrajectoryWithId(
+          trajectoryId, 'reasoning.pattern', [], [`pipeline:${pipelineId}`]
+        );
+        this.log(`Pipeline trajectory created: ${trajectoryId}`);
+      } catch (error) {
+        this.log(`Warning: Pipeline trajectory creation failed: ${error}`);
+      }
+    }
 
     // Emit pipeline_started event (preserve in orchestrator for observability)
     ObservabilityBus.getInstance().emit({

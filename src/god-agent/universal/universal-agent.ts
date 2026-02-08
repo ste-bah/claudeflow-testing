@@ -127,8 +127,17 @@ import {
   CODING_MEMORY_NAMESPACE,
   type CodingPipelinePhase,
   type IPipelineExecutionConfig,
+  type IPipelineExecutionResult,
   type IAgentMapping,
 } from '../core/pipeline/types.js';
+
+import {
+  createOrchestrator,
+  type IOrchestratorDependencies,
+  type IStepExecutor,
+} from '../core/pipeline/coding-pipeline-orchestrator.js';
+
+import { ClaudeCodeStepExecutor } from '../core/pipeline/claude-code-step-executor.js';
 
 // TASK-CHUNK-003: Knowledge chunking for OpenAI token limit compliance
 // CONSTITUTION COMPLIANCE: RULE-064 (symmetric chunking), RULE-008 (SQLite persistence)
@@ -2075,6 +2084,7 @@ export class UniversalAgent {
         checkpoints: CHECKPOINT_PHASES.filter(cp => activePhases.includes(cp)),
         startPhase: startIdx,
         endPhase: endIdx,
+        taskText: task,
       };
 
       // Create pipeline object with backward compatibility
@@ -2127,6 +2137,47 @@ export class UniversalAgent {
       language: options.language,
       triggeredByHook,
     };
+  }
+
+  /**
+   * Execute the coding pipeline via CodingPipelineOrchestrator.
+   *
+   * Wires all dependencies (agentRegistry, sonaEngine, reasoningBank, etc.)
+   * and delegates to the orchestrator for 7-phase execution with:
+   * - Trajectory persistence (PRD Section 5.1)
+   * - Sherlock forensic reviews (PRD Section 2.3)
+   * - Embedding-backed pattern matching (PRD Section 8.1)
+   *
+   * @param pipelineConfig - Configuration from prepareCodeTask()
+   * @param stepExecutor - Optional step executor for agent execution
+   * @returns Pipeline execution result with XP, phases, and success status
+   */
+  async executePipeline(
+    pipelineConfig: IPipelineExecutionConfig,
+    stepExecutor?: IStepExecutor
+  ): Promise<IPipelineExecutionResult> {
+    await this.ensureInitialized();
+
+    // Default to ClaudeCodeStepExecutor (uses `claude -p` with user's subscription)
+    const resolvedExecutor = stepExecutor ?? new ClaudeCodeStepExecutor();
+
+    const deps: IOrchestratorDependencies = {
+      agentRegistry: this.agentRegistry,
+      agentSelector: this.agentSelector,
+      interactionStore: this.interactionStore,
+      reasoningBank: this.agent.getReasoningBank() ?? undefined,
+      sonaEngine: this.agent.getSonaEngine() ?? undefined,
+      leannContextService: this.leannContextService ?? undefined,
+      embeddingProvider: this.embeddingProvider ?? undefined,
+    };
+
+    const orchestrator = createOrchestrator(deps, {
+      verbose: true,
+      enableLearning: true,
+      stepExecutor: resolvedExecutor,
+    });
+
+    return orchestrator.execute(pipelineConfig);
   }
 
   /**
