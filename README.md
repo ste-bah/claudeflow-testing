@@ -50,7 +50,7 @@ Added a self-correction agent to Phase 5 (Testing), growing the pipeline from 47
 
 ### Stateful Pipeline CLI (Session Persistence)
 
-New stateful CLI pattern with disk-based session persistence for massive context handling:
+New stateful CLI pattern with disk-based session persistence matching the proven PhD pipeline approach:
 
 ```bash
 # Initialize a new session (returns sessionId and first batch)
@@ -69,8 +69,31 @@ npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume <sessionId>
 - **Smart Parallelism**: Pre-computed batches based on agent dependencies
 - **Full Integration**: RLM memory handoffs, LEANN semantic search, learning feedback
 - **Checkpointing**: Automatic state snapshots after each batch completion
+- **Batch Mode Support**: Process multiple tasks sequentially with `coding-pipeline-batch.ts`
 
 The orchestrator handles all 7 phases internally with trajectory persistence, Sherlock quality gates, and embedding-backed pattern matching.
+
+### god-code Command Pattern
+
+The `/god-code` slash command follows the same execution protocol as `/god-research`:
+
+```markdown
+## EXECUTION PROTOCOL
+
+**YOU MUST use coding-pipeline-cli for orchestration. DO NOT use static Task() templates.**
+
+### Step 1: Initialize Pipeline
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$ARGUMENTS"
+
+### Step 2: Execute Current Batch
+Task("<batch[0].type>", "<batch[0].prompt>", "<batch[0].key>")
+...
+
+### Step 3: Loop Until Complete
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "<sessionId>"
+```
+
+**No manual memory operations** - the orchestrator CLI handles ALL state management internally.
 
 ### ClaudeCodeStepExecutor
 
@@ -882,11 +905,23 @@ The God Agent includes a comprehensive 48-agent coding pipeline for software dev
 ### Running the Pipeline
 
 ```bash
-# Via slash command in Claude Code
+# Single task via slash command
 /god-code "Implement a user authentication system"
+
+# Batch mode for multiple tasks
+npx tsx src/god-agent/cli/coding-pipeline-batch.ts "Task 1" "Task 2" "Task 3"
+
+# Batch mode from file (one task per line)
+npx tsx src/god-agent/cli/coding-pipeline-batch.ts --file tasks.txt
 
 # The pipeline automatically triggers for coding tasks via hooks
 ```
+
+**Batch Mode Benefits:**
+- Each task gets isolated session with full 48-agent pipeline
+- Failed tasks don't block subsequent tasks
+- Sessions logged for post-analysis
+- All RLM/LEANN/learning integration preserved per task
 
 ### Pipeline Architecture
 
