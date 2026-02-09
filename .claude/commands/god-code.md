@@ -10,18 +10,31 @@ Generate code using the **MANDATORY 48-Agent Coding Pipeline** with stateful orc
 
 ## EXECUTION PROTOCOL
 
-**YOU MUST use coding-pipeline-cli for orchestration. DO NOT write code directly. DO NOT use static Task() templates. DO NOT implement anything yourself. DO NOT use "streamlined" mode.**
+**YOU MUST use coding-pipeline-cli for orchestration.**
+
+**FORBIDDEN ACTIONS - DO NOT DO THESE:**
+- ❌ DO NOT run `npx claude-flow memory store` commands
+- ❌ DO NOT run `npx claude-flow memory retrieve` commands
+- ❌ DO NOT write code files yourself
+- ❌ DO NOT use static Task() templates
+- ❌ DO NOT implement anything yourself
+- ❌ DO NOT use "streamlined" mode
+- ❌ DO NOT do ANY memory operations - the CLI handles that
 
 **THE 48-AGENT PIPELINE IS MANDATORY. NO BYPASSING. NO SHORTCUTS.**
 
-The CLI handles ALL orchestration:
-- Session state persistence (survives compaction)
-- RLM memory handoffs between agents
-- LEANN semantic search integration
-- Smart batching based on dependencies
-- Learning feedback tracking
+The CLI handles ALL orchestration internally:
+- Session state persistence
+- Memory store/retrieve operations
+- RLM memory handoffs
+- LEANN semantic search
+- Smart batching
+- Learning feedback
 
-**YOUR ONLY JOB: Execute bash commands, spawn Task() agents from batches, mark complete, repeat.**
+**YOUR ONLY JOB:**
+1. Run `npx tsx src/god-agent/cli/coding-pipeline-cli.ts` commands
+2. Spawn Task() agents with prompts from CLI output
+3. Nothing else
 
 ---
 
