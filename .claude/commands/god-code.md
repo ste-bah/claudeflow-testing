@@ -30,7 +30,9 @@ Use this protocol when `$ARGUMENTS` does NOT start with `-batch`.
 
 ### Step 1: Initialize Pipeline
 
-**IMPORTANT**: The init command takes 30-60 seconds due to DESC episode injection and embedding search. Be patient and wait for JSON output.
+**CRITICAL**: The init command takes 30-60 seconds due to DESC episode injection searching 1969 trajectories. DO NOT timeout. Wait for the full response.
+
+**Bash timeout parameter**: When calling the init command, use `timeout: 180000` (3 minutes) to ensure DESC injection completes without timing out.
 
 ```bash
 npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$ARGUMENTS"
@@ -144,7 +146,9 @@ TASKS=(${ARGUMENTS#-batch })
 
 **Step 2: Process Each Task**
 
-**IMPORTANT**: Each `init` call takes 30-60 seconds. Do not timeout - wait for complete JSON response.
+**CRITICAL**: Each `init` call takes 30-60 seconds (DESC searches 1969 trajectories). DO NOT timeout.
+
+**Bash timeout parameter**: Use `timeout: 180000` (3 minutes) for each init command to ensure DESC injection completes.
 
 For each task in the array, run the complete pipeline:
 
