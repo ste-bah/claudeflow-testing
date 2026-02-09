@@ -29,7 +29,7 @@ async function processTask(task: string, taskNum: number, totalTasks: number): P
   console.log(`Task ${taskNum}/${totalTasks}: ${task}`);
   console.log('='.repeat(80));
 
-  const godAgent = new UniversalAgent({ verbose: false });
+  const godAgent = new UniversalAgent({ verbose: true });
   await godAgent.initialize();
 
   try {
