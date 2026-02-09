@@ -116,16 +116,13 @@ store_state() {
   local key="${2:-$MEMORY_KEY}"
   local db_path=".swarm/memory.db"
 
-  # ATOMIC UPSERT: Purge ghost entries and update in single sqlite transaction
-  # This eliminates the 100-500ms race condition window between delete and store
+  # ATOMIC UPSERT: Update existing entry or fallback to store
+  # Fix: Use correct column names (content not value, no status column in schema)
   if [[ -f "$db_path" ]]; then
-    # Use sqlite3 directly for atomic operation - purge deleted entries first
-    sqlite3 "$db_path" "DELETE FROM memory_entries WHERE status='deleted' AND namespace='$MEMORY_NAMESPACE' AND key='$key';" 2>/dev/null || true
-
-    # Try to update existing active entry first (atomic upsert pattern)
-    local timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    # Try to update existing entry first (atomic upsert pattern)
+    local timestamp_ms=$(($(date +%s) * 1000))
     local update_result
-    update_result=$(sqlite3 "$db_path" "UPDATE memory_entries SET value='$state_json', updated_at='$timestamp' WHERE namespace='$MEMORY_NAMESPACE' AND key='$key' AND status='active'; SELECT changes();" 2>/dev/null)
+    update_result=$(sqlite3 "$db_path" "UPDATE memory_entries SET content='$state_json', updated_at='$timestamp_ms' WHERE namespace='$MEMORY_NAMESPACE' AND key='$key'; SELECT changes();" 2>/dev/null)
 
     if [[ "$update_result" == "1" ]]; then
       # Successfully updated existing entry - no race window
@@ -136,7 +133,7 @@ store_state() {
 
   # Store the new value (entry doesn't exist or db file doesn't exist)
   local output
-  output=$(npx claude-flow@alpha memory store -k "$key" --value "$state_json" --namespace "$MEMORY_NAMESPACE" 2>&1)
+  output=$(npx claude-flow@alpha memory store -k "$key" -v "$state_json" --namespace "$MEMORY_NAMESPACE" 2>&1)
   local exit_code=$?
 
   # Check for success indicators in output
@@ -149,16 +146,15 @@ store_state() {
     return 0
   fi
 
-  # Retry once if there was a conflict (race condition fallback)
+  # Retry once if there was a UNIQUE constraint conflict - try UPDATE instead
   if [[ "$output" == *"UNIQUE constraint"* ]] || [[ "$output" == *"already exists"* ]]; then
-    # Purge any lingering ghost entries
     if [[ -f "$db_path" ]]; then
-      sqlite3 "$db_path" "DELETE FROM memory_entries WHERE status='deleted' AND namespace='$MEMORY_NAMESPACE' AND key='$key';" 2>/dev/null || true
-    fi
-    sleep 0.1  # Brief pause
-    output=$(npx claude-flow@alpha memory store -k "$key" --value "$state_json" --namespace "$MEMORY_NAMESPACE" 2>&1)
-    if [[ $? -eq 0 ]]; then
-      return 0
+      local timestamp_ms=$(($(date +%s) * 1000))
+      local update_result
+      update_result=$(sqlite3 "$db_path" "UPDATE memory_entries SET content='$state_json', updated_at='$timestamp_ms' WHERE namespace='$MEMORY_NAMESPACE' AND key='$key'; SELECT changes();" 2>/dev/null)
+      if [[ "$update_result" == "1" ]]; then
+        return 0
+      fi
     fi
   fi
 
@@ -414,7 +410,7 @@ check_write_permission() {
   echo "  Phase 4 (Implementation): Agents 19-31 [WRITES ALLOWED HERE]"
   echo ""
   echo "To force-deactivate (not recommended):"
-  echo "  npx claude-flow@alpha memory store -k \"$MEMORY_KEY\" --value '{\"active\":false}'"
+  echo "  npx claude-flow@alpha memory store -k \"$MEMORY_KEY\" -v '{\"active\":false}' --namespace \"$MEMORY_NAMESPACE\""
   echo ""
   echo "=================================================================="
 
@@ -539,8 +535,8 @@ deactivate_pipeline() {
     echo "=================================================================="
   fi
 
-  # Clear active state
-  store_state '{"active":false}' "$MEMORY_KEY"
+  # Clear active state (use -v not --value)
+  npx claude-flow@alpha memory store -k "$MEMORY_KEY" -v '{"active":false}' --namespace "$MEMORY_NAMESPACE" 2>/dev/null || true
 
   # Clean up backup
   npx claude-flow@alpha memory delete -k "enforcement/pipeline/backup-$pipeline_id" --namespace "$MEMORY_NAMESPACE" 2>/dev/null
