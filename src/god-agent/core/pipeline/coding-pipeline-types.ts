@@ -92,3 +92,85 @@ export interface IOrchestratorConfig {
   /** Enable learning feedback to SonaEngine/ReasoningBank */
   enableLearning: boolean;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATEFUL CLI TYPES (PhD Pipeline Pattern)
+// ═══════════════════════════════════════════════════════════════════════════
+
+import type { IAgentMapping, IPipelineExecutionConfig, CodingPipelinePhase, CodingPipelineAgent } from './types.js';
+
+/**
+ * Pipeline session state for stateful CLI execution
+ */
+export interface IPipelineSession {
+  /** Unique session identifier */
+  sessionId: string;
+  /** Pipeline identifier */
+  pipelineId: string;
+  /** Learning trajectory identifier */
+  trajectoryId: string;
+  /** Pipeline configuration */
+  config: IPipelineExecutionConfig;
+  /** Current phase index (0-6 for 7 phases) */
+  currentPhaseIndex: number;
+  /** Current batch index within current phase */
+  currentBatchIndex: number;
+  /** List of completed agent keys */
+  completedAgents: CodingPipelineAgent[];
+  /** Session status */
+  status: 'running' | 'complete' | 'failed';
+  /** Creation timestamp */
+  createdAt: number;
+  /** Pre-computed batches for all phases */
+  batches: IAgentMapping[][][]; // [phaseIndex][batchIndex][agents]
+}
+
+/**
+ * Single agent in a batch with contextualized prompt
+ */
+export interface IAgentBatchItem {
+  /** Agent key */
+  key: string;
+  /** Fully contextualized prompt with RLM + LEANN */
+  prompt: string;
+  /** Claude Code Task tool type */
+  type: string;
+  /** Memory domains this agent will write to */
+  memoryWrites: string[];
+}
+
+/**
+ * Response from getBatch methods
+ */
+export interface ISessionBatchResponse {
+  /** Session identifier */
+  sessionId: string;
+  /** Session status */
+  status: 'running' | 'complete' | 'failed';
+  /** Batch of agents to execute (empty if complete) */
+  batch: IAgentBatchItem[];
+  /** Current phase name */
+  currentPhase: CodingPipelinePhase;
+  /** Number of completed agents */
+  completedAgents: number;
+  /** Total agents in pipeline */
+  totalAgents: number;
+}
+
+/**
+ * Execution result for a single agent in a batch
+ */
+export interface IBatchExecutionResult {
+  /** Agent key */
+  agentKey: string;
+  /** Success status */
+  success: boolean;
+  /** Agent output */
+  output: unknown;
+  /** Quality score (0.0 - 1.0) */
+  quality: number;
+  /** Execution duration in milliseconds */
+  duration: number;
+  /** Memory domains written to */
+  memoryWrites?: string[];
+}

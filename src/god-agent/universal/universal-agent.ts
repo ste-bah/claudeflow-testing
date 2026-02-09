@@ -132,6 +132,7 @@ import {
 } from '../core/pipeline/types.js';
 
 import {
+  CodingPipelineOrchestrator,
   createOrchestrator,
   type IOrchestratorDependencies,
   type IStepExecutor,
@@ -4455,6 +4456,31 @@ Return ONLY code in markdown code blocks.`;
     await this.agent.shutdown();
     this.initialized = false;
     this.log('Universal Agent shutdown complete - state persisted');
+  }
+
+  /**
+   * Get coding pipeline orchestrator with all dependencies wired
+   * Used by coding-pipeline-cli.ts for stateful session management
+   *
+   * @returns Configured CodingPipelineOrchestrator instance
+   */
+  async getCodingOrchestrator(): Promise<CodingPipelineOrchestrator> {
+    await this.ensureInitialized();
+
+    const deps: IOrchestratorDependencies = {
+      agentRegistry: this.agentRegistry,
+      agentSelector: this.agentSelector,
+      interactionStore: this.interactionStore,
+      reasoningBank: this.agent.getReasoningBank() ?? undefined,
+      sonaEngine: this.agent.getSonaEngine() ?? undefined,
+      leannContextService: this.leannContextService ?? undefined,
+      embeddingProvider: this.embeddingProvider ?? undefined,
+    };
+
+    return createOrchestrator(deps, {
+      verbose: true,
+      enableLearning: true,
+    });
   }
 
   /**

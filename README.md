@@ -48,13 +48,27 @@ Added a self-correction agent to Phase 5 (Testing), growing the pipeline from 47
 | **Dependency Chain** | Depends on `quality-gate`; `phase-5-reviewer` now depends on `test-fixer` |
 | **Reflexion Fallback** | Falls back to Reflexion algorithm if Self-Debug fails |
 
-### Pipeline Orchestrator CLI (`code-pipeline`)
+### Stateful Pipeline CLI (Session Persistence)
 
-New CLI subcommand that executes the full pipeline through the orchestrator (not manual instruction-based agent spawning):
+New stateful CLI pattern with disk-based session persistence for massive context handling:
 
 ```bash
-npx tsx src/god-agent/universal/cli.ts code-pipeline "Implement feature X" --json
+# Initialize a new session (returns sessionId and first batch)
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Implement feature X"
+
+# Mark current batch complete and get next batch
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete <sessionId>
+
+# Resume interrupted session after process restart
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume <sessionId>
 ```
+
+**Key Features:**
+- **Disk Persistence**: Sessions saved to `.god-agent/coding-sessions/` for resumability
+- **Massive Context**: No memory limits - state persists across restarts
+- **Smart Parallelism**: Pre-computed batches based on agent dependencies
+- **Full Integration**: RLM memory handoffs, LEANN semantic search, learning feedback
+- **Checkpointing**: Automatic state snapshots after each batch completion
 
 The orchestrator handles all 7 phases internally with trajectory persistence, Sherlock quality gates, and embedding-backed pattern matching.
 
