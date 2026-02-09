@@ -144,13 +144,13 @@ TASKS=(${ARGUMENTS#-batch })
 
 **Step 2: Process Each Task**
 
-**FAST MODE**: Use `--fast` flag to skip DESC injection (batch mode optimization):
+**IMPORTANT**: Each `init` call takes 30-60 seconds. Do not timeout - wait for complete JSON response.
 
 For each task in the array, run the complete pipeline:
 
 ```bash
-# For task 1 (with --fast for batch mode speed):
-INIT_RESPONSE=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "${TASKS[0]}" --fast)
+# For task 1 (WAIT for response - takes 30-60s):
+INIT_RESPONSE=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "${TASKS[0]}")
 SESSION_ID=$(echo "$INIT_RESPONSE" | jq -r '.sessionId')
 STATUS=$(echo "$INIT_RESPONSE" | jq -r '.status')
 
