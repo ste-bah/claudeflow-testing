@@ -1,12 +1,12 @@
 /**
  * DAI-002: Coding Pipeline Agent Mappings - Phases 4-7
  *
- * Phase 4: Implementation (12 agents + Sherlock #44)
- * Phase 5: Testing (7 agents + Sherlock #45)
- * Phase 6: Optimization (5 agents + Sherlock #46)
- * Phase 7: Delivery (1 agent + Sherlock #47)
+ * Phase 4: Implementation (12 agents + Sherlock #45)
+ * Phase 5: Testing (8 agents + Sherlock #46)
+ * Phase 6: Optimization (5 agents + Sherlock #47)
+ * Phase 7: Delivery (1 agent + Sherlock #48)
  *
- * Total: 25 core agents + 4 Sherlock = 29 agents in this file.
+ * Total: 26 core agents + 4 Sherlock = 30 agents in this file.
  *
  * Extracted for constitution compliance (< 500 lines per file).
  *
@@ -316,6 +316,21 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         critical: true,
         description: 'Validates code against quality gates, computes L-Scores, and determines phase completion.',
     },
+    {
+        phase: 'testing',
+        agentKey: 'test-fixer',
+        priority: 8,
+        category: 'testing',
+        algorithm: 'Self-Debug',
+        fallbackAlgorithm: 'Reflexion',
+        dependsOn: ['quality-gate'],
+        memoryReads: ['coding/testing/results', 'coding/testing/failures', 'coding/testing/quality-verdict'],
+        memoryWrites: ['coding/testing/fix-attempts', 'coding/testing/final-status'],
+        xpReward: 65,
+        parallelizable: false,
+        critical: false,
+        description: 'Self-correction loop: reads test failures, fixes code, re-tests until pass (max 3 retries). Escalates unfixable failures.',
+    },
     // ═══════════════════════════════════════════════════════════════════════════
     // PHASE 6: OPTIMIZATION (5 agents)
     // CRITICAL: First agent must depend on phase-5-reviewer (Sherlock gate)
@@ -415,10 +430,10 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         description: 'Final sign-off authority for code delivery, verifying all requirements met. CRITICAL: Must pass for pipeline completion.',
     },
     // ═══════════════════════════════════════════════════════════════════════════
-    // SHERLOCK FORENSIC REVIEW AGENTS (#44-47)
+    // SHERLOCK FORENSIC REVIEW AGENTS (#45-48)
     // Phase 4-7 forensic reviewers - CRITICAL: Gates phase progression
     // ═══════════════════════════════════════════════════════════════════════════
-    // #44 - Phase 4 Implementation Forensic Review
+    // #45 - Phase 4 Implementation Forensic Review
     {
         phase: 'implementation',
         agentKey: 'phase-4-reviewer',
@@ -438,9 +453,9 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         xpReward: 100,
         parallelizable: false,
         critical: true,
-        description: 'Sherlock #44: Phase 4 Implementation forensic review. CRITICAL: Gates progression to Phase 5.',
+        description: 'Sherlock #45: Phase 4 Implementation forensic review. CRITICAL: Gates progression to Phase 5.',
     },
-    // #45 - Phase 5 Testing Forensic Review
+    // #46 - Phase 5 Testing Forensic Review
     {
         phase: 'testing',
         agentKey: 'phase-5-reviewer',
@@ -448,7 +463,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         category: 'forensic-review',
         algorithm: 'Reflexion',
         fallbackAlgorithm: 'Self-Debug',
-        dependsOn: ['quality-gate'],
+        dependsOn: ['test-fixer'],
         memoryReads: [
             'coding/testing/generated-tests',
             'coding/testing/results',
@@ -459,9 +474,9 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         xpReward: 100,
         parallelizable: false,
         critical: true,
-        description: 'Sherlock #45: Phase 5 Testing forensic review. CRITICAL: Gates progression to Phase 6.',
+        description: 'Sherlock #46: Phase 5 Testing forensic review. CRITICAL: Gates progression to Phase 6.',
     },
-    // #46 - Phase 6 Optimization Forensic Review
+    // #47 - Phase 6 Optimization Forensic Review
     {
         phase: 'optimization',
         agentKey: 'phase-6-reviewer',
@@ -480,9 +495,9 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         xpReward: 100,
         parallelizable: false,
         critical: true,
-        description: 'Sherlock #46: Phase 6 Optimization forensic review. CRITICAL: Gates progression to Phase 7.',
+        description: 'Sherlock #47: Phase 6 Optimization forensic review. CRITICAL: Gates progression to Phase 7.',
     },
-    // #47 - Phase 7 Delivery Forensic Review / Recovery Agent
+    // #48 - Phase 7 Delivery Forensic Review / Recovery Agent
     // CRITICAL: Enforces MANDATORY feedback verification gate
     {
         phase: 'delivery',
@@ -512,7 +527,7 @@ export const CODING_PIPELINE_MAPPINGS_PHASE_4_7 = [
         xpReward: 150,
         parallelizable: false,
         critical: true,
-        description: 'Sherlock #47: Phase 7 Delivery forensic review, recovery orchestration, and MANDATORY feedback gate enforcement. CRITICAL: Final pipeline gate - verifies learning loop closure.',
+        description: 'Sherlock #48: Phase 7 Delivery forensic review, recovery orchestration, and MANDATORY feedback gate enforcement. CRITICAL: Final pipeline gate - verifies learning loop closure.',
     },
 ];
 //# sourceMappingURL=coding-pipeline-agents-phase4-7.js.map

@@ -40,6 +40,8 @@ export interface IPromptContext {
     };
     /** Semantic context from LEANN code search (optional) */
     semanticContext?: ISemanticContext;
+    /** Situational awareness section for parallel agent coordination (optional) */
+    situationalAwareness?: string;
 }
 /**
  * Built prompt result

@@ -857,6 +857,66 @@ async function main() {
                 await agent.shutdown();
                 process.exit(0);
             }
+            case 'code-pipeline': {
+                // Execute the coding pipeline via CodingPipelineOrchestrator
+                // Wires all dependencies and runs the 7-phase pipeline with
+                // trajectory persistence, Sherlock reviews, and embedding-backed learning
+                if (!input) {
+                    if (jsonMode) {
+                        console.log('__GODAGENT_JSON_START__');
+                        console.log(JSON.stringify({
+                            command: 'code-pipeline', success: false,
+                            error: 'No coding task provided for pipeline execution',
+                        }));
+                        console.log('__GODAGENT_JSON_END__');
+                    }
+                    else {
+                        console.error('Error: Please provide a coding task for pipeline execution');
+                    }
+                    process.exit(1);
+                }
+                const pipelineLangFlag = getFlag(flags, 'language', 'l');
+                const preparation = await agent.prepareCodeTask(input, { language: pipelineLangFlag });
+                if (!preparation.isPipeline || !preparation.pipeline?.config) {
+                    if (jsonMode) {
+                        console.log('__GODAGENT_JSON_START__');
+                        console.log(JSON.stringify({
+                            command: 'code-pipeline', success: false,
+                            error: 'Task does not require pipeline execution. Use "code" subcommand instead.',
+                        }));
+                        console.log('__GODAGENT_JSON_END__');
+                    }
+                    else {
+                        console.error('Task does not require pipeline execution. Use "code" subcommand instead.');
+                    }
+                    process.exit(1);
+                }
+                const pipelineResult = await agent.executePipeline(preparation.pipeline.config);
+                if (jsonMode) {
+                    console.log('__GODAGENT_JSON_START__');
+                    console.log(JSON.stringify({
+                        command: 'code-pipeline',
+                        success: pipelineResult.success,
+                        completedPhases: pipelineResult.completedPhases,
+                        totalXP: pipelineResult.totalXP,
+                        executionTimeMs: pipelineResult.executionTimeMs,
+                        trajectoryId: preparation.trajectoryId ?? undefined,
+                    }));
+                    console.log('__GODAGENT_JSON_END__');
+                }
+                else {
+                    console.log('\n--- Pipeline Execution Result ---\n');
+                    console.log(`Success: ${pipelineResult.success}`);
+                    console.log(`Completed Phases: ${pipelineResult.completedPhases.join(', ')}`);
+                    console.log(`Total XP: ${pipelineResult.totalXP}`);
+                    console.log(`Execution Time: ${pipelineResult.executionTimeMs}ms`);
+                    if (preparation.trajectoryId) {
+                        console.log(`Trajectory: ${preparation.trajectoryId}`);
+                    }
+                }
+                await agent.shutdown();
+                process.exit(0);
+            }
             case 'research':
             case 'r':
                 if (!input) {

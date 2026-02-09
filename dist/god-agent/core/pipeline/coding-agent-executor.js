@@ -14,6 +14,7 @@
  */
 import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
+import { PipelineProgressStore } from './pipeline-progress-store.js';
 import { ObservabilityBus } from '../observability/bus.js';
 import { PHASE_ORDER, CHECKPOINT_PHASES, CRITICAL_AGENTS } from './types.js';
 // Extracted helper functions
@@ -52,6 +53,8 @@ export async function executeAgent(deps, config, agentMapping, phase, pipelineId
             phase,
         },
     });
+    // Mark agent as active in progress store (for parallel awareness)
+    deps.progressStore?.markActive(agentMapping.agentKey);
     try {
         // 1. Retrieve memory context for this agent
         const memoryContext = retrieveMemoryContextFn(deps.memoryCoordinator, config.memoryNamespace, memoryReads);
@@ -98,6 +101,10 @@ export async function executeAgent(deps, config, agentMapping, phase, pipelineId
             previousOutput: memoryContext,
             semanticContext,
         };
+        // Inject situational awareness for parallel agent coordination
+        if (deps.awarenessBuilder) {
+            promptContext.situationalAwareness = deps.awarenessBuilder.buildAwarenessSection(agentMapping.agentKey, phase);
+        }
         const builtPrompt = deps.promptBuilder.buildPrompt(promptContext);
         // 5. Execute with stepExecutor
         const executionResult = await executeWithStepExecutorFn(deps.stepExecutor, agentKey, builtPrompt.prompt, config.agentTimeoutMs);
@@ -110,7 +117,16 @@ export async function executeAgent(deps, config, agentMapping, phase, pipelineId
             sourceStepIndex: undefined,
             sourceDomain: memoryReads[0],
         };
-        // 8. Provide feedback to SonaEngine if learning enabled
+        // 8. Persist agent trajectory so feedback succeeds (PRD Section 5.1)
+        if (config.enableLearning && deps.sonaEngine) {
+            try {
+                deps.sonaEngine.createTrajectoryWithId(trajectoryId, 'reasoning.pattern', [], [`agent:${agentKey}`, `phase:${phase}`, `pipeline:${pipelineId}`]);
+            }
+            catch (trajError) {
+                log(`Warning: Agent trajectory creation failed for ${agentKey}: ${trajError}`);
+            }
+        }
+        // 9. Provide feedback to SonaEngine if learning enabled
         if (config.enableLearning) {
             await provideStepFeedbackFn({ sonaEngine: deps.sonaEngine, reasoningBank: deps.reasoningBank }, trajectoryId, executionResult.quality, agentKey, phase, rlmContext, log);
         }
@@ -137,6 +153,23 @@ export async function executeAgent(deps, config, agentMapping, phase, pipelineId
             memoryWrites,
             executionTimeMs,
         };
+        // Update progress store and release file claims (parallel awareness)
+        let outputSummary;
+        if (deps.progressStore) {
+            const outputStr = typeof executionResult.output === 'string'
+                ? executionResult.output
+                : JSON.stringify(executionResult.output ?? '');
+            outputSummary = PipelineProgressStore.extractOutputSummary(outputStr);
+            deps.progressStore.markCompleted(agentMapping.agentKey, outputSummary);
+        }
+        deps.fileClaims?.releaseAll(agentMapping.agentKey);
+        // Index generated/modified code into LEANN for semantic search
+        if (deps.leannContextService && outputSummary) {
+            const allFiles = [...outputSummary.filesCreated, ...outputSummary.filesModified];
+            if (allFiles.length > 0) {
+                await indexFilesIntoLeann(deps.leannContextService, allFiles, agentMapping.agentKey, log);
+            }
+        }
         state.executionResults.set(agentKey, agentResult);
         trimExecutionResultsFn(state.executionResults, log);
         return agentResult;
@@ -157,10 +190,23 @@ export async function executeAgent(deps, config, agentMapping, phase, pipelineId
                 error: errorMessage,
             },
         });
+        // Persist failure trajectory so feedback succeeds (PRD Section 5.1)
+        const failTrajectoryId = `trajectory_coding_${pipelineId}_${agentKey}`;
+        if (config.enableLearning && deps.sonaEngine) {
+            try {
+                deps.sonaEngine.createTrajectoryWithId(failTrajectoryId, 'reasoning.pattern', [], [`agent:${agentKey}`, `phase:${phase}`, `pipeline:${pipelineId}`, 'failed']);
+            }
+            catch (trajError) {
+                log(`Warning: Failed agent trajectory creation failed for ${agentKey}: ${trajError}`);
+            }
+        }
         // Provide failure feedback if learning enabled
         if (config.enableLearning) {
-            await provideStepFeedbackFn({ sonaEngine: deps.sonaEngine, reasoningBank: deps.reasoningBank }, `trajectory_coding_${pipelineId}_${agentKey}`, 0, agentKey, phase, undefined, log);
+            await provideStepFeedbackFn({ sonaEngine: deps.sonaEngine, reasoningBank: deps.reasoningBank }, failTrajectoryId, 0, agentKey, phase, undefined, log);
         }
+        // Update progress store and release file claims on failure (parallel awareness)
+        deps.progressStore?.markFailed(agentMapping.agentKey, errorMessage);
+        deps.fileClaims?.releaseAll(agentMapping.agentKey);
         const agentResult = {
             agentKey,
             success: false,
@@ -210,6 +256,10 @@ export async function executePhase(deps, config, phase, pipelineConfig, pipeline
     if (config.enableCheckpoints && CHECKPOINT_PHASES.includes(phase)) {
         createCheckpoint(deps.memoryCoordinator, config.memoryNamespace, phase, state, log);
         checkpointCreated = true;
+    }
+    // Register all agents in progress store for awareness tracking
+    for (const agent of executionOrder) {
+        deps.progressStore?.registerAgent(agent.agentKey, phase);
     }
     // Execute agents in batches (parallelizable agents can run together)
     const batches = batchAgentsForExecutionFn(executionOrder, {
@@ -329,6 +379,59 @@ export function createCheckpoint(memoryCoordinator, memoryNamespace, phase, stat
     state.checkpoints.set(phase, checkpoint);
     // Store checkpoint in memory
     storeMemoryFn(memoryCoordinator, memoryNamespace, `pipeline/checkpoints/${phase}`, checkpoint, log);
+}
+/**
+ * Index generated/modified files into LEANN for semantic search.
+ * Reads files from disk and adds them to the LEANN vector index.
+ *
+ * @param leannService - LEANN context service
+ * @param filePaths - Array of file paths to index
+ * @param agentKey - Agent key that generated the files
+ * @param log - Logging function
+ */
+async function indexFilesIntoLeann(leannService, filePaths, agentKey, log) {
+    const adapter = leannService.getAdapter();
+    if (!adapter) {
+        log('LEANN indexing skipped: adapter not initialized');
+        return;
+    }
+    let indexedCount = 0;
+    for (const filePath of filePaths) {
+        try {
+            // Check if file exists
+            if (!existsSync(filePath)) {
+                log(`LEANN indexing skipped: file not found: ${filePath}`);
+                continue;
+            }
+            // Read file content
+            const code = readFileSync(filePath, 'utf-8');
+            // Skip empty files
+            if (code.trim().length === 0) {
+                continue;
+            }
+            // Index into LEANN with metadata
+            await adapter.index(code, {
+                filePath,
+                source: agentKey,
+                indexed_at: Date.now(),
+            });
+            indexedCount++;
+        }
+        catch (error) {
+            log(`LEANN indexing failed for ${filePath}: ${error.message}`);
+        }
+    }
+    if (indexedCount > 0) {
+        log(`LEANN indexed ${indexedCount} files from ${agentKey}`);
+        // Save updated LEANN index to persistent storage
+        try {
+            await leannService.save('vector_db_leann');
+            log('LEANN index saved successfully');
+        }
+        catch (error) {
+            log(`LEANN save failed: ${error.message}`);
+        }
+    }
 }
 /**
  * Rollback to the last successful checkpoint

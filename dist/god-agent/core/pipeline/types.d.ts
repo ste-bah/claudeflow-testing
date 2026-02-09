@@ -21,8 +21,8 @@ export type Phase2Agent = 'pattern-explorer' | 'technology-scout' | 'research-pl
 export type Phase3Agent = 'system-designer' | 'component-designer' | 'interface-designer' | 'data-architect' | 'integration-architect';
 /** Phase 4: Implementation - 12 agents */
 export type Phase4Agent = 'code-generator' | 'type-implementer' | 'unit-implementer' | 'service-implementer' | 'data-layer-implementer' | 'api-implementer' | 'frontend-implementer' | 'error-handler-implementer' | 'config-implementer' | 'logger-implementer' | 'dependency-manager' | 'implementation-coordinator';
-/** Phase 5: Testing - 7 agents */
-export type Phase5Agent = 'test-generator' | 'test-runner' | 'integration-tester' | 'regression-tester' | 'security-tester' | 'coverage-analyzer' | 'quality-gate';
+/** Phase 5: Testing - 8 agents */
+export type Phase5Agent = 'test-generator' | 'test-runner' | 'integration-tester' | 'regression-tester' | 'security-tester' | 'coverage-analyzer' | 'quality-gate' | 'test-fixer';
 /** Phase 6: Optimization - 5 agents */
 export type Phase6Agent = 'performance-optimizer' | 'performance-architect' | 'code-quality-improver' | 'security-architect' | 'final-refactorer';
 /** Phase 7: Delivery - 1 core agent */
@@ -31,7 +31,7 @@ export type Phase7Agent = 'sign-off-approver';
  * Verdicts: INNOCENT (passed), GUILTY (failed), INSUFFICIENT_EVIDENCE (needs more data)
  * All forensic reviewers are CRITICAL - they gate pipeline progression. */
 export type SherlockForensicAgent = 'phase-1-reviewer' | 'phase-2-reviewer' | 'phase-3-reviewer' | 'phase-4-reviewer' | 'phase-5-reviewer' | 'phase-6-reviewer' | 'recovery-agent';
-/** Union type of all 47 coding pipeline agents (40 core + 7 Sherlock) */
+/** Union type of all 48 coding pipeline agents (41 core + 7 Sherlock) */
 export type CodingPipelineAgent = Phase1Agent | Phase2Agent | Phase3Agent | Phase4Agent | Phase5Agent | Phase6Agent | Phase7Agent | SherlockForensicAgent;
 /**
  * USACF Algorithm types used by agents
@@ -114,6 +114,8 @@ export interface IPipelineExecutionConfig {
     startPhase?: number;
     /** End phase (for partial execution) */
     endPhase?: number;
+    /** Original user task text for embedding-backed trajectory creation */
+    taskText?: string;
 }
 /**
  * Result from a single agent execution
@@ -176,18 +178,18 @@ export declare const CORE_AGENTS = 40;
 export declare const SHERLOCK_AGENT_COUNT = 7;
 /**
  * Total number of agents in the pipeline
- * 40 core + 7 Sherlock = 47
+ * 41 core + 7 Sherlock = 48
  */
-export declare const TOTAL_AGENTS = 47;
+export declare const TOTAL_AGENTS = 48;
 /**
- * Sherlock Forensic Review agents (41-47)
+ * Sherlock Forensic Review agents (42-48)
  * All are CRITICAL - they gate pipeline phase progression
  */
 export declare const SHERLOCK_AGENTS: SherlockForensicAgent[];
 /**
  * Critical agents that halt pipeline on failure
  * Includes core critical agents AND all Sherlock forensic reviewers
- * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
+ * REQ-PIPE-048: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export declare const CRITICAL_AGENTS: CodingPipelineAgent[];
 /**

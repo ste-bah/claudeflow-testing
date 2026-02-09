@@ -7,7 +7,7 @@
  * @module mcp-servers/leann-search/tools/index-repository
  */
 import type { ToolExecutionContext } from './semantic-code-search.js';
-import type { IndexCodeInput, IndexCodeOutput, SupportedLanguage } from '../types.js';
+import type { IndexCodeInput, IndexCodeOutput, SupportedLanguage, CodeSymbolType } from '../types.js';
 /**
  * Input parameters for repository indexing
  */
@@ -59,6 +59,38 @@ export interface IndexRepositoryOutput {
     /** Summary message */
     message: string;
 }
+/**
+ * Parsed code chunk from a file
+ */
+export interface CodeChunk {
+    /** The code content */
+    content: string;
+    /** Starting line number (1-indexed) */
+    startLine: number;
+    /** Ending line number (1-indexed) */
+    endLine: number;
+    /** Symbol type detected */
+    symbolType: CodeSymbolType;
+    /** Symbol name if detected */
+    symbolName?: string;
+    /** Parent symbol if nested */
+    parentSymbol?: string;
+}
+/**
+ * Detect language from file extension
+ */
+export declare function detectLanguage(filePath: string): SupportedLanguage;
+/**
+ * Parse code into chunks based on language-specific patterns
+ */
+export declare function parseCodeIntoChunks(content: string, language: SupportedLanguage, maxChunkSize: number): CodeChunk[];
+/**
+ * Get language-specific parsing patterns
+ */
+export declare function getLanguagePatterns(language: SupportedLanguage): Array<{
+    regex: RegExp;
+    type: CodeSymbolType;
+}>;
 /**
  * Index a repository for semantic code search
  *

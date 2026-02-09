@@ -48,7 +48,7 @@ const DEFAULT_CONFIG = {
     autoLoad: true,
     autoSave: true,
     autoSaveInterval: 60000, // 1 minute
-    maxChunkSize: 2000,
+    maxChunkSize: 4000, // Increased to handle larger code blocks while staying under embedder limit
     defaultSearchLimit: 10,
     enableLogging: true,
     logLevel: 'info',

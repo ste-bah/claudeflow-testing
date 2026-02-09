@@ -59,41 +59,41 @@ export const CORE_AGENTS = 40;
 export const SHERLOCK_AGENT_COUNT = 7;
 /**
  * Total number of agents in the pipeline
- * 40 core + 7 Sherlock = 47
+ * 41 core + 7 Sherlock = 48
  */
-export const TOTAL_AGENTS = 47;
+export const TOTAL_AGENTS = 48;
 /**
- * Sherlock Forensic Review agents (41-47)
+ * Sherlock Forensic Review agents (42-48)
  * All are CRITICAL - they gate pipeline phase progression
  */
 export const SHERLOCK_AGENTS = [
-    'phase-1-reviewer', // #41 - Understanding review
-    'phase-2-reviewer', // #42 - Exploration review
-    'phase-3-reviewer', // #43 - Architecture review
-    'phase-4-reviewer', // #44 - Implementation review
-    'phase-5-reviewer', // #45 - Testing review
-    'phase-6-reviewer', // #46 - Optimization review
-    'recovery-agent', // #47 - Phase 7 / Recovery
+    'phase-1-reviewer', // #42 - Understanding review
+    'phase-2-reviewer', // #43 - Exploration review
+    'phase-3-reviewer', // #44 - Architecture review
+    'phase-4-reviewer', // #45 - Implementation review
+    'phase-5-reviewer', // #46 - Testing review
+    'phase-6-reviewer', // #47 - Optimization review
+    'recovery-agent', // #48 - Phase 7 / Recovery
 ];
 /**
  * Critical agents that halt pipeline on failure
  * Includes core critical agents AND all Sherlock forensic reviewers
- * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
+ * REQ-PIPE-048: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export const CRITICAL_AGENTS = [
     // Core critical agents
     'task-analyzer', // #1 - Phase 1: Pipeline entry point (CRITICAL in frontmatter)
     'interface-designer', // #13 - Phase 3: API contract validation
     'quality-gate', // #34 - Phase 5: L-Score validation gateway
-    'sign-off-approver', // #40 - Phase 7: Final approval
+    'sign-off-approver', // #41 - Phase 7: Final approval
     // Sherlock forensic reviewers (all critical - gate phase progression)
-    'phase-1-reviewer', // #41 - Understanding forensic review
-    'phase-2-reviewer', // #42 - Exploration forensic review
-    'phase-3-reviewer', // #43 - Architecture forensic review
-    'phase-4-reviewer', // #44 - Implementation forensic review
-    'phase-5-reviewer', // #45 - Testing forensic review
-    'phase-6-reviewer', // #46 - Optimization forensic review
-    'recovery-agent', // #47 - Phase 7 forensic review / Recovery
+    'phase-1-reviewer', // #42 - Understanding forensic review
+    'phase-2-reviewer', // #43 - Exploration forensic review
+    'phase-3-reviewer', // #44 - Architecture forensic review
+    'phase-4-reviewer', // #45 - Implementation forensic review
+    'phase-5-reviewer', // #46 - Testing forensic review
+    'phase-6-reviewer', // #47 - Optimization forensic review
+    'recovery-agent', // #48 - Phase 7 forensic review / Recovery
 ];
 /**
  * Mapping of Sherlock forensic reviewers to their phases

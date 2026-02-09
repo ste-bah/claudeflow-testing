@@ -71,6 +71,7 @@ export class PipelinePromptBuilder {
             previousOutput,
             previousStepData,
             semanticContext,
+            situationalAwareness: context.situationalAwareness,
         });
         return {
             prompt,
@@ -84,12 +85,16 @@ export class PipelinePromptBuilder {
      * Assemble the full prompt from sections
      */
     assemblePrompt(params) {
-        const { step, stepIndex, totalSteps, pipelineId, pipelineName, agentDef, previousStep, nextStep, initialInput, previousOutput, previousStepData, semanticContext, } = params;
+        const { step, stepIndex, totalSteps, pipelineId, pipelineName, agentDef, previousStep, nextStep, initialInput, previousOutput, previousStepData, semanticContext, situationalAwareness, } = params;
         const sections = [];
         // 1. Agent Header
         sections.push(this.buildAgentHeader(step, agentDef));
         // 2. Workflow Context (RULE-007)
         sections.push(this.buildWorkflowContext(stepIndex, totalSteps, pipelineName, pipelineId, previousStep, nextStep));
+        // 2b. Situational Awareness (parallel agent coordination)
+        if (situationalAwareness) {
+            sections.push(situationalAwareness);
+        }
         // 3. Memory Retrieval Section (with injected previous output when available)
         sections.push(this.buildMemoryRetrievalSection(step, pipelineId, initialInput, stepIndex, previousOutput, previousStepData));
         // 3b. Semantic Context Section (from LEANN code search)

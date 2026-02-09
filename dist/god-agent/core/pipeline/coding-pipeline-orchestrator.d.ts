@@ -13,7 +13,7 @@
  */
 import { type ICheckpointData } from './coding-agent-executor.js';
 import type { CodingPipelinePhase, CodingPipelineAgent, IPipelineDAG, IPipelineExecutionConfig, IAgentExecutionResult, IPipelineExecutionResult } from './types.js';
-import type { IStepExecutor, IOrchestratorDependencies, IOrchestratorConfig } from './coding-pipeline-types.js';
+import type { IStepExecutor, IOrchestratorDependencies, IOrchestratorConfig, ISessionBatchResponse, IBatchExecutionResult } from './coding-pipeline-types.js';
 import { DEFAULT_ORCHESTRATOR_CONFIG } from './coding-pipeline-constants.js';
 /**
  * Orchestrates the 40-agent coding pipeline execution
@@ -35,6 +35,9 @@ export declare class CodingPipelineOrchestrator {
     private readonly memoryCoordinator;
     private readonly configLoader;
     private readonly integratedValidator;
+    private readonly progressStore;
+    private readonly fileClaims;
+    private readonly awarenessBuilder;
     /**
      * Create a new CodingPipelineOrchestrator with dependency injection.
      *
@@ -88,6 +91,78 @@ export declare class CodingPipelineOrchestrator {
      * Get the DAG
      */
     getDAG(): IPipelineDAG;
+    /**
+     * Save session to disk
+     * Enables resumption after process restart (PRD: massive context handling)
+     */
+    private saveSessionToDisk;
+    /**
+     * Load session from disk
+     * Enables resumption after process restart
+     */
+    private loadSessionFromDisk;
+    /**
+     * Check if session exists on disk
+     */
+    private sessionExists;
+    /**
+     * Delete session from disk (cleanup after completion)
+     */
+    private deleteSession;
+    /**
+     * Resume existing session from disk
+     * Validates session integrity and returns current state
+     *
+     * @param sessionId - Session identifier to resume
+     * @returns Session batch response for current position
+     */
+    resumeSession(sessionId: string): Promise<ISessionBatchResponse>;
+    /**
+     * List all sessions on disk
+     * Useful for recovery and debugging
+     */
+    listSessions(): Array<{
+        sessionId: string;
+        status: string;
+        createdAt: number;
+    }>;
+    /**
+     * Initialize a stateful pipeline session
+     * Returns the first batch of agents with contextualized prompts
+     *
+     * @param sessionId - Unique session identifier
+     * @param pipelineConfig - Pipeline configuration
+     * @returns First batch of agents to execute
+     */
+    initSession(sessionId: string, pipelineConfig: IPipelineExecutionConfig): Promise<ISessionBatchResponse>;
+    /**
+     * Get next batch of agents with contextualized prompts
+     * Loads session from disk (supports resumption after restart)
+     *
+     * @param sessionId - Session identifier
+     * @returns Batch of agents to execute, or completion status
+     */
+    getNextBatch(sessionId: string): Promise<ISessionBatchResponse>;
+    /**
+     * Mark batch as complete and provide learning feedback
+     * Loads session from disk, updates it, and saves back (checkpoint)
+     *
+     * @param sessionId - Session identifier
+     * @param results - Execution results from batch
+     */
+    markBatchComplete(sessionId: string, results: IBatchExecutionResult[]): Promise<void>;
+    /**
+     * Compute all batches for all phases upfront
+     */
+    private computeAllBatches;
+    /**
+     * Get batch prompts with full RLM/LEANN context injection
+     */
+    private getBatchPrompts;
+    /**
+     * Map agent key to Claude Code Task tool type
+     */
+    private mapAgentToType;
 }
 /**
  * Create a new CodingPipelineOrchestrator instance with dependency injection.

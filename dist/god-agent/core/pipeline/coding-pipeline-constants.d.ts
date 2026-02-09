@@ -31,8 +31,8 @@ export declare const TYPE_TO_PHASE: Record<string, CodingPipelinePhase>;
  */
 export declare const PHASE_DEFAULT_ALGORITHM: Record<CodingPipelinePhase, AlgorithmType>;
 /**
- * Defines execution order for all 47 agents in the coding pipeline.
- * REQ-PIPE-047: 47 agents total (40 core + 7 Sherlock forensic reviewers)
+ * Defines execution order for all 48 agents in the coding pipeline.
+ * REQ-PIPE-048: 48 agents total (41 core + 7 Sherlock forensic reviewers)
  */
 export declare const AGENT_ORDER: Record<string, number>;
 /**

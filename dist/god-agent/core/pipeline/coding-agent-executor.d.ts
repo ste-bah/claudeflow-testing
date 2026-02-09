@@ -17,6 +17,9 @@ import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
 import type { LeannContextService } from './leann-context-service.js';
 import type { PipelineMemoryCoordinator } from './pipeline-memory-coordinator.js';
 import type { PipelinePromptBuilder } from './pipeline-prompt-builder.js';
+import { PipelineProgressStore } from './pipeline-progress-store.js';
+import type { PipelineFileClaims } from './pipeline-file-claims.js';
+import type { SituationalAwarenessBuilder } from './pipeline-situational-awareness.js';
 import type { CodingPipelinePhase, CodingPipelineAgent, IAgentMapping, IAgentExecutionResult, IPhaseExecutionResult, IPipelineExecutionConfig } from './types.js';
 import { type IStepExecutor } from './coding-phase-executor.js';
 import type { IIntegratedValidationResult } from './sherlock-quality-gate-integration.js';
@@ -36,6 +39,12 @@ export interface IAgentExecutorDependencies {
     promptBuilder: PipelinePromptBuilder;
     /** Step executor for agent execution */
     stepExecutor?: IStepExecutor;
+    /** Progress store for parallel agent awareness */
+    progressStore?: PipelineProgressStore;
+    /** File claims for parallel agent coordination */
+    fileClaims?: PipelineFileClaims;
+    /** Situational awareness builder for prompt injection */
+    awarenessBuilder?: SituationalAwarenessBuilder;
 }
 /**
  * Configuration for agent executor

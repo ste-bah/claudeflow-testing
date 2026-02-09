@@ -1,9 +1,9 @@
 /**
  * DAI-002: Coding Pipeline Agent Mappings - Phases 1-3
  *
- * Phase 1: Understanding (6 agents + Sherlock #41)
- * Phase 2: Exploration (4 agents + Sherlock #42)
- * Phase 3: Architecture (5 agents + Sherlock #43)
+ * Phase 1: Understanding (6 agents + Sherlock #42)
+ * Phase 2: Exploration (4 agents + Sherlock #43)
+ * Phase 3: Architecture (5 agents + Sherlock #44)
  *
  * Total: 15 core agents + 3 Sherlock = 18 agents in this file.
  *

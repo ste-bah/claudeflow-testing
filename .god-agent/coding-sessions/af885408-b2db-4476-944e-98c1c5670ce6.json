@@ -1,0 +1,1238 @@
+{
+  "sessionId": "af885408-b2db-4476-944e-98c1c5670ce6",
+  "pipelineId": "pipeline-1770654959503",
+  "trajectoryId": "traj_1770654959503_a300ec1b",
+  "config": {
+    "phases": [
+      "understanding",
+      "exploration",
+      "architecture",
+      "implementation",
+      "testing",
+      "optimization",
+      "delivery"
+    ],
+    "agentsByPhase": {},
+    "dag": {
+      "nodes": {},
+      "phases": {},
+      "topologicalOrder": [
+        "task-analyzer",
+        "requirement-extractor",
+        "context-gatherer",
+        "requirement-prioritizer",
+        "scope-definer",
+        "feasibility-analyzer",
+        "phase-1-reviewer",
+        "pattern-explorer",
+        "technology-scout",
+        "research-planner",
+        "codebase-analyzer",
+        "phase-2-reviewer",
+        "system-designer",
+        "component-designer",
+        "interface-designer",
+        "data-architect",
+        "integration-architect",
+        "phase-3-reviewer",
+        "code-generator",
+        "type-implementer",
+        "unit-implementer",
+        "service-implementer",
+        "data-layer-implementer",
+        "api-implementer",
+        "frontend-implementer",
+        "error-handler-implementer",
+        "config-implementer",
+        "logger-implementer",
+        "dependency-manager",
+        "implementation-coordinator",
+        "phase-4-reviewer",
+        "test-generator",
+        "test-runner",
+        "integration-tester",
+        "regression-tester",
+        "security-tester",
+        "coverage-analyzer",
+        "quality-gate",
+        "test-fixer",
+        "phase-5-reviewer",
+        "performance-optimizer",
+        "performance-architect",
+        "code-quality-improver",
+        "security-architect",
+        "final-refactorer",
+        "phase-6-reviewer",
+        "sign-off-approver",
+        "recovery-agent"
+      ],
+      "checkpointPhases": [
+        "understanding",
+        "exploration",
+        "architecture",
+        "implementation",
+        "testing"
+      ]
+    },
+    "memoryNamespace": "coding",
+    "checkpoints": [
+      "understanding",
+      "exploration",
+      "architecture",
+      "implementation",
+      "testing"
+    ],
+    "startPhase": 0,
+    "endPhase": 6,
+    "taskText": "Implement TASK-ANALYSIS-002: Wyckoff Method Module\n\n## Task Overview\nImplement the Wyckoff method analysis module that detects accumulation/distribution phases, spring/upthrust events, volume-price spread analysis, and trading range boundaries. Returns a `MethodologySignal` indicating the current Wyckoff phase and directional bias with medium-to-long timeframe focus.\n\n## Dependencies\n- TASK-ANALYSIS-001: `BaseMethodology`, `MethodologySignal`, `Direction`, `Timeframe` must be defined\n\n## Requirements\n1. Create a `WyckoffAnalyzer` class that extends `BaseMethodology`:\n   ```python\n   class WyckoffAnalyzer(BaseMethodology):\n       name = \"wyckoff\"\n       display_name = \"Wyckoff Method\"\n       default_timeframe = \"medium\"\n       version = \"1.0.0\"\n\n       async def analyze(self, ticker, price_data, volume_data, fundamentals=None, **kwargs) -> MethodologySignal:\n   ```\n\n2. Phase Detection -- identify which Wyckoff phase the price action is in:\n   - **Accumulation** (bullish): Price stops declining, forms a trading range with decreasing volume on selloffs and increasing volume on rallies\n   - **Markup** (bullish): Price breaks above trading range with expanding volume\n   - **Distribution** (bearish): Price stops advancing, forms a trading range with decreasing volume on rallies and increasing volume on selloffs\n   - **Markdown** (bearish): Price breaks below trading range with expanding volume\n   - **Ranging** (neutral): Price in a trading range without clear accumulation or distribution characteristics\n\n3. Phase detection algorithm:\n   - Identify the trading range using the last N bars (configurable, default 60):\n     - Upper boundary (resistance): highest high in the range, excluding outlier wicks (use 95th percentile of highs)\n     - Lower boundary (support): lowest low in the range, excluding outlier wicks (use 5th percentile of lows)\n   - Volume analysis within the range:\n     - Calculate average volume on up-days vs down-days\n     - Up-day: close > previous close; down-day: close < previous close\n     - Accumulation signal: up-day volume > down-day volume by > 20%\n     - Distribution signal: down-day volume > up-day volume by > 20%\n   - Trend context: use 50-bar and 200-bar simple moving averages to determine if we are in a prior downtrend (potential accumulation) or uptrend (potential distribution)\n\n4. Spring/Upthrust Detection:\n   - **Spring**: Price briefly breaks below support (lower boundary) then closes back above it within 1-3 bars, on below-average volume. This is a bullish signal within accumulation.\n   - **Upthrust**: Price briefly breaks above resistance (upper boundary) then closes back below it within 1-3 bars, on below-average volume. This is a bearish signal within distribution.\n   - Look back over the last 10 bars for recent spring/upthrust events\n\n5. Volume-Price Spread Analysis:\n   - For each bar, classify as one of:\n     - Wide spread + high volume (strong move, confirms direction)\n     - Wide spread + low volume (weak move, likely to reverse)\n     - Narrow spread + high volume (absorption, potential reversal)\n     - Narrow spread + low volume (no interest, continuation)\n   - Spread: `high - low` relative to 20-bar average true range (ATR)\n   - Volume: relative to 20-bar average volume\n   - \"Wide\" = > 1.2x average; \"Narrow\" = < 0.8x average; \"High\" = > 1.3x average; \"Low\" = < 0.7x average\n\n6. Effort vs Result Analysis:\n   - Compare volume (effort) to price change (result) over the last 10 bars\n   - High effort + small result = potential reversal (absorption)\n   - Low effort + large result = continuation of trend\n   - Calculate as correlation between volume and absolute price change\n\n7. Confidence calculation:\n   - Base confidence from phase clarity: clear accumulation/distribution = 0.7, ambiguous = 0.4\n   - Spring/upthrust detected: +0.15\n   - Volume confirms phase: +0.10\n   - Effort vs result confirms: +0.05\n   - Cap at 1.0\n\n8. Key levels in output:\n   ```python\n   key_levels = {\n       \"trading_range_high\": float,       # Upper boundary of range\n       \"trading_range_low\": float,        # Lower boundary of range\n       \"spring_level\": float | None,      # Price level of detected spring\n       \"upthrust_level\": float | None,    # Price level of detected upthrust\n       \"target_markup\": float | None,     # Projected target if markup begins (range height added to breakout)\n       \"target_markdown\": float | None,   # Projected target if markdown begins\n       \"sma_50\": float,\n       \"sma_200\": float\n   }\n   ```\n\n9. Reasoning output should be human-readable, e.g.:\n   - \"AAPL is in an accumulation phase with a trading range between $178.50-$186.20. Volume on up-days exceeds down-day volume by 32%, suggesting institutional buying. A spring event was detected at $177.80 on Feb 3. Phase confidence is high.\"\n\n10. Timeframe:\n    - Default to `\"medium\"` for standard analysis\n    - If the trading range has persisted > 40 bars, upgrade to `\"long\"`\n    - If spring/upthrust is very recent (< 5 bars), include `\"short\"` context in reasoning\n\n## Technical Constraints\n- Input `price_data` DataFrame: columns `date`, `open`, `high`, `low`, `close` (minimum 60 rows recommended, 20 minimum enforced by base class)\n- Input `volume_data` DataFrame: columns `date`, `volume`\n- All calculations use numpy/pandas -- no external technical analysis libraries required\n- Must handle edge cases: insufficient data (< 60 bars) by reducing lookback window, zero volume bars, flat price ranges\n- Analysis should complete in < 1 second for 1 year of daily data\n\n## Acceptance Criteria\n- [ ] `WyckoffAnalyzer` is a valid subclass of `BaseMethodology`\n- [ ] `analyze()` returns a `MethodologySignal` with methodology `\"wyckoff\"`\n- [ ] Accumulation phase detected when up-day volume exceeds down-day volume in a range after a downtrend\n- [ ] Distribution phase detected when down-day volume exceeds up-day volume in a range after an uptrend\n- [ ] Spring detection: price breaks below support and recovers within 3 bars\n- [ ] Upthrust detection: price breaks above resistance and falls back within 3 bars\n- [ ] Trading range boundaries are calculated and included in `key_levels`\n- [ ] Confidence score is between 0.0 and 1.0 with appropriate adjustments\n- [ ] Reasoning string explains the phase, volume characteristics, and any events\n- [ ] Handles insufficient data gracefully (< 60 bars) with reduced confidence\n- [ ] Volume-price spread classifications are computed correctly\n\n## File Locations\n- market-terminal/backend/app/analysis/wyckoff.py"
+  },
+  "currentPhaseIndex": 0,
+  "currentBatchIndex": 2,
+  "completedAgents": [],
+  "status": "running",
+  "createdAt": 1770654959503,
+  "batches": [
+    [
+      [
+        {
+          "phase": "understanding",
+          "agentKey": "task-analyzer",
+          "priority": 1,
+          "category": "coding-pipeline",
+          "algorithm": "ReAct",
+          "fallbackAlgorithm": "Reflexion",
+          "memoryReads": [
+            "coding/input/task",
+            "coding/context/project"
+          ],
+          "memoryWrites": [
+            "coding/agent/task-analyzer"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Parses and structures coding requests into actionable components. CRITICAL agent - pipeline entry point."
+        }
+      ],
+      [
+        {
+          "phase": "understanding",
+          "agentKey": "requirement-extractor",
+          "priority": 2,
+          "category": "coding-pipeline",
+          "algorithm": "ReAct",
+          "fallbackAlgorithm": "Reflexion",
+          "dependsOn": [
+            "task-analyzer"
+          ],
+          "memoryReads": [],
+          "memoryWrites": [
+            "coding/agent/requirement-extractor"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Extracts functional and non-functional requirements from parsed task analysis."
+        }
+      ],
+      [
+        {
+          "phase": "understanding",
+          "agentKey": "requirement-prioritizer",
+          "priority": 3,
+          "category": "coding-pipeline",
+          "algorithm": "ReAct",
+          "fallbackAlgorithm": "Reflexion",
+          "dependsOn": [
+            "requirement-extractor"
+          ],
+          "memoryReads": [],
+          "memoryWrites": [
+            "coding/agent/requirement-prioritizer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Applies MoSCoW prioritization to requirements, enabling focused delivery and resource allocation."
+        }
+      ],
+      [
+        {
+          "phase": "understanding",
+          "agentKey": "scope-definer",
+          "priority": 4,
+          "category": "coding-pipeline",
+          "algorithm": "ReAct",
+          "fallbackAlgorithm": "Reflexion",
+          "dependsOn": [
+            "requirement-prioritizer"
+          ],
+          "memoryReads": [],
+          "memoryWrites": [
+            "coding/agent/scope-definer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Defines clear boundaries, deliverables, and milestones for the coding task."
+        }
+      ],
+      [
+        {
+          "phase": "understanding",
+          "agentKey": "context-gatherer",
+          "priority": 5,
+          "category": "coding-pipeline",
+          "algorithm": "ReAct",
+          "fallbackAlgorithm": "Reflexion",
+          "dependsOn": [
+            "scope-definer"
+          ],
+          "memoryReads": [],
+          "memoryWrites": [
+            "coding/agent/context-gatherer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Gathers codebase context via LEANN semantic search using ReAct reasoning protocol."
+        }
+      ],
+      [
+        {
+          "phase": "understanding",
+          "agentKey": "feasibility-analyzer",
+          "priority": 6,
+          "category": "coding-pipeline",
+          "algorithm": "ReAct",
+          "fallbackAlgorithm": "Reflexion",
+          "dependsOn": [
+            "context-gatherer"
+          ],
+          "memoryReads": [],
+          "memoryWrites": [
+            "coding/agent/feasibility-analyzer"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Assesses technical, resource, and timeline feasibility of proposed implementation approaches."
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "phase": "exploration",
+          "agentKey": "pattern-explorer",
+          "priority": 7,
+          "category": "coding-pipeline",
+          "algorithm": "LATS",
+          "fallbackAlgorithm": "ToT",
+          "dependsOn": [
+            "feasibility-analyzer"
+          ],
+          "memoryReads": [
+            "coding/understanding"
+          ],
+          "memoryWrites": [
+            "coding/agent/pattern-explorer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Explores and documents existing code patterns that can guide implementation decisions."
+        }
+      ],
+      [
+        {
+          "phase": "exploration",
+          "agentKey": "technology-scout",
+          "priority": 8,
+          "category": "coding-pipeline",
+          "algorithm": "LATS",
+          "fallbackAlgorithm": "ToT",
+          "dependsOn": [
+            "pattern-explorer"
+          ],
+          "memoryReads": [
+            "coding/understanding"
+          ],
+          "memoryWrites": [
+            "coding/agent/technology-scout"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Evaluates technology options and external solutions that could address implementation needs."
+        }
+      ],
+      [
+        {
+          "phase": "exploration",
+          "agentKey": "research-planner",
+          "priority": 9,
+          "category": "coding-pipeline",
+          "algorithm": "LATS",
+          "fallbackAlgorithm": "ToT",
+          "dependsOn": [
+            "technology-scout"
+          ],
+          "memoryReads": [
+            "coding/understanding"
+          ],
+          "memoryWrites": [
+            "coding/agent/research-planner"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Creates structured research plans to investigate implementation approaches and unknowns."
+        }
+      ],
+      [
+        {
+          "phase": "exploration",
+          "agentKey": "codebase-analyzer",
+          "priority": 10,
+          "category": "coding-pipeline",
+          "algorithm": "LATS",
+          "fallbackAlgorithm": "ToT",
+          "dependsOn": [
+            "research-planner"
+          ],
+          "memoryReads": [
+            "coding/understanding"
+          ],
+          "memoryWrites": [
+            "coding/agent/codebase-analyzer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Performs deep analysis of relevant code sections to understand implementation context."
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "phase": "architecture",
+          "agentKey": "system-designer",
+          "priority": 11,
+          "category": "coding-pipeline",
+          "algorithm": "ToT",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "codebase-analyzer"
+          ],
+          "memoryReads": [
+            "coding/exploration"
+          ],
+          "memoryWrites": [
+            "coding/agent/system-designer"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Designs high-level system architecture, module boundaries, and component relationships."
+        }
+      ],
+      [
+        {
+          "phase": "architecture",
+          "agentKey": "component-designer",
+          "priority": 12,
+          "category": "coding-pipeline",
+          "algorithm": "ToT",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "system-designer"
+          ],
+          "memoryReads": [
+            "coding/exploration"
+          ],
+          "memoryWrites": [
+            "coding/agent/component-designer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Designs internal component structure, class hierarchies, and implementation details."
+        }
+      ],
+      [
+        {
+          "phase": "architecture",
+          "agentKey": "interface-designer",
+          "priority": 13,
+          "category": "coding-pipeline",
+          "algorithm": "ToT",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "component-designer"
+          ],
+          "memoryReads": [
+            "coding/exploration"
+          ],
+          "memoryWrites": [
+            "coding/agent/interface-designer"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Designs API contracts, type definitions, and interface specifications."
+        }
+      ],
+      [
+        {
+          "phase": "architecture",
+          "agentKey": "data-architect",
+          "priority": 14,
+          "category": "coding-pipeline",
+          "algorithm": "ToT",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "interface-designer"
+          ],
+          "memoryReads": [
+            "coding/exploration"
+          ],
+          "memoryWrites": [
+            "coding/agent/data-architect"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Designs data models, database schemas, and data persistence strategies."
+        }
+      ],
+      [
+        {
+          "phase": "architecture",
+          "agentKey": "integration-architect",
+          "priority": 15,
+          "category": "coding-pipeline",
+          "algorithm": "ToT",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "data-architect"
+          ],
+          "memoryReads": [
+            "coding/exploration"
+          ],
+          "memoryWrites": [
+            "coding/agent/integration-architect"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Designs integration patterns, external API connections, and system interoperability."
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "code-generator",
+          "priority": 16,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "integration-architect"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/code-generator"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Generates clean, production-ready code following architecture specifications and coding standards."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "type-implementer",
+          "priority": 17,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "code-generator"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/type-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements TypeScript type definitions, interfaces, generics, and type utilities."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "unit-implementer",
+          "priority": 18,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "type-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/unit-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements domain entities, value objects, and core business logic units."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "service-implementer",
+          "priority": 19,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "unit-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/service-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements domain services, business logic, and application use cases."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "data-layer-implementer",
+          "priority": 20,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "service-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/data-layer-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements repositories, database access, and data persistence layer."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "api-implementer",
+          "priority": 21,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "data-layer-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/api-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements REST/GraphQL API endpoints, controllers, and request validation."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "frontend-implementer",
+          "priority": 22,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "api-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/frontend-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements UI components, pages, state management, and client-side logic."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "error-handler-implementer",
+          "priority": 23,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "frontend-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/error-handler-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements error handling strategies, recovery mechanisms, and error reporting."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "config-implementer",
+          "priority": 24,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "error-handler-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/config-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements configuration management, environment handling, and feature flags."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "logger-implementer",
+          "priority": 25,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "config-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/logger-implementer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Implements logging infrastructure, log formatting, and observability patterns."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "dependency-manager",
+          "priority": 26,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "logger-implementer"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/dependency-manager"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Manages package dependencies, version resolution, and module organization."
+        }
+      ],
+      [
+        {
+          "phase": "implementation",
+          "agentKey": "implementation-coordinator",
+          "priority": 27,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "dependency-manager"
+          ],
+          "memoryReads": [
+            "coding/architecture"
+          ],
+          "memoryWrites": [
+            "coding/agent/implementation-coordinator"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Coordinates implementation across all agents, manages dependencies, and ensures consistency."
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "phase": "testing",
+          "agentKey": "test-generator",
+          "priority": 28,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "implementation-coordinator"
+          ],
+          "memoryReads": [
+            "coding/implementation"
+          ],
+          "memoryWrites": [
+            "coding/agent/test-generator"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Generates comprehensive test suites including unit, integration, and e2e tests."
+        }
+      ],
+      [
+        {
+          "phase": "testing",
+          "agentKey": "test-runner",
+          "priority": 29,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "test-generator"
+          ],
+          "memoryReads": [
+            "coding/implementation"
+          ],
+          "memoryWrites": [
+            "coding/agent/test-runner"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Orchestrates and executes all test suites, managing test lifecycle and reporting results."
+        }
+      ],
+      [
+        {
+          "phase": "testing",
+          "agentKey": "integration-tester",
+          "priority": 30,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "test-runner"
+          ],
+          "memoryReads": [
+            "coding/implementation"
+          ],
+          "memoryWrites": [
+            "coding/agent/integration-tester"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Creates and executes integration tests verifying component interactions and system behavior."
+        }
+      ],
+      [
+        {
+          "phase": "testing",
+          "agentKey": "regression-tester",
+          "priority": 31,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "integration-tester"
+          ],
+          "memoryReads": [
+            "coding/implementation"
+          ],
+          "memoryWrites": [
+            "coding/agent/regression-tester"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Performs regression testing to detect unintended changes, compares against baselines, and identifies breaking changes."
+        }
+      ],
+      [
+        {
+          "phase": "testing",
+          "agentKey": "security-tester",
+          "priority": 32,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "regression-tester"
+          ],
+          "memoryReads": [
+            "coding/implementation"
+          ],
+          "memoryWrites": [
+            "coding/agent/security-tester"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Performs security testing including vulnerability scanning, penetration testing, and security compliance verification."
+        }
+      ],
+      [
+        {
+          "phase": "testing",
+          "agentKey": "coverage-analyzer",
+          "priority": 33,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "security-tester"
+          ],
+          "memoryReads": [
+            "coding/implementation"
+          ],
+          "memoryWrites": [
+            "coding/agent/coverage-analyzer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Analyzes test coverage metrics, identifies gaps, and generates coverage reports."
+        }
+      ],
+      [
+        {
+          "phase": "testing",
+          "agentKey": "quality-gate",
+          "priority": 34,
+          "category": "coding-pipeline",
+          "algorithm": "Self-Debug",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "coverage-analyzer"
+          ],
+          "memoryReads": [
+            "coding/implementation"
+          ],
+          "memoryWrites": [
+            "coding/agent/quality-gate"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Validates code against quality gates, computes L-Scores, and determines phase completion eligibility."
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "phase": "optimization",
+          "agentKey": "test-fixer",
+          "priority": 35,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "quality-gate"
+          ],
+          "memoryReads": [
+            "coding/testing"
+          ],
+          "memoryWrites": [
+            "coding/agent/test-fixer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Reads test failures, fixes the code, and triggers re-testing until tests pass"
+        }
+      ],
+      [
+        {
+          "phase": "optimization",
+          "agentKey": "performance-optimizer",
+          "priority": 36,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "test-fixer"
+          ],
+          "memoryReads": [
+            "coding/testing"
+          ],
+          "memoryWrites": [
+            "coding/agent/performance-optimizer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Identifies and optimizes performance bottlenecks, memory usage, and runtime efficiency."
+        }
+      ],
+      [
+        {
+          "phase": "optimization",
+          "agentKey": "performance-architect",
+          "priority": 37,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "performance-optimizer"
+          ],
+          "memoryReads": [
+            "coding/testing"
+          ],
+          "memoryWrites": [
+            "coding/agent/performance-architect"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Designs performance architecture, optimization strategies, and scalability patterns."
+        }
+      ],
+      [
+        {
+          "phase": "optimization",
+          "agentKey": "code-quality-improver",
+          "priority": 38,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "performance-architect"
+          ],
+          "memoryReads": [
+            "coding/testing"
+          ],
+          "memoryWrites": [
+            "coding/agent/code-quality-improver"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Improves code quality through refactoring, pattern application, and maintainability enhancements."
+        }
+      ],
+      [
+        {
+          "phase": "optimization",
+          "agentKey": "security-architect",
+          "priority": 39,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "code-quality-improver"
+          ],
+          "memoryReads": [
+            "coding/testing"
+          ],
+          "memoryWrites": [
+            "coding/agent/security-architect"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Designs security architecture, authentication flows, and threat mitigation strategies."
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "final-refactorer",
+          "priority": 40,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "security-architect"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/final-refactorer"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Performs final code polish, consistency checks, and prepares code for delivery."
+        },
+        {
+          "phase": "delivery",
+          "agentKey": "regression-detector",
+          "priority": 99,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/regression-detector"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Compares test results against baseline and fails pipeline on regressions"
+        },
+        {
+          "phase": "delivery",
+          "agentKey": "test-execution-verifier",
+          "priority": 99,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/test-execution-verifier"
+          ],
+          "xpReward": 50,
+          "parallelizable": true,
+          "critical": false,
+          "description": "Executes actual test suite and captures real results. NEVER estimates."
+        }
+      ],
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "sign-off-approver",
+          "priority": 41,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "final-refactorer"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/sign-off-approver"
+          ],
+          "xpReward": 100,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Final sign-off authority for code delivery, verifying all requirements met and authorizing release."
+        }
+      ],
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "phase-1-reviewer",
+          "priority": 42,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "sign-off-approver"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/phase-1-reviewer"
+          ],
+          "xpReward": 150,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Reviews Phase 1 Understanding outputs for completeness, accuracy, and consistency."
+        }
+      ],
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "phase-2-reviewer",
+          "priority": 43,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "phase-1-reviewer"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/phase-2-reviewer"
+          ],
+          "xpReward": 150,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Reviews Phase 2 Exploration outputs for completeness, research quality, and feasibility validation."
+        }
+      ],
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "phase-3-reviewer",
+          "priority": 44,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "phase-2-reviewer"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/phase-3-reviewer"
+          ],
+          "xpReward": 150,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Reviews Phase 3 Architecture outputs for completeness, design quality, and structural integrity."
+        }
+      ],
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "phase-4-reviewer",
+          "priority": 45,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "phase-3-reviewer"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/phase-4-reviewer"
+          ],
+          "xpReward": 150,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Reviews Phase 4 Implementation outputs for code quality, completeness, and architecture adherence."
+        }
+      ],
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "phase-5-reviewer",
+          "priority": 46,
+          "category": "coding-pipeline",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "phase-4-reviewer"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/phase-5-reviewer"
+          ],
+          "xpReward": 150,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Reviews Phase 5 Testing outputs for test coverage, quality, and security validation."
+        }
+      ],
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "phase-6-reviewer",
+          "priority": 47,
+          "category": "sherlock-reviewers",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "phase-5-reviewer"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/phase-6-reviewer"
+          ],
+          "xpReward": 150,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Reviews and validates Phase 6 Optimization outputs - verifies performance improvements, code quality enhancements, and refactoring correctness"
+        }
+      ],
+      [
+        {
+          "phase": "delivery",
+          "agentKey": "recovery-agent",
+          "priority": 48,
+          "category": "sherlock-reviewers",
+          "algorithm": "Reflexion",
+          "fallbackAlgorithm": "ReAct",
+          "dependsOn": [
+            "phase-6-reviewer"
+          ],
+          "memoryReads": [
+            "coding/optimization"
+          ],
+          "memoryWrites": [
+            "coding/agent/recovery-agent"
+          ],
+          "xpReward": 150,
+          "parallelizable": false,
+          "critical": true,
+          "description": "Diagnoses failures across all phases, orchestrates recovery, and ENFORCES MANDATORY FEEDBACK SUBMISSION - provides automated remediation, rollback capabilities, failure pattern learning, and learning loop closure verification"
+        }
+      ]
+    ]
+  ]
+}

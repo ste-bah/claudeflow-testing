@@ -88,7 +88,7 @@ const DEFAULT_EXCLUDE_PATTERNS = [
 /**
  * Detect language from file extension
  */
-function detectLanguage(filePath) {
+export function detectLanguage(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     return EXTENSION_TO_LANGUAGE[ext] || 'unknown';
 }
@@ -139,7 +139,7 @@ function computeContentHash(content) {
 /**
  * Parse code into chunks based on language-specific patterns
  */
-function parseCodeIntoChunks(content, language, maxChunkSize) {
+export function parseCodeIntoChunks(content, language, maxChunkSize) {
     const chunks = [];
     const lines = content.split('\n');
     // Language-specific symbol patterns
@@ -216,7 +216,7 @@ function parseCodeIntoChunks(content, language, maxChunkSize) {
 /**
  * Get language-specific parsing patterns
  */
-function getLanguagePatterns(language) {
+export function getLanguagePatterns(language) {
     const commonPatterns = [
         { regex: /^\s*(?:export\s+)?(?:abstract\s+)?class\s+(\w+)/, type: 'class' },
         { regex: /^\s*(?:export\s+)?interface\s+(\w+)/, type: 'interface' },

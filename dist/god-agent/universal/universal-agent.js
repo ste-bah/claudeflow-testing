@@ -53,6 +53,8 @@ import { getHookExecutor, } from '../core/hooks/index.js';
 // Implements [REQ-PREP-003]: Dynamic import from command-task-bridge.ts
 import { getAgentsForPhase, buildPipelineDAG, } from '../core/pipeline/command-task-bridge.js';
 import { PHASE_ORDER, CHECKPOINT_PHASES, CODING_MEMORY_NAMESPACE, } from '../core/pipeline/types.js';
+import { createOrchestrator, } from '../core/pipeline/coding-pipeline-orchestrator.js';
+import { ClaudeCodeStepExecutor } from '../core/pipeline/claude-code-step-executor.js';
 // TASK-CHUNK-003: Knowledge chunking for OpenAI token limit compliance
 // CONSTITUTION COMPLIANCE: RULE-064 (symmetric chunking), RULE-008 (SQLite persistence)
 import { KnowledgeChunker, } from './knowledge-chunker.js';
@@ -1382,6 +1384,7 @@ export class UniversalAgent {
                 checkpoints: CHECKPOINT_PHASES.filter(cp => activePhases.includes(cp)),
                 startPhase: startIdx,
                 endPhase: endIdx,
+                taskText: task,
             };
             // Create pipeline object with backward compatibility
             pipeline = {
@@ -1431,6 +1434,39 @@ export class UniversalAgent {
             language: options.language,
             triggeredByHook,
         };
+    }
+    /**
+     * Execute the coding pipeline via CodingPipelineOrchestrator.
+     *
+     * Wires all dependencies (agentRegistry, sonaEngine, reasoningBank, etc.)
+     * and delegates to the orchestrator for 7-phase execution with:
+     * - Trajectory persistence (PRD Section 5.1)
+     * - Sherlock forensic reviews (PRD Section 2.3)
+     * - Embedding-backed pattern matching (PRD Section 8.1)
+     *
+     * @param pipelineConfig - Configuration from prepareCodeTask()
+     * @param stepExecutor - Optional step executor for agent execution
+     * @returns Pipeline execution result with XP, phases, and success status
+     */
+    async executePipeline(pipelineConfig, stepExecutor) {
+        await this.ensureInitialized();
+        // Default to ClaudeCodeStepExecutor (uses `claude -p` with user's subscription)
+        const resolvedExecutor = stepExecutor ?? new ClaudeCodeStepExecutor();
+        const deps = {
+            agentRegistry: this.agentRegistry,
+            agentSelector: this.agentSelector,
+            interactionStore: this.interactionStore,
+            reasoningBank: this.agent.getReasoningBank() ?? undefined,
+            sonaEngine: this.agent.getSonaEngine() ?? undefined,
+            leannContextService: this.leannContextService ?? undefined,
+            embeddingProvider: this.embeddingProvider ?? undefined,
+        };
+        const orchestrator = createOrchestrator(deps, {
+            verbose: true,
+            enableLearning: true,
+            stepExecutor: resolvedExecutor,
+        });
+        return orchestrator.execute(pipelineConfig);
     }
     /**
      * TASK-GODWRITE-001: Prepare write task for two-phase execution
@@ -3318,6 +3354,28 @@ Return ONLY code in markdown code blocks.`;
         await this.agent.shutdown();
         this.initialized = false;
         this.log('Universal Agent shutdown complete - state persisted');
+    }
+    /**
+     * Get coding pipeline orchestrator with all dependencies wired
+     * Used by coding-pipeline-cli.ts for stateful session management
+     *
+     * @returns Configured CodingPipelineOrchestrator instance
+     */
+    async getCodingOrchestrator() {
+        await this.ensureInitialized();
+        const deps = {
+            agentRegistry: this.agentRegistry,
+            agentSelector: this.agentSelector,
+            interactionStore: this.interactionStore,
+            reasoningBank: this.agent.getReasoningBank() ?? undefined,
+            sonaEngine: this.agent.getSonaEngine() ?? undefined,
+            leannContextService: this.leannContextService ?? undefined,
+            embeddingProvider: this.embeddingProvider ?? undefined,
+        };
+        return createOrchestrator(deps, {
+            verbose: true,
+            enableLearning: true,
+        });
     }
     /**
      * Force save current state (call periodically for safety)

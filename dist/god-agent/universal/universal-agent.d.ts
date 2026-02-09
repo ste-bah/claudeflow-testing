@@ -20,7 +20,8 @@ import { AgentRegistry, AgentSelector, TaskExecutor, type IAgentSelectionResult 
 import { PipelineExecutor, type IPipelineDefinition, type DAI002PipelineResult, type DAI002PipelineOptions } from '../core/pipeline/index.js';
 import { type IRoutingResult, type IGeneratedPipeline } from '../core/routing/index.js';
 import { MemoryClient } from '../core/memory-server/index.js';
-import { type IPipelineExecutionConfig } from '../core/pipeline/types.js';
+import { type IPipelineExecutionConfig, type IPipelineExecutionResult } from '../core/pipeline/types.js';
+import { CodingPipelineOrchestrator, type IStepExecutor } from '../core/pipeline/coding-pipeline-orchestrator.js';
 import { type KnowledgeChunk } from './knowledge-chunker.js';
 export type AgentMode = 'code' | 'research' | 'write' | 'general';
 export interface UniversalConfig {
@@ -586,6 +587,20 @@ export declare class UniversalAgent {
         endPhase?: number;
     }): Promise<ICodeTaskPreparation>;
     /**
+     * Execute the coding pipeline via CodingPipelineOrchestrator.
+     *
+     * Wires all dependencies (agentRegistry, sonaEngine, reasoningBank, etc.)
+     * and delegates to the orchestrator for 7-phase execution with:
+     * - Trajectory persistence (PRD Section 5.1)
+     * - Sherlock forensic reviews (PRD Section 2.3)
+     * - Embedding-backed pattern matching (PRD Section 8.1)
+     *
+     * @param pipelineConfig - Configuration from prepareCodeTask()
+     * @param stepExecutor - Optional step executor for agent execution
+     * @returns Pipeline execution result with XP, phases, and success status
+     */
+    executePipeline(pipelineConfig: IPipelineExecutionConfig, stepExecutor?: IStepExecutor): Promise<IPipelineExecutionResult>;
+    /**
      * TASK-GODWRITE-001: Prepare write task for two-phase execution
      *
      * Implements [REQ-GODWRITE-001]: CLI does NOT attempt task execution
@@ -973,6 +988,13 @@ export declare class UniversalAgent {
      * Shutdown - saves all state before closing
      */
     shutdown(): Promise<void>;
+    /**
+     * Get coding pipeline orchestrator with all dependencies wired
+     * Used by coding-pipeline-cli.ts for stateful session management
+     *
+     * @returns Configured CodingPipelineOrchestrator instance
+     */
+    getCodingOrchestrator(): Promise<CodingPipelineOrchestrator>;
     /**
      * Force save current state (call periodically for safety)
      */

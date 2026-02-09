@@ -1,12 +1,12 @@
 /**
  * DAI-002: Coding Pipeline Agent Mappings - Phases 4-7
  *
- * Phase 4: Implementation (12 agents + Sherlock #44)
- * Phase 5: Testing (7 agents + Sherlock #45)
- * Phase 6: Optimization (5 agents + Sherlock #46)
- * Phase 7: Delivery (1 agent + Sherlock #47)
+ * Phase 4: Implementation (12 agents + Sherlock #45)
+ * Phase 5: Testing (8 agents + Sherlock #46)
+ * Phase 6: Optimization (5 agents + Sherlock #47)
+ * Phase 7: Delivery (1 agent + Sherlock #48)
  *
- * Total: 25 core agents + 4 Sherlock = 29 agents in this file.
+ * Total: 26 core agents + 4 Sherlock = 30 agents in this file.
  *
  * Extracted for constitution compliance (< 500 lines per file).
  *

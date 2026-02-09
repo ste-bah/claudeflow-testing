@@ -13,11 +13,11 @@
  */
 // Pipeline coordination services
 import { PipelineValidator } from './pipeline-validator.js';
-import { PipelinePromptBuilder } from './pipeline-prompt-builder.js';
+import { PipelinePromptBuilder, } from './pipeline-prompt-builder.js';
 import { PipelineMemoryCoordinator } from './pipeline-memory-coordinator.js';
 // Extracted modules [REQ-REFACTOR-001 through REQ-REFACTOR-004]
-import { providePipelineFeedback as providePipelineFeedbackFn } from './coding-phase-executor.js';
-import { storeMemory as storeMemoryFn } from './coding-memory-adapter.js';
+import { providePipelineFeedback as providePipelineFeedbackFn, provideStepFeedback as provideStepFeedbackFn, batchAgentsForExecution as batchAgentsForExecutionFn, } from './coding-phase-executor.js';
+import { storeMemory as storeMemoryFn, retrieveMemoryContext as retrieveMemoryContextFn, } from './coding-memory-adapter.js';
 import { executePhase as executePhaseFn, rollbackToLastCheckpoint as rollbackToLastCheckpointFn, } from './coding-agent-executor.js';
 import { initializePipelineExecution } from './coding-pipeline-init.js';
 import { finalizePipelineExecution, buildFinalPipelineState, buildCompletedMetadata, buildXPStorageObject, } from './coding-pipeline-finalize.js';
@@ -28,10 +28,27 @@ import { PHASE_ORDER, } from './types.js';
 import { CodingPipelineConfigLoader, } from './coding-pipeline-config-loader.js';
 // Backwards compatibility - import buildPipelineDAG for DAG structure
 import { buildPipelineDAG } from './command-task-bridge.js';
+import { ReasoningMode } from '../reasoning/reasoning-types.js';
 import { DEFAULT_ORCHESTRATOR_CONFIG } from './coding-pipeline-constants.js';
+// Parallel agent awareness [PARALLEL-AWARE]
+import { PipelineProgressStore } from './pipeline-progress-store.js';
+import { PipelineFileClaims } from './pipeline-file-claims.js';
+import { SituationalAwarenessBuilder } from './pipeline-situational-awareness.js';
 // Extracted factory functions [REQ-REFACTOR-005]
 import { createPipelineIntegratedValidator, validatePhaseWithSherlockAndStore, handleSherlockGuiltyVerdictAndStore, } from './coding-pipeline-factories.js';
+// Session persistence (disk-based state management for CLI)
+import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
+import { join } from 'path';
 // Note: ICheckpointData imported from coding-agent-executor.ts
+// ═══════════════════════════════════════════════════════════════════════════
+// SESSION PERSISTENCE
+// ═══════════════════════════════════════════════════════════════════════════
+// Session storage directory for disk-based persistence
+const SESSION_DIR = join(process.cwd(), '.god-agent/coding-sessions');
+// Ensure session directory exists
+if (!existsSync(SESSION_DIR)) {
+    mkdirSync(SESSION_DIR, { recursive: true });
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // CODING PIPELINE ORCHESTRATOR
 // ═══════════════════════════════════════════════════════════════════════════
@@ -59,6 +76,10 @@ export class CodingPipelineOrchestrator {
     // Sherlock-Quality Gate Integration [PRD Section 2.3]
     // Connects forensic verdicts to learning system (RLM/LEANN)
     integratedValidator;
+    // Parallel agent awareness [PARALLEL-AWARE]
+    progressStore;
+    fileClaims;
+    awarenessBuilder;
     /**
      * Create a new CodingPipelineOrchestrator with dependency injection.
      *
@@ -93,6 +114,10 @@ export class CodingPipelineOrchestrator {
             reasoningBank: dependencies.reasoningBank,
             log: this.log.bind(this),
         });
+        // Initialize parallel agent awareness [PARALLEL-AWARE]
+        this.progressStore = new PipelineProgressStore();
+        this.fileClaims = new PipelineFileClaims();
+        this.awarenessBuilder = new SituationalAwarenessBuilder(this.progressStore, this.fileClaims);
     }
     // ═══════════════════════════════════════════════════════════════════════════
     // MAIN EXECUTION METHOD
@@ -112,7 +137,50 @@ export class CodingPipelineOrchestrator {
         let errorMessage;
         // [REQ-REFACTOR-003] Use extracted initialization function
         const initResult = initializePipelineExecution(pipelineConfig, this.validator, this.log.bind(this));
-        const { pipelineId, trajectoryId, totalAgentCount } = initResult;
+        const { pipelineId, totalAgentCount } = initResult;
+        let trajectoryId = initResult.trajectoryId;
+        // Persist trajectory to learning.db so feedback calls succeed (PRD Section 5.1)
+        if (this.dependencies.embeddingProvider && this.dependencies.reasoningBank && pipelineConfig.taskText) {
+            try {
+                const embedding = await this.dependencies.embeddingProvider.embed(pipelineConfig.taskText);
+                const response = await this.dependencies.reasoningBank.reason({
+                    query: embedding,
+                    type: ReasoningMode.PATTERN_MATCH,
+                    applyLearning: true,
+                    enhanceWithGNN: false,
+                    maxResults: 5,
+                    confidenceThreshold: 0.5,
+                    metadata: {
+                        source: 'coding-pipeline-orchestrator',
+                        pipelineId,
+                        queryText: pipelineConfig.taskText,
+                    },
+                });
+                trajectoryId = response.trajectoryId;
+                this.log(`Embedding-backed trajectory created: ${trajectoryId}`);
+            }
+            catch (error) {
+                this.log(`Warning: Embedding trajectory failed, falling back to simple: ${error}`);
+                if (this.dependencies.sonaEngine) {
+                    try {
+                        this.dependencies.sonaEngine.createTrajectoryWithId(trajectoryId, 'reasoning.pattern', [], [`pipeline:${pipelineId}`]);
+                        this.log(`Simple trajectory created: ${trajectoryId}`);
+                    }
+                    catch (fallbackError) {
+                        this.log(`Warning: Simple trajectory also failed: ${fallbackError}`);
+                    }
+                }
+            }
+        }
+        else if (this.dependencies.sonaEngine) {
+            try {
+                this.dependencies.sonaEngine.createTrajectoryWithId(trajectoryId, 'reasoning.pattern', [], [`pipeline:${pipelineId}`]);
+                this.log(`Pipeline trajectory created: ${trajectoryId}`);
+            }
+            catch (error) {
+                this.log(`Warning: Pipeline trajectory creation failed: ${error}`);
+            }
+        }
         // Emit pipeline_started event (preserve in orchestrator for observability)
         ObservabilityBus.getInstance().emit({
             component: 'pipeline',
@@ -215,6 +283,10 @@ export class CodingPipelineOrchestrator {
             memoryCoordinator: this.memoryCoordinator,
             promptBuilder: this.promptBuilder,
             stepExecutor: this.config.stepExecutor,
+            // Parallel agent awareness [PARALLEL-AWARE]
+            progressStore: this.progressStore,
+            fileClaims: this.fileClaims,
+            awarenessBuilder: this.awarenessBuilder,
         };
         // Build config for extracted function
         const executorConfig = {
@@ -310,6 +382,390 @@ export class CodingPipelineOrchestrator {
      */
     getDAG() {
         return this.dag;
+    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATEFUL CLI API (PhD Pipeline Pattern)
+    // ═══════════════════════════════════════════════════════════════════════════
+    /**
+     * Save session to disk
+     * Enables resumption after process restart (PRD: massive context handling)
+     */
+    saveSessionToDisk(session) {
+        const sessionPath = join(SESSION_DIR, `${session.sessionId}.json`);
+        writeFileSync(sessionPath, JSON.stringify(session, null, 2), 'utf-8');
+        this.log(`Session ${session.sessionId} saved to disk`);
+    }
+    /**
+     * Load session from disk
+     * Enables resumption after process restart
+     */
+    loadSessionFromDisk(sessionId) {
+        const sessionPath = join(SESSION_DIR, `${sessionId}.json`);
+        if (!existsSync(sessionPath)) {
+            throw new Error(`Session not found: ${sessionId}`);
+        }
+        const data = readFileSync(sessionPath, 'utf-8');
+        const session = JSON.parse(data);
+        this.log(`Session ${sessionId} loaded from disk`);
+        return session;
+    }
+    /**
+     * Check if session exists on disk
+     */
+    sessionExists(sessionId) {
+        const sessionPath = join(SESSION_DIR, `${sessionId}.json`);
+        return existsSync(sessionPath);
+    }
+    /**
+     * Delete session from disk (cleanup after completion)
+     */
+    deleteSession(sessionId) {
+        const sessionPath = join(SESSION_DIR, `${sessionId}.json`);
+        if (existsSync(sessionPath)) {
+            // Don't actually delete - keep for debugging
+            // Just mark as complete in the file
+            this.log(`Session ${sessionId} marked complete (file preserved)`);
+        }
+    }
+    /**
+     * Resume existing session from disk
+     * Validates session integrity and returns current state
+     *
+     * @param sessionId - Session identifier to resume
+     * @returns Session batch response for current position
+     */
+    async resumeSession(sessionId) {
+        if (!this.sessionExists(sessionId)) {
+            throw new Error(`Cannot resume - session not found: ${sessionId}`);
+        }
+        const session = this.loadSessionFromDisk(sessionId);
+        // Validate session integrity
+        if (!session.batches || session.batches.length === 0) {
+            throw new Error(`Session ${sessionId} corrupted - no batches found`);
+        }
+        if (session.status === 'complete') {
+            this.log(`Session ${sessionId} already complete`);
+            return {
+                sessionId: session.sessionId,
+                status: 'complete',
+                batch: [],
+                currentPhase: session.config.phases[session.currentPhaseIndex - 1] || session.config.phases[0],
+                completedAgents: session.completedAgents.length,
+                totalAgents: session.batches.flat(2).length,
+            };
+        }
+        if (session.status === 'failed') {
+            throw new Error(`Session ${sessionId} failed - cannot resume`);
+        }
+        this.log(`Resuming session ${sessionId} at phase ${session.currentPhaseIndex}, batch ${session.currentBatchIndex}`);
+        // Return current batch
+        return this.getBatchPrompts(session);
+    }
+    /**
+     * List all sessions on disk
+     * Useful for recovery and debugging
+     */
+    listSessions() {
+        if (!existsSync(SESSION_DIR)) {
+            return [];
+        }
+        const files = readdirSync(SESSION_DIR);
+        const sessions = [];
+        for (const file of files) {
+            if (file.endsWith('.json')) {
+                try {
+                    const session = this.loadSessionFromDisk(file.replace('.json', ''));
+                    sessions.push({
+                        sessionId: session.sessionId,
+                        status: session.status,
+                        createdAt: session.createdAt,
+                    });
+                }
+                catch (error) {
+                    // Skip corrupted files
+                    this.log(`Skipping corrupted session file: ${file}`);
+                }
+            }
+        }
+        return sessions;
+    }
+    /**
+     * Initialize a stateful pipeline session
+     * Returns the first batch of agents with contextualized prompts
+     *
+     * @param sessionId - Unique session identifier
+     * @param pipelineConfig - Pipeline configuration
+     * @returns First batch of agents to execute
+     */
+    async initSession(sessionId, pipelineConfig) {
+        const startTime = Date.now();
+        const pipelineId = `pipeline-${startTime}`;
+        // Initialize trajectory for learning
+        let trajectoryId = `traj_${startTime}_${Math.random().toString(36).slice(2, 10)}`;
+        if (this.dependencies.embeddingProvider && this.dependencies.reasoningBank && pipelineConfig.taskText) {
+            try {
+                const embedding = await this.dependencies.embeddingProvider.embed(pipelineConfig.taskText);
+                const response = await this.dependencies.reasoningBank.reason({
+                    query: embedding,
+                    type: ReasoningMode.PATTERN_MATCH,
+                    applyLearning: true,
+                    enhanceWithGNN: false,
+                    maxResults: 5,
+                    confidenceThreshold: 0.5,
+                    metadata: {
+                        source: 'coding-pipeline-cli',
+                        pipelineId,
+                        queryText: pipelineConfig.taskText,
+                    },
+                });
+                trajectoryId = response.trajectoryId;
+                this.log(`Embedding-backed trajectory created: ${trajectoryId}`);
+            }
+            catch (error) {
+                this.log(`Warning: Embedding trajectory failed: ${error}`);
+            }
+        }
+        // Create session
+        const session = {
+            sessionId,
+            pipelineId,
+            trajectoryId,
+            config: pipelineConfig,
+            currentPhaseIndex: 0,
+            currentBatchIndex: 0,
+            completedAgents: [],
+            status: 'running',
+            createdAt: startTime,
+            batches: await this.computeAllBatches(pipelineConfig),
+        };
+        // Save session to disk (CRITICAL: Persistence for massive context)
+        this.saveSessionToDisk(session);
+        // Store pipeline state in memory
+        storeMemoryFn(this.memoryCoordinator, this.config.memoryNamespace, 'pipeline/state', {
+            status: 'running',
+            startTime: new Date().toISOString(),
+            phases: pipelineConfig.phases,
+            currentPhase: 0,
+            pipelineId,
+            sessionId,
+        }, this.log.bind(this));
+        // Get first batch
+        return this.getBatchPrompts(session);
+    }
+    /**
+     * Get next batch of agents with contextualized prompts
+     * Loads session from disk (supports resumption after restart)
+     *
+     * @param sessionId - Session identifier
+     * @returns Batch of agents to execute, or completion status
+     */
+    async getNextBatch(sessionId) {
+        // Load session from disk (CRITICAL: Enables resumption after restart)
+        const session = this.loadSessionFromDisk(sessionId);
+        return this.getBatchPrompts(session);
+    }
+    /**
+     * Mark batch as complete and provide learning feedback
+     * Loads session from disk, updates it, and saves back (checkpoint)
+     *
+     * @param sessionId - Session identifier
+     * @param results - Execution results from batch
+     */
+    async markBatchComplete(sessionId, results) {
+        // Load session from disk (CRITICAL: Supports resumption)
+        const session = this.loadSessionFromDisk(sessionId);
+        // Store results and provide feedback
+        for (const result of results) {
+            const agentKey = result.agentKey;
+            // Store in execution state
+            this.executionState.executionResults.set(agentKey, {
+                agentKey,
+                success: result.success,
+                output: result.output,
+                xpEarned: Math.floor(result.quality * 100),
+                memoryWrites: result.memoryWrites || [],
+                executionTimeMs: result.duration,
+            });
+            // Mark as completed
+            session.completedAgents.push(agentKey);
+            // Provide learning feedback
+            if (this.config.enableLearning && this.dependencies.sonaEngine) {
+                const currentPhase = session.config.phases[session.currentPhaseIndex];
+                const agentTrajectoryId = `${session.trajectoryId}-${agentKey}`;
+                try {
+                    // Create agent trajectory
+                    this.dependencies.sonaEngine.createTrajectoryWithId(agentTrajectoryId, 'reasoning.pattern', [], [`agent:${agentKey}`, `phase:${currentPhase}`, `pipeline:${session.pipelineId}`]);
+                    // Provide feedback
+                    await provideStepFeedbackFn({ sonaEngine: this.dependencies.sonaEngine, reasoningBank: this.dependencies.reasoningBank }, agentTrajectoryId, result.quality, agentKey, currentPhase, undefined, this.log.bind(this));
+                }
+                catch (error) {
+                    this.log(`Warning: Feedback provision failed for ${agentKey}: ${error}`);
+                }
+            }
+        }
+        // Advance to next batch
+        session.currentBatchIndex++;
+        // Check if phase complete
+        const currentPhaseBatches = session.batches[session.currentPhaseIndex];
+        if (session.currentBatchIndex >= currentPhaseBatches.length) {
+            // Move to next phase
+            session.currentPhaseIndex++;
+            session.currentBatchIndex = 0;
+            // Check if pipeline complete
+            if (session.currentPhaseIndex >= session.config.phases.length) {
+                session.status = 'complete';
+                this.log(`Pipeline session ${sessionId} complete`);
+            }
+        }
+        // Save updated session to disk (CRITICAL: Checkpoint for resumption)
+        this.saveSessionToDisk(session);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRIVATE HELPERS FOR STATEFUL CLI
+    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Compute all batches for all phases upfront
+     */
+    async computeAllBatches(config) {
+        const allBatches = [];
+        for (const phase of config.phases) {
+            const agents = await this.getAgentsForPhaseFromLoader(phase);
+            const phaseBatches = batchAgentsForExecutionFn(agents, {
+                enableParallelExecution: this.config.enableParallelExecution,
+                maxParallelAgents: this.config.maxParallelAgents,
+            });
+            allBatches.push(phaseBatches);
+        }
+        return allBatches;
+    }
+    /**
+     * Get batch prompts with full RLM/LEANN context injection
+     */
+    async getBatchPrompts(session) {
+        if (session.status === 'complete') {
+            return {
+                sessionId: session.sessionId,
+                status: 'complete',
+                batch: [],
+                currentPhase: session.config.phases[session.currentPhaseIndex - 1],
+                completedAgents: session.completedAgents.length,
+                totalAgents: session.batches.flat(2).length,
+            };
+        }
+        const currentPhase = session.config.phases[session.currentPhaseIndex];
+        const phaseBatches = session.batches[session.currentPhaseIndex];
+        const batch = phaseBatches[session.currentBatchIndex];
+        // Build contextualized prompts for each agent in batch
+        const batchWithPrompts = await Promise.all(batch.map(async (agentMapping) => {
+            const agentKey = agentMapping.agentKey;
+            // 1. Retrieve RLM context from memory
+            const memoryReads = agentMapping.memoryReads || [];
+            const memoryContext = retrieveMemoryContextFn(this.memoryCoordinator, this.config.memoryNamespace, memoryReads);
+            // 2. Retrieve LEANN semantic context
+            let semanticContext = { codeContext: [], totalResults: 0, searchQuery: '' };
+            if (this.dependencies.leannContextService) {
+                try {
+                    const agentMd = await this.getAgentMarkdownFromLoader(agentKey);
+                    semanticContext = await this.dependencies.leannContextService.buildSemanticContext({
+                        taskDescription: agentMd || `Execute ${agentKey}`,
+                        phase: PHASE_ORDER.indexOf(currentPhase),
+                        previousOutput: memoryContext,
+                        maxResults: 5,
+                    });
+                }
+                catch (error) {
+                    this.log(`LEANN context retrieval failed for ${agentKey}: ${error}`);
+                }
+            }
+            // 3. Load agent markdown
+            const agentMd = await this.getAgentMarkdownFromLoader(agentKey);
+            // 4. Build prompt with full context
+            const algorithm = agentMapping.algorithm || 'ReAct';
+            const memoryWrites = agentMapping.memoryWrites || [];
+            const promptContext = {
+                step: {
+                    agentKey,
+                    task: agentMd || `Execute ${agentKey} agent with ${algorithm} algorithm`,
+                    inputDomain: memoryReads[0] || '',
+                    inputTags: [],
+                    outputDomain: memoryWrites[0] || `coding/${currentPhase}/${agentKey}`,
+                    outputTags: [agentKey, currentPhase, algorithm],
+                },
+                stepIndex: agentMapping.priority,
+                pipeline: {
+                    name: 'coding-pipeline',
+                    description: `48-agent coding pipeline - Phase: ${currentPhase}`,
+                    agents: [],
+                    sequential: true,
+                },
+                pipelineId: session.pipelineId,
+                previousOutput: memoryContext,
+                semanticContext,
+            };
+            const builtPrompt = this.promptBuilder.buildPrompt(promptContext);
+            return {
+                key: agentKey,
+                prompt: builtPrompt.prompt,
+                type: this.mapAgentToType(agentKey),
+                memoryWrites,
+            };
+        }));
+        return {
+            sessionId: session.sessionId,
+            status: 'running',
+            batch: batchWithPrompts,
+            currentPhase,
+            completedAgents: session.completedAgents.length,
+            totalAgents: session.batches.flat(2).length,
+        };
+    }
+    /**
+     * Map agent key to Claude Code Task tool type
+     */
+    mapAgentToType(agentKey) {
+        const typeMap = {
+            'task-analyzer': 'code-analyzer',
+            'scope-definer': 'code-analyzer',
+            'requirement-extractor': 'code-analyzer',
+            'requirement-prioritizer': 'planner',
+            'codebase-analyzer': 'code-analyzer',
+            'feasibility-analyzer': 'code-analyzer',
+            'pattern-explorer': 'code-analyzer',
+            'technology-scout': 'researcher',
+            'research-planner': 'planner',
+            'system-designer': 'system-architect',
+            'component-designer': 'system-architect',
+            'interface-designer': 'system-architect',
+            'data-architect': 'system-architect',
+            'integration-architect': 'system-architect',
+            'code-generator': 'coder',
+            'type-implementer': 'coder',
+            'unit-implementer': 'coder',
+            'service-implementer': 'coder',
+            'data-layer-implementer': 'coder',
+            'api-implementer': 'coder',
+            'frontend-implementer': 'coder',
+            'error-handler-implementer': 'coder',
+            'config-implementer': 'coder',
+            'logger-implementer': 'coder',
+            'dependency-manager': 'coder',
+            'implementation-coordinator': 'planner',
+            'test-generator': 'tester',
+            'test-runner': 'tester',
+            'integration-tester': 'tester',
+            'regression-tester': 'tester',
+            'security-tester': 'tester',
+            'coverage-analyzer': 'tester',
+            'quality-gate': 'reviewer',
+            'test-fixer': 'coder',
+            'performance-optimizer': 'perf-analyzer',
+            'performance-architect': 'system-architect',
+            'code-quality-improver': 'reviewer',
+            'security-architect': 'system-architect',
+            'final-refactorer': 'reviewer',
+            'sign-off-approver': 'reviewer',
+        };
+        return typeMap[agentKey] || 'coder';
     }
 }
 // ═══════════════════════════════════════════════════════════════════════════

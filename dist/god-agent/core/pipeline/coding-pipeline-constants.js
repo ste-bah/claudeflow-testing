@@ -58,11 +58,11 @@ export const PHASE_DEFAULT_ALGORITHM = {
     delivery: 'Reflexion',
 };
 // =============================================================================
-// AGENT EXECUTION ORDER (47 agents)
+// AGENT EXECUTION ORDER (48 agents)
 // =============================================================================
 /**
- * Defines execution order for all 47 agents in the coding pipeline.
- * REQ-PIPE-047: 47 agents total (40 core + 7 Sherlock forensic reviewers)
+ * Defines execution order for all 48 agents in the coding pipeline.
+ * REQ-PIPE-048: 48 agents total (41 core + 7 Sherlock forensic reviewers)
  */
 export const AGENT_ORDER = {
     // Phase 1: Understanding (1-6)
@@ -78,17 +78,17 @@ export const AGENT_ORDER = {
     'service-implementer': 19, 'data-layer-implementer': 20, 'api-implementer': 21,
     'frontend-implementer': 22, 'error-handler-implementer': 23, 'config-implementer': 24,
     'logger-implementer': 25, 'dependency-manager': 26, 'implementation-coordinator': 27,
-    // Phase 5: Testing (28-34)
+    // Phase 5: Testing (28-35)
     'test-generator': 28, 'test-runner': 29, 'integration-tester': 30, 'regression-tester': 31,
-    'security-tester': 32, 'coverage-analyzer': 33, 'quality-gate': 34,
-    // Phase 6: Optimization (35-39)
-    'performance-optimizer': 35, 'performance-architect': 36, 'code-quality-improver': 37,
-    'security-architect': 38, 'final-refactorer': 39,
-    // Phase 7: Delivery (40)
-    'sign-off-approver': 40,
-    // Sherlock Forensic Reviewers (41-47)
-    'phase-1-reviewer': 41, 'phase-2-reviewer': 42, 'phase-3-reviewer': 43,
-    'phase-4-reviewer': 44, 'phase-5-reviewer': 45, 'phase-6-reviewer': 46, 'recovery-agent': 47,
+    'security-tester': 32, 'coverage-analyzer': 33, 'quality-gate': 34, 'test-fixer': 35,
+    // Phase 6: Optimization (36-40)
+    'performance-optimizer': 36, 'performance-architect': 37, 'code-quality-improver': 38,
+    'security-architect': 39, 'final-refactorer': 40,
+    // Phase 7: Delivery (41)
+    'sign-off-approver': 41,
+    // Sherlock Forensic Reviewers (42-48)
+    'phase-1-reviewer': 42, 'phase-2-reviewer': 43, 'phase-3-reviewer': 44,
+    'phase-4-reviewer': 45, 'phase-5-reviewer': 46, 'phase-6-reviewer': 47, 'recovery-agent': 48,
 };
 // =============================================================================
 // CRITICAL AGENTS (18 agents)
@@ -108,8 +108,8 @@ export const CRITICAL_AGENT_KEYS = new Set([
 // ORCHESTRATOR DEFAULTS
 // =============================================================================
 export const DEFAULT_ORCHESTRATOR_CONFIG = {
-    agentTimeoutMs: 120_000, // 2 minutes per agent
-    phaseTimeoutMs: 600_000, // 10 minutes per phase
+    agentTimeoutMs: 600_000, // 10 minutes per agent (ReAct + LEANN search needs time)
+    phaseTimeoutMs: 3_600_000, // 60 minutes per phase (48 agents * ~10min avg)
     enableCheckpoints: true,
     enableParallelExecution: true,
     maxParallelAgents: 3,
