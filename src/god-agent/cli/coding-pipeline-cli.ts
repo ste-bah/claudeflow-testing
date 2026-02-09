@@ -21,13 +21,21 @@ import type { ISessionBatchResponse, IBatchExecutionResult } from '../core/pipel
  */
 export async function init(task: string): Promise<void> {
   const sessionId = uuidv4();
+  const timings: Record<string, number> = {};
 
   // Create Universal Agent with all dependencies
+  const t0 = performance.now();
   const godAgent = new UniversalAgent({ verbose: false });
+  timings['create_agent'] = performance.now() - t0;
+
+  // Initialize Universal Agent
+  const t1 = performance.now();
   await godAgent.initialize();
+  timings['initialize_agent'] = performance.now() - t1;
 
   // Store hook context to force pipeline mode
   // This sets triggeredByHook = true in prepareCodeTask()
+  const t2 = performance.now();
   try {
     await godAgent['memoryClient']?.storeKnowledge({
       content: JSON.stringify({ task, sessionId, timestamp: new Date().toISOString() }),
@@ -38,12 +46,15 @@ export async function init(task: string): Promise<void> {
   } catch (err) {
     console.error('Warning: Failed to store hook context, continuing anyway');
   }
+  timings['store_hook_context'] = performance.now() - t2;
 
   // Build pipeline configuration using prepareCodeTask
   // triggeredByHook will now be true due to coding/context entry
+  const t3 = performance.now();
   const codeTaskPreparation = await godAgent.prepareCodeTask(task, {
     language: 'typescript',
   });
+  timings['prepare_code_task'] = performance.now() - t3;
 
   // Extract pipeline config from preparation
   const pipelineConfig = codeTaskPreparation.pipeline?.config;
@@ -52,10 +63,22 @@ export async function init(task: string): Promise<void> {
   }
 
   // Get orchestrator
+  const t4 = performance.now();
   const orchestrator = await godAgent.getCodingOrchestrator();
+  timings['get_orchestrator'] = performance.now() - t4;
 
   // Initialize session in orchestrator (orchestrator handles all persistence)
+  const t5 = performance.now();
   const batchResponse = await orchestrator.initSession(sessionId, pipelineConfig);
+  timings['init_session'] = performance.now() - t5;
+
+  // Log timing breakdown
+  console.error('[TIMING] Initialization breakdown:');
+  for (const [step, duration] of Object.entries(timings)) {
+    console.error(`  ${step}: ${duration.toFixed(2)}ms`);
+  }
+  const total = Object.values(timings).reduce((a, b) => a + b, 0);
+  console.error(`  TOTAL: ${total.toFixed(2)}ms\n`);
 
   // Output batch response as JSON for Claude Code to parse
   console.log(JSON.stringify({
