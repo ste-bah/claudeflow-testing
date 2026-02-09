@@ -12,17 +12,18 @@
 # Configuration
 MEMORY_KEY="enforcement/pipeline/active"
 MEMORY_NAMESPACE="default"
-MIN_AGENTS_BEFORE_WRITE=7   # Phase 1 complete (7 agents) before writes allowed
-TOTAL_PIPELINE_AGENTS=47     # Full pipeline completion count
+MIN_AGENTS_BEFORE_WRITE=6   # Phase 1 complete (6 agents) before writes allowed
+TOTAL_PIPELINE_AGENTS=48     # Full pipeline completion count (41 core + 7 Sherlock)
 
 # Phase boundaries (cumulative agent counts)
-PHASE1_END=7    # Understanding: agents 1-7
-PHASE2_END=12   # Exploration: agents 8-12
-PHASE3_END=18   # Architecture: agents 13-18
-PHASE4_END=31   # Implementation: agents 19-31 (writes allowed)
-PHASE5_END=39   # Testing: agents 32-39
-PHASE6_END=45   # Optimization: agents 40-45
-PHASE7_END=47   # Delivery: agents 46-47
+PHASE1_END=6    # Understanding: agents 1-6
+PHASE2_END=10   # Exploration: agents 7-10
+PHASE3_END=15   # Architecture: agents 11-15
+PHASE4_END=27   # Implementation: agents 16-27 (writes allowed)
+PHASE5_END=35   # Testing: agents 28-35 (includes test-fixer)
+PHASE6_END=40   # Optimization: agents 36-40
+PHASE7_END=41   # Delivery: agent 41
+SHERLOCK_END=48 # Sherlock Forensic: agents 42-48
 
 # =============================================================================
 # Helper Functions
