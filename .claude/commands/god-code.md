@@ -30,6 +30,8 @@ Use this protocol when `$ARGUMENTS` does NOT start with `-batch`.
 
 ### Step 1: Initialize Pipeline
 
+**IMPORTANT**: The init command takes 30-60 seconds due to DESC episode injection and embedding search. Be patient and wait for JSON output.
+
 ```bash
 npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$ARGUMENTS"
 ```
@@ -142,10 +144,12 @@ TASKS=(${ARGUMENTS#-batch })
 
 **Step 2: Process Each Task**
 
+**IMPORTANT**: Each `init` call takes 30-60 seconds. Do not timeout - wait for complete JSON response.
+
 For each task in the array, run the complete pipeline:
 
 ```bash
-# For task 1:
+# For task 1 (WAIT for response - takes 30-60s):
 INIT_RESPONSE=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "${TASKS[0]}")
 SESSION_ID=$(echo "$INIT_RESPONSE" | jq -r '.sessionId')
 STATUS=$(echo "$INIT_RESPONSE" | jq -r '.status')
