@@ -131,7 +131,9 @@ Use this protocol when `$ARGUMENTS` starts with `-batch`.
 
 ### Overview
 
-Process multiple coding tasks sequentially using the batch wrapper, which handles all 48 agents autonomously per task.
+Process multiple coding tasks sequentially by running the **SINGLE TASK PROTOCOL** for each task.
+
+**CRITICAL**: Batch mode does NOT use a separate batch wrapper. Instead, loop over tasks using the standard init/complete/spawn cycle.
 
 ### Execution Steps
 
@@ -139,26 +141,36 @@ Process multiple coding tasks sequentially using the batch wrapper, which handle
 
 Parse all task arguments after the `-batch` flag from `$ARGUMENTS`.
 
-**Step 2: Execute Batch**
+Example: If `$ARGUMENTS` is `-batch "Add auth" "Add logging" "Add tests"`, then:
+- TASK1 = "Add auth"
+- TASK2 = "Add logging"
+- TASK3 = "Add tests"
 
-**Use the batch wrapper** - it now properly executes all agents (not fake results):
+**Step 2: Loop Over Tasks**
 
-```bash
-npx tsx src/god-agent/cli/coding-pipeline-batch.ts "${TASK1}" "${TASK2}" "${TASK3}" ...
+For each task, run the **SINGLE TASK PROTOCOL** (Steps 1-4 from above):
+
 ```
-
-**The batch wrapper handles:**
-- DESC injection with proper 90s timeout
-- executePipeline() for REAL agent execution (all 48 agents)
-- Learning integration and trajectory tracking
-- Code generation with actual outputs
-- Progress reporting per task
-
-**Bash timeout parameter**: Use `timeout: 600000` (10 minutes) to allow for full pipeline execution per task.
+FOR each task in tasks:
+  1. Initialize: coding-pipeline-cli.ts init "<task>"
+  2. Loop: spawn batch agents → complete → get next batch
+  3. Complete: when status="complete"
+  4. Report: task N/M completed
+```
 
 **Step 3: Report Summary**
 
-The batch wrapper outputs completion summary automatically. Show it to the user.
+After all tasks complete, show summary:
+
+```
+================================================================================
+BATCH SUMMARY
+================================================================================
+Total tasks: 3
+Completed: 3
+Failed: 0
+Duration: X minutes
+```
 
 ### Batch Mode Example
 
@@ -166,21 +178,22 @@ The batch wrapper outputs completion summary automatically. Show it to the user.
 # User runs:
 /god-code -batch "Add auth" "Add logging" "Add tests"
 
-# Claude Code executes:
-npx tsx src/god-agent/cli/coding-pipeline-batch.ts \
-  "Add auth" \
-  "Add logging" \
-  "Add tests"
+# Claude Code executes FOR EACH TASK:
 
-# Output shows:
-# ✓ Task 1/3: Add auth (48/48 agents completed)
-# ✓ Task 2/3: Add logging (48/48 agents completed)
-# ✓ Task 3/3: Add tests (48/48 agents completed)
-#
-# BATCH SUMMARY:
-# Total tasks: 3
-# Completed: 3
-# Failed: 0
+# Task 1/3: Add auth
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Add auth"
+Task(batch[0].type, batch[0].prompt, batch[0].key)  # Spawn agents
+# ... loop until complete ...
+
+# Task 2/3: Add logging
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Add logging"
+Task(batch[0].type, batch[0].prompt, batch[0].key)  # Spawn agents
+# ... loop until complete ...
+
+# Task 3/3: Add tests
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Add tests"
+Task(batch[0].type, batch[0].prompt, batch[0].key)  # Spawn agents
+# ... loop until complete ...
 ```
 
 ---

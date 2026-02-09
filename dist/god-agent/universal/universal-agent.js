@@ -54,7 +54,7 @@ import { getHookExecutor, } from '../core/hooks/index.js';
 import { getAgentsForPhase, buildPipelineDAG, } from '../core/pipeline/command-task-bridge.js';
 import { PHASE_ORDER, CHECKPOINT_PHASES, CODING_MEMORY_NAMESPACE, } from '../core/pipeline/types.js';
 import { createOrchestrator, } from '../core/pipeline/coding-pipeline-orchestrator.js';
-import { ClaudeCodeStepExecutor } from '../core/pipeline/claude-code-step-executor.js';
+// ClaudeCodeStepExecutor removed - coding pipeline uses CLI-based execution like PhD pipeline
 // TASK-CHUNK-003: Knowledge chunking for OpenAI token limit compliance
 // CONSTITUTION COMPLIANCE: RULE-064 (symmetric chunking), RULE-008 (SQLite persistence)
 import { KnowledgeChunker, } from './knowledge-chunker.js';
@@ -1450,8 +1450,13 @@ export class UniversalAgent {
      */
     async executePipeline(pipelineConfig, stepExecutor) {
         await this.ensureInitialized();
-        // Default to ClaudeCodeStepExecutor (uses `claude -p` with user's subscription)
-        const resolvedExecutor = stepExecutor ?? new ClaudeCodeStepExecutor();
+        // Step executor should be provided externally if internal execution is needed
+        // For CLI-based execution (like PhD pipeline), this method shouldn't be used
+        if (!stepExecutor) {
+            throw new Error('executePipeline() requires a stepExecutor. ' +
+                'For CLI-based execution, use coding-pipeline-cli.ts instead.');
+        }
+        const resolvedExecutor = stepExecutor;
         const deps = {
             agentRegistry: this.agentRegistry,
             agentSelector: this.agentSelector,

@@ -21,10 +21,13 @@ async function processTask(task, taskNum, totalTasks) {
     await godAgent.initialize();
     try {
         // Build pipeline configuration
+        console.log('[DEBUG] Calling prepareCodeTask...');
         const codeTaskPreparation = await godAgent.prepareCodeTask(task, {
             language: 'typescript',
         });
+        console.log('[DEBUG] prepareCodeTask completed:', codeTaskPreparation ? 'success' : 'null');
         const pipelineConfig = codeTaskPreparation.pipeline?.config;
+        console.log('[DEBUG] pipelineConfig:', pipelineConfig ? 'exists' : 'null');
         if (!pipelineConfig) {
             throw new Error('Failed to build pipeline configuration');
         }

@@ -76,7 +76,12 @@ export class ClaudeCodeStepExecutor {
             const stderrChunks = [];
             let totalBytes = 0;
             let killed = false;
-            const child = spawn(this.claudeBinary, ['-p', '--output-format', 'text'], {
+            const child = spawn(this.claudeBinary, [
+                '-p',
+                '--output-format', 'text',
+                '--no-session-persistence', // Don't save sessions to disk
+                '--permission-mode', 'bypassPermissions', // Skip all permission prompts
+            ], {
                 cwd: this.cwd,
                 env: process.env,
                 stdio: ['pipe', 'pipe', 'pipe'],

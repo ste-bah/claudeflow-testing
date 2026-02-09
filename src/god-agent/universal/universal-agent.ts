@@ -138,7 +138,7 @@ import {
   type IStepExecutor,
 } from '../core/pipeline/coding-pipeline-orchestrator.js';
 
-import { ClaudeCodeStepExecutor } from '../core/pipeline/claude-code-step-executor.js';
+// ClaudeCodeStepExecutor removed - coding pipeline uses CLI-based execution like PhD pipeline
 
 // TASK-CHUNK-003: Knowledge chunking for OpenAI token limit compliance
 // CONSTITUTION COMPLIANCE: RULE-064 (symmetric chunking), RULE-008 (SQLite persistence)
@@ -2159,8 +2159,15 @@ export class UniversalAgent {
   ): Promise<IPipelineExecutionResult> {
     await this.ensureInitialized();
 
-    // Default to ClaudeCodeStepExecutor (uses `claude -p` with user's subscription)
-    const resolvedExecutor = stepExecutor ?? new ClaudeCodeStepExecutor();
+    // Step executor should be provided externally if internal execution is needed
+    // For CLI-based execution (like PhD pipeline), this method shouldn't be used
+    if (!stepExecutor) {
+      throw new Error(
+        'executePipeline() requires a stepExecutor. ' +
+        'For CLI-based execution, use coding-pipeline-cli.ts instead.'
+      );
+    }
+    const resolvedExecutor = stepExecutor;
 
     const deps: IOrchestratorDependencies = {
       agentRegistry: this.agentRegistry,
