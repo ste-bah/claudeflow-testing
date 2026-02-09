@@ -131,56 +131,34 @@ Use this protocol when `$ARGUMENTS` starts with `-batch`.
 
 ### Overview
 
-Process multiple coding tasks sequentially. Each task gets its own isolated session through the full 48-agent pipeline.
+Process multiple coding tasks sequentially using the batch wrapper, which handles all 48 agents autonomously per task.
 
 ### Execution Steps
 
 **Step 1: Extract Tasks**
 
-Parse tasks from `$ARGUMENTS` (all arguments after `-batch` flag):
-```bash
-# $ARGUMENTS format: "-batch task1 task2 task3"
-# Extract tasks: everything after "-batch"
-TASKS=(${ARGUMENTS#-batch })
-```
+Parse all task arguments after the `-batch` flag from `$ARGUMENTS`.
 
-**Step 2: Process Each Task**
+**Step 2: Execute Batch**
 
-**CRITICAL**: Each `init` call takes 30-60 seconds (DESC searches 1969 trajectories). DO NOT timeout.
-
-**Bash timeout parameter**: Use `timeout: 180000` (3 minutes) for each init command to ensure DESC injection completes.
-
-For each task in the array, run the complete pipeline:
+**Use the batch wrapper** - it now properly executes all agents (not fake results):
 
 ```bash
-# For task 1 (WAIT for response - takes 30-60s):
-INIT_RESPONSE=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "${TASKS[0]}")
-SESSION_ID=$(echo "$INIT_RESPONSE" | jq -r '.sessionId')
-STATUS=$(echo "$INIT_RESPONSE" | jq -r '.status')
-
-# Spawn initial batch agents from INIT_RESPONSE
-# (Task calls using batch array from JSON)
-
-# Loop until complete
-RESPONSE="$INIT_RESPONSE"
-while [ "$STATUS" != "complete" ]; do
-  # Mark batch complete and get next
-  RESPONSE=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "$SESSION_ID")
-  STATUS=$(echo "$RESPONSE" | jq -r '.status')
-
-  # If not complete, spawn next batch agents
-  # (Task calls using batch array from RESPONSE JSON)
-done
-
-# Repeat for task 2, task 3, etc.
+npx tsx src/god-agent/cli/coding-pipeline-batch.ts "${TASK1}" "${TASK2}" "${TASK3}" ...
 ```
+
+**The batch wrapper handles:**
+- DESC injection with proper 90s timeout
+- executePipeline() for REAL agent execution (all 48 agents)
+- Learning integration and trajectory tracking
+- Code generation with actual outputs
+- Progress reporting per task
+
+**Bash timeout parameter**: Use `timeout: 600000` (10 minutes) to allow for full pipeline execution per task.
 
 **Step 3: Report Summary**
 
-After all tasks complete, report:
-- Total tasks processed
-- Sessions completed
-- Any failures
+The batch wrapper outputs completion summary automatically. Show it to the user.
 
 ### Batch Mode Example
 
@@ -188,10 +166,21 @@ After all tasks complete, report:
 # User runs:
 /god-code -batch "Add auth" "Add logging" "Add tests"
 
-# This processes 3 tasks sequentially:
-# 1. "Add auth" → full 48-agent pipeline → complete
-# 2. "Add logging" → full 48-agent pipeline → complete
-# 3. "Add tests" → full 48-agent pipeline → complete
+# Claude Code executes:
+npx tsx src/god-agent/cli/coding-pipeline-batch.ts \
+  "Add auth" \
+  "Add logging" \
+  "Add tests"
+
+# Output shows:
+# ✓ Task 1/3: Add auth (48/48 agents completed)
+# ✓ Task 2/3: Add logging (48/48 agents completed)
+# ✓ Task 3/3: Add tests (48/48 agents completed)
+#
+# BATCH SUMMARY:
+# Total tasks: 3
+# Completed: 3
+# Failed: 0
 ```
 
 ---
@@ -207,22 +196,6 @@ To resume an interrupted session:
 ```bash
 npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume "<sessionId>"
 ```
-
----
-
-## Alternative: Direct CLI Batch Script
-
-For automation or scripting outside of Claude Code, use the batch wrapper:
-
-```bash
-# Direct batch processing (bypasses Claude Code agent spawning)
-npx tsx src/god-agent/cli/coding-pipeline-batch.ts "Task 1" "Task 2" "Task 3"
-
-# Or from a file (one task per line)
-npx tsx src/god-agent/cli/coding-pipeline-batch.ts --file tasks.txt
-```
-
-**Note**: This wrapper simulates agent execution for testing. For real development, use `/god-code -batch` which properly spawns Claude Code agents.
 
 ---
 
