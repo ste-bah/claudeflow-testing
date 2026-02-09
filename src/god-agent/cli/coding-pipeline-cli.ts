@@ -26,7 +26,21 @@ export async function init(task: string): Promise<void> {
   const godAgent = new UniversalAgent({ verbose: false });
   await godAgent.initialize();
 
+  // Store hook context to force pipeline mode
+  // This sets triggeredByHook = true in prepareCodeTask()
+  try {
+    await godAgent['memoryClient']?.storeKnowledge({
+      content: JSON.stringify({ task, sessionId, timestamp: new Date().toISOString() }),
+      category: 'pipeline-trigger',
+      domain: 'coding/context',
+      tags: ['pipeline', 'god-code', 'hook'],
+    });
+  } catch (err) {
+    console.error('Warning: Failed to store hook context, continuing anyway');
+  }
+
   // Build pipeline configuration using prepareCodeTask
+  // triggeredByHook will now be true due to coding/context entry
   const codeTaskPreparation = await godAgent.prepareCodeTask(task, {
     language: 'typescript',
   });
