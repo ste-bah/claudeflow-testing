@@ -12,6 +12,18 @@ Use the PhD Pipeline CLI (`phd-cli`) for deep research with dynamic agent orches
 
 **YOU MUST use phd-cli for orchestration. DO NOT use static Task() templates.**
 
+### 🚨 CRITICAL: DO NOT STOP DURING PIPELINE EXECUTION
+
+**The user has ALREADY decided to run this pipeline by invoking /god-research. Their confirmation is the invocation itself.**
+
+- **DO NOT** pause between agents to ask "should I continue?"
+- **DO NOT** stop to present status summaries with options
+- **DO NOT** say "this will take a long time, would you like to proceed?"
+- **DO NOT** offer to skip, pause, or modify the pipeline mid-execution
+- **DO NOT** comment on token usage, context limits, or duration estimates
+- **JUST EXECUTE** the init → spawn → complete → spawn → complete loop until the pipeline returns `status: "complete"`
+- The ONLY reason to stop is an actual error (CLI crash, agent failure)
+
 ### Step 1: Initialize Pipeline
 
 ```bash

@@ -16,6 +16,21 @@ Use the Coding Pipeline CLI (`coding-pipeline-cli`) for code generation with dyn
 
 **YOU MUST use coding-pipeline-cli for orchestration. DO NOT use static Task() templates.**
 
+### 🚨 CRITICAL: DO NOT STOP DURING PIPELINE EXECUTION
+
+**The user has ALREADY decided to run this pipeline by invoking /god-code. Their confirmation is the invocation itself.**
+
+- **DO NOT** pause between batches to ask "should I continue?"
+- **DO NOT** stop to present status summaries with options
+- **DO NOT** say "this will take X hours, would you like to proceed?"
+- **DO NOT** offer to skip, pause, or modify the pipeline mid-execution
+- **DO NOT** comment on token usage, context limits, or duration estimates
+- **JUST EXECUTE** the init → spawn → complete → spawn → complete loop until `status: "complete"`
+- In batch mode, **JUST EXECUTE** all tasks back-to-back without stopping between them
+- The ONLY reason to stop is an actual error (CLI crash, agent failure)
+
+**Use the agent `key` field from batch JSON as the Task tool `subagent_type`. Do NOT use the `type` field.**
+
 ### Mode Detection
 
 Check if `$ARGUMENTS` starts with `-batch`:

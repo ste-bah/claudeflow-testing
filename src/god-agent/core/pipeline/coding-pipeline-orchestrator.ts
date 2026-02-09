@@ -955,53 +955,13 @@ export class CodingPipelineOrchestrator {
   }
 
   /**
-   * Map agent key to Claude Code Task tool type
+   * Map agent key to Claude Code Task tool subagent_type
+   *
+   * Agent keys (task-analyzer, requirement-extractor, etc.) are registered
+   * directly as subagent_types in Claude Code's Task tool. Return the key as-is.
    */
   private mapAgentToType(agentKey: string): string {
-    const typeMap: Record<string, string> = {
-      'task-analyzer': 'code-analyzer',
-      'scope-definer': 'code-analyzer',
-      'requirement-extractor': 'code-analyzer',
-      'requirement-prioritizer': 'planner',
-      'codebase-analyzer': 'code-analyzer',
-      'feasibility-analyzer': 'code-analyzer',
-      'pattern-explorer': 'code-analyzer',
-      'technology-scout': 'researcher',
-      'research-planner': 'planner',
-      'system-designer': 'system-architect',
-      'component-designer': 'system-architect',
-      'interface-designer': 'system-architect',
-      'data-architect': 'system-architect',
-      'integration-architect': 'system-architect',
-      'code-generator': 'coder',
-      'type-implementer': 'coder',
-      'unit-implementer': 'coder',
-      'service-implementer': 'coder',
-      'data-layer-implementer': 'coder',
-      'api-implementer': 'coder',
-      'frontend-implementer': 'coder',
-      'error-handler-implementer': 'coder',
-      'config-implementer': 'coder',
-      'logger-implementer': 'coder',
-      'dependency-manager': 'coder',
-      'implementation-coordinator': 'planner',
-      'test-generator': 'tester',
-      'test-runner': 'tester',
-      'integration-tester': 'tester',
-      'regression-tester': 'tester',
-      'security-tester': 'tester',
-      'coverage-analyzer': 'tester',
-      'quality-gate': 'reviewer',
-      'test-fixer': 'coder',
-      'performance-optimizer': 'perf-analyzer',
-      'performance-architect': 'system-architect',
-      'code-quality-improver': 'reviewer',
-      'security-architect': 'system-architect',
-      'final-refactorer': 'reviewer',
-      'sign-off-approver': 'reviewer',
-    };
-
-    return typeMap[agentKey] || 'coder';
+    return agentKey;
   }
 }
 
