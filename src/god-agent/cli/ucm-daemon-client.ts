@@ -21,7 +21,7 @@ const logger = createComponentLogger('UCMDaemonClient', {
 });
 
 const DEFAULT_SOCKET_PATH = '/tmp/godagent-ucm.sock';
-const DEFAULT_TIMEOUT = 30000; // 30 seconds for DESC operations (embedding can be slow)
+const DEFAULT_TIMEOUT = 90000; // 90 seconds for DESC operations (searches 1969 trajectories, can take 30-60s)
 const DAEMON_START_TIMEOUT = 5000; // 5 seconds to wait for daemon to start
 
 interface RPCRequest {
