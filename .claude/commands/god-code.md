@@ -8,28 +8,32 @@ Generate code using the **MANDATORY 48-Agent Coding Pipeline** with stateful orc
 
 ---
 
-## Pipeline Execution
+## EXECUTION PROTOCOL
 
-The 48-agent coding pipeline is orchestrated through a stateful CLI that:
-- Manages session state with disk persistence (survives context compaction)
-- Handles RLM memory handoffs between agents
-- Integrates LEANN semantic search for code context
-- Computes smart batching based on agent dependencies
-- Tracks learning feedback for continuous improvement
+**YOU MUST use coding-pipeline-cli for orchestration. DO NOT write code directly. DO NOT use static Task() templates. DO NOT implement anything yourself. DO NOT use "streamlined" mode.**
 
-**ALL pipeline orchestration is handled by the CLI - you just execute batches.**
+**THE 48-AGENT PIPELINE IS MANDATORY. NO BYPASSING. NO SHORTCUTS.**
+
+The CLI handles ALL orchestration:
+- Session state persistence (survives compaction)
+- RLM memory handoffs between agents
+- LEANN semantic search integration
+- Smart batching based on dependencies
+- Learning feedback tracking
+
+**YOUR ONLY JOB: Execute bash commands, spawn Task() agents from batches, mark complete, repeat.**
 
 ---
 
 ## Step 1: Initialize Pipeline Session
 
-Run the init command to start a new pipeline session:
-
 ```bash
 npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$ARGUMENTS"
 ```
 
-This returns JSON with:
+**Save the `sessionId` - you need it for all subsequent commands.**
+
+This returns:
 ```json
 {
   "sessionId": "uuid-v4",
@@ -55,32 +59,31 @@ This returns JSON with:
 
 ## Step 2: Execute Current Batch
 
-For each agent in the `batch` array, spawn a Task:
+From the init response, spawn ALL agents in the batch:
 
-```javascript
-// Parse the JSON response
-const response = JSON.parse(initOutput);
-const { sessionId, batch } = response;
-
-// Execute each agent in the batch
-for (const agent of batch) {
-  Task(agent.type, agent.prompt);
-}
+```
+Task("code-analyzer", "<batch[0].prompt>", "code-analyzer")
+Task("code-analyzer", "<batch[1].prompt>", "code-analyzer")
+...
 ```
 
-**CRITICAL**: Wait for ALL agents in the current batch to complete before proceeding to Step 3.
+**Use the exact agent.type and agent.prompt from the JSON response.**
+
+**CRITICAL**: Wait for ALL agents to complete before Step 3. DO NOT proceed early.
 
 ---
 
 ## Step 3: Mark Batch Complete and Get Next Batch
 
-After all agents in the current batch finish:
+After ALL agents finish:
 
 ```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "$sessionId"
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "<sessionId>"
 ```
 
-This returns the NEXT batch:
+**Use the exact sessionId from Step 1.**
+
+Returns next batch:
 ```json
 {
   "sessionId": "same-uuid",
@@ -102,17 +105,17 @@ This returns the NEXT batch:
 }
 ```
 
-**IF `status === "complete"`**, the pipeline is done. Proceed to Step 4.
+**IF `status === "complete"`**, pipeline done - go to Step 4.
 
-**OTHERWISE**, return to Step 2 with the new batch.
+**OTHERWISE**, go back to Step 2 with the new batch.
 
 ---
 
 ## Step 4: Pipeline Complete
 
-When the `complete` command returns `status: "complete"`, the 48-agent pipeline has finished.
+When `status: "complete"`, the 48-agent pipeline is finished.
 
-Present results to the user and report completion.
+Report completion to user.
 
 ---
 
@@ -143,21 +146,24 @@ echo "Pipeline complete: $SESSION_ID"
 
 ---
 
-## What the Orchestrator Handles
+## What You MUST NOT Do
 
-You do NOT need to:
-- ❌ Know the 48 agent names or order
-- ❌ Write memory store/retrieve commands
-- ❌ Handle LEANN semantic search
-- ❌ Compute agent dependencies
-- ❌ Track phase transitions
-- ❌ Manage checkpoints
+**DO NOT:**
+- ❌ Write code yourself
+- ❌ Spawn agents manually
+- ❌ Store/retrieve memory
+- ❌ Do LEANN searches
+- ❌ Decide agent order
+- ❌ Track phases
+- ❌ Use "streamlined" mode
 
-The orchestrator does ALL of that. You just:
-- ✅ Call `init` to start
-- ✅ Execute the returned batch of agents
-- ✅ Call `complete` to get next batch
-- ✅ Repeat until done
+**The orchestrator does ALL of that.**
+
+**DO:**
+- ✅ Run bash commands EXACTLY as shown
+- ✅ Spawn Task() with prompts from CLI
+- ✅ Wait for completion
+- ✅ Loop until done
 
 ---
 
@@ -175,12 +181,14 @@ npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume "$SESSION_ID"
 
 ---
 
-## Critical Rules
+## CRITICAL RULES - VIOLATION = FAILURE
 
-1. **ALWAYS execute batches sequentially** - Wait for current batch to complete before calling `complete`
-2. **NEVER skip batches** - You must execute every batch returned by the orchestrator
-3. **NEVER modify agent prompts** - The orchestrator builds prompts with RLM + LEANN context
-4. **ALWAYS use the sessionId** - Required for state tracking across batches
+1. **NEVER write code yourself** - The agents do that
+2. **NEVER skip batches** - Execute EVERY batch
+3. **NEVER modify agent prompts** - Use EXACTLY as CLI provides
+4. **NEVER proceed before batch completes** - Wait for ALL agents
+5. **ALWAYS use the sessionId** - Save it from init, use in complete
+6. **NO "streamlined" mode exists** - Full 48-agent pipeline ONLY
 
 ---
 
