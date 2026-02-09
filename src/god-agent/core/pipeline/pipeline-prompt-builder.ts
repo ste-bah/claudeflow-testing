@@ -53,6 +53,8 @@ export interface IPromptContext {
   };
   /** Semantic context from LEANN code search (optional) */
   semanticContext?: ISemanticContext;
+  /** Situational awareness section for parallel agent coordination (optional) */
+  situationalAwareness?: string;
 }
 
 /**
@@ -135,6 +137,7 @@ export class PipelinePromptBuilder {
       previousOutput,
       previousStepData,
       semanticContext,
+      situationalAwareness: context.situationalAwareness,
     });
 
     return {
@@ -165,6 +168,8 @@ export class PipelinePromptBuilder {
     previousStepData?: { agentKey: string; stepIndex: number; domain: string };
     /** Semantic context from LEANN code search */
     semanticContext?: ISemanticContext;
+    /** Situational awareness for parallel agents */
+    situationalAwareness?: string;
   }): string {
     const {
       step,
@@ -179,6 +184,7 @@ export class PipelinePromptBuilder {
       previousOutput,
       previousStepData,
       semanticContext,
+      situationalAwareness,
     } = params;
 
     const sections: string[] = [];
@@ -195,6 +201,11 @@ export class PipelinePromptBuilder {
       previousStep,
       nextStep
     ));
+
+    // 2b. Situational Awareness (parallel agent coordination)
+    if (situationalAwareness) {
+      sections.push(situationalAwareness);
+    }
 
     // 3. Memory Retrieval Section (with injected previous output when available)
     sections.push(this.buildMemoryRetrievalSection(

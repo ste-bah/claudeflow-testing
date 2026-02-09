@@ -1,0 +1,18 @@
+[
+  {
+    "trajectoryId": "hook-traj-1770474821200-wyrm4",
+    "quality": 0.85,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770474820954-jvmjov",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 1,
+    "lastAttempt": 1770474821206,
+    "createdAt": 1770474821201
+  }
+]

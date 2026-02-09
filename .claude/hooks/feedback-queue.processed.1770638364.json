@@ -1,0 +1,15 @@
+[
+  {
+    "trajectoryId": "hook-traj-1770638274338-y7hfg2",
+    "quality": 0.65,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770638274084-obiols",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 1,
+    "lastAttempt": 1770638274346,
+    "createdAt": 1770638274338
+  }
+]

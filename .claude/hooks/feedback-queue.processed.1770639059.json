@@ -1,0 +1,76 @@
+[
+  {
+    "trajectoryId": "hook-traj-1770638463705-xdz0v8",
+    "quality": 0.75,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770638463455-i0rxn",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 2,
+    "lastAttempt": 1770638856650,
+    "createdAt": 1770638463705
+  },
+  {
+    "trajectoryId": "hook-traj-1770638541347-9u4ir",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770638541098-qpig2y",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 2,
+    "lastAttempt": 1770638856650,
+    "createdAt": 1770638541347
+  },
+  {
+    "trajectoryId": "hook-traj-1770638730875-o52v1",
+    "quality": 0.45,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1770638730613-u1d0v5",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 2,
+    "lastAttempt": 1770638856650,
+    "createdAt": 1770638730876
+  },
+  {
+    "trajectoryId": "hook-traj-1770638856641-14en7lg",
+    "quality": 0.75,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770638856384-ceyt5a",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 1,
+    "lastAttempt": 1770638856650,
+    "createdAt": 1770638856642
+  },
+  {
+    "trajectoryId": "hook-traj-1770639000190-jvi2i",
+    "quality": 0.45,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1770638999932-ih04qi",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 0,
+    "lastAttempt": 0,
+    "createdAt": 1770639000190
+  }
+]

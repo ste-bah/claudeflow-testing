@@ -1,0 +1,73 @@
+[
+  {
+    "trajectoryId": "hook-traj-1770485945648-hflqe",
+    "quality": 0.65,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770485945396-ed2bzf",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 3,
+    "lastAttempt": 1770486670836,
+    "createdAt": 1770485945649
+  },
+  {
+    "trajectoryId": "hook-traj-1770485981912-a5kir",
+    "quality": 0.65,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770485981661-wtldil",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 2,
+    "lastAttempt": 1770486670836,
+    "createdAt": 1770485981913
+  },
+  {
+    "trajectoryId": "hook-traj-1770486476581-fl3mcl",
+    "quality": 0.45,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1770486476329-7wudrm",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 2,
+    "lastAttempt": 1770486670836,
+    "createdAt": 1770486476581
+  },
+  {
+    "trajectoryId": "hook-traj-1770486534874-p52hmc",
+    "quality": 0.45,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1770486534622-sommfm",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 1,
+    "lastAttempt": 1770486670836,
+    "createdAt": 1770486534875
+  },
+  {
+    "trajectoryId": "hook-traj-1770486670829-4lhtlc",
+    "quality": 0.45,
+    "outcome": "neutral",
+    "metadata": {
+      "entryId": "hook-1770486670573-rmv9ss",
+      "domain": "project/general",
+      "tags": []
+    },
+    "attempts": 1,
+    "lastAttempt": 1770486670836,
+    "createdAt": 1770486670830
+  }
+]

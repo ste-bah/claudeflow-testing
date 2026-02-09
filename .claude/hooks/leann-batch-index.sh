@@ -81,10 +81,11 @@ for FILE in "${FILES[@]}"; do
   esac
 
   # Call embedder API directly (faster than MCP)
+  # FIX: metadata must be an array, not an object
   RESPONSE=$(curl -s -X POST http://localhost:8000/embed \
     -H "Content-Type: application/json" \
-    -d "{\"texts\": [$(printf '%s' "$CODE" | jq -Rs .)], \"metadata\": {\"filePath\": \"$FILE\", \"repository\": \"$REPO_NAME\", \"language\": \"$LANG\"}}" \
-    --max-time 10 2>/dev/null || echo "")
+    -d "{\"texts\": [$(printf '%s' "$CODE" | jq -Rs .)], \"metadata\": [{\"filePath\": \"$FILE\", \"repository\": \"$REPO_NAME\", \"language\": \"$LANG\"}]}" \
+    --max-time 120 2>/dev/null || echo "")
 
   if [ -n "$RESPONSE" ] && echo "$RESPONSE" | grep -q '"message"'; then
     ((INDEXED++))
@@ -93,6 +94,9 @@ for FILE in "${FILES[@]}"; do
     ((FAILED++))
     echo "[LEANN] Failed: $FILE"
   fi
+
+  # Delay between requests
+  sleep 1
 done
 
 echo "[LEANN] Complete: $INDEXED indexed, $FAILED failed"

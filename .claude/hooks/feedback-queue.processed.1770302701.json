@@ -1,0 +1,50 @@
+[
+  {
+    "trajectoryId": "hook-traj-1770302524453-64szfd",
+    "quality": 0.75,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770302524187-xagok5",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 3,
+    "lastAttempt": 1770302670318,
+    "createdAt": 1770302524453
+  },
+  {
+    "trajectoryId": "hook-traj-1770302550082-2ugee",
+    "quality": 0.7999999999999999,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770302549833-hj2par",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 2,
+    "lastAttempt": 1770302670318,
+    "createdAt": 1770302550083
+  },
+  {
+    "trajectoryId": "hook-traj-1770302670310-crtwv",
+    "quality": 0.7,
+    "outcome": "positive",
+    "metadata": {
+      "entryId": "hook-1770302670051-uj0fsg",
+      "domain": "project/general",
+      "tags": [
+        "task-output",
+        "heuristic-parsed"
+      ]
+    },
+    "attempts": 1,
+    "lastAttempt": 1770302670318,
+    "createdAt": 1770302670311
+  }
+]

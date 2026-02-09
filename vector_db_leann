@@ -1,0 +1,1 @@
+{"version":1,"config":{"hubCacheRatio":0.1,"graphPruningRatio":0.7,"batchSize":100,"maxRecomputeLatencyMs":50,"efSearch":50,"hubDegreeThreshold":10},"dimension":1536,"metric":"cosine","vectors":[],"graph":[],"hubIds":[],"stats":{"cacheHits":0,"cacheMisses":0,"prunedEdges":0}}

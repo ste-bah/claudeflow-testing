@@ -1,0 +1,1670 @@
+{
+  "processedAt": "2026-01-28T10:29:40.941Z",
+  "entriesCount": 78,
+  "results": [
+    {
+      "trajectoryId": "hook-traj-1769515764496-mx5bb",
+      "success": false,
+      "duration": 1537,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515764496-mx5bb\" --output \"Batch retry: quality=1.00, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769517358692-a0yrmc",
+      "success": false,
+      "duration": 1541,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769517358692-a0yrmc\" --output \"Batch retry: quality=1.00, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769517612102-eha0fq",
+      "success": false,
+      "duration": 1534,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769517612102-eha0fq\" --output \"Batch retry: quality=1.00, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769538993243-6486u8",
+      "success": false,
+      "duration": 1681,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769538993243-6486u8\" --output \"Batch retry: quality=1.00, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769591944537-4cej6i",
+      "success": false,
+      "duration": 1684,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769591944537-4cej6i\" --output \"Batch retry: quality=1.00, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769595917647-91f3a",
+      "success": false,
+      "duration": 1690,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769595917647-91f3a\" --output \"Batch retry: quality=1.00, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769525068549-9pgy8r",
+      "success": false,
+      "duration": 1402,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769525068549-9pgy8r\" --output \"Batch retry: quality=0.95, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769526900007-w68vxf",
+      "success": false,
+      "duration": 1374,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769526900007-w68vxf\" --output \"Batch retry: quality=0.95, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769590345305-1t2i0a",
+      "success": false,
+      "duration": 1396,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769590345305-1t2i0a\" --output \"Batch retry: quality=0.95, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515110828-xtojfc",
+      "success": false,
+      "duration": 1335,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515110828-xtojfc\" --output \"Batch retry: quality=0.90, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769589201394-l1sc3",
+      "success": false,
+      "duration": 1367,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769589201394-l1sc3\" --output \"Batch retry: quality=0.90, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769591588533-lylf9c",
+      "success": false,
+      "duration": 1341,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769591588533-lylf9c\" --output \"Batch retry: quality=0.90, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769592552192-btes2",
+      "success": false,
+      "duration": 1479,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769592552192-btes2\" --output \"Batch retry: quality=0.90, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769528917188-1vijd",
+      "success": false,
+      "duration": 1482,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769528917188-1vijd\" --output \"Batch retry: quality=0.85, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769538183441-94peta",
+      "success": false,
+      "duration": 1482,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769538183441-94peta\" --output \"Batch retry: quality=0.85, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769550336203-7j3bfv",
+      "success": false,
+      "duration": 1462,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769550336203-7j3bfv\" --output \"Batch retry: quality=0.85, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769589933199-m8xar",
+      "success": false,
+      "duration": 1461,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769589933199-m8xar\" --output \"Batch retry: quality=0.85, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769592806621-h008yf",
+      "success": false,
+      "duration": 1431,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769592806621-h008yf\" --output \"Batch retry: quality=0.85, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769595104290-f8a8sj",
+      "success": false,
+      "duration": 1699,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769595104290-f8a8sj\" --output \"Batch retry: quality=0.85, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769516143780-ueq8ho",
+      "success": false,
+      "duration": 1688,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769516143780-ueq8ho\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769517251635-eaiofb",
+      "success": false,
+      "duration": 1665,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769517251635-eaiofb\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769517505256-bkme0k",
+      "success": false,
+      "duration": 1465,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769517505256-bkme0k\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769525215382-63met7",
+      "success": false,
+      "duration": 1457,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769525215382-63met7\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769526726666-cp2xt3",
+      "success": false,
+      "duration": 1488,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769526726666-cp2xt3\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769527453250-j759cw",
+      "success": false,
+      "duration": 1493,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769527453250-j759cw\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769527715667-gx8yn",
+      "success": false,
+      "duration": 1499,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769527715667-gx8yn\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769528596389-uthjbg",
+      "success": false,
+      "duration": 1485,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769528596389-uthjbg\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769529278001-39fzox",
+      "success": false,
+      "duration": 1392,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769529278001-39fzox\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769534038426-ns9joe",
+      "success": false,
+      "duration": 1392,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769534038426-ns9joe\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769535092905-gwg3emw",
+      "success": false,
+      "duration": 1379,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769535092905-gwg3emw\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769535794082-eqm4g",
+      "success": false,
+      "duration": 1318,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769535794082-eqm4g\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769536346916-wxzvoe",
+      "success": false,
+      "duration": 1379,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769536346916-wxzvoe\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769536564538-8ox44",
+      "success": false,
+      "duration": 1371,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769536564538-8ox44\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769537035052-qpnwgy",
+      "success": false,
+      "duration": 1439,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769537035052-qpnwgy\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769538256763-rn6lhd",
+      "success": false,
+      "duration": 1431,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769538256763-rn6lhd\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769539111109-xg7cg",
+      "success": false,
+      "duration": 1440,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769539111109-xg7cg\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769539992177-iypsti",
+      "success": false,
+      "duration": 1529,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769539992177-iypsti\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769549703162-druru",
+      "success": false,
+      "duration": 1528,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769549703162-druru\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769551036228-kqic82",
+      "success": false,
+      "duration": 1520,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769551036228-kqic82\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769589315912-celrbsf",
+      "success": false,
+      "duration": 11262,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769589315912-celrbsf\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769591732957-vo4j6",
+      "success": false,
+      "duration": 1241,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769591732957-vo4j6\" --output \"Batch retry: quality=0.80, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515502233-9s701",
+      "success": false,
+      "duration": 1246,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515502233-9s701\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515638729-hnt4g",
+      "success": false,
+      "duration": 1596,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515638729-hnt4g\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515833681-6jtf2",
+      "success": false,
+      "duration": 1569,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515833681-6jtf2\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515936454-b080u",
+      "success": false,
+      "duration": 1572,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515936454-b080u\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769517037225-6fova",
+      "success": false,
+      "duration": 1423,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769517037225-6fova\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769517038819-uf1n1cg",
+      "success": false,
+      "duration": 1376,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769517038819-uf1n1cg\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769517217224-yr4rpy",
+      "success": false,
+      "duration": 1405,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769517217224-yr4rpy\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769525863085-fmkkyg",
+      "success": false,
+      "duration": 1495,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769525863085-fmkkyg\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769527086508-8upz7r",
+      "success": false,
+      "duration": 1526,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769527086508-8upz7r\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769527226976-vuvbmj",
+      "success": false,
+      "duration": 1525,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769527226976-vuvbmj\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769527705394-wu0b67",
+      "success": false,
+      "duration": 1433,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769527705394-wu0b67\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769534531632-jsgnxb",
+      "success": false,
+      "duration": 1415,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769534531632-jsgnxb\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769539255963-21y9c",
+      "success": false,
+      "duration": 1431,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769539255963-21y9c\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769540106032-d5beuj",
+      "success": false,
+      "duration": 1426,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769540106032-d5beuj\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769584735035-w8h2f",
+      "success": false,
+      "duration": 1396,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769584735035-w8h2f\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769589999354-83wkw",
+      "success": false,
+      "duration": 1396,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769589999354-83wkw\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769596035413-bvwlmi",
+      "success": false,
+      "duration": 1448,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769596035413-bvwlmi\" --output \"Batch retry: quality=0.75, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515027862-c68m6f",
+      "success": false,
+      "duration": 1400,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515027862-c68m6f\" --output \"Batch retry: quality=0.70, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515175085-otdjlr",
+      "success": false,
+      "duration": 1442,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515175085-otdjlr\" --output \"Batch retry: quality=0.70, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515396044-cqicdl",
+      "success": false,
+      "duration": 1341,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515396044-cqicdl\" --output \"Batch retry: quality=0.70, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769516235439-v2cat",
+      "success": false,
+      "duration": 1341,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769516235439-v2cat\" --output \"Batch retry: quality=0.70, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769524625653-fh25m",
+      "success": false,
+      "duration": 1310,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769524625653-fh25m\" --output \"Batch retry: quality=0.70, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769510032714-95psq",
+      "success": false,
+      "duration": 1377,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769510032714-95psq\" --output \"Batch retry: quality=0.70, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769515254334-acn8r",
+      "success": false,
+      "duration": 1379,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769515254334-acn8r\" --output \"Batch retry: quality=0.70, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769509943017-air2vf",
+      "success": false,
+      "duration": 1373,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769509943017-air2vf\" --output \"Batch retry: quality=0.65, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769517048877-5c7567",
+      "success": false,
+      "duration": 1472,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769517048877-5c7567\" --output \"Batch retry: quality=0.65, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769538602834-cscoup",
+      "success": false,
+      "duration": 1507,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769538602834-cscoup\" --output \"Batch retry: quality=0.65, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769592636595-un1anb",
+      "success": false,
+      "duration": 1522,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769592636595-un1anb\" --output \"Batch retry: quality=0.60, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769525579389-j5ge7",
+      "success": false,
+      "duration": 1504,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769525579389-j5ge7\" --output \"Batch retry: quality=0.60, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769525712291-zp4kt",
+      "success": false,
+      "duration": 1532,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769525712291-zp4kt\" --output \"Batch retry: quality=0.60, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769592745682-8d2vyq",
+      "success": false,
+      "duration": 1566,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769592745682-8d2vyq\" --output \"Batch retry: quality=0.55, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769509837453-ahyz6s",
+      "success": false,
+      "duration": 1409,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769509837453-ahyz6s\" --output \"Batch retry: quality=0.50, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769510127751-h4t84a",
+      "success": false,
+      "duration": 1406,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769510127751-h4t84a\" --output \"Batch retry: quality=0.50, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769525342654-7fawrj",
+      "success": false,
+      "duration": 1406,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769525342654-7fawrj\" --output \"Batch retry: quality=0.50, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769533548353-nzs27f",
+      "success": false,
+      "duration": 1672,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769533548353-nzs27f\" --output \"Batch retry: quality=0.50, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769548121496-w8qzn",
+      "success": false,
+      "duration": 1700,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769548121496-w8qzn\" --output \"Batch retry: quality=0.50, outcome=positive\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    },
+    {
+      "trajectoryId": "hook-traj-1769525448179-kcbdp7",
+      "success": false,
+      "duration": 1658,
+      "error": "Command failed: npx tsx \"/Volumes/Externalwork/projects/claudeflow-testing/src/god-agent/universal/cli.ts\" code-feedback \"hook-traj-1769525448179-kcbdp7\" --output \"Batch retry: quality=0.45, outcome=neutral\" --agent \"feedback-processor\" --phase 7 --json\n[CLI] SonaEngine initialized with persistence enabled\n"
+    }
+  ],
+  "entries": [
+    {
+      "trajectoryId": "hook-traj-1769515764496-mx5bb",
+      "quality": 1,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515764251-t4kjc",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769515764496
+    },
+    {
+      "trajectoryId": "hook-traj-1769517358692-a0yrmc",
+      "quality": 1,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769517358420-itlgi5",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769517358692
+    },
+    {
+      "trajectoryId": "hook-traj-1769517612102-eha0fq",
+      "quality": 1,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769517611856-cgtvxj",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769517612103
+    },
+    {
+      "trajectoryId": "hook-traj-1769538993243-6486u8",
+      "quality": 1,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769538992935-2y0ec9",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769538993244
+    },
+    {
+      "trajectoryId": "hook-traj-1769591944537-4cej6i",
+      "quality": 1,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769591944268-7lj09s",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769591944538
+    },
+    {
+      "trajectoryId": "hook-traj-1769595917647-91f3a",
+      "quality": 1,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769595917376-xk5vf",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769595917648
+    },
+    {
+      "trajectoryId": "hook-traj-1769525068549-9pgy8r",
+      "quality": 0.95,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769525068276-jt8g4j",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769525068550
+    },
+    {
+      "trajectoryId": "hook-traj-1769526900007-w68vxf",
+      "quality": 0.95,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769526899759-l36s4e",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769526900007
+    },
+    {
+      "trajectoryId": "hook-traj-1769590345305-1t2i0a",
+      "quality": 0.95,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769590345040-w5g8kb",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769590345306
+    },
+    {
+      "trajectoryId": "hook-traj-1769515110828-xtojfc",
+      "quality": 0.9,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515110582-7o0w6i",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769515110829
+    },
+    {
+      "trajectoryId": "hook-traj-1769589201394-l1sc3",
+      "quality": 0.9,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769589201147-rcs1v",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769589201395
+    },
+    {
+      "trajectoryId": "hook-traj-1769591588533-lylf9c",
+      "quality": 0.9,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769591588287-350ogq",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769591588534
+    },
+    {
+      "trajectoryId": "hook-traj-1769592552192-btes2",
+      "quality": 0.9,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769592551940-j4vuni",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769592552192
+    },
+    {
+      "trajectoryId": "hook-traj-1769528917188-1vijd",
+      "quality": 0.85,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769528916937-wn4si9",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769528917189
+    },
+    {
+      "trajectoryId": "hook-traj-1769538183441-94peta",
+      "quality": 0.85,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769538183196-7hsovb",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769538183442
+    },
+    {
+      "trajectoryId": "hook-traj-1769550336203-7j3bfv",
+      "quality": 0.85,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769550335949-uuwqe",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769550336204
+    },
+    {
+      "trajectoryId": "hook-traj-1769589933199-m8xar",
+      "quality": 0.85,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769589932949-sqvn3u",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769589933199
+    },
+    {
+      "trajectoryId": "hook-traj-1769592806621-h008yf",
+      "quality": 0.85,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769592806372-xofe7p",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769592806621
+    },
+    {
+      "trajectoryId": "hook-traj-1769595104290-f8a8sj",
+      "quality": 0.85,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769595104007-nqob5",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769595104291
+    },
+    {
+      "trajectoryId": "hook-traj-1769516143780-ueq8ho",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769516143522-gwzi04",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769516143781
+    },
+    {
+      "trajectoryId": "hook-traj-1769517251635-eaiofb",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769517251381-11ztv",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769517251636
+    },
+    {
+      "trajectoryId": "hook-traj-1769517505256-bkme0k",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769517505012-orkudh",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769517505257
+    },
+    {
+      "trajectoryId": "hook-traj-1769525215382-63met7",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769525215134-uwcxkg",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769525215383
+    },
+    {
+      "trajectoryId": "hook-traj-1769526726666-cp2xt3",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769526726421-klfbdh",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769526726667
+    },
+    {
+      "trajectoryId": "hook-traj-1769527453250-j759cw",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769527452997-hh7kkb",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769527453251
+    },
+    {
+      "trajectoryId": "hook-traj-1769527715667-gx8yn",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769527715419-v5jhg",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769527715668
+    },
+    {
+      "trajectoryId": "hook-traj-1769528596389-uthjbg",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769528596138-ruzml",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769528596389
+    },
+    {
+      "trajectoryId": "hook-traj-1769529278001-39fzox",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769529277745-fmvpy",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769529278003
+    },
+    {
+      "trajectoryId": "hook-traj-1769534038426-ns9joe",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769534038172-52btgg",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769534038427
+    },
+    {
+      "trajectoryId": "hook-traj-1769535092905-gwg3emw",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769535092660-coi8ma",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769535092906
+    },
+    {
+      "trajectoryId": "hook-traj-1769535794082-eqm4g",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769535793833-x4l1ad",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769535794083
+    },
+    {
+      "trajectoryId": "hook-traj-1769536346916-wxzvoe",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769536346670-008pc",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769536346917
+    },
+    {
+      "trajectoryId": "hook-traj-1769536564538-8ox44",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769536564292-m1n2fr",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769536564539
+    },
+    {
+      "trajectoryId": "hook-traj-1769537035052-qpnwgy",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769537034790-izojy",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769537035053
+    },
+    {
+      "trajectoryId": "hook-traj-1769538256763-rn6lhd",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769538256517-vz4z89",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769538256764
+    },
+    {
+      "trajectoryId": "hook-traj-1769539111109-xg7cg",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769539110822-i72oz9",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769539111110
+    },
+    {
+      "trajectoryId": "hook-traj-1769539992177-iypsti",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769539991929-74gi1j",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769539992177
+    },
+    {
+      "trajectoryId": "hook-traj-1769549703162-druru",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769549702915-m2aiq",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769549703163
+    },
+    {
+      "trajectoryId": "hook-traj-1769551036228-kqic82",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769551035981-eakfi",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769551036229
+    },
+    {
+      "trajectoryId": "hook-traj-1769589315912-celrbsf",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769589315665-k732h",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769589315913
+    },
+    {
+      "trajectoryId": "hook-traj-1769591732957-vo4j6",
+      "quality": 0.8,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769591732657-w7uli",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769591732957
+    },
+    {
+      "trajectoryId": "hook-traj-1769515502233-9s701",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515501982-9ni5vn",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769515502234
+    },
+    {
+      "trajectoryId": "hook-traj-1769515638729-hnt4g",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515638486-7m91wm",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769515638730
+    },
+    {
+      "trajectoryId": "hook-traj-1769515833681-6jtf2",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515833429-k8vft6",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769515833681
+    },
+    {
+      "trajectoryId": "hook-traj-1769515936454-b080u",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515936197-gg6jzs",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769515936455
+    },
+    {
+      "trajectoryId": "hook-traj-1769517037225-6fova",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769517036971-zjv09",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769517037226
+    },
+    {
+      "trajectoryId": "hook-traj-1769517038819-uf1n1cg",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769517038566-gmy53a",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769517038820
+    },
+    {
+      "trajectoryId": "hook-traj-1769517217224-yr4rpy",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769517216985-gyjaif",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769517217225
+    },
+    {
+      "trajectoryId": "hook-traj-1769525863085-fmkkyg",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769525862838-2bbze",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769525863086
+    },
+    {
+      "trajectoryId": "hook-traj-1769527086508-8upz7r",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769527086258-vcp2xm",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769527086509
+    },
+    {
+      "trajectoryId": "hook-traj-1769527226976-vuvbmj",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769527226729-2d95fg",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769527226977
+    },
+    {
+      "trajectoryId": "hook-traj-1769527705394-wu0b67",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769527705147-tpxkbpi",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769527705394
+    },
+    {
+      "trajectoryId": "hook-traj-1769534531632-jsgnxb",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769534531366-4sw79k",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769534531633
+    },
+    {
+      "trajectoryId": "hook-traj-1769539255963-21y9c",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769539255699-ayp71",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769539255964
+    },
+    {
+      "trajectoryId": "hook-traj-1769540106032-d5beuj",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769540105788-j6zh3",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769540106032
+    },
+    {
+      "trajectoryId": "hook-traj-1769584735035-w8h2f",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769584734781-e6s61w7",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769584735035
+    },
+    {
+      "trajectoryId": "hook-traj-1769589999354-83wkw",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769589999110-xovt6g",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769589999355
+    },
+    {
+      "trajectoryId": "hook-traj-1769596035413-bvwlmi",
+      "quality": 0.75,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769596035139-0s7xo",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769596035414
+    },
+    {
+      "trajectoryId": "hook-traj-1769515027862-c68m6f",
+      "quality": 0.7000000000000001,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515027607-0fuqmk",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769515027863
+    },
+    {
+      "trajectoryId": "hook-traj-1769515175085-otdjlr",
+      "quality": 0.7000000000000001,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515174840-rnfny",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769515175086
+    },
+    {
+      "trajectoryId": "hook-traj-1769515396044-cqicdl",
+      "quality": 0.7000000000000001,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515395790-qvb4v",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769515396044
+    },
+    {
+      "trajectoryId": "hook-traj-1769516235439-v2cat",
+      "quality": 0.7000000000000001,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769516235184-73le1",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769516235440
+    },
+    {
+      "trajectoryId": "hook-traj-1769524625653-fh25m",
+      "quality": 0.7000000000000001,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769524625394-xmjdq",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769524625654
+    },
+    {
+      "trajectoryId": "hook-traj-1769510032714-95psq",
+      "quality": 0.7,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769510032462-0hrct",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769510032715
+    },
+    {
+      "trajectoryId": "hook-traj-1769515254334-acn8r",
+      "quality": 0.7,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769515254078-a94ix",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769515254335
+    },
+    {
+      "trajectoryId": "hook-traj-1769509943017-air2vf",
+      "quality": 0.65,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769509942756-49eva",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769509943017
+    },
+    {
+      "trajectoryId": "hook-traj-1769517048877-5c7567",
+      "quality": 0.65,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769517048635-g3jowq",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769517048878
+    },
+    {
+      "trajectoryId": "hook-traj-1769538602834-cscoup",
+      "quality": 0.65,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769538602576-v4bwgh",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769538602835
+    },
+    {
+      "trajectoryId": "hook-traj-1769592636595-un1anb",
+      "quality": 0.6000000000000001,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769592636341-nj44ns",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769592636596
+    },
+    {
+      "trajectoryId": "hook-traj-1769525579389-j5ge7",
+      "quality": 0.6,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769525579131-s94oqi",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769525579390
+    },
+    {
+      "trajectoryId": "hook-traj-1769525712291-zp4kt",
+      "quality": 0.6,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769525712036-dvufng",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769525712292
+    },
+    {
+      "trajectoryId": "hook-traj-1769592745682-8d2vyq",
+      "quality": 0.55,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769592745432-2o1d5k",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769592745683
+    },
+    {
+      "trajectoryId": "hook-traj-1769509837453-ahyz6s",
+      "quality": 0.5,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769509837206-r4x96",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769509837454
+    },
+    {
+      "trajectoryId": "hook-traj-1769510127751-h4t84a",
+      "quality": 0.5,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769510127496-7qv5wd",
+        "domain": "project/general",
+        "tags": []
+      },
+      "attempts": 2,
+      "lastAttempt": 1769596035421,
+      "createdAt": 1769510127752
+    },
+    {
+      "trajectoryId": "hook-traj-1769525342654-7fawrj",
+      "quality": 0.5,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769525342404-7ufzud",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769525342655
+    },
+    {
+      "trajectoryId": "hook-traj-1769533548353-nzs27f",
+      "quality": 0.5,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769533548088-zo2d9n",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769533548354
+    },
+    {
+      "trajectoryId": "hook-traj-1769548121496-w8qzn",
+      "quality": 0.5,
+      "outcome": "positive",
+      "metadata": {
+        "entryId": "hook-1769548121250-0xyk3",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769548121496
+    },
+    {
+      "trajectoryId": "hook-traj-1769525448179-kcbdp7",
+      "quality": 0.45,
+      "outcome": "neutral",
+      "metadata": {
+        "entryId": "hook-1769525447927-a1z77",
+        "domain": "project/general",
+        "tags": [
+          "task-output",
+          "heuristic-parsed"
+        ]
+      },
+      "attempts": 0,
+      "lastAttempt": 0,
+      "createdAt": 1769525448180
+    }
+  ]
+}
