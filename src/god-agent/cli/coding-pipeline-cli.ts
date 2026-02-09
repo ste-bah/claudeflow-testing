@@ -18,37 +18,51 @@ import type { ISessionBatchResponse, IBatchExecutionResult } from '../core/pipel
  * Returns the first batch of agents with contextualized prompts
  *
  * @param task - User's coding task description
+ * @param fast - Skip DESC injection for faster initialization (batch mode)
  */
-export async function init(task: string): Promise<void> {
+export async function init(task: string, fast: boolean = false): Promise<void> {
   const sessionId = uuidv4();
 
   // Create Universal Agent with all dependencies
   const godAgent = new UniversalAgent({ verbose: false });
   await godAgent.initialize();
 
-  // Store hook context to force pipeline mode
-  // This sets triggeredByHook = true in prepareCodeTask()
-  try {
-    await godAgent['memoryClient']?.storeKnowledge({
-      content: JSON.stringify({ task, sessionId, timestamp: new Date().toISOString() }),
-      category: 'pipeline-trigger',
-      domain: 'coding/context',
-      tags: ['pipeline', 'god-code', 'hook'],
+  // Build pipeline configuration
+  let pipelineConfig;
+
+  if (fast) {
+    // Fast mode: Skip prepareCodeTask and DESC injection
+    // Just build minimal config directly
+    pipelineConfig = {
+      taskText: task,
+      language: 'typescript' as const,
+      enableParallelExecution: true,
+    };
+  } else {
+    // Normal mode: Full DESC injection and context preparation
+    // Store hook context to force pipeline mode
+    try {
+      await godAgent['memoryClient']?.storeKnowledge({
+        content: JSON.stringify({ task, sessionId, timestamp: new Date().toISOString() }),
+        category: 'pipeline-trigger',
+        domain: 'coding/context',
+        tags: ['pipeline', 'god-code', 'hook'],
+      });
+    } catch (err) {
+      console.error('Warning: Failed to store hook context, continuing anyway');
+    }
+
+    // Build pipeline configuration using prepareCodeTask
+    // triggeredByHook will now be true due to coding/context entry
+    const codeTaskPreparation = await godAgent.prepareCodeTask(task, {
+      language: 'typescript',
     });
-  } catch (err) {
-    console.error('Warning: Failed to store hook context, continuing anyway');
-  }
 
-  // Build pipeline configuration using prepareCodeTask
-  // triggeredByHook will now be true due to coding/context entry
-  const codeTaskPreparation = await godAgent.prepareCodeTask(task, {
-    language: 'typescript',
-  });
-
-  // Extract pipeline config from preparation
-  const pipelineConfig = codeTaskPreparation.pipeline?.config;
-  if (!pipelineConfig) {
-    throw new Error('Failed to build pipeline configuration - task not recognized as pipeline');
+    // Extract pipeline config from preparation
+    pipelineConfig = codeTaskPreparation.pipeline?.config;
+    if (!pipelineConfig) {
+      throw new Error('Failed to build pipeline configuration - task not recognized as pipeline');
+    }
   }
 
   // Get orchestrator
@@ -118,10 +132,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   switch (command) {
     case 'init':
       if (!arg) {
-        console.error('Usage: coding-pipeline-cli.ts init "<task>"');
+        console.error('Usage: coding-pipeline-cli.ts init "<task>" [--fast]');
         process.exit(1);
       }
-      init(arg).catch((error) => {
+      // Check for --fast flag
+      const fastFlag = process.argv.includes('--fast');
+      init(arg, fastFlag).catch((error) => {
         console.error('Error:', error);
         process.exit(1);
       });
