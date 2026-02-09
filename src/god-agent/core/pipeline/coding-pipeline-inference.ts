@@ -52,20 +52,27 @@ export interface PhaseAgentInfo {
  */
 const INTRA_PHASE_DEPS: Record<string, string[]> = {
   // Phase 1: Understanding — task-analyzer, scope-definer, context-gatherer run in parallel
+  // phase-1-reviewer gates progression to Phase 2
   'requirement-extractor': ['task-analyzer'],
   'requirement-prioritizer': ['requirement-extractor'],
   'feasibility-analyzer': ['requirement-prioritizer', 'scope-definer', 'context-gatherer'],
+  'phase-1-reviewer': ['feasibility-analyzer'],
 
   // Phase 2: Exploration — pattern-explorer, technology-scout, codebase-analyzer run in parallel
+  // phase-2-reviewer gates progression to Phase 3
   'research-planner': ['pattern-explorer', 'technology-scout', 'codebase-analyzer'],
+  'phase-2-reviewer': ['research-planner'],
 
   // Phase 3: Architecture — system-designer runs first (critical, alone)
+  // phase-3-reviewer gates progression to Phase 4
   'component-designer': ['system-designer'],
   'interface-designer': ['system-designer'],
   'data-architect': ['system-designer'],
   'integration-architect': ['component-designer', 'interface-designer', 'data-architect'],
+  'phase-3-reviewer': ['integration-architect'],
 
   // Phase 4: Implementation — code-generator runs first (critical, alone)
+  // phase-4-reviewer gates progression to Phase 5
   'type-implementer': ['code-generator'],
   'error-handler-implementer': ['code-generator'],
   'config-implementer': ['code-generator'],
@@ -80,8 +87,11 @@ const INTRA_PHASE_DEPS: Record<string, string[]> = {
     'error-handler-implementer', 'config-implementer', 'logger-implementer',
   ],
   'implementation-coordinator': ['dependency-manager'],
+  'phase-4-reviewer': ['implementation-coordinator'],
 
   // Phase 5: Testing — test-generator runs first, then 3 testers in parallel
+  // test-fixer fixes bugs found by quality-gate
+  // phase-5-reviewer gates progression to Phase 6
   'test-runner': ['test-generator'],
   'integration-tester': ['test-runner'],
   'regression-tester': ['test-runner'],
@@ -89,16 +99,16 @@ const INTRA_PHASE_DEPS: Record<string, string[]> = {
   'coverage-analyzer': ['integration-tester', 'regression-tester', 'security-tester'],
   'quality-gate': ['coverage-analyzer'],
   'test-fixer': ['quality-gate'],
+  'phase-5-reviewer': ['test-fixer'],
 
   // Phase 6: Optimization — first 3 run in parallel, then security-architect, then final
+  // phase-6-reviewer gates progression to Phase 7
   'security-architect': ['performance-optimizer', 'performance-architect', 'code-quality-improver'],
   'final-refactorer': ['security-architect'],
+  'phase-6-reviewer': ['final-refactorer'],
 
-  // Phase 7: Delivery + Sherlock — reviewers are independent, recovery needs all, sign-off is last
-  'recovery-agent': [
-    'phase-1-reviewer', 'phase-2-reviewer', 'phase-3-reviewer',
-    'phase-4-reviewer', 'phase-5-reviewer', 'phase-6-reviewer',
-  ],
+  // Phase 7: Delivery — recovery-agent reads all reviewer verdicts (cross-phase memory),
+  // sign-off-approver is the final gate
   'sign-off-approver': ['recovery-agent'],
 };
 

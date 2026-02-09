@@ -17,6 +17,7 @@ import type {
   IAgentMapping,
   AlgorithmType,
 } from './types.js';
+import { SHERLOCK_PHASE_MAP } from './types.js';
 
 // Import extracted modules
 import {
@@ -188,7 +189,7 @@ export class CodingPipelineConfigLoader {
 
     // Determine phase from AGENT_ORDER position, NOT frontmatter type
     // This is more reliable since frontmatter types may not match intended phase
-    const phase = this.derivePhaseFromOrder(order);
+    const phase = this.derivePhase(order, key);
 
     // Store original type from frontmatter for reference
     const agentType = (frontmatter.type as string) || 'implementation';
@@ -256,24 +257,29 @@ export class CodingPipelineConfigLoader {
   }
 
   /**
-   * Derive pipeline phase from AGENT_ORDER position
-   * This is the source of truth for phase assignment
+   * Derive pipeline phase from agent key and order.
+   * Sherlock reviewers use SHERLOCK_PHASE_MAP (each reviewer belongs to the phase it reviews).
+   * Regular agents use order-based boundaries.
    */
-  private derivePhaseFromOrder(order: number): CodingPipelinePhase {
-    // Phase boundaries based on AGENT_ORDER positions
+  private derivePhase(order: number, key: string): CodingPipelinePhase {
+    // Sherlock reviewers belong to the phase they review, not delivery
+    const sherlockPhase = SHERLOCK_PHASE_MAP[key as keyof typeof SHERLOCK_PHASE_MAP];
+    if (sherlockPhase) return sherlockPhase;
+
+    // Regular agents: order-based boundaries
     // Phase 1: Understanding (1-6)
     // Phase 2: Exploration (7-10)
     // Phase 3: Architecture (11-15)
     // Phase 4: Implementation (16-27)
-    // Phase 5: Testing (28-34)
-    // Phase 6: Optimization (35-39)
-    // Phase 7: Delivery/Sherlock (40-47)
+    // Phase 5: Testing (28-35)  — includes test-fixer
+    // Phase 6: Optimization (36-40) — includes final-refactorer
+    // Phase 7: Delivery (41)
     if (order <= 6) return 'understanding';
     if (order <= 10) return 'exploration';
     if (order <= 15) return 'architecture';
     if (order <= 27) return 'implementation';
-    if (order <= 34) return 'testing';
-    if (order <= 39) return 'optimization';
+    if (order <= 35) return 'testing';
+    if (order <= 40) return 'optimization';
     return 'delivery';
   }
 
