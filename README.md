@@ -900,7 +900,7 @@ md-to-pdf final-paper.md --pdf-options '{"format": "A4", "margin": {"top": "20mm
 
 ## Coding Pipeline (48 Agents)
 
-The God Agent includes a comprehensive 48-agent coding pipeline for software development tasks. The pipeline uses a 7-phase DAG-based architecture with forensic review agents that gate phase progression.
+The God Agent includes a comprehensive 48-agent coding pipeline for software development tasks. The pipeline uses a 7-phase DAG-based architecture with intra-phase parallel execution (up to 3 agents concurrently) and Sherlock forensic reviewers embedded at the end of each phase to gate progression.
 
 ### Running the Pipeline
 
@@ -925,19 +925,19 @@ npx tsx src/god-agent/cli/coding-pipeline-batch.ts --file tasks.txt
 
 ### Pipeline Architecture
 
-The pipeline consists of **41 core development agents** plus **7 Sherlock forensic reviewers** (48 total):
+The pipeline consists of **41 core development agents** plus **7 Sherlock forensic reviewers** (48 total). Each Sherlock reviewer runs at the end of its respective phase as a quality gate:
 
-| Phase | Core Agents | Description |
-|-------|-------------|-------------|
-| **Phase 1: Understanding (6)** | task-analyzer*, requirement-extractor, requirement-prioritizer, scope-definer, context-gatherer, feasibility-analyzer* | Task parsing, requirements extraction, scope definition |
-| **Phase 2: Exploration (4)** | pattern-explorer, technology-scout, research-planner, codebase-analyzer | Solution space exploration, pattern matching |
-| **Phase 3: Architecture (5)** | system-designer*, component-designer, interface-designer*, data-architect, integration-architect | System design, interface contracts |
-| **Phase 4: Implementation (12)** | code-generator*, type-implementer, unit-implementer, service-implementer, data-layer-implementer, api-implementer, frontend-implementer, error-handler-implementer, config-implementer, logger-implementer, dependency-manager, implementation-coordinator* | Code generation, API implementation |
-| **Phase 5: Testing (8)** | test-generator, test-runner*, integration-tester, regression-tester, security-tester*, coverage-analyzer, quality-gate*, test-fixer | Test creation, execution, coverage, self-correction |
-| **Phase 6: Optimization (5)** | performance-optimizer, performance-architect, code-quality-improver, security-architect*, final-refactorer | Performance tuning, security audit |
-| **Phase 7: Delivery (1)** | sign-off-approver* | Final approval gate |
+| Phase | Agents | Description |
+|-------|--------|-------------|
+| **Phase 1: Understanding (7)** | task-analyzer*, scope-definer, context-gatherer ‖ requirement-extractor → requirement-prioritizer → feasibility-analyzer* → **phase-1-reviewer*** | Task parsing, requirements, scope definition |
+| **Phase 2: Exploration (5)** | pattern-explorer, technology-scout, codebase-analyzer ‖ research-planner → **phase-2-reviewer*** | Solution space exploration, pattern matching |
+| **Phase 3: Architecture (6)** | system-designer* → component-designer, interface-designer*, data-architect ‖ integration-architect → **phase-3-reviewer*** | System design, interface contracts |
+| **Phase 4: Implementation (13)** | code-generator* → type-implementer → unit-implementer, service-implementer → api-implementer → frontend-implementer, data-layer-implementer, error-handler-implementer, config-implementer, logger-implementer → dependency-manager → implementation-coordinator* → **phase-4-reviewer*** | Code generation, API implementation |
+| **Phase 5: Testing (9)** | test-generator → test-runner* → integration-tester, regression-tester, security-tester* ‖ coverage-analyzer → quality-gate* → test-fixer → **phase-5-reviewer*** | Test creation, execution, self-correction |
+| **Phase 6: Optimization (6)** | performance-optimizer, performance-architect, code-quality-improver ‖ security-architect* → final-refactorer → **phase-6-reviewer*** | Performance tuning, security audit |
+| **Phase 7: Delivery (2)** | recovery-agent → sign-off-approver* | Recovery and final approval |
 
-*\* = Critical agents that halt pipeline on failure*
+*\* = Critical agents that halt pipeline on failure* | *→ = sequential dependency* | *‖ = runs in parallel (up to 3)*
 
 ### Dynamic Configuration Loading
 
@@ -954,25 +954,26 @@ console.log(config.agents.length); // 48
 
 Key features:
 - **YAML Frontmatter Parsing**: Agent metadata extracted from markdown files
-- **Phase Derivation**: Phase determined by AGENT_ORDER position (not frontmatter type)
+- **Phase Derivation**: Sherlock reviewers use SHERLOCK_PHASE_MAP; regular agents use order-based boundaries
+- **DAG-Based Batching**: Intra-phase dependency graph enables parallel execution (up to 3 agents per batch)
 - **Critical Agent Detection**: Agents marked critical in frontmatter or CRITICAL_AGENT_KEYS
 - **Algorithm Assignment**: Default algorithm per phase (ReAct, LATS, ToT, Self-Debug, Reflexion)
 
 ### Sherlock Forensic Reviewers
 
-Each phase is gated by a Sherlock forensic reviewer that performs quality verification:
+Each phase-N-reviewer runs at the **end** of phase N (not in a separate delivery phase), gating progression to the next phase:
 
-| Agent # | Agent | Phase Reviewed | Verdict Types |
-|---------|-------|----------------|---------------|
-| #42 | phase-1-reviewer | Understanding | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #43 | phase-2-reviewer | Exploration | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #44 | phase-3-reviewer | Architecture | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #45 | phase-4-reviewer | Implementation | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #46 | phase-5-reviewer | Testing | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #47 | phase-6-reviewer | Optimization | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
-| #48 | recovery-agent | Delivery + Recovery | Orchestrates remediation on failures |
+| Agent | Runs In | Gates | Verdict Types |
+|-------|---------|-------|---------------|
+| phase-1-reviewer | Understanding | → Exploration | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| phase-2-reviewer | Exploration | → Architecture | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| phase-3-reviewer | Architecture | → Implementation | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| phase-4-reviewer | Implementation | → Testing | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| phase-5-reviewer | Testing | → Optimization | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| phase-6-reviewer | Optimization | → Delivery | INNOCENT / GUILTY / INSUFFICIENT_EVIDENCE |
+| recovery-agent | Delivery | Final sign-off | Orchestrates remediation on failures |
 
-All forensic reviewers are **CRITICAL** - they gate pipeline progression to ensure quality.
+All forensic reviewers are **CRITICAL** - a GUILTY verdict halts pipeline progression.
 
 ### Phase 5 Self-Correction Loop (v2.1.2)
 
@@ -1088,16 +1089,18 @@ coding/
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    48-AGENT CODING PIPELINE                      │
+│              (DAG-based parallel execution, up to 3 concurrent)  │
 ├─────────────────────────────────────────────────────────────────┤
-│  Phase 1 (6 agents) → Sherlock #42 → Phase 2 (4 agents)        │
+│  Phase 1: Understanding (7) ──→ Phase 2: Exploration (5)        │
+│  [3 parallel roots → chain → phase-1-reviewer gates]             │
 │           ↓                                    ↓                │
-│  Sherlock #43 → Phase 3 (5 agents) → Sherlock #44              │
+│  Phase 3: Architecture (6) ──→ Phase 4: Implementation (13)     │
+│  [system-designer → 3 parallel → chain → phase-3-reviewer]      │
 │           ↓                                    ↓                │
-│  Phase 4 (12 agents) → Sherlock #45 → Phase 5 (8 agents)       │
+│  Phase 5: Testing (9) ──→ Phase 6: Optimization (6)             │
+│  [test-runner → 3 parallel testers → fix loop → reviewer]        │
 │           ↓                                    ↓                │
-│  Sherlock #46 → Phase 6 (5 agents) → Sherlock #47              │
-│           ↓                                    ↓                │
-│  Phase 7 (1 agent) → Sherlock #48 (Recovery) → COMPLETE        │
+│  Phase 7: Delivery (2) → recovery-agent → sign-off → COMPLETE   │
 └─────────────────────────────────────────────────────────────────┘
 
 On GUILTY verdict: Recovery Agent (#48) orchestrates remediation
