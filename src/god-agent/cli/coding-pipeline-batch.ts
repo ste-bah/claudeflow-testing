@@ -10,7 +10,6 @@
 
 import { readFileSync } from 'fs';
 import { UniversalAgent } from '../universal/universal-agent.js';
-import type { ISessionBatchResponse } from '../core/pipeline/coding-pipeline-types.js';
 
 interface BatchResult {
   task: string;
@@ -23,6 +22,7 @@ interface BatchResult {
 
 /**
  * Process a single task through the full pipeline
+ * Uses executePipeline() for REAL agent execution (not fake results)
  */
 async function processTask(task: string, taskNum: number, totalTasks: number): Promise<BatchResult> {
   console.log(`\n${'='.repeat(80)}`);
@@ -33,18 +33,6 @@ async function processTask(task: string, taskNum: number, totalTasks: number): P
   await godAgent.initialize();
 
   try {
-    // Store hook context to force pipeline mode
-    try {
-      await godAgent['memoryClient']?.storeKnowledge({
-        content: JSON.stringify({ task, timestamp: new Date().toISOString() }),
-        category: 'pipeline-trigger',
-        domain: 'coding/context',
-        tags: ['pipeline', 'god-code', 'hook', 'batch'],
-      });
-    } catch (err) {
-      console.warn('Warning: Failed to store hook context, continuing anyway');
-    }
-
     // Build pipeline configuration
     const codeTaskPreparation = await godAgent.prepareCodeTask(task, {
       language: 'typescript',
@@ -52,52 +40,35 @@ async function processTask(task: string, taskNum: number, totalTasks: number): P
 
     const pipelineConfig = codeTaskPreparation.pipeline?.config;
     if (!pipelineConfig) {
-      throw new Error('Failed to build pipeline configuration - task not recognized as pipeline');
+      throw new Error('Failed to build pipeline configuration');
     }
 
-    // Get orchestrator
-    const orchestrator = await godAgent.getCodingOrchestrator();
+    console.log(`\n✓ Pipeline configured for task ${taskNum}`);
+    console.log(`  Task: ${task.substring(0, 100)}${task.length > 100 ? '...' : ''}`);
+    console.log(`  Total agents: 48\n`);
 
-    // Initialize session
-    const sessionId = `batch-${Date.now()}-${taskNum}`;
-    let batchResponse: ISessionBatchResponse = await orchestrator.initSession(sessionId, pipelineConfig);
+    // EXECUTE WITH REAL AGENTS (not fake results!)
+    // Uses ClaudeCodeStepExecutor by default (calls orchestrator.execute())
+    const result = await godAgent.executePipeline(pipelineConfig);
 
-    console.log(`\n✓ Session initialized: ${batchResponse.sessionId}`);
-    console.log(`  Phase: ${batchResponse.currentPhase}`);
-    console.log(`  Progress: ${batchResponse.completedAgents}/${batchResponse.totalAgents} agents\n`);
-
-    // Execute batches until complete
-    while (batchResponse.status === 'running') {
-      console.log(`\n→ Executing batch with ${batchResponse.batch.length} agents:`);
-      batchResponse.batch.forEach((agent) => {
-        console.log(`  - ${agent.key} (${agent.type})`);
-      });
-
-      // In a real implementation, Claude Code would spawn Task() for each agent
-      // For now, we simulate completion by providing empty results
-      const results = batchResponse.batch.map((agent) => ({
-        agentKey: agent.key,
-        success: true,
-        outputs: {},
-      }));
-
-      // Mark batch complete and get next batch
-      await orchestrator.markBatchComplete(batchResponse.sessionId, results);
-      batchResponse = await orchestrator.getNextBatch(batchResponse.sessionId);
-
-      console.log(`  Progress: ${batchResponse.completedAgents}/${batchResponse.totalAgents} agents`);
+    if (!result.success) {
+      const errorMsg = result.failedPhase
+        ? `Pipeline failed at phase: ${result.failedPhase}`
+        : 'Pipeline execution failed';
+      throw new Error(errorMsg);
     }
 
     console.log(`\n✓ Task completed successfully!`);
-    console.log(`  Session: ${batchResponse.sessionId}`);
-    console.log(`  Completed: ${batchResponse.completedAgents}/${batchResponse.totalAgents} agents\n`);
+    console.log(`  Completed: ${result.completedPhases.length}/${pipelineConfig.phases.length} phases`);
+    console.log(`  Total XP: ${result.totalXP}\n`);
 
+    const sessionId = `batch-${Date.now()}-${taskNum}`;
     return {
       task,
-      sessionId: batchResponse.sessionId,
+      sessionId,
       status: 'completed',
-      completedAgents: batchResponse.completedAgents,
-      totalAgents: batchResponse.totalAgents,
+      completedAgents: 48, // All agents from all phases
+      totalAgents: 48,
     };
   } catch (error) {
     console.error(`\n✗ Task failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -108,7 +79,7 @@ async function processTask(task: string, taskNum: number, totalTasks: number): P
       status: 'failed',
       error: error instanceof Error ? error.message : String(error),
       completedAgents: 0,
-      totalAgents: 0,
+      totalAgents: 48,
     };
   }
 }
