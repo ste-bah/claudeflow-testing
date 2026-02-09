@@ -38,15 +38,80 @@ export interface PhaseAgentInfo {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// INTRA-PHASE DEPENDENCY MAP
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Explicit intra-phase dependency map based on real data flow.
+ * Agents not listed (or with empty arrays) have no intra-phase dependencies
+ * and can run in parallel with other independent agents in the same phase.
+ * Cross-phase ordering is handled by the orchestrator's phase loop.
+ *
+ * maxParallelAgents=3, so batches contain up to 3 parallel agents.
+ * Critical agents (parallelizable=false) always run alone regardless.
+ */
+const INTRA_PHASE_DEPS: Record<string, string[]> = {
+  // Phase 1: Understanding — task-analyzer, scope-definer, context-gatherer run in parallel
+  'requirement-extractor': ['task-analyzer'],
+  'requirement-prioritizer': ['requirement-extractor'],
+  'feasibility-analyzer': ['requirement-prioritizer', 'scope-definer', 'context-gatherer'],
+
+  // Phase 2: Exploration — pattern-explorer, technology-scout, codebase-analyzer run in parallel
+  'research-planner': ['pattern-explorer', 'technology-scout', 'codebase-analyzer'],
+
+  // Phase 3: Architecture — system-designer runs first (critical, alone)
+  'component-designer': ['system-designer'],
+  'interface-designer': ['system-designer'],
+  'data-architect': ['system-designer'],
+  'integration-architect': ['component-designer', 'interface-designer', 'data-architect'],
+
+  // Phase 4: Implementation — code-generator runs first (critical, alone)
+  'type-implementer': ['code-generator'],
+  'error-handler-implementer': ['code-generator'],
+  'config-implementer': ['code-generator'],
+  'logger-implementer': ['code-generator'],
+  'unit-implementer': ['type-implementer'],
+  'service-implementer': ['type-implementer'],
+  'data-layer-implementer': ['type-implementer'],
+  'api-implementer': ['service-implementer'],
+  'frontend-implementer': ['api-implementer'],
+  'dependency-manager': [
+    'unit-implementer', 'frontend-implementer', 'data-layer-implementer',
+    'error-handler-implementer', 'config-implementer', 'logger-implementer',
+  ],
+  'implementation-coordinator': ['dependency-manager'],
+
+  // Phase 5: Testing — test-generator runs first, then 3 testers in parallel
+  'test-runner': ['test-generator'],
+  'integration-tester': ['test-runner'],
+  'regression-tester': ['test-runner'],
+  'security-tester': ['test-runner'],
+  'coverage-analyzer': ['integration-tester', 'regression-tester', 'security-tester'],
+  'quality-gate': ['coverage-analyzer'],
+  'test-fixer': ['quality-gate'],
+
+  // Phase 6: Optimization — first 3 run in parallel, then security-architect, then final
+  'security-architect': ['performance-optimizer', 'performance-architect', 'code-quality-improver'],
+  'final-refactorer': ['security-architect'],
+
+  // Phase 7: Delivery + Sherlock — reviewers are independent, recovery needs all, sign-off is last
+  'recovery-agent': [
+    'phase-1-reviewer', 'phase-2-reviewer', 'phase-3-reviewer',
+    'phase-4-reviewer', 'phase-5-reviewer', 'phase-6-reviewer',
+  ],
+  'sign-off-approver': ['recovery-agent'],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERENCE FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Infer dependencies from agent position and phase
+ * Infer dependencies from explicit dependency map and phase position.
  *
- * Rules:
- * - First agent in phase depends on last agent of previous phase
- * - Non-first agents depend on previous agent in same phase
+ * Uses INTRA_PHASE_DEPS for real data-flow dependencies within phases.
+ * Cross-phase: first agent in each phase depends on last agent of previous phase.
+ * The batching code filters deps to intra-phase only, so cross-phase deps are metadata.
  *
  * @param agentKey - The agent key to infer dependencies for
  * @param phaseAgents - All agents in the pipeline sorted by order
@@ -61,26 +126,28 @@ export function inferDependencies(
     return undefined;
   }
 
+  const deps: CodingPipelineAgent[] = [];
+
+  // Cross-phase: first agent in phase depends on last agent of previous phase
   const samePhaseAgents = phaseAgents.filter(a => a.phase === agent.phase);
   const isFirstInPhase = samePhaseAgents.length > 0 && samePhaseAgents[0].key === agentKey;
 
   if (isFirstInPhase && agent.order > 1) {
-    // First agent in phase depends on last agent of previous phase
     const prevAgent = phaseAgents.find(a => a.order === agent.order - 1);
     if (prevAgent) {
-      return [prevAgent.key as CodingPipelineAgent];
+      deps.push(prevAgent.key as CodingPipelineAgent);
     }
   }
 
-  if (!isFirstInPhase) {
-    // Non-first agents depend on previous agent in same phase
-    const prevInPhase = samePhaseAgents.find(a => a.order === agent.order - 1);
-    if (prevInPhase) {
-      return [prevInPhase.key as CodingPipelineAgent];
+  // Intra-phase: explicit dependency map
+  const intraDeps = INTRA_PHASE_DEPS[agentKey];
+  if (intraDeps) {
+    for (const dep of intraDeps) {
+      deps.push(dep as CodingPipelineAgent);
     }
   }
 
-  return undefined;
+  return deps.length > 0 ? deps : undefined;
 }
 
 /**
