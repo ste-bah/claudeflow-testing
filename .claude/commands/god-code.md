@@ -193,3 +193,90 @@ This implements the **stateful orchestrator pattern** like PhD pipeline:
 - **repeat**: Until status is "complete"
 
 The 48-agent pipeline is MANDATORY. No single-agent bypass exists.
+
+---
+
+## Batch Mode: Processing Multiple Tasks
+
+To process multiple coding tasks sequentially, use the batch mode pattern:
+
+### Option 1: Inline Batch Processing
+
+```bash
+# Create array of tasks
+TASKS=(
+  "Implement user authentication with JWT"
+  "Add password reset functionality"
+  "Create email verification system"
+)
+
+# Process each task
+for TASK in "${TASKS[@]}"; do
+  echo "=== Processing: $TASK ==="
+
+  # Initialize session
+  INIT_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$TASK")
+  SESSION_ID=$(echo "$INIT_JSON" | jq -r '.sessionId')
+  STATUS=$(echo "$INIT_JSON" | jq -r '.status')
+
+  # Execute batches until complete
+  RESPONSE_JSON="$INIT_JSON"
+  while [ "$STATUS" != "complete" ]; do
+    # Get current batch
+    BATCH=$(echo "$RESPONSE_JSON" | jq -c '.batch[]')
+
+    # [Claude Code executes agents in batch via Task()]
+
+    # Mark complete and get next batch
+    RESPONSE_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "$SESSION_ID")
+    STATUS=$(echo "$RESPONSE_JSON" | jq -r '.status')
+  done
+
+  echo "✓ Completed: $TASK (Session: $SESSION_ID)"
+done
+```
+
+### Option 2: Task File Processing
+
+Create a file with one task per line:
+
+```bash
+# tasks.txt
+Implement user authentication with JWT
+Add password reset functionality
+Create email verification system
+```
+
+Then process:
+
+```bash
+while IFS= read -r TASK; do
+  echo "=== Processing: $TASK ==="
+
+  # Run full pipeline for this task
+  INIT_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$TASK")
+  SESSION_ID=$(echo "$INIT_JSON" | jq -r '.sessionId')
+
+  # [Execute pipeline loop...]
+
+  echo "✓ Completed: $TASK"
+done < tasks.txt
+```
+
+### Option 3: Use the Batch Wrapper Script
+
+For convenience, use the provided batch wrapper:
+
+```bash
+# Process multiple tasks
+npx tsx src/god-agent/cli/coding-pipeline-batch.ts "Task 1" "Task 2" "Task 3"
+
+# Or from a file
+npx tsx src/god-agent/cli/coding-pipeline-batch.ts --file tasks.txt
+```
+
+**Batch Mode Benefits**:
+- Processes tasks sequentially with full 48-agent pipeline
+- Each task gets its own session with complete persistence
+- Failed tasks don't block subsequent tasks
+- All sessions logged for post-analysis
