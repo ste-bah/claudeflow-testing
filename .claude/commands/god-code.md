@@ -4,13 +4,29 @@ description: Generate code using the 48-Agent Coding Pipeline with stateful orch
 
 Use the Coding Pipeline CLI (`coding-pipeline-cli`) for code generation with dynamic agent orchestration, RLM memory handoffs, and LEANN semantic search.
 
-**Task**: $ARGUMENTS
+**Supports two modes:**
+- Single task: `/god-code "task description"`
+- Batch mode: `/god-code -batch "task1" "task2" "task3"`
+
+**Arguments**: $ARGUMENTS
 
 ---
 
 ## EXECUTION PROTOCOL
 
 **YOU MUST use coding-pipeline-cli for orchestration. DO NOT use static Task() templates.**
+
+### Mode Detection
+
+Check if `$ARGUMENTS` starts with `-batch`:
+- **IF batch mode**: Process multiple tasks sequentially (see Batch Mode Protocol)
+- **IF single mode**: Process one task (see Single Task Protocol)
+
+---
+
+## SINGLE TASK PROTOCOL
+
+Use this protocol when `$ARGUMENTS` does NOT start with `-batch`.
 
 ### Step 1: Initialize Pipeline
 
@@ -39,12 +55,12 @@ This returns:
 
 ### Step 2: Execute Current Batch
 
-From the init response, spawn ALL agents in the batch:
+From the init response JSON, the `batch` array contains agents to spawn. For each agent in the array, spawn it using the Task tool with the agent's `type`, `prompt`, and `key` fields:
 
 ```
-Task("<batch[0].type>", "<batch[0].prompt>", "<batch[0].key>")
-Task("<batch[1].type>", "<batch[1].prompt>", "<batch[1].key>")
-...
+Task(batch[0].type, batch[0].prompt, batch[0].key)
+Task(batch[1].type, batch[1].prompt, batch[1].key)
+# ... for all agents in batch array
 ```
 
 **Wait for ALL agents in batch to complete before Step 3.**
@@ -78,10 +94,12 @@ Returns:
 
 #### 3b. Spawn Batch Agents
 
+From the response JSON, spawn each agent in the `batch` array using Task tool:
+
 ```
-Task("<batch[0].type>", "<batch[0].prompt>", "<batch[0].key>")
-Task("<batch[1].type>", "<batch[1].prompt>", "<batch[1].key>")
-...
+Task(batch[0].type, batch[0].prompt, batch[0].key)
+Task(batch[1].type, batch[1].prompt, batch[1].key)
+# ... for all agents in batch array
 ```
 
 #### 3c. Wait for Completion
@@ -103,6 +121,73 @@ When `status: "complete"` is returned, report completion to user.
 
 ---
 
+## BATCH MODE PROTOCOL
+
+Use this protocol when `$ARGUMENTS` starts with `-batch`.
+
+### Overview
+
+Process multiple coding tasks sequentially. Each task gets its own isolated session through the full 48-agent pipeline.
+
+### Execution Steps
+
+**Step 1: Extract Tasks**
+
+Parse tasks from `$ARGUMENTS` (all arguments after `-batch` flag):
+```bash
+# $ARGUMENTS format: "-batch task1 task2 task3"
+# Extract tasks: everything after "-batch"
+TASKS=(${ARGUMENTS#-batch })
+```
+
+**Step 2: Process Each Task**
+
+For each task in the array, run the complete pipeline:
+
+```bash
+# For task 1:
+INIT_RESPONSE=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "${TASKS[0]}")
+SESSION_ID=$(echo "$INIT_RESPONSE" | jq -r '.sessionId')
+STATUS=$(echo "$INIT_RESPONSE" | jq -r '.status')
+
+# Spawn initial batch agents from INIT_RESPONSE
+# (Task calls using batch array from JSON)
+
+# Loop until complete
+RESPONSE="$INIT_RESPONSE"
+while [ "$STATUS" != "complete" ]; do
+  # Mark batch complete and get next
+  RESPONSE=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "$SESSION_ID")
+  STATUS=$(echo "$RESPONSE" | jq -r '.status')
+
+  # If not complete, spawn next batch agents
+  # (Task calls using batch array from RESPONSE JSON)
+done
+
+# Repeat for task 2, task 3, etc.
+```
+
+**Step 3: Report Summary**
+
+After all tasks complete, report:
+- Total tasks processed
+- Sessions completed
+- Any failures
+
+### Batch Mode Example
+
+```bash
+# User runs:
+/god-code -batch "Add auth" "Add logging" "Add tests"
+
+# This processes 3 tasks sequentially:
+# 1. "Add auth" → full 48-agent pipeline → complete
+# 2. "Add logging" → full 48-agent pipeline → complete
+# 3. "Add tests" → full 48-agent pipeline → complete
+```
+
+---
+
 ## Session Persistence
 
 Sessions are stored in `.god-agent/coding-sessions/<sessionId>.json` and survive:
@@ -117,49 +202,19 @@ npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume "<sessionId>"
 
 ---
 
-## Batch Mode: Processing Multiple Tasks
+## Alternative: Direct CLI Batch Script
 
-To process multiple coding tasks sequentially:
-
-### Option 1: Batch Wrapper Script
+For automation or scripting outside of Claude Code, use the batch wrapper:
 
 ```bash
+# Direct batch processing (bypasses Claude Code agent spawning)
 npx tsx src/god-agent/cli/coding-pipeline-batch.ts "Task 1" "Task 2" "Task 3"
 
 # Or from a file (one task per line)
 npx tsx src/god-agent/cli/coding-pipeline-batch.ts --file tasks.txt
 ```
 
-### Option 2: Manual Loop
-
-```bash
-# Array of tasks
-TASKS=(
-  "Implement authentication"
-  "Add password reset"
-  "Create email verification"
-)
-
-# Process each task
-for TASK in "${TASKS[@]}"; do
-  # Initialize
-  INIT_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$TASK")
-  SESSION_ID=$(echo "$INIT_JSON" | jq -r '.sessionId')
-  STATUS=$(echo "$INIT_JSON" | jq -r '.status')
-
-  # Execute batches until complete
-  RESPONSE_JSON="$INIT_JSON"
-  while [ "$STATUS" != "complete" ]; do
-    # [Claude Code spawns agents from batch via Task()]
-
-    # Mark complete and get next
-    RESPONSE_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "$SESSION_ID")
-    STATUS=$(echo "$RESPONSE_JSON" | jq -r '.status')
-  done
-
-  echo "✓ Completed: $TASK"
-done
-```
+**Note**: This wrapper simulates agent execution for testing. For real development, use `/god-code -batch` which properly spawns Claude Code agents.
 
 ---
 
@@ -183,3 +238,145 @@ done
 - Learning feedback tracking
 
 **No single-agent bypass exists. The full 48-agent pipeline is MANDATORY.**
+
+---
+
+## EXAMPLE EXECUTIONS
+
+### Example 1: Single Task Mode
+
+```bash
+# User runs: /god-code "Add user authentication with JWT"
+
+# Initialize
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Add user authentication with JWT"
+{
+  "sessionId": "abc-123-def",
+  "status": "running",
+  "currentPhase": "understanding",
+  "batch": [
+    {
+      "key": "task-analyzer",
+      "prompt": "Analyze the coding task: Add user authentication with JWT...",
+      "type": "code-analyzer"
+    },
+    {
+      "key": "scope-definer",
+      "prompt": "Define clear boundaries and deliverables for: Add user authentication...",
+      "type": "code-analyzer"
+    }
+  ],
+  "progress": { "completed": 0, "total": 48, "percentage": 0 }
+}
+
+# Spawn batch agents (Phase 1 has 2 agents in parallel)
+> Task("code-analyzer", "Analyze the coding task: Add user authentication with JWT...", "task-analyzer")
+> Task("code-analyzer", "Define clear boundaries and deliverables for: Add user authentication...", "scope-definer")
+
+# Mark batch complete and get next
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123-def
+{
+  "sessionId": "abc-123-def",
+  "status": "running",
+  "currentPhase": "understanding",
+  "batch": [
+    {
+      "key": "requirement-extractor",
+      "prompt": "Extract functional requirements from the task analysis...",
+      "type": "code-analyzer"
+    }
+  ],
+  "progress": { "completed": 2, "total": 48, "percentage": 4 }
+}
+
+# Spawn next batch
+> Task("code-analyzer", "Extract functional requirements from the task analysis...", "requirement-extractor")
+
+# Continue loop...
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123-def
+{
+  "sessionId": "abc-123-def",
+  "status": "running",
+  "currentPhase": "exploration",
+  "batch": [
+    {
+      "key": "codebase-analyzer",
+      "prompt": "Analyze relevant codebase sections for authentication patterns...",
+      "type": "code-analyzer"
+    }
+  ],
+  "progress": { "completed": 3, "total": 48, "percentage": 6 }
+}
+
+# ... repeat for all 48 agents ...
+
+# Final completion
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123-def
+{
+  "status": "complete",
+  "sessionId": "abc-123-def",
+  "progress": { "completed": 48, "total": 48, "percentage": 100 }
+}
+```
+
+### Example 2: Batch Mode
+
+```bash
+# User runs: /god-code -batch "Add auth" "Add logging" "Add tests"
+
+# ===== TASK 1: "Add auth" =====
+
+# Initialize task 1
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Add auth"
+{
+  "sessionId": "batch-001",
+  "status": "running",
+  "batch": [ { "key": "task-analyzer", ... } ],
+  "progress": { "completed": 0, "total": 48 }
+}
+
+# Spawn batch agents
+> Task("code-analyzer", "...", "task-analyzer")
+
+# Loop complete until done
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete batch-001
+# ... repeat until status: "complete" ...
+
+{
+  "status": "complete",
+  "sessionId": "batch-001",
+  "progress": { "completed": 48, "total": 48, "percentage": 100 }
+}
+
+# ===== TASK 2: "Add logging" =====
+
+# Initialize task 2
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Add logging"
+{
+  "sessionId": "batch-002",
+  "status": "running",
+  "batch": [ { "key": "task-analyzer", ... } ],
+  "progress": { "completed": 0, "total": 48 }
+}
+
+# ... complete full pipeline for task 2 ...
+
+# ===== TASK 3: "Add tests" =====
+
+# Initialize task 3
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Add tests"
+{
+  "sessionId": "batch-003",
+  "status": "running",
+  "batch": [ { "key": "task-analyzer", ... } ],
+  "progress": { "completed": 0, "total": 48 }
+}
+
+# ... complete full pipeline for task 3 ...
+
+# Final summary
+✓ Completed 3 tasks:
+  - batch-001: "Add auth" (48/48 agents)
+  - batch-002: "Add logging" (48/48 agents)
+  - batch-003: "Add tests" (48/48 agents)
+```
