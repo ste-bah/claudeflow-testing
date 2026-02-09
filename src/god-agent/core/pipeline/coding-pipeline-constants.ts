@@ -118,8 +118,8 @@ export const CRITICAL_AGENT_KEYS: ReadonlySet<string> = new Set([
 // =============================================================================
 
 export const DEFAULT_ORCHESTRATOR_CONFIG: IOrchestratorConfig = {
-  agentTimeoutMs: 120_000,        // 2 minutes per agent
-  phaseTimeoutMs: 600_000,        // 10 minutes per phase
+  agentTimeoutMs: 300_000,        // 5 minutes per agent (increased for LEANN semantic search)
+  phaseTimeoutMs: 1_200_000,      // 20 minutes per phase
   enableCheckpoints: true,
   enableParallelExecution: true,
   maxParallelAgents: 3,
