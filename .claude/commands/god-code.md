@@ -2,240 +2,147 @@
 description: Generate code using the 48-Agent Coding Pipeline with stateful orchestration (ALWAYS uses full pipeline)
 ---
 
-Generate code using the **MANDATORY 48-Agent Coding Pipeline** with stateful orchestration.
+Use the Coding Pipeline CLI (`coding-pipeline-cli`) for code generation with dynamic agent orchestration, RLM memory handoffs, and LEANN semantic search.
 
-**Arguments:** $ARGUMENTS
+**Task**: $ARGUMENTS
 
 ---
 
 ## EXECUTION PROTOCOL
 
-**YOU MUST use coding-pipeline-cli for orchestration.**
+**YOU MUST use coding-pipeline-cli for orchestration. DO NOT use static Task() templates.**
 
-**FORBIDDEN ACTIONS - DO NOT DO THESE:**
-- ❌ DO NOT run `npx claude-flow memory store` commands
-- ❌ DO NOT run `npx claude-flow memory retrieve` commands
-- ❌ DO NOT write code files yourself
-- ❌ DO NOT use static Task() templates
-- ❌ DO NOT implement anything yourself
-- ❌ DO NOT use "streamlined" mode
-- ❌ DO NOT do ANY memory operations - the CLI handles that
-
-**THE 48-AGENT PIPELINE IS MANDATORY. NO BYPASSING. NO SHORTCUTS.**
-
-The CLI handles ALL orchestration internally:
-- Session state persistence
-- Memory store/retrieve operations
-- RLM memory handoffs
-- LEANN semantic search
-- Smart batching
-- Learning feedback
-
-**YOUR ONLY JOB:**
-1. Run `npx tsx src/god-agent/cli/coding-pipeline-cli.ts` commands
-2. Spawn Task() agents with prompts from CLI output
-3. Nothing else
-
----
-
-## Step 1: Initialize Pipeline Session
+### Step 1: Initialize Pipeline
 
 ```bash
 npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$ARGUMENTS"
 ```
 
-**Save the `sessionId` - you need it for all subsequent commands.**
-
 This returns:
 ```json
 {
-  "sessionId": "uuid-v4",
+  "sessionId": "uuid",
   "status": "running",
-  "currentPhase": "Phase1Understanding",
+  "currentPhase": "understanding",
   "batch": [
     {
       "key": "task-analyzer",
-      "prompt": "[Full contextualized prompt with RLM + LEANN]",
-      "type": "code-analyzer",
-      "memoryWrites": ["coding/understanding/task-analysis"]
+      "prompt": "...",
+      "type": "code-analyzer"
     }
   ],
-  "progress": {
-    "completed": 0,
-    "total": 48,
-    "percentage": 0
-  }
+  "progress": { "completed": 0, "total": 48, "percentage": 0 }
 }
 ```
 
----
+**Save the `sessionId` - you need it for all subsequent commands.**
 
-## Step 2: Execute Current Batch
+### Step 2: Execute Current Batch
 
 From the init response, spawn ALL agents in the batch:
 
 ```
-Task("code-analyzer", "<batch[0].prompt>", "code-analyzer")
-Task("code-analyzer", "<batch[1].prompt>", "code-analyzer")
+Task("<batch[0].type>", "<batch[0].prompt>", "<batch[0].key>")
+Task("<batch[1].type>", "<batch[1].prompt>", "<batch[1].key>")
 ...
 ```
 
-**Use the exact agent.type and agent.prompt from the JSON response.**
+**Wait for ALL agents in batch to complete before Step 3.**
 
-**CRITICAL**: Wait for ALL agents to complete before Step 3. DO NOT proceed early.
+### Step 3: Loop Until Complete
 
----
+Repeat until `status: "complete"`:
 
-## Step 3: Mark Batch Complete and Get Next Batch
-
-After ALL agents finish:
+#### 3a. Mark Batch Complete and Get Next
 
 ```bash
 npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "<sessionId>"
 ```
 
-**Use the exact sessionId from Step 1.**
-
-Returns next batch:
+Returns:
 ```json
 {
-  "sessionId": "same-uuid",
+  "sessionId": "...",
   "status": "running",
-  "currentPhase": "Phase2Exploration",
+  "currentPhase": "exploration",
   "batch": [
     {
       "key": "pattern-explorer",
-      "prompt": "[Full contextualized prompt]",
-      "type": "code-analyzer",
-      "memoryWrites": ["coding/exploration/patterns"]
+      "prompt": "...",
+      "type": "code-analyzer"
     }
   ],
-  "progress": {
-    "completed": 7,
-    "total": 48,
-    "percentage": 15
-  }
+  "progress": { "completed": 6, "total": 48, "percentage": 13 }
 }
 ```
 
-**IF `status === "complete"`**, pipeline done - go to Step 4.
+#### 3b. Spawn Batch Agents
 
-**OTHERWISE**, go back to Step 2 with the new batch.
-
----
-
-## Step 4: Pipeline Complete
-
-When `status: "complete"`, the 48-agent pipeline is finished.
-
-Report completion to user.
-
----
-
-## Full Execution Pattern
-
-```bash
-# 1. Initialize session
-INIT_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$ARGUMENTS")
-SESSION_ID=$(echo "$INIT_JSON" | jq -r '.sessionId')
-STATUS=$(echo "$INIT_JSON" | jq -r '.status')
-
-# 2. Loop until complete
-while [ "$STATUS" != "complete" ]; do
-  # Get current batch
-  BATCH=$(echo "$RESPONSE_JSON" | jq -c '.batch[]')
-
-  # Execute each agent in batch (Claude Code spawns Task() for each)
-  # [Claude Code executes the batch]
-
-  # Mark batch complete and get next
-  RESPONSE_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "$SESSION_ID")
-  STATUS=$(echo "$RESPONSE_JSON" | jq -r '.status')
-done
-
-# 3. Done
-echo "Pipeline complete: $SESSION_ID"
+```
+Task("<batch[0].type>", "<batch[0].prompt>", "<batch[0].key>")
+Task("<batch[1].type>", "<batch[1].prompt>", "<batch[1].key>")
+...
 ```
 
----
+#### 3c. Wait for Completion
 
-## What You MUST NOT Do
+**Wait for ALL agents in batch to complete**, then return to 3a.
 
-**DO NOT:**
-- ❌ Write code yourself
-- ❌ Spawn agents manually
-- ❌ Store/retrieve memory
-- ❌ Do LEANN searches
-- ❌ Decide agent order
-- ❌ Track phases
-- ❌ Use "streamlined" mode
+When pipeline is complete, `complete` returns:
+```json
+{
+  "status": "complete",
+  "sessionId": "...",
+  "progress": { "completed": 48, "total": 48, "percentage": 100 }
+}
+```
 
-**The orchestrator does ALL of that.**
+### Step 4: Pipeline Complete
 
-**DO:**
-- ✅ Run bash commands EXACTLY as shown
-- ✅ Spawn Task() with prompts from CLI
-- ✅ Wait for completion
-- ✅ Loop until done
+When `status: "complete"` is returned, report completion to user.
 
 ---
 
 ## Session Persistence
 
-Sessions are stored in `.god-agent/coding-sessions/[sessionId].json` and survive:
+Sessions are stored in `.god-agent/coding-sessions/<sessionId>.json` and survive:
 - Context compaction
 - Claude Code restarts
 - System crashes
 
 To resume an interrupted session:
 ```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume "$SESSION_ID"
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume "<sessionId>"
 ```
-
----
-
-## CRITICAL RULES - VIOLATION = FAILURE
-
-1. **NEVER write code yourself** - The agents do that
-2. **NEVER skip batches** - Execute EVERY batch
-3. **NEVER modify agent prompts** - Use EXACTLY as CLI provides
-4. **NEVER proceed before batch completes** - Wait for ALL agents
-5. **ALWAYS use the sessionId** - Save it from init, use in complete
-6. **NO "streamlined" mode exists** - Full 48-agent pipeline ONLY
-
----
-
-## Execution Model
-
-This implements the **stateful orchestrator pattern** like PhD pipeline:
-- **init**: Start session, get first batch
-- **execute**: Run agents in batch
-- **complete**: Mark done, get next batch
-- **repeat**: Until status is "complete"
-
-The 48-agent pipeline is MANDATORY. No single-agent bypass exists.
 
 ---
 
 ## Batch Mode: Processing Multiple Tasks
 
-To process multiple coding tasks sequentially, use the batch mode pattern:
+To process multiple coding tasks sequentially:
 
-### Option 1: Inline Batch Processing
+### Option 1: Batch Wrapper Script
 
 ```bash
-# Create array of tasks
+npx tsx src/god-agent/cli/coding-pipeline-batch.ts "Task 1" "Task 2" "Task 3"
+
+# Or from a file (one task per line)
+npx tsx src/god-agent/cli/coding-pipeline-batch.ts --file tasks.txt
+```
+
+### Option 2: Manual Loop
+
+```bash
+# Array of tasks
 TASKS=(
-  "Implement user authentication with JWT"
-  "Add password reset functionality"
-  "Create email verification system"
+  "Implement authentication"
+  "Add password reset"
+  "Create email verification"
 )
 
 # Process each task
 for TASK in "${TASKS[@]}"; do
-  echo "=== Processing: $TASK ==="
-
-  # Initialize session
+  # Initialize
   INIT_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$TASK")
   SESSION_ID=$(echo "$INIT_JSON" | jq -r '.sessionId')
   STATUS=$(echo "$INIT_JSON" | jq -r '.status')
@@ -243,61 +150,36 @@ for TASK in "${TASKS[@]}"; do
   # Execute batches until complete
   RESPONSE_JSON="$INIT_JSON"
   while [ "$STATUS" != "complete" ]; do
-    # Get current batch
-    BATCH=$(echo "$RESPONSE_JSON" | jq -c '.batch[]')
+    # [Claude Code spawns agents from batch via Task()]
 
-    # [Claude Code executes agents in batch via Task()]
-
-    # Mark complete and get next batch
+    # Mark complete and get next
     RESPONSE_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete "$SESSION_ID")
     STATUS=$(echo "$RESPONSE_JSON" | jq -r '.status')
   done
 
-  echo "✓ Completed: $TASK (Session: $SESSION_ID)"
+  echo "✓ Completed: $TASK"
 done
 ```
 
-### Option 2: Task File Processing
+---
 
-Create a file with one task per line:
+## Pipeline Details
 
-```bash
-# tasks.txt
-Implement user authentication with JWT
-Add password reset functionality
-Create email verification system
-```
+**48-Agent Pipeline** (41 core + 7 Sherlock forensic reviewers):
+- Phase 1 (Understanding): 6 agents
+- Phase 2 (Exploration): 4 agents
+- Phase 3 (Architecture): 5 agents
+- Phase 4 (Implementation): 12 agents
+- Phase 5 (Testing): 8 agents
+- Phase 6 (Optimization): 5 agents
+- Phase 7 (Delivery): 1 agent
+- Sherlock Forensic: 7 agents
 
-Then process:
+**The orchestrator handles:**
+- Session state persistence
+- RLM memory handoffs between agents
+- LEANN semantic search integration
+- Smart batching based on dependencies
+- Learning feedback tracking
 
-```bash
-while IFS= read -r TASK; do
-  echo "=== Processing: $TASK ==="
-
-  # Run full pipeline for this task
-  INIT_JSON=$(npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$TASK")
-  SESSION_ID=$(echo "$INIT_JSON" | jq -r '.sessionId')
-
-  # [Execute pipeline loop...]
-
-  echo "✓ Completed: $TASK"
-done < tasks.txt
-```
-
-### Option 3: Use the Batch Wrapper Script
-
-For convenience, use the provided batch wrapper:
-
-```bash
-# Process multiple tasks
-npx tsx src/god-agent/cli/coding-pipeline-batch.ts "Task 1" "Task 2" "Task 3"
-
-# Or from a file
-npx tsx src/god-agent/cli/coding-pipeline-batch.ts --file tasks.txt
-```
-
-**Batch Mode Benefits**:
-- Processes tasks sequentially with full 48-agent pipeline
-- Each task gets its own session with complete persistence
-- Failed tasks don't block subsequent tasks
-- All sessions logged for post-analysis
+**No single-agent bypass exists. The full 48-agent pipeline is MANDATORY.**
