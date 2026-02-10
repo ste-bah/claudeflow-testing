@@ -767,6 +767,20 @@ export class CodingPipelineOrchestrator {
     // Load session from disk (CRITICAL: Supports resumption)
     const session = this.loadSessionFromDisk(sessionId);
 
+    // Idempotent guard: if the batch pointer already advanced past the last
+    // dispatched position, a previous (killed) call already did the advance.
+    // Don't advance again — just return so getNextBatch returns the correct batch.
+    if (session.lastDispatchedBatch) {
+      const dispatched = session.lastDispatchedBatch;
+      const atPhase = session.currentPhaseIndex;
+      const atBatch = session.currentBatchIndex;
+      if (atPhase > dispatched.phaseIndex ||
+          (atPhase === dispatched.phaseIndex && atBatch > dispatched.batchIndex)) {
+        this.log(`Idempotent skip: batch already advanced past dispatched (phase=${dispatched.phaseIndex},batch=${dispatched.batchIndex}) → current (phase=${atPhase},batch=${atBatch})`);
+        return;
+      }
+    }
+
     // Store results and provide feedback
     for (const result of results) {
       const agentKey = result.agentKey as CodingPipelineAgent;
@@ -875,6 +889,13 @@ export class CodingPipelineOrchestrator {
     const currentPhase = session.config.phases[session.currentPhaseIndex];
     const phaseBatches = session.batches[session.currentPhaseIndex];
     const batch = phaseBatches[session.currentBatchIndex];
+
+    // Track which batch was dispatched (for idempotent complete guard)
+    session.lastDispatchedBatch = {
+      phaseIndex: session.currentPhaseIndex,
+      batchIndex: session.currentBatchIndex,
+    };
+    this.saveSessionToDisk(session);
 
     // Build contextualized prompts for each agent in batch
     const batchWithPrompts: IAgentBatchItem[] = await Promise.all(

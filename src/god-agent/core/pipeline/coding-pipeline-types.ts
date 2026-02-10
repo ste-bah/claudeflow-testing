@@ -123,6 +123,8 @@ export interface IPipelineSession {
   createdAt: number;
   /** Pre-computed batches for all phases */
   batches: IAgentMapping[][][]; // [phaseIndex][batchIndex][agents]
+  /** Last batch dispatched to Claude Code (for idempotent complete) */
+  lastDispatchedBatch?: { phaseIndex: number; batchIndex: number };
 }
 
 /**

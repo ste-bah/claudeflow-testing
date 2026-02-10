@@ -101,12 +101,15 @@ export async function init(task: string): Promise<void> {
  * @param sessionId - Session identifier
  */
 export async function complete(sessionId: string): Promise<void> {
-  // Create Universal Agent
+  // Create Universal Agent (stderr progress so caller knows we're alive)
+  console.error('[complete] Initializing agent...');
   const godAgent = new UniversalAgent({ verbose: false });
   await godAgent.initialize();
+  console.error('[complete] Agent ready, loading session...');
 
   // Get orchestrator (orchestrator loads session from disk)
   const orchestrator = await godAgent.getCodingOrchestrator();
+  console.error('[complete] Advancing batch...');
 
   // Read batch results from stdin (provided by god-code.md)
   // For now, we'll use a placeholder - Claude Code will provide actual results
