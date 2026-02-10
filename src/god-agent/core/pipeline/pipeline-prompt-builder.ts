@@ -55,6 +55,48 @@ export interface IPromptContext {
   semanticContext?: ISemanticContext;
   /** Situational awareness section for parallel agent coordination (optional) */
   situationalAwareness?: string;
+  /** Reflexion context: past failure lessons for self-correction (PRD: Reflexion) */
+  reflexionContext?: IReflexionContext;
+  /** Pattern context: reusable patterns from PatternStore (PRD: LEANN Pattern Store) */
+  patternContext?: IPatternContext;
+}
+
+/**
+ * Reflexion context containing past failure lessons for self-correction
+ */
+export interface IReflexionContext {
+  /** Past failed trajectories for this agent */
+  failures: Array<{
+    /** Trajectory ID */
+    trajectoryId: string;
+    /** Quality score (0.0 = complete failure) */
+    quality: number;
+    /** When the failure occurred */
+    createdAt: string;
+    /** Pipeline ID where the failure occurred */
+    pipelineId?: string;
+  }>;
+  /** Total number of past executions for this agent */
+  totalExecutions: number;
+  /** Success rate (0.0-1.0) */
+  successRate: number;
+}
+
+/**
+ * Pattern context containing reusable patterns relevant to the agent's task
+ */
+export interface IPatternContext {
+  /** Matched patterns from PatternStore */
+  patterns: Array<{
+    /** Pattern ID */
+    patternId: string;
+    /** Pattern template/description */
+    template: string;
+    /** Task type this pattern applies to */
+    taskType: string;
+    /** Confidence score of the match */
+    confidence: number;
+  }>;
 }
 
 /**
@@ -138,6 +180,8 @@ export class PipelinePromptBuilder {
       previousStepData,
       semanticContext,
       situationalAwareness: context.situationalAwareness,
+      reflexionContext: context.reflexionContext,
+      patternContext: context.patternContext,
     });
 
     return {
@@ -170,6 +214,10 @@ export class PipelinePromptBuilder {
     semanticContext?: ISemanticContext;
     /** Situational awareness for parallel agents */
     situationalAwareness?: string;
+    /** Reflexion context: past failure lessons */
+    reflexionContext?: IReflexionContext;
+    /** Pattern context: reusable patterns */
+    patternContext?: IPatternContext;
   }): string {
     const {
       step,
@@ -185,6 +233,8 @@ export class PipelinePromptBuilder {
       previousStepData,
       semanticContext,
       situationalAwareness,
+      reflexionContext,
+      patternContext,
     } = params;
 
     const sections: string[] = [];
@@ -205,6 +255,16 @@ export class PipelinePromptBuilder {
     // 2b. Situational Awareness (parallel agent coordination)
     if (situationalAwareness) {
       sections.push(situationalAwareness);
+    }
+
+    // 2c. Reflexion Context (past failure lessons for self-correction)
+    if (reflexionContext && reflexionContext.failures.length > 0) {
+      sections.push(this.buildReflexionSection(reflexionContext));
+    }
+
+    // 2d. Pattern Context (reusable patterns from PatternStore)
+    if (patternContext && patternContext.patterns.length > 0) {
+      sections.push(this.buildPatternSection(patternContext));
     }
 
     // 3. Memory Retrieval Section (with injected previous output when available)
@@ -467,6 +527,40 @@ ${escapedContent}
 ${contextBlocks}
 
 **Note:** Use this context to understand existing patterns and conventions in the codebase.`;
+  }
+
+  /**
+   * Build Reflexion section with past failure lessons for self-correction.
+   * PRD: Agent 31 Reflexion — episodic memory of past failures.
+   */
+  private buildReflexionSection(context: IReflexionContext): string {
+    const failureLines = context.failures.slice(0, 5).map((f, i) => {
+      const pipelineNote = f.pipelineId ? ` (pipeline: ${f.pipelineId})` : '';
+      return `${i + 1}. Quality ${f.quality.toFixed(2)} on ${f.createdAt}${pipelineNote}`;
+    }).join('\n');
+
+    return `## REFLEXION (lessons from past failures)
+**History:** ${context.totalExecutions} past executions, ${(context.successRate * 100).toFixed(0)}% success rate
+**Recent failures (${context.failures.length}):**
+${failureLines}
+
+**Action:** Learn from these failures. Avoid repeating the same mistakes. If quality was low, focus on completeness and correctness.`;
+  }
+
+  /**
+   * Build Pattern section with reusable patterns from PatternStore.
+   * PRD: LEANN Pattern Store — reusable patterns indexed by task type.
+   */
+  private buildPatternSection(context: IPatternContext): string {
+    const patternLines = context.patterns.slice(0, 5).map((p, i) => {
+      return `${i + 1}. **${p.taskType}** (${(p.confidence * 100).toFixed(0)}% match): ${p.template}`;
+    }).join('\n');
+
+    return `## REUSABLE PATTERNS (from pattern store)
+**Found ${context.patterns.length} relevant patterns:**
+${patternLines}
+
+**Action:** Apply these proven patterns where applicable. They represent successful approaches from previous pipeline runs.`;
   }
 
   /**

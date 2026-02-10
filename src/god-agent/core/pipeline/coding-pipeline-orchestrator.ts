@@ -412,6 +412,8 @@ export class CodingPipelineOrchestrator {
       progressStore: this.progressStore,
       fileClaims: this.fileClaims,
       awarenessBuilder: this.awarenessBuilder,
+      // PRD: LEANN Pattern Store — reusable pattern retrieval
+      patternMatcher: this.dependencies.patternMatcher,
     };
 
     // Build config for extracted function

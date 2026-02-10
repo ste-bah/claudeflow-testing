@@ -20,8 +20,9 @@ import type { SonaEngine } from '../learning/sona-engine.js';
 import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
 import type { IRlmContext } from '../learning/sona-types.js';
 import type { LeannContextService, ISemanticContext } from './leann-context-service.js';
+import type { PatternMatcher } from '../reasoning/pattern-matcher.js';
 import type { PipelineMemoryCoordinator } from './pipeline-memory-coordinator.js';
-import type { PipelinePromptBuilder, IPromptContext } from './pipeline-prompt-builder.js';
+import type { PipelinePromptBuilder, IPromptContext, IReflexionContext, IPatternContext } from './pipeline-prompt-builder.js';
 import { PipelineProgressStore, type IAgentOutputSummary } from './pipeline-progress-store.js';
 import type { PipelineFileClaims } from './pipeline-file-claims.js';
 import type { SituationalAwarenessBuilder } from './pipeline-situational-awareness.js';
@@ -84,6 +85,8 @@ export interface IAgentExecutorDependencies {
   fileClaims?: PipelineFileClaims;
   /** Situational awareness builder for prompt injection */
   awarenessBuilder?: SituationalAwarenessBuilder;
+  /** PatternMatcher for reusable pattern retrieval (PRD: LEANN Pattern Store) */
+  patternMatcher?: PatternMatcher;
 }
 
 /**
@@ -228,10 +231,99 @@ export async function executeAgent(
       }
     }
 
-    // 3. Load agent markdown if exists
+    // 3. Reflexion: Retrieve past failure trajectories for self-correction
+    let reflexionContext: IReflexionContext | undefined;
+    if (config.enableLearning && deps.sonaEngine) {
+      try {
+        const allTrajectories = deps.sonaEngine.listTrajectories('reasoning.pattern');
+        const agentTag = `agent:${agentKey}`;
+        const agentTrajectories = allTrajectories.filter(t =>
+          t.context?.includes(agentTag) ?? false
+        );
+        const failures = agentTrajectories.filter(t =>
+          (t.quality !== undefined && t.quality < 0.7) || t.context?.includes('failed')
+        );
+
+        if (failures.length > 0) {
+          const totalExec = agentTrajectories.length;
+          const successCount = agentTrajectories.filter(t =>
+            t.quality !== undefined && t.quality >= 0.7
+          ).length;
+
+          reflexionContext = {
+            failures: failures.slice(-5).map(f => ({
+              trajectoryId: f.id,
+              quality: f.quality ?? 0,
+              createdAt: typeof f.createdAt === 'number'
+                ? new Date(f.createdAt).toISOString()
+                : String(f.createdAt),
+              pipelineId: f.context?.find((c: string) => c.startsWith('pipeline:'))?.replace('pipeline:', ''),
+            })),
+            totalExecutions: totalExec,
+            successRate: totalExec > 0 ? successCount / totalExec : 1,
+          };
+
+          if (config.verbose) {
+            log(
+              `Agent ${agentKey}: Reflexion found ${failures.length} past failures ` +
+              `out of ${totalExec} executions (${(reflexionContext.successRate * 100).toFixed(0)}% success)`
+            );
+          }
+        }
+      } catch (error) {
+        log(`Agent ${agentKey}: Reflexion retrieval failed: ${(error as Error).message}`);
+      }
+    }
+
+    // 3b. PatternStore: Retrieve reusable patterns relevant to this agent's task
+    let patternContext: IPatternContext | undefined;
+    if (deps.patternMatcher) {
+      try {
+        // Map pipeline phase to PatternStore TaskType
+        const phaseToTaskType: Record<string, string> = {
+          understanding: 'analysis',
+          exploration: 'analysis',
+          architecture: 'planning',
+          implementation: 'coding',
+          testing: 'testing',
+          optimization: 'optimization',
+          delivery: 'coding',
+        };
+        const taskType = phaseToTaskType[phase] ?? 'coding';
+
+        const patterns = deps.patternMatcher.getPatternsByTaskType(taskType as any);
+        // Sort by success rate descending, take top 5
+        const topPatterns = patterns
+          .filter(p => p.successRate >= 0.5)
+          .sort((a, b) => b.successRate - a.successRate)
+          .slice(0, 5);
+
+        if (topPatterns.length > 0) {
+          patternContext = {
+            patterns: topPatterns.map(p => ({
+              patternId: p.id,
+              template: p.template,
+              taskType: String(p.taskType),
+              confidence: p.successRate,
+            })),
+          };
+
+          if (config.verbose) {
+            log(
+              `Agent ${agentKey}: Found ${topPatterns.length} reusable patterns ` +
+              `from PatternStore for phase ${phase} (taskType: ${taskType})`
+            );
+          }
+        }
+      } catch (error) {
+        log(`Agent ${agentKey}: PatternStore retrieval failed: ${(error as Error).message}`);
+      }
+    }
+
+    // 4. Load agent markdown if exists
     const agentMd = loadAgentMarkdown(agentKey, config.agentMdPath);
 
-    // 4. Build prompt with forward-looking context (RULE-007)
+    // 5. Build prompt with forward-looking context (RULE-007)
     const promptContext: IPromptContext = {
       step: {
         agentKey: agentKey as string,
@@ -251,6 +343,8 @@ export async function executeAgent(
       pipelineId,
       previousOutput: memoryContext,
       semanticContext,
+      reflexionContext,
+      patternContext,
     };
 
     // Inject situational awareness for parallel agent coordination

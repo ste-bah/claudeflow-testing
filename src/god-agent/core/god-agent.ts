@@ -1501,6 +1501,11 @@ export class GodAgent {
     return this.sonaEngine;
   }
 
+  /** Get PatternMatcher instance for pattern retrieval */
+  getPatternMatcher(): PatternMatcher | undefined {
+    return this.patternMatcher;
+  }
+
   /**
    * @deprecated DAI-003: TinyDancer removed. Use UniversalAgent.task() for intelligent routing.
    * This method is preserved for API compatibility but returns undefined.

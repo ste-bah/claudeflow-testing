@@ -19,6 +19,7 @@ import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
 import type { SonaEngine } from '../learning/sona-engine.js';
 import type { LeannContextService } from './leann-context-service.js';
 import type { IEmbeddingProvider } from '../memory/types.js';
+import type { PatternMatcher } from '../reasoning/pattern-matcher.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP EXECUTOR INTERFACE
@@ -52,6 +53,8 @@ export interface IOrchestratorDependencies {
   sonaEngine?: SonaEngine;
   leannContextService?: LeannContextService;
   embeddingProvider?: IEmbeddingProvider;
+  /** PatternMatcher for reusable pattern retrieval (PRD: LEANN Pattern Store) */
+  patternMatcher?: PatternMatcher;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
