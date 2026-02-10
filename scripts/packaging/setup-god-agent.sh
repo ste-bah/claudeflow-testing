@@ -393,6 +393,14 @@ cat > "$MCP_JSON" << EOF
       "env": {
         "PERPLEXITY_API_KEY": "\${PERPLEXITY_API_KEY}"
       }
+    },
+    "leann-search": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp-servers/leann-search/index.ts"],
+      "type": "stdio",
+      "env": {
+        "MCP_TIMEOUT": "300000"
+      }
     }
   }
 }
