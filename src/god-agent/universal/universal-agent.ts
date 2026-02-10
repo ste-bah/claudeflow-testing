@@ -135,6 +135,7 @@ import {
   CodingPipelineOrchestrator,
   createOrchestrator,
   type IOrchestratorDependencies,
+  type IOrchestratorConfig,
   type IStepExecutor,
 } from '../core/pipeline/coding-pipeline-orchestrator.js';
 
@@ -4472,7 +4473,7 @@ Return ONLY code in markdown code blocks.`;
    *
    * @returns Configured CodingPipelineOrchestrator instance
    */
-  async getCodingOrchestrator(): Promise<CodingPipelineOrchestrator> {
+  async getCodingOrchestrator(configOverride?: Partial<IOrchestratorConfig>): Promise<CodingPipelineOrchestrator> {
     await this.ensureInitialized();
 
     const deps: IOrchestratorDependencies = {
@@ -4489,6 +4490,7 @@ Return ONLY code in markdown code blocks.`;
     return createOrchestrator(deps, {
       verbose: true,
       enableLearning: true,
+      ...configOverride,
     });
   }
 

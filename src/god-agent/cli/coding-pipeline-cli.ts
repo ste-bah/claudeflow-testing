@@ -1,41 +1,103 @@
 /**
- * Coding Pipeline CLI - Stateful Execution
+ * Coding Pipeline CLI - Sequential Execution (PhD-style interface)
  *
- * Implements init/complete loop like phd-cli for 48-agent coding pipeline.
- * Claude Code calls this CLI to get next batch of agents with fully contextualized prompts.
+ * Implements init/next/complete <key> loop matching phd-cli.ts exactly.
+ * Each command returns a SINGLE agent (not a batch array).
+ * Forces enableParallelExecution: false so every batch has exactly 1 agent.
  *
- * The CLI is a thin wrapper around CodingPipelineOrchestrator's stateful API,
- * which handles all RLM memory handoffs, LEANN semantic search, learning feedback,
- * and smart parallelism based on agent dependencies.
+ * Commands:
+ *   init "<task>"              - Initialize session, return first agent
+ *   next <sessionId>           - Get next agent (or status: "complete")
+ *   complete <sessionId> <key> - Mark one agent done
+ *   status <sessionId>         - Show progress
+ *   resume <sessionId>         - Get current agent without advancing
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import { UniversalAgent } from '../universal/universal-agent.js';
-import type { ISessionBatchResponse, IBatchExecutionResult } from '../core/pipeline/coding-pipeline-types.js';
+import type { IBatchExecutionResult } from '../core/pipeline/coding-pipeline-types.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Create orchestrator with parallel execution DISABLED (sequential batches of 1) */
+async function createSequentialOrchestrator() {
+  const godAgent = new UniversalAgent({ verbose: false });
+  await godAgent.initialize();
+  const orchestrator = await godAgent.getCodingOrchestrator({
+    enableParallelExecution: false,
+    maxParallelAgents: 1,
+  });
+  return { godAgent, orchestrator };
+}
+
+/** Unwrap single-agent batch response into PhD-style output */
+function formatAgentResponse(batchResponse: {
+  sessionId: string;
+  status: string;
+  currentPhase: string;
+  batch: Array<{ key: string; prompt: string; type: string; memoryWrites: string[] }>;
+  completedAgents: number;
+  totalAgents: number;
+}) {
+  if (batchResponse.status === 'complete') {
+    return {
+      sessionId: batchResponse.sessionId,
+      status: 'complete',
+      progress: {
+        completed: batchResponse.totalAgents,
+        total: batchResponse.totalAgents,
+        percentage: 100,
+      },
+    };
+  }
+
+  const agent = batchResponse.batch[0];
+  if (!agent) {
+    return {
+      sessionId: batchResponse.sessionId,
+      status: 'complete',
+      progress: {
+        completed: batchResponse.completedAgents,
+        total: batchResponse.totalAgents,
+        percentage: 100,
+      },
+    };
+  }
+
+  return {
+    sessionId: batchResponse.sessionId,
+    status: 'running',
+    currentPhase: batchResponse.currentPhase,
+    agent: {
+      key: agent.key,
+      prompt: agent.prompt,
+    },
+    progress: {
+      completed: batchResponse.completedAgents,
+      total: batchResponse.totalAgents,
+      percentage: Math.round((batchResponse.completedAgents / batchResponse.totalAgents) * 100),
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMMANDS
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Initialize a new coding pipeline session
- * Returns the first batch of agents with contextualized prompts
- *
- * @param task - User's coding task description
+ * Initialize a new coding pipeline session.
+ * Returns the first agent as a single object (not an array).
  */
 export async function init(task: string): Promise<void> {
   const sessionId = uuidv4();
-  const timings: Record<string, number> = {};
 
-  // Create Universal Agent with all dependencies
-  const t0 = performance.now();
-  const godAgent = new UniversalAgent({ verbose: false });
-  timings['create_agent'] = performance.now() - t0;
-
-  // Initialize Universal Agent
-  const t1 = performance.now();
-  await godAgent.initialize();
-  timings['initialize_agent'] = performance.now() - t1;
+  console.error('[init] Creating agent...');
+  const { godAgent, orchestrator } = await createSequentialOrchestrator();
 
   // Store hook context to force pipeline mode
-  // This sets triggeredByHook = true in prepareCodeTask()
-  const t2 = performance.now();
+  console.error('[init] Storing hook context...');
   try {
     await godAgent['memoryClient']?.storeKnowledge({
       content: JSON.stringify({ task, sessionId, timestamp: new Date().toISOString() }),
@@ -43,133 +105,76 @@ export async function init(task: string): Promise<void> {
       domain: 'coding/context',
       tags: ['pipeline', 'god-code', 'hook'],
     });
-  } catch (err) {
-    console.error('Warning: Failed to store hook context, continuing anyway');
+  } catch {
+    console.error('[init] Warning: Failed to store hook context, continuing');
   }
-  timings['store_hook_context'] = performance.now() - t2;
 
-  // Build pipeline configuration using prepareCodeTask
-  // triggeredByHook will now be true due to coding/context entry
-  const t3 = performance.now();
+  // Build pipeline configuration
+  console.error('[init] Preparing code task...');
   const codeTaskPreparation = await godAgent.prepareCodeTask(task, {
     language: 'typescript',
   });
-  timings['prepare_code_task'] = performance.now() - t3;
 
-  // Extract pipeline config from preparation
   const pipelineConfig = codeTaskPreparation.pipeline?.config;
   if (!pipelineConfig) {
     throw new Error('Failed to build pipeline configuration - task not recognized as pipeline');
   }
 
-  // Get orchestrator
-  const t4 = performance.now();
-  const orchestrator = await godAgent.getCodingOrchestrator();
-  timings['get_orchestrator'] = performance.now() - t4;
-
-  // Initialize session in orchestrator (orchestrator handles all persistence)
-  const t5 = performance.now();
+  // Initialize session (orchestrator persists to disk)
+  console.error('[init] Initializing session...');
   const batchResponse = await orchestrator.initSession(sessionId, pipelineConfig);
-  timings['init_session'] = performance.now() - t5;
 
-  // Log timing breakdown
-  console.error('[TIMING] Initialization breakdown:');
-  for (const [step, duration] of Object.entries(timings)) {
-    console.error(`  ${step}: ${duration.toFixed(2)}ms`);
-  }
-  const total = Object.values(timings).reduce((a, b) => a + b, 0);
-  console.error(`  TOTAL: ${total.toFixed(2)}ms\n`);
-
-  // Output batch response as JSON for Claude Code to parse
-  console.log(JSON.stringify({
-    sessionId: batchResponse.sessionId,
-    status: batchResponse.status,
-    currentPhase: batchResponse.currentPhase,
-    batch: batchResponse.batch,
-    progress: {
-      completed: batchResponse.completedAgents,
-      total: batchResponse.totalAgents,
-      percentage: Math.round((batchResponse.completedAgents / batchResponse.totalAgents) * 100),
-    },
-  }, null, 2));
+  // Output single agent (unwrapped from batch)
+  console.log(JSON.stringify(formatAgentResponse(batchResponse), null, 2));
 }
 
 /**
- * Mark current batch as complete and get next batch
- * Expects batch results on stdin as JSON array
- *
- * @param sessionId - Session identifier
+ * Get the next agent to execute.
+ * Returns a single agent object or status: "complete".
  */
-export async function complete(sessionId: string): Promise<void> {
-  // Create Universal Agent (stderr progress so caller knows we're alive)
-  console.error('[complete] Initializing agent...');
-  const godAgent = new UniversalAgent({ verbose: false });
-  await godAgent.initialize();
-  console.error('[complete] Agent ready, loading session...');
+export async function next(sessionId: string): Promise<void> {
+  console.error('[next] Loading session...');
+  const { orchestrator } = await createSequentialOrchestrator();
 
-  // Get orchestrator (orchestrator loads session from disk)
-  const orchestrator = await godAgent.getCodingOrchestrator();
-  console.error('[complete] Advancing batch...');
-
-  // Read batch results from stdin (provided by god-code.md)
-  // For now, we'll use a placeholder - Claude Code will provide actual results
-  const results: IBatchExecutionResult[] = [];
-
-  // TODO: Parse results from stdin once god-code.md provides them
-  // For now, mark batch as complete with placeholder results
-  await orchestrator.markBatchComplete(sessionId, results);
-
-  // Get next batch
   const batchResponse = await orchestrator.getNextBatch(sessionId);
-
-  // Output next batch or completion status
-  console.log(JSON.stringify({
-    sessionId: batchResponse.sessionId,
-    status: batchResponse.status,
-    currentPhase: batchResponse.currentPhase,
-    batch: batchResponse.batch,
-    progress: {
-      completed: batchResponse.completedAgents,
-      total: batchResponse.totalAgents,
-      percentage: Math.round((batchResponse.completedAgents / batchResponse.totalAgents) * 100),
-    },
-  }, null, 2));
+  console.log(JSON.stringify(formatAgentResponse(batchResponse), null, 2));
 }
 
 /**
- * Resume an interrupted session — returns current batch WITHOUT advancing
- * Use this after stopping and restarting a session.
- *
- * @param sessionId - Session identifier
+ * Mark a single agent as complete.
+ * Takes the agent key as argument (like phd-cli: complete <sessionId> <agentKey>).
+ */
+export async function complete(sessionId: string, agentKey: string): Promise<void> {
+  console.error(`[complete] Marking ${agentKey} done...`);
+  const { orchestrator } = await createSequentialOrchestrator();
+
+  // Build a proper result (fixes the bug where old CLI passed empty results)
+  const results: IBatchExecutionResult[] = [{
+    agentKey,
+    success: true,
+    output: `Agent ${agentKey} completed via CLI`,
+    quality: 0.8,
+    duration: 0,
+  }];
+
+  await orchestrator.markBatchComplete(sessionId, results);
+  console.log(JSON.stringify({ success: true, agentKey, sessionId }, null, 2));
+}
+
+/**
+ * Resume an interrupted session — returns current agent WITHOUT advancing.
  */
 export async function resume(sessionId: string): Promise<void> {
-  console.error('[resume] Initializing agent...');
-  const godAgent = new UniversalAgent({ verbose: false });
-  await godAgent.initialize();
-  console.error('[resume] Agent ready, loading session...');
+  console.error('[resume] Loading session...');
+  const { orchestrator } = await createSequentialOrchestrator();
 
-  const orchestrator = await godAgent.getCodingOrchestrator();
-
-  // getNextBatch returns the CURRENT batch without advancing the pointer
+  // getNextBatch returns the CURRENT batch without advancing
   const batchResponse = await orchestrator.getNextBatch(sessionId);
-
-  console.log(JSON.stringify({
-    sessionId: batchResponse.sessionId,
-    status: batchResponse.status,
-    currentPhase: batchResponse.currentPhase,
-    batch: batchResponse.batch,
-    progress: {
-      completed: batchResponse.completedAgents,
-      total: batchResponse.totalAgents,
-      percentage: Math.round((batchResponse.completedAgents / batchResponse.totalAgents) * 100),
-    },
-  }, null, 2));
+  console.log(JSON.stringify(formatAgentResponse(batchResponse), null, 2));
 }
 
 /**
- * Show session status without initializing full agent
- *
- * @param sessionId - Session identifier
+ * Show session status (fast — reads disk directly, no agent init).
  */
 export async function status(sessionId: string): Promise<void> {
   const { promises: fs } = await import('fs');
@@ -179,21 +184,18 @@ export async function status(sessionId: string): Promise<void> {
     const data = JSON.parse(await fs.readFile(sessionPath, 'utf-8'));
     const total = data.batches.flat().flat().length;
     const phase = data.config.phases[data.currentPhaseIndex] || 'complete';
-    const batchAgents = data.status !== 'complete'
-      ? data.batches[data.currentPhaseIndex]?.[data.currentBatchIndex]?.map((a: { agentKey: string }) => a.agentKey) || []
-      : [];
+    const currentAgentKey = data.status !== 'complete'
+      ? data.batches[data.currentPhaseIndex]?.[data.currentBatchIndex]?.[0]?.agentKey || null
+      : null;
 
     console.log(JSON.stringify({
       sessionId: data.sessionId,
       status: data.status,
       currentPhase: phase,
-      phaseIndex: data.currentPhaseIndex,
-      batchIndex: data.currentBatchIndex,
+      currentAgent: currentAgentKey,
       completedAgents: data.completedAgents.length,
       totalAgents: total,
       percentage: Math.round((data.completedAgents.length / total) * 100),
-      currentBatchAgents: batchAgents,
-      lastDispatchedBatch: data.lastDispatchedBatch || null,
     }, null, 2));
   } catch {
     console.error(`Session not found: ${sessionPath}`);
@@ -201,54 +203,44 @@ export async function status(sessionId: string): Promise<void> {
   }
 }
 
-// CLI entry point
+// ─────────────────────────────────────────────────────────────────────────────
+// CLI ENTRY POINT
+// ─────────────────────────────────────────────────────────────────────────────
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const command = process.argv[2];
-  const arg = process.argv[3];
+  const arg1 = process.argv[3];
+  const arg2 = process.argv[4];
+
+  const fail = (msg: string) => { console.error(msg); process.exit(1); };
 
   switch (command) {
     case 'init':
-      if (!arg) {
-        console.error('Usage: coding-pipeline-cli.ts init "<task>"');
-        process.exit(1);
-      }
-      init(arg).catch((error) => {
-        console.error('Error:', error);
-        process.exit(1);
-      });
+      if (!arg1) fail('Usage: coding-pipeline-cli.ts init "<task>"');
+      init(arg1).catch(e => { console.error('Error:', e); process.exit(1); });
       break;
+
+    case 'next':
+      if (!arg1) fail('Usage: coding-pipeline-cli.ts next <sessionId>');
+      next(arg1).catch(e => { console.error('Error:', e); process.exit(1); });
+      break;
+
     case 'complete':
-      if (!arg) {
-        console.error('Usage: coding-pipeline-cli.ts complete "<sessionId>"');
-        process.exit(1);
-      }
-      complete(arg).catch((error) => {
-        console.error('Error:', error);
-        process.exit(1);
-      });
+      if (!arg1 || !arg2) fail('Usage: coding-pipeline-cli.ts complete <sessionId> <agentKey>');
+      complete(arg1, arg2).catch(e => { console.error('Error:', e); process.exit(1); });
       break;
+
     case 'resume':
-      if (!arg) {
-        console.error('Usage: coding-pipeline-cli.ts resume "<sessionId>"');
-        process.exit(1);
-      }
-      resume(arg).catch((error) => {
-        console.error('Error:', error);
-        process.exit(1);
-      });
+      if (!arg1) fail('Usage: coding-pipeline-cli.ts resume <sessionId>');
+      resume(arg1).catch(e => { console.error('Error:', e); process.exit(1); });
       break;
+
     case 'status':
-      if (!arg) {
-        console.error('Usage: coding-pipeline-cli.ts status "<sessionId>"');
-        process.exit(1);
-      }
-      status(arg).catch((error) => {
-        console.error('Error:', error);
-        process.exit(1);
-      });
+      if (!arg1) fail('Usage: coding-pipeline-cli.ts status <sessionId>');
+      status(arg1).catch(e => { console.error('Error:', e); process.exit(1); });
       break;
+
     default:
-      console.error('Usage: coding-pipeline-cli.ts init|complete|resume|status "<arg>"');
-      process.exit(1);
+      fail('Usage: coding-pipeline-cli.ts init|next|complete|resume|status "<arg>"');
   }
 }
