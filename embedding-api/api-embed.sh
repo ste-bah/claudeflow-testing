@@ -1,15 +1,18 @@
 #!/bin/bash
 #===============================================================================
-# God Agent Embedding API Service Controller (1536D - Dual Backend)
+# God Agent Embedding API Service Controller (1536D - Dual Backend + Dual VectorDB)
 #
-# Manages ChromaDB and the Embedding API server for God Agent.
-# Supports both LOCAL (gte-Qwen2-1.5B-instruct) and OPENAI (text-embedding-ada-002).
+# Manages ChromaDB/Zilliz and the Embedding API server for God Agent.
+# Supports LOCAL/OpenAI embeddings and ChromaDB/Zilliz vector storage.
 #
 # Usage: ./api-embed.sh {start|stop|status|restart|logs}
 #
 # Environment Variables:
 #   EMBEDDING_BACKEND  - "local" (default) or "openai"
 #   OPENAI_API_KEY     - Required if using openai backend
+#   VECTOR_DB          - "chroma" (default) or "zilliz"
+#   ZILLIZ_URI         - Required if using zilliz backend
+#   ZILLIZ_TOKEN       - Required if using zilliz backend
 #   PROJECT_DIR        - Base directory (default: script's parent's parent)
 #   VENV_DIR           - Python venv directory (default: $HOME/.venv)
 #===============================================================================
@@ -17,14 +20,14 @@
 set -e
 
 # --- CONFIGURATION ---
-# Auto-detect project directory (parent of embedding-api)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
-# Embedding backend (default: local)
+# Backends
 EMBEDDING_BACKEND="${EMBEDDING_BACKEND:-local}"
+VECTOR_DB="${VECTOR_DB:-chroma}"
 
-# Virtual environment - check multiple locations
+# Virtual environment
 if [ -n "$VENV_DIR" ] && [ -d "$VENV_DIR" ]; then
     VENV_BIN="$VENV_DIR/bin"
 elif [ -d "$HOME/.venv" ]; then
@@ -39,8 +42,6 @@ else
 fi
 
 SCRIPT="$SCRIPT_DIR/api_embedder.py"
-
-# 1536D model uses separate database to not mix with 768D vectors
 DB_DIR="$PROJECT_DIR/vector_db_1536"
 
 # Runtime files
@@ -60,70 +61,88 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Ensure directories exist
 mkdir -p "$PID_DIR" "$LOG_DIR" "$DB_DIR"
 
 start_services() {
     echo -e "${YELLOW}Starting God Agent Embedding Services (1536D)...${NC}"
-    echo -e "Backend: ${CYAN}${EMBEDDING_BACKEND}${NC}"
+    echo -e "Embedding Backend: ${CYAN}${EMBEDDING_BACKEND}${NC}"
+    echo -e "Vector DB: ${CYAN}${VECTOR_DB}${NC}"
 
     # Validate OpenAI backend requirements
     if [ "$EMBEDDING_BACKEND" = "openai" ]; then
         if [ -z "$OPENAI_API_KEY" ]; then
             echo -e "${RED}Error: OPENAI_API_KEY not set but EMBEDDING_BACKEND=openai${NC}"
-            echo "Set it with: export OPENAI_API_KEY=sk-your-key-here"
             exit 1
         fi
         echo -e "OpenAI API Key: ${GREEN}configured${NC}"
     fi
 
-    # 1. Start ChromaDB Server
-    if [ -f "$CHROMA_PID" ] && kill -0 $(cat "$CHROMA_PID") 2>/dev/null; then
-        echo -e "${GREEN}ChromaDB already running (PID: $(cat $CHROMA_PID))${NC}"
-    else
-        echo "Starting ChromaDB on port 8001..."
-        nohup "$VENV_BIN/chroma" run --path "$DB_DIR" --port 8001 --host 127.0.0.1 > "$CHROMA_LOG" 2>&1 &
-        echo $! > "$CHROMA_PID"
-
-        # Wait for ChromaDB to be ready
-        echo -n "Waiting for ChromaDB..."
-        for i in {1..10}; do
-            if curl -s "http://127.0.0.1:8001/api/v1/heartbeat" > /dev/null 2>&1; then
-                echo -e " ${GREEN}Ready${NC}"
-                break
-            fi
-            echo -n "."
-            sleep 1
-        done
+    # Validate Zilliz requirements
+    if [ "$VECTOR_DB" = "zilliz" ]; then
+        if [ -z "$ZILLIZ_URI" ] || [ -z "$ZILLIZ_TOKEN" ]; then
+            echo -e "${RED}Error: ZILLIZ_URI and ZILLIZ_TOKEN required for VECTOR_DB=zilliz${NC}"
+            exit 1
+        fi
+        echo -e "Zilliz: ${GREEN}configured${NC}"
     fi
 
-    # 2. Start API Server with backend environment
+    # 1. Start ChromaDB Server (only needed for chroma backend)
+    if [ "$VECTOR_DB" = "chroma" ]; then
+        if [ -f "$CHROMA_PID" ] && kill -0 $(cat "$CHROMA_PID") 2>/dev/null; then
+            echo -e "${GREEN}ChromaDB already running (PID: $(cat $CHROMA_PID))${NC}"
+        else
+            echo "Starting ChromaDB on port 8001..."
+            nohup "$VENV_BIN/chroma" run --path "$DB_DIR" --port 8001 --host 127.0.0.1 > "$CHROMA_LOG" 2>&1 &
+            echo $! > "$CHROMA_PID"
+
+            echo -n "Waiting for ChromaDB..."
+            for i in {1..15}; do
+                if curl -s "http://127.0.0.1:8001/api/v1/heartbeat" > /dev/null 2>&1; then
+                    echo -e " ${GREEN}Ready${NC}"
+                    break
+                fi
+                echo -n "."
+                sleep 1
+            done
+        fi
+    else
+        echo -e "ChromaDB: ${YELLOW}skipped (using ${VECTOR_DB})${NC}"
+    fi
+
+    # 2. Start API Server
     if [ -f "$API_PID" ] && kill -0 $(cat "$API_PID") 2>/dev/null; then
         echo -e "${GREEN}Embedding API already running (PID: $(cat $API_PID))${NC}"
     else
         MODEL_NAME="gte-Qwen2-1.5B-instruct"
         [ "$EMBEDDING_BACKEND" = "openai" ] && MODEL_NAME="text-embedding-ada-002"
-        echo "Starting Embedding API ($MODEL_NAME)..."
+        echo "Starting Embedding API ($MODEL_NAME + $VECTOR_DB)..."
 
-        # Export environment variables for the Python process
         export EMBEDDING_BACKEND
         export OPENAI_API_KEY
+        export VECTOR_DB
+        export ZILLIZ_URI
+        export ZILLIZ_TOKEN
 
         nohup "$VENV_BIN/python3" -u "$SCRIPT" > "$API_LOG" 2>&1 &
         echo $! > "$API_PID"
 
-        # Wait time depends on backend (local needs model loading)
-        WAIT_TIME=30
-        [ "$EMBEDDING_BACKEND" = "openai" ] && WAIT_TIME=10
+        WAIT_TIME=15
+        [ "$EMBEDDING_BACKEND" = "local" ] && WAIT_TIME=30
 
         echo -n "Waiting for Embedding API..."
         for i in $(seq 1 $WAIT_TIME); do
-            if curl -s "http://127.0.0.1:8000/" > /dev/null 2>&1; then
+            # Check if process died
+            if ! kill -0 $(cat "$API_PID") 2>/dev/null; then
+                echo -e " ${RED}FAILED (process died)${NC}"
+                echo "Check logs: tail -20 $API_LOG"
+                break
+            fi
+            if curl -s --max-time 3 "http://127.0.0.1:8000/" > /dev/null 2>&1; then
                 echo -e " ${GREEN}Ready${NC}"
                 break
             fi
             echo -n "."
-            sleep 2
+            sleep 1
         done
     fi
 
@@ -159,25 +178,26 @@ show_status() {
     echo -e "${YELLOW}=== Embedding Service Status (1536D) ===${NC}"
 
     # ChromaDB status
-    if [ -f "$CHROMA_PID" ] && kill -0 $(cat "$CHROMA_PID") 2>/dev/null; then
-        echo -e "ChromaDB:      ${GREEN}Running${NC} (PID: $(cat $CHROMA_PID), Port: 8001)"
+    if [ "$VECTOR_DB" = "chroma" ]; then
+        if [ -f "$CHROMA_PID" ] && kill -0 $(cat "$CHROMA_PID") 2>/dev/null; then
+            echo -e "ChromaDB:      ${GREEN}Running${NC} (PID: $(cat $CHROMA_PID), Port: 8001)"
+        else
+            echo -e "ChromaDB:      ${RED}Stopped${NC}"
+        fi
     else
-        echo -e "ChromaDB:      ${RED}Stopped${NC}"
+        echo -e "ChromaDB:      ${YELLOW}N/A (using $VECTOR_DB)${NC}"
     fi
 
     # Embedding API status
     if [ -f "$API_PID" ] && kill -0 $(cat "$API_PID") 2>/dev/null; then
         echo -e "Embedding API: ${GREEN}Running${NC} (PID: $(cat $API_PID), Port: 8000)"
 
-        # Try to get health info including backend
-        INFO=$(curl -s "http://127.0.0.1:8000/" 2>/dev/null)
+        INFO=$(curl -s --max-time 3 "http://127.0.0.1:8000/" 2>/dev/null)
         if [ -n "$INFO" ]; then
-            BACKEND=$(echo "$INFO" | grep -o '"backend":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
-            MODEL=$(echo "$INFO" | grep -o '"model":"[^"]*"' | cut -d'"' -f4 || echo "?")
-            ITEMS=$(echo "$INFO" | grep -o '"database_items":[0-9]*' | cut -d: -f2 || echo "?")
-            echo -e "  Backend: ${CYAN}$BACKEND${NC}"
-            echo "  Model: $MODEL"
-            echo "  Vector Items: $ITEMS"
+            BACKEND=$(echo "$INFO" | grep -o '"backend":"[^"]*"' | cut -d'"' -f4 || echo "?")
+            VDB=$(echo "$INFO" | grep -o '"vector_db":"[^"]*"' | cut -d'"' -f4 || echo "?")
+            echo -e "  Embedding: ${CYAN}$BACKEND${NC}"
+            echo -e "  Vector DB: ${CYAN}$VDB${NC}"
         fi
     else
         echo -e "Embedding API: ${RED}Stopped${NC}"
@@ -187,15 +207,16 @@ show_status() {
     echo "Endpoints:"
     echo "  Embedding API: http://127.0.0.1:8000"
     echo "  Backend Info:  http://127.0.0.1:8000/backend"
-    echo "  ChromaDB:      http://127.0.0.1:8001"
+    [ "$VECTOR_DB" = "chroma" ] && echo "  ChromaDB:      http://127.0.0.1:8001"
     echo ""
     echo "Logs:"
     echo "  API:    $API_LOG"
-    echo "  Chroma: $CHROMA_LOG"
+    [ "$VECTOR_DB" = "chroma" ] && echo "  Chroma: $CHROMA_LOG"
     echo ""
-    echo "Switch Backend:"
-    echo "  Local:  EMBEDDING_BACKEND=local ./api-embed.sh restart"
-    echo "  OpenAI: EMBEDDING_BACKEND=openai OPENAI_API_KEY=sk-... ./api-embed.sh restart"
+    echo "Configurations:"
+    echo "  ChromaDB + Local:  EMBEDDING_BACKEND=local VECTOR_DB=chroma ./api-embed.sh restart"
+    echo "  ChromaDB + OpenAI: EMBEDDING_BACKEND=openai VECTOR_DB=chroma OPENAI_API_KEY=sk-... ./api-embed.sh restart"
+    echo "  Zilliz + OpenAI:   EMBEDDING_BACKEND=openai VECTOR_DB=zilliz ZILLIZ_URI=... ZILLIZ_TOKEN=... OPENAI_API_KEY=sk-... ./api-embed.sh restart"
 }
 
 show_logs() {
@@ -203,9 +224,11 @@ show_logs() {
     echo ""
     echo "--- Embedding API (last 20 lines) ---"
     tail -20 "$API_LOG" 2>/dev/null || echo "(no logs)"
-    echo ""
-    echo "--- ChromaDB (last 20 lines) ---"
-    tail -20 "$CHROMA_LOG" 2>/dev/null || echo "(no logs)"
+    if [ "$VECTOR_DB" = "chroma" ]; then
+        echo ""
+        echo "--- ChromaDB (last 20 lines) ---"
+        tail -20 "$CHROMA_LOG" 2>/dev/null || echo "(no logs)"
+    fi
 }
 
 case "$1" in
@@ -230,21 +253,26 @@ case "$1" in
         echo "Usage: $0 {start|stop|restart|status|logs}"
         echo ""
         echo "Commands:"
-        echo "  start   - Start ChromaDB and Embedding API"
+        echo "  start   - Start services"
         echo "  stop    - Stop all services"
         echo "  restart - Restart all services"
         echo "  status  - Show service status"
         echo "  logs    - Show recent log output"
         echo ""
-        echo "Backends (1536 dimensions):"
+        echo "Embedding Backends (1536 dimensions):"
         echo "  local  - gte-Qwen2-1.5B-instruct (default, runs on GPU/CPU)"
         echo "  openai - text-embedding-ada-002 (requires OPENAI_API_KEY)"
         echo ""
-        echo "Examples:"
-        echo "  ./api-embed.sh start                                    # Use local model"
-        echo "  EMBEDDING_BACKEND=openai OPENAI_API_KEY=sk-... ./api-embed.sh start"
+        echo "Vector Databases:"
+        echo "  chroma - Local ChromaDB (default, requires port 8001)"
+        echo "  zilliz - Zilliz Cloud (requires ZILLIZ_URI + ZILLIZ_TOKEN)"
         echo ""
-        echo "Database: $DB_DIR"
+        echo "Examples:"
+        echo "  ./api-embed.sh start                                          # Local + ChromaDB"
+        echo "  EMBEDDING_BACKEND=openai OPENAI_API_KEY=sk-... ./api-embed.sh start  # OpenAI + ChromaDB"
+        echo "  VECTOR_DB=zilliz ZILLIZ_URI=... ZILLIZ_TOKEN=... EMBEDDING_BACKEND=openai OPENAI_API_KEY=sk-... ./api-embed.sh start"
+        echo ""
+        echo "Database: $DB_DIR (ChromaDB only)"
         exit 1
         ;;
 esac
