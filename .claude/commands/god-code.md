@@ -4,9 +4,10 @@ description: Generate code using the 48-Agent Coding Pipeline with stateful orch
 
 Use the Coding Pipeline CLI (`coding-pipeline-cli`) for code generation with dynamic agent orchestration, RLM memory handoffs, and LEANN semantic search.
 
-**Supports two modes:**
+**Supports three modes:**
 - Single task: `/god-code "task description"`
 - Batch mode: `/god-code -batch "task1" "task2" "task3"`
+- Resume mode: `/god-code -resume <sessionId>`
 
 **Arguments**: $ARGUMENTS
 
@@ -33,9 +34,10 @@ Use the Coding Pipeline CLI (`coding-pipeline-cli`) for code generation with dyn
 
 ### Mode Detection
 
-Check if `$ARGUMENTS` starts with `-batch`:
-- **IF batch mode**: Process multiple tasks sequentially (see Batch Mode Protocol)
-- **IF single mode**: Process one task (see Single Task Protocol)
+Check `$ARGUMENTS`:
+- **IF starts with `-resume`**: Resume an interrupted session (see Resume Protocol)
+- **IF starts with `-batch`**: Process multiple tasks sequentially (see Batch Mode Protocol)
+- **OTHERWISE**: Process one task (see Single Task Protocol)
 
 ---
 
@@ -137,6 +139,51 @@ When pipeline is complete, `complete` returns:
 ### Step 4: Pipeline Complete
 
 When `status: "complete"` is returned, report completion to user.
+
+---
+
+## RESUME PROTOCOL
+
+Use this protocol when `$ARGUMENTS` starts with `-resume`.
+
+### Overview
+
+Resume an interrupted pipeline session. Uses `resume` (not `complete`) to get the current batch WITHOUT advancing the pointer.
+
+### Step 1: Extract Session ID
+
+Parse the session ID from `$ARGUMENTS` after the `-resume` flag.
+
+Example: If `$ARGUMENTS` is `-resume 2787749a-1472-4bea-afc8-3c23db51ea2b`, then:
+- SESSION_ID = `2787749a-1472-4bea-afc8-3c23db51ea2b`
+
+### Step 2: Resume Session
+
+**CRITICAL**: Use `resume` NOT `complete`. `complete` would skip the current batch.
+
+```bash
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume "<SESSION_ID>"
+```
+
+This returns the current batch (same format as init/complete):
+```json
+{
+  "sessionId": "...",
+  "status": "running",
+  "currentPhase": "testing",
+  "batch": [
+    { "key": "...", "prompt": "...", "type": "..." }
+  ],
+  "progress": { "completed": N, "total": 48, "percentage": X }
+}
+```
+
+### Step 3: Execute Batch and Continue Loop
+
+From here, follow the **SINGLE TASK PROTOCOL** from Step 2 onwards:
+1. Spawn agents from the `batch` array
+2. Call `complete` to advance and get next batch
+3. Repeat until `status: "complete"`
 
 ---
 
