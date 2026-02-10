@@ -136,6 +136,71 @@ export async function complete(sessionId: string): Promise<void> {
   }, null, 2));
 }
 
+/**
+ * Resume an interrupted session — returns current batch WITHOUT advancing
+ * Use this after stopping and restarting a session.
+ *
+ * @param sessionId - Session identifier
+ */
+export async function resume(sessionId: string): Promise<void> {
+  console.error('[resume] Initializing agent...');
+  const godAgent = new UniversalAgent({ verbose: false });
+  await godAgent.initialize();
+  console.error('[resume] Agent ready, loading session...');
+
+  const orchestrator = await godAgent.getCodingOrchestrator();
+
+  // getNextBatch returns the CURRENT batch without advancing the pointer
+  const batchResponse = await orchestrator.getNextBatch(sessionId);
+
+  console.log(JSON.stringify({
+    sessionId: batchResponse.sessionId,
+    status: batchResponse.status,
+    currentPhase: batchResponse.currentPhase,
+    batch: batchResponse.batch,
+    progress: {
+      completed: batchResponse.completedAgents,
+      total: batchResponse.totalAgents,
+      percentage: Math.round((batchResponse.completedAgents / batchResponse.totalAgents) * 100),
+    },
+  }, null, 2));
+}
+
+/**
+ * Show session status without initializing full agent
+ *
+ * @param sessionId - Session identifier
+ */
+export async function status(sessionId: string): Promise<void> {
+  const { promises: fs } = await import('fs');
+  const sessionPath = `.god-agent/coding-sessions/${sessionId}.json`;
+
+  try {
+    const data = JSON.parse(await fs.readFile(sessionPath, 'utf-8'));
+    const total = data.batches.flat().flat().length;
+    const phase = data.config.phases[data.currentPhaseIndex] || 'complete';
+    const batchAgents = data.status !== 'complete'
+      ? data.batches[data.currentPhaseIndex]?.[data.currentBatchIndex]?.map((a: { agentKey: string }) => a.agentKey) || []
+      : [];
+
+    console.log(JSON.stringify({
+      sessionId: data.sessionId,
+      status: data.status,
+      currentPhase: phase,
+      phaseIndex: data.currentPhaseIndex,
+      batchIndex: data.currentBatchIndex,
+      completedAgents: data.completedAgents.length,
+      totalAgents: total,
+      percentage: Math.round((data.completedAgents.length / total) * 100),
+      currentBatchAgents: batchAgents,
+      lastDispatchedBatch: data.lastDispatchedBatch || null,
+    }, null, 2));
+  } catch {
+    console.error(`Session not found: ${sessionPath}`);
+    process.exit(1);
+  }
+}
+
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   const command = process.argv[2];
@@ -162,8 +227,28 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         process.exit(1);
       });
       break;
+    case 'resume':
+      if (!arg) {
+        console.error('Usage: coding-pipeline-cli.ts resume "<sessionId>"');
+        process.exit(1);
+      }
+      resume(arg).catch((error) => {
+        console.error('Error:', error);
+        process.exit(1);
+      });
+      break;
+    case 'status':
+      if (!arg) {
+        console.error('Usage: coding-pipeline-cli.ts status "<sessionId>"');
+        process.exit(1);
+      }
+      status(arg).catch((error) => {
+        console.error('Error:', error);
+        process.exit(1);
+      });
+      break;
     default:
-      console.error('Usage: coding-pipeline-cli.ts init "<task>" | complete "<sessionId>"');
+      console.error('Usage: coding-pipeline-cli.ts init|complete|resume|status "<arg>"');
       process.exit(1);
   }
 }

@@ -220,10 +220,17 @@ Sessions are stored in `.god-agent/coding-sessions/<sessionId>.json` and survive
 - Claude Code restarts
 - System crashes
 
-To resume an interrupted session:
+To resume an interrupted session (returns current batch WITHOUT advancing):
 ```bash
 npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume "<sessionId>"
 ```
+
+To check session status (fast, no agent initialization):
+```bash
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts status "<sessionId>"
+```
+
+**IMPORTANT**: Use `resume` (not `complete`) after stopping. `complete` advances the batch pointer. `resume` returns the current batch so you can re-execute it.
 
 ---
 
