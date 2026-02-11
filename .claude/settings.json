@@ -46,6 +46,8 @@
       "Bash(which:*)",
       "Bash(pwd)",
       "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
       "Bash(npx tsx src/god-agent/universal/cli.ts status)",
       "Bash(npx tsx src/god-agent/universal/cli.ts ask:*)",
       "Bash(npx tsx src/god-agent/universal/cli.ts code:*)",
