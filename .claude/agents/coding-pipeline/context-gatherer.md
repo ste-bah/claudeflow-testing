@@ -16,16 +16,16 @@ tools:
   - Read
   - Grep
   - Glob
-  - leann_search
+  - mcp__leann-search__search_code
 required_tools:
-  - leann_search  # MANDATORY: Must use LEANN semantic search at least once
+  - mcp__leann-search__search_code  # MANDATORY: Must use LEANN semantic search at least once
 qualityGates:
-  - "MANDATORY: leann_search MUST be called at least once with task keywords"
+  - "MANDATORY: mcp__leann-search__search_code MUST be called at least once with task keywords"
   - "At least 5 relevant files must be identified with justification"
   - "Existing patterns must reference specific file locations"
   - "Tech stack must be categorized by layer (language, framework, tools)"
   - "ReAct reasoning must show Thought/Action/Observation sequence"
-  - "Failure to use leann_search = AUTOMATIC QUALITY GATE FAILURE"
+  - "Failure to use mcp__leann-search__search_code = AUTOMATIC QUALITY GATE FAILURE"
 hooks:
   pre: |
     echo "[context-gatherer] Starting Phase 1, Agent 4 - Context Gathering"
@@ -47,18 +47,16 @@ Analyze the codebase to gather relevant context using semantic search and ReAct 
 
 ## ⚠️ MANDATORY: LEANN Semantic Search Requirement
 
-**YOU MUST USE `leann_search` AT LEAST ONCE. THIS IS NOT OPTIONAL.**
+**YOU MUST USE `mcp__leann-search__search_code` AT LEAST ONCE. THIS IS NOT OPTIONAL.**
 
-Before using Grep or Glob, you MUST first call `leann_search` with keywords from the task. This enables semantic code search that understands meaning, not just text patterns.
+Before using Grep or Glob, you MUST first call `mcp__leann-search__search_code` with keywords from the task. This enables semantic code search that understands meaning, not just text patterns.
 
 ```
 REQUIRED FIRST ACTION:
-Action: leann_search query="[keywords from parsed_task]" limit=10
+Use the mcp__leann-search__search_code tool with query="[keywords from parsed_task]" limit=10
 ```
 
 If you skip LEANN search, the quality gate WILL FAIL and the pipeline WILL HALT.
-
-The LEANN search tool is available via MCP: `mcp__leann-search__search_code`
 
 ## Dependencies
 
@@ -76,7 +74,7 @@ Use the ReAct pattern for systematic context gathering:
 
 ```
 Thought: What do I need to find out?
-Action: [leann_search|read_file|grep|glob] with specific parameters
+Action: [mcp__leann-search__search_code|Read|Grep|Glob] with specific parameters
 Observation: What did I learn from the results?
 ... (repeat up to 5 cycles)
 Conclusion: Synthesis of gathered context
@@ -145,7 +143,7 @@ Technologies, frameworks, and tools in use:
 ### Step 0: MANDATORY LEANN Search (MUST BE FIRST)
 ```
 Thought: I MUST use LEANN semantic search first to find semantically relevant code.
-Action: leann_search query="[main keywords from task: feature name, function purpose, domain terms]" limit=10
+Action: mcp__leann-search__search_code query="[main keywords from task: feature name, function purpose, domain terms]" limit=10
 Observation: [Semantically relevant files and code snippets ranked by relevance]
 ```
 

@@ -126,14 +126,14 @@ export const CODING_AGENT_MIN_LENGTHS: Record<string, number> = {
  * Tiered scoring based on code line count
  */
 export const CODE_QUALITY_TIERS = [
-  { minLines: 10, score: 0.02 },
-  { minLines: 30, score: 0.05 },
-  { minLines: 50, score: 0.08 },
-  { minLines: 100, score: 0.12 },
-  { minLines: 200, score: 0.18 },
-  { minLines: 500, score: 0.24 },
-  { minLines: 1000, score: 0.28 },
-  { minLines: 2000, score: 0.30 },
+  { minLines: 5, score: 0.03 },
+  { minLines: 15, score: 0.06 },
+  { minLines: 30, score: 0.10 },
+  { minLines: 60, score: 0.15 },
+  { minLines: 100, score: 0.20 },
+  { minLines: 200, score: 0.25 },
+  { minLines: 500, score: 0.28 },
+  { minLines: 1000, score: 0.30 },
 ] as const;
 
 /**
@@ -173,14 +173,14 @@ export const IMPLEMENTATION_AGENTS: string[] = [
 
 /** Word count tiers for document agents (replaces code line count) */
 export const DOCUMENT_DEPTH_TIERS = [
-  { minWords: 50, score: 0.03 },
-  { minWords: 100, score: 0.06 },
-  { minWords: 200, score: 0.10 },
-  { minWords: 400, score: 0.14 },
-  { minWords: 800, score: 0.18 },
-  { minWords: 1500, score: 0.22 },
-  { minWords: 3000, score: 0.26 },
-  { minWords: 5000, score: 0.30 },
+  { minWords: 50, score: 0.06 },
+  { minWords: 100, score: 0.10 },
+  { minWords: 200, score: 0.15 },
+  { minWords: 400, score: 0.20 },
+  { minWords: 600, score: 0.24 },
+  { minWords: 800, score: 0.27 },
+  { minWords: 1500, score: 0.29 },
+  { minWords: 3000, score: 0.30 },
 ] as const;
 
 /** Expected sections/keywords for document agents by role */
@@ -298,7 +298,7 @@ export const CODING_EXPECTED_OUTPUTS: Record<string, string[]> = {
 // ============================================================================
 
 export class CodingQualityCalculator implements ICodingQualityCalculator {
-  private readonly patternThreshold = 0.8;
+  private readonly patternThreshold = 0.30;
 
   calculateQuality(output: unknown, context?: ICodingQualityContext): number {
     return this.assessQuality(output, context).score;
@@ -352,9 +352,9 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
 
   /**
    * Calculate code quality factor (max 0.30)
-   * - Code blocks: 0.08 (codeBlocks >= 1: +0.03, >= 3: +0.03, >= 5: +0.02)
-   * - Functions/classes: 0.08 (funcCount >= 1: +0.02, >= 3: +0.02, >= 5: +0.02, >= 10: +0.02)
-   * - Imports/exports: 0.06 (count >= 1: +0.02, >= 3: +0.02, >= 5: +0.02)
+   * - Code blocks: 0.08 (codeBlocks >= 1: +0.04, >= 2: +0.02, >= 4: +0.02)
+   * - Functions/classes: 0.08 (funcCount >= 1: +0.03, >= 2: +0.02, >= 4: +0.02, >= 8: +0.01)
+   * - Imports/exports: 0.06 (count >= 1: +0.03, >= 2: +0.02, >= 4: +0.01)
    * - Code length tiers: 0.08 (tiered based on line count)
    */
   private calculateCodeQuality(text: string, context?: ICodingQualityContext): number {
@@ -363,9 +363,9 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
     // Code blocks detection (0.08 max)
     const codeBlockMatches = text.match(/```(?:typescript|ts|javascript|js|python|py|go|rust|java|c|cpp|csharp|sql|bash|sh|json|yaml|xml|html|css|scss)?[\s\S]*?```/g);
     const codeBlocks = codeBlockMatches ? codeBlockMatches.length : 0;
-    if (codeBlocks >= 1) score += 0.03;
-    if (codeBlocks >= 3) score += 0.03;
-    if (codeBlocks >= 5) score += 0.02;
+    if (codeBlocks >= 1) score += 0.04;
+    if (codeBlocks >= 2) score += 0.02;
+    if (codeBlocks >= 4) score += 0.02;
 
     // Functions/classes detection (0.08 max)
     const funcPatterns = [
@@ -380,10 +380,10 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       const matches = text.match(pattern);
       funcCount += matches ? matches.length : 0;
     }
-    if (funcCount >= 1) score += 0.02;
-    if (funcCount >= 3) score += 0.02;
-    if (funcCount >= 5) score += 0.02;
-    if (funcCount >= 10) score += 0.02;
+    if (funcCount >= 1) score += 0.03;
+    if (funcCount >= 2) score += 0.02;
+    if (funcCount >= 4) score += 0.02;
+    if (funcCount >= 8) score += 0.01;
 
     // Imports/exports detection (0.06 max)
     const importExportPatterns = [
@@ -398,9 +398,9 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       const matches = text.match(pattern);
       importExportCount += matches ? matches.length : 0;
     }
-    if (importExportCount >= 1) score += 0.02;
-    if (importExportCount >= 3) score += 0.02;
-    if (importExportCount >= 5) score += 0.02;
+    if (importExportCount >= 1) score += 0.03;
+    if (importExportCount >= 2) score += 0.02;
+    if (importExportCount >= 4) score += 0.01;
 
     // Code length tiers (0.08 max via CODE_QUALITY_TIERS, capped to 0.08)
     const codeLines = this.countCodeLines(text);
@@ -461,7 +461,7 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
     ];
     const completionCount = completionPatterns.filter(p => p.test(text)).length;
     if (completionCount >= 1) score += 0.02;
-    if (completionCount >= 3) score += 0.02;
+    if (completionCount >= 2) score += 0.02;
 
     // Cross-references (0.03 max)
     const crossRefPatterns = [
@@ -481,8 +481,8 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
 
   /**
    * Calculate structural integrity factor (max 0.20)
-   * - Type annotations: 0.06 (typeCount >= 3: +0.02, >= 10: +0.02, >= 20: +0.02)
-   * - Error handling: 0.06 (errorCount >= 1: +0.02, >= 3: +0.02, >= 5: +0.02)
+   * - Type annotations: 0.06 (typeCount >= 1: +0.02, >= 5: +0.02, >= 12: +0.02)
+   * - Error handling: 0.06 (errorCount >= 1: +0.03, >= 3: +0.02, >= 5: +0.01)
    * - Modularity: 0.04 (private/public, readonly/static, abstract)
    * - Design patterns: 0.04 (factory, builder, repository, etc.)
    */
@@ -502,9 +502,9 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       const matches = text.match(pattern);
       typeCount += matches ? matches.length : 0;
     }
-    if (typeCount >= 3) score += 0.02;
-    if (typeCount >= 10) score += 0.02;
-    if (typeCount >= 20) score += 0.02;
+    if (typeCount >= 1) score += 0.02;
+    if (typeCount >= 5) score += 0.02;
+    if (typeCount >= 12) score += 0.02;
 
     // Error handling (0.06 max)
     const errorPatterns = [
@@ -520,9 +520,9 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       const matches = text.match(pattern);
       errorCount += matches ? matches.length : 0;
     }
-    if (errorCount >= 1) score += 0.02;
+    if (errorCount >= 1) score += 0.03;
     if (errorCount >= 3) score += 0.02;
-    if (errorCount >= 5) score += 0.02;
+    if (errorCount >= 5) score += 0.01;
 
     // Modularity indicators (0.04 max)
     const modularityPatterns = [
@@ -537,8 +537,8 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       const matches = text.match(pattern);
       modularityCount += matches ? matches.length : 0;
     }
-    if (modularityCount >= 2) score += 0.02;
-    if (modularityCount >= 5) score += 0.02;
+    if (modularityCount >= 1) score += 0.02;
+    if (modularityCount >= 3) score += 0.02;
 
     // Design patterns (0.04 max)
     const patternIndicators = [
@@ -557,7 +557,7 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
     ];
     const patternCount = patternIndicators.filter(p => p.test(text)).length;
     if (patternCount >= 1) score += 0.02;
-    if (patternCount >= 3) score += 0.02;
+    if (patternCount >= 2) score += 0.02;
 
     return Math.min(0.20, score);
   }
@@ -586,16 +586,16 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       const matches = text.match(pattern);
       jsdocCount += matches ? matches.length : 0;
     }
-    if (jsdocCount >= 1) score += 0.02;
-    if (jsdocCount >= 3) score += 0.02;
-    if (jsdocCount >= 6) score += 0.02;
+    if (jsdocCount >= 1) score += 0.03;
+    if (jsdocCount >= 2) score += 0.02;
+    if (jsdocCount >= 4) score += 0.01;
 
     // Inline comments (0.04 max)
     const inlineComments = (text.match(/\/\/[^\n]+/g) || []).length;
     const blockComments = (text.match(/\/\*(?!\*)[\s\S]*?\*\//g) || []).length;
     const totalInlineComments = inlineComments + blockComments;
-    if (totalInlineComments >= 2) score += 0.02;
-    if (totalInlineComments >= 5) score += 0.02;
+    if (totalInlineComments >= 1) score += 0.02;
+    if (totalInlineComments >= 3) score += 0.02;
 
     // README sections (0.03 max)
     const readmePatterns = [
@@ -647,8 +647,8 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       const matches = text.match(pattern);
       testCount += matches ? matches.length : 0;
     }
-    if (testCount >= 2) score += 0.02;
-    if (testCount >= 5) score += 0.02;
+    if (testCount >= 1) score += 0.02;
+    if (testCount >= 3) score += 0.02;
 
     // Mock patterns (0.03 max)
     const mockPatterns = [
@@ -726,20 +726,21 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
     let score = 0;
     const lowerText = text.toLowerCase();
 
-    // Agent expected sections (0.12 max)
+    // Agent expected sections (0.15 max)
     const expectedSections = context?.agentKey && DOCUMENT_EXPECTED_SECTIONS[context.agentKey]
       ? DOCUMENT_EXPECTED_SECTIONS[context.agentKey]
       : (context?.agentKey && CODING_EXPECTED_OUTPUTS[context.agentKey]
         ? CODING_EXPECTED_OUTPUTS[context.agentKey]
         : ['analysis', 'recommendation', 'summary', 'finding', 'conclusion']);
     const foundCount = expectedSections.filter(s => lowerText.includes(s)).length;
-    score += (foundCount / expectedSections.length) * 0.12;
+    score += (foundCount / expectedSections.length) * 0.15;
 
-    // Document structural elements (0.06 max)
+    // Document structural elements (0.07 max)
     if (/^##?\s+/m.test(text)) score += 0.02;          // Has headers
     if (/^###\s+/m.test(text)) score += 0.01;           // Has sub-sections
     if (/\|[\s-]+\|/.test(text)) score += 0.02;         // Has tables
     if (/```[\s\S]*?```/.test(text)) score += 0.01;     // Has code examples
+    if (/^\s*[-*]\s+/m.test(text)) score += 0.01;     // Has bullet lists
 
     // Completion indicators (0.04 max)
     const completionPatterns = [
@@ -778,9 +779,9 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       /pros?\s+(?:and|&)\s+cons?/i, /comparison/i,
     ];
     const decisionCount = decisionPatterns.filter(p => p.test(text)).length;
-    if (decisionCount >= 1) score += 0.02;
-    if (decisionCount >= 3) score += 0.02;
-    if (decisionCount >= 5) score += 0.02;
+    if (decisionCount >= 1) score += 0.03;
+    if (decisionCount >= 2) score += 0.02;
+    if (decisionCount >= 4) score += 0.01;
 
     // Constraints/requirements (0.04 max)
     const constraintPatterns = [
@@ -789,8 +790,8 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       /shall\s+/i, /should\s+/i,
     ];
     const constraintCount = constraintPatterns.filter(p => p.test(text)).length;
-    if (constraintCount >= 2) score += 0.02;
-    if (constraintCount >= 4) score += 0.02;
+    if (constraintCount >= 1) score += 0.02;
+    if (constraintCount >= 3) score += 0.02;
 
     // Dependencies/relationships (0.04 max)
     const depPatterns = [
@@ -799,8 +800,8 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       /communicat(?:es?|ion)/i, /integrat(?:es?|ion)/i,
     ];
     const depCount = depPatterns.filter(p => p.test(text)).length;
-    if (depCount >= 2) score += 0.02;
-    if (depCount >= 4) score += 0.02;
+    if (depCount >= 1) score += 0.02;
+    if (depCount >= 3) score += 0.02;
 
     // Risk/mitigation (0.03 max)
     const riskPatterns = [
@@ -808,8 +809,8 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       /fallback/i, /recovery/i, /contingency/i,
     ];
     const riskCount = riskPatterns.filter(p => p.test(text)).length;
-    if (riskCount >= 1) score += 0.01;
-    if (riskCount >= 3) score += 0.02;
+    if (riskCount >= 1) score += 0.02;
+    if (riskCount >= 2) score += 0.01;
 
     // Design patterns mentioned (0.03 max)
     const patternIndicators = [
@@ -818,8 +819,8 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       /abstraction/i, /encapsulation/i,
     ];
     const patternCount = patternIndicators.filter(p => p.test(text)).length;
-    if (patternCount >= 1) score += 0.01;
-    if (patternCount >= 3) score += 0.02;
+    if (patternCount >= 1) score += 0.02;
+    if (patternCount >= 2) score += 0.01;
 
     return Math.min(0.20, score);
   }
@@ -838,10 +839,10 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
 
     // Paragraph density (0.04 max)
     const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 50).length;
-    if (paragraphs >= 3) score += 0.01;
-    if (paragraphs >= 6) score += 0.01;
-    if (paragraphs >= 10) score += 0.01;
-    if (paragraphs >= 20) score += 0.01;
+    if (paragraphs >= 2) score += 0.01;
+    if (paragraphs >= 4) score += 0.01;
+    if (paragraphs >= 7) score += 0.01;
+    if (paragraphs >= 12) score += 0.01;
 
     // Formatting richness (0.04 max)
     if (/\*\*[^*]+\*\*/.test(text)) score += 0.01;      // Bold

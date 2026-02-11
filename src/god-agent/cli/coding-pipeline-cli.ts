@@ -169,13 +169,13 @@ const AGENT_MODEL_MAP: Record<string, 'opus' | 'sonnet' | 'haiku'> = {
   'integration-architect': 'opus',
   // Phase 4: Implementation — opus for core, sonnet for support
   'code-generator': 'opus',           // primary code author
-  'type-implementer': 'sonnet',
+  'type-implementer': 'opus',
   'unit-implementer': 'opus',         // core business logic
   'service-implementer': 'opus',      // core business logic
   'data-layer-implementer': 'opus',   // data access patterns matter
   'api-implementer': 'opus',          // public API surface
-  'frontend-implementer': 'sonnet',
-  'error-handler-implementer': 'sonnet',
+  'frontend-implementer': 'opus',
+  'error-handler-implementer': 'opus',
   'config-implementer': 'haiku',      // boilerplate config
   'logger-implementer': 'haiku',      // boilerplate logging
   'dependency-manager': 'haiku',      // package management
@@ -183,28 +183,28 @@ const AGENT_MODEL_MAP: Record<string, 'opus' | 'sonnet' | 'haiku'> = {
   // Phase 5: Testing
   'test-generator': 'opus',           // test quality = code quality
   'test-runner': 'haiku',             // executing tests, reading output
-  'integration-tester': 'sonnet',
-  'regression-tester': 'sonnet',
+  'integration-tester': 'opus',
+  'regression-tester': 'opus',
   'security-tester': 'opus',          // security analysis needs deep reasoning
   'coverage-analyzer': 'haiku',       // reading coverage reports
   'quality-gate': 'haiku',            // checking metrics against thresholds
   'test-fixer': 'opus',               // debugging requires deep reasoning
   // Phase 6: Optimization
-  'performance-optimizer': 'sonnet',
-  'performance-architect': 'sonnet',
-  'code-quality-improver': 'sonnet',
+  'performance-optimizer': 'opus',
+  'performance-architect': 'opus',
+  'code-quality-improver': 'opus',
   'security-architect': 'opus',       // security architecture is critical
-  'final-refactorer': 'sonnet',
+  'final-refactorer': 'opus',
   // Phase 7: Delivery
   'sign-off-approver': 'opus',        // final approval — highest judgment needed
   'recovery-agent': 'opus',           // failure diagnosis needs deep reasoning
-  // Phase reviewers — haiku (checking, not creating)
-  'phase-1-reviewer': 'haiku',
-  'phase-2-reviewer': 'haiku',
-  'phase-3-reviewer': 'haiku',
-  'phase-4-reviewer': 'haiku',
-  'phase-5-reviewer': 'haiku',
-  'phase-6-reviewer': 'haiku',
+  // Phase reviewers — opus (quality review demands deep reasoning)
+  'phase-1-reviewer': 'opus',
+  'phase-2-reviewer': 'opus',
+  'phase-3-reviewer': 'opus',
+  'phase-4-reviewer': 'opus',
+  'phase-5-reviewer': 'opus',
+  'phase-6-reviewer': 'opus',
 };
 
 function getAgentModel(agentKey: string): 'opus' | 'sonnet' | 'haiku' {
@@ -503,7 +503,7 @@ export async function next(sessionId: string): Promise<void> {
       if (patternMatcher) {
         const taskType = getTaskTypeForPhase(phase);
         const taskPatterns = patternMatcher.getPatternsByTaskType(taskType)
-          .filter(p => (p.successRate ?? 0) >= 0.5)
+          .filter(p => (p.successRate ?? 0) >= 0.30)
           .sort((a, b) => (b.successRate ?? 0) - (a.successRate ?? 0))
           .slice(0, 5);
         if (taskPatterns.length > 0) {
@@ -813,7 +813,7 @@ export async function complete(
     }
 
     // ── Phase 3b: Store high-quality output as reusable pattern ──────
-    if (assessment.score > 0.80 && patternMatcher) {
+    if (assessment.score >= 0.30 && patternMatcher) {
       try {
         const { createDualCodeEmbeddingProvider } = await import('../core/search/dual-code-embedding.js');
         const dualProvider = createDualCodeEmbeddingProvider({

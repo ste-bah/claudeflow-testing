@@ -124,12 +124,12 @@ export class PatternStore {
    *
    * @param params - Pattern creation parameters
    * @returns Created pattern
-   * @throws Error if successRate < 0.8 or duplicate detected
+   * @throws Error if successRate < 0.1 (sanity floor) or duplicate detected
    */
   async addPattern(params: CreatePatternParams): Promise<Pattern> {
-    // Validate success rate threshold
-    if (params.successRate < 0.8) {
-      throw new Error(`Pattern successRate ${params.successRate} is below minimum threshold 0.8`);
+    // Validate success rate sanity floor (quality gate is in CLI at 0.30)
+    if (params.successRate < 0.1) {
+      throw new Error(`Pattern successRate ${params.successRate} is below sanity floor 0.1`);
     }
 
     // Validate embedding dimensions (1536D)
