@@ -397,8 +397,14 @@ async function main(): Promise<void> {
       });
     }
 
-    // 8. Estimate quality and submit feedback
-    if (reasoningBank) {
+    // 7.5. Check if coding pipeline is active — skip hook-based learning during pipeline
+    // The pipeline handles its own quality scoring + learning via markBatchComplete
+    const godCodeActive = await fs.access(
+      path.join(PROJECT_ROOT, '.claude', 'runtime', '.god-code-active')
+    ).then(() => true).catch(() => false);
+
+    // 8. Estimate quality and submit feedback (skip during pipeline)
+    if (reasoningBank && !godCodeActive) {
       const submitter = new FeedbackSubmitter(reasoningBank, config, '.claude/hooks');
 
       // Estimate quality
@@ -438,9 +444,9 @@ async function main(): Promise<void> {
       logger.debug('Pipeline step completion skipped', { error: (err as Error).message });
     });
 
-    // 9.6. MANDATORY: Submit to God Agent Learning CLI (AUTO-LEARNING HOOK)
-    // This ensures learning happens AUTOMATICALLY without relying on LLM
-    try {
+    // 9.6. Submit to God Agent Learning CLI (AUTO-LEARNING HOOK)
+    // Skip during pipeline — pipeline handles its own learning via CodingQualityCalculator
+    if (!godCodeActive) try {
       const trajectoryId = summary?.reasoningBankFeedback?.trajectoryId ||
         `hook-auto-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
@@ -596,6 +602,8 @@ async function main(): Promise<void> {
       logger.warn('God Agent Learning CLI failed (non-fatal)', {
         error: (godAgentError as Error).message
       });
+    } else if (godCodeActive) {
+      logger.info('Skipping auto-learning — coding pipeline active (.god-code-active)');
     }
 
     // 10. Log performance metrics

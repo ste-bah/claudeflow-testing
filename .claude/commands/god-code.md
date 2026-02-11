@@ -36,7 +36,7 @@ This returns:
   "sessionId": "uuid",
   "status": "running",
   "currentPhase": "understanding",
-  "agent": { "key": "task-analyzer", "prompt": "..." },
+  "agent": { "key": "task-analyzer", "prompt": "...", "model": "sonnet" },
   "progress": { "completed": 0, "total": 48, "percentage": 0 }
 }
 ```
@@ -45,16 +45,20 @@ This returns:
 
 ### Step 2: Execute First Agent
 
-From the init response, spawn the first agent:
+From the init response, spawn the first agent using the `model` field from the response:
 
 ```
-Task("<agent.key>", "<agent.prompt>", "<agent.key>")
+Task("<agent.key>", "<agent.prompt>", "<agent.key>", model: "<agent.model>")
 ```
 
-Then mark complete:
+**CRITICAL: Always pass `model: "<agent.model>"` to the Task tool.** The pipeline specifies the correct model per agent (sonnet for design/implementation/testing, haiku for reviewers/checkers). Do NOT override or omit this.
+
+After the Task agent finishes, write its full response to `/tmp/pipeline-agent-output.txt` using the Write tool, then mark complete with `--file`:
 ```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete <sessionId> <agent.key>
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete <sessionId> <agent.key> --file /tmp/pipeline-agent-output.txt
 ```
+
+This enables dynamic quality scoring and XP rewards. The complete command now returns quality + XP data.
 
 ### Step 3: Loop Until Complete
 
@@ -71,19 +75,20 @@ Returns:
   "sessionId": "...",
   "status": "running",
   "currentPhase": "exploration",
-  "agent": { "key": "pattern-explorer", "prompt": "..." },
+  "agent": { "key": "pattern-explorer", "prompt": "...", "model": "sonnet" },
   "progress": { "completed": 6, "total": 48, "percentage": 13 }
 }
 ```
 
 #### 3b. Spawn Agent
 ```
-Task("<agent.key>", "<agent.prompt>", "<agent.key>")
+Task("<agent.key>", "<agent.prompt>", "<agent.key>", model: "<agent.model>")
 ```
 
 #### 3c. Mark Complete
+After the Task agent finishes, write its full response to `/tmp/pipeline-agent-output.txt` using the Write tool, then mark complete with `--file`:
 ```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete <sessionId> <agent.key>
+npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete <sessionId> <agent.key> --file /tmp/pipeline-agent-output.txt
 ```
 
 When pipeline is complete, `next` returns:
@@ -159,30 +164,32 @@ npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume <sessionId>
 {
   "sessionId": "abc-123",
   "status": "running",
-  "agent": { "key": "task-analyzer", "prompt": "..." },
+  "agent": { "key": "task-analyzer", "prompt": "...", "model": "sonnet" },
   "progress": { "completed": 0, "total": 48, "percentage": 0 }
 }
 
-# Spawn agent 1
-> Task("task-analyzer", "<prompt>", "task-analyzer")
+# Spawn agent 1 (using model from response)
+> Task("task-analyzer", "<prompt>", "task-analyzer", model: "sonnet")
 
-# Complete agent 1
-> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123 task-analyzer
-{ "success": true, "agentKey": "task-analyzer" }
+# Write output, then complete agent 1 with --file
+> Write "/tmp/pipeline-agent-output.txt" (agent response)
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123 task-analyzer --file /tmp/pipeline-agent-output.txt
+{ "success": true, "agentKey": "task-analyzer", "quality": { "score": 0.82, "tier": "B+" }, "xp": { "earned": 255, "rewards": {...} } }
 
 # Get agent 2
 > npx tsx src/god-agent/cli/coding-pipeline-cli.ts next abc-123
 {
   "status": "running",
-  "agent": { "key": "requirement-extractor", "prompt": "..." },
+  "agent": { "key": "requirement-extractor", "prompt": "...", "model": "sonnet" },
   "progress": { "completed": 1, "total": 48, "percentage": 2 }
 }
 
-# Spawn agent 2
-> Task("requirement-extractor", "<prompt>", "requirement-extractor")
+# Spawn agent 2 (using model from response)
+> Task("requirement-extractor", "<prompt>", "requirement-extractor", model: "sonnet")
 
-# Complete agent 2
-> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123 requirement-extractor
+# Write output, then complete agent 2 with --file
+> Write "/tmp/pipeline-agent-output.txt" (agent response)
+> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123 requirement-extractor --file /tmp/pipeline-agent-output.txt
 
 # ... repeat for all 48 agents ...
 

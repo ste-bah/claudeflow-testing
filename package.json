@@ -37,9 +37,9 @@
     "ucm:start": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts start",
     "ucm:stop": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts stop",
     "ucm:status": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts status",
-    "god-agent:start": "npm run memory:start && npm run daemon:start && npm run ucm:start && npm run observe:start && echo '✅ All God Agent services started'",
-    "god-agent:stop": "npm run observe:stop && npm run ucm:stop && npm run daemon:stop && npm run memory:stop && echo '✅ All God Agent services stopped'",
-    "god-agent:status": "echo '=== God Agent Service Status ===' && npm run memory:status && npm run daemon:status && npm run ucm:status && npm run observe:status"
+    "god-agent:start": "bash scripts/god-agent-start.sh",
+    "god-agent:stop": "bash scripts/god-agent-stop.sh",
+    "god-agent:status": "bash scripts/god-agent-status.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

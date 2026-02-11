@@ -85,33 +85,8 @@ class TestAppMetadata:
 class TestRouteStubsGET:
     """All GET route stubs return 200 with status=not_implemented."""
 
-    @pytest.mark.parametrize(
-        "path, expected_task",
-        [
-            ("/api/analyze/AAPL", "TASK-ANALYSIS-009"),
-        ],
-        ids=[
-            "analyze-AAPL",
-        ],
-    )
-    def test_get_stubs_return_not_implemented(self, path, expected_task):
-        response = client.get(path)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "not_implemented"
-        assert data["task"] == expected_task
-
-    @pytest.mark.parametrize(
-        "path, expected_symbol",
-        [
-            ("/api/analyze/AMZN", "AMZN"),
-        ],
-        ids=["analyze-symbol"],
-    )
-    def test_get_stubs_echo_symbol(self, path, expected_symbol):
-        response = client.get(path)
-        data = response.json()
-        assert data["symbol"] == expected_symbol
+    # Analysis GET stub removed — TASK-ANALYSIS-009 implemented
+    pass
 
 
 # ===================================================================
@@ -120,12 +95,7 @@ class TestRouteStubsGET:
 class TestRouteStubsMutations:
     """POST and DELETE route stubs return 200 with status=not_implemented."""
 
-    def test_scan_post_stub(self):
-        response = client.post("/api/scan/")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "not_implemented"
-        assert data["task"] == "TASK-API-009"
+    # Scan POST stub removed — TASK-ANALYSIS-010 implemented
 
     def test_query_post_stub(self):
         response = client.post("/api/query/")

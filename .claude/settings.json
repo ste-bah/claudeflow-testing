@@ -9,7 +9,16 @@
   },
   "permissions": {
     "allow": [
+      "Bash(npx tsx:*)",
       "Bash(npx claude-flow:*)",
+      "Bash(sleep:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(kill:*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(test:*)",
       "Bash(npm run lint)",
       "Bash(npm run test:*)",
       "Bash(npm test:*)",
@@ -30,6 +39,10 @@
       "Bash(git stash:*)",
       "Bash(jq:*)",
       "Bash(node:*)",
+      "Bash(cat > /tmp/:*)",
+      "Bash(cat>/tmp/:*)",
+      "Bash(cat:*)",
+      "Write(/tmp/**)",
       "Bash(which:*)",
       "Bash(pwd)",
       "Bash(ls:*)",
@@ -62,6 +75,9 @@
     ],
     "deny": [
       "Bash(rm -rf /)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   },
   "hooks": {
@@ -91,6 +107,10 @@
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/block-heredoc.sh\" ] && \"$ROOT/.claude/hooks/block-heredoc.sh\" || echo \"{\\\"decision\\\": \\\"allow\\\"}\"'"
+          },
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-command --command \"{}\" --validate-safety true --prepare-resources true || true'"
@@ -204,7 +224,7 @@
           },
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npm run god-agent:start 2>/dev/null || true'"
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; bash scripts/god-agent-start.sh 2>/dev/null || true'"
           },
           {
             "type": "command",

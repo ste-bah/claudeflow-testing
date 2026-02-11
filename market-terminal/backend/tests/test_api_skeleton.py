@@ -600,12 +600,8 @@ class TestRouteRegistration:
             mod = importlib.import_module(mod_path)
             assert hasattr(mod, "router"), f"{mod_path} missing 'router' attribute"
 
-    def test_scan_route_returns_stub(self):
-        resp = client.post("/api/scan/")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "not_implemented"
-        assert data["task"] == "TASK-API-009"
+    # Scan POST stub removed — TASK-ANALYSIS-010 implemented (GET-based now)
+    pass
 
 
 # ===================================================================
@@ -787,32 +783,15 @@ class TestExceptionHandlersOnRealApp:
 class TestRouteStubResponses:
     """Ensure all GET stubs return expected structure with symbol echoed."""
 
-    @pytest.mark.parametrize(
-        "path, expected_task, expected_symbol",
-        [
-            ("/api/analyze/META", "TASK-ANALYSIS-009", "META"),
-        ],
-        ids=[
-            "analyze-META",
-        ],
-    )
-    def test_get_stub_returns_expected_structure(
-        self, path, expected_task, expected_symbol
-    ):
-        resp = client.get(path)
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "not_implemented"
-        assert data["task"] == expected_task
-        assert data["symbol"] == expected_symbol
+    # Analysis GET stub removed — TASK-ANALYSIS-009 implemented
+    # Scan POST stub removed — TASK-ANALYSIS-010 implemented
 
     @pytest.mark.parametrize(
         "method, path, expected_task",
         [
-            ("POST", "/api/scan/", "TASK-API-009"),
             ("POST", "/api/query/", "TASK-GOD-005"),
         ],
-        ids=["scan-post", "query-post"],
+        ids=["query-post"],
     )
     def test_mutation_stubs(self, method, path, expected_task):
         resp = getattr(client, method.lower())(path)
