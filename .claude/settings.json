@@ -193,6 +193,16 @@
         ]
       }
     ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'INPUT=$(cat); TOOL=$(echo \"$INPUT\" | jq -r \".tool_name // empty\"); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); if [ \"$TOOL\" = \"Bash\" ] && echo \"$CMD\" | grep -q \"/tmp/pipeline-agent-output\"; then echo \"{\\\"decision\\\": \\\"allow\\\"}\"; exit 0; fi'"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
