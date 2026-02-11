@@ -8,6 +8,8 @@
  * Features:
  *   - Dynamic quality scoring via CodingQualityCalculator (not hardcoded 0.8)
  *   - XP rewards per PRD Section 7.3
+ *   - LEANN semantic code context injection (codebase-aware agents)
+ *   - Reflexion past failure trajectory injection (self-correction)
  *   - DESC injection with pre-vetting via InjectionFilter
  *   - SONA pattern injection from SonaEngine
  *   - Post-execution DESC episode storage for future retrieval
@@ -204,8 +206,12 @@ export async function init(task: string): Promise<void> {
 }
 
 /**
- * Get the next agent to execute with DESC/SONA prompt augmentation.
- * DESC episodes are pre-vetted via InjectionFilter before injection.
+ * Get the next agent to execute with full learning augmentation.
+ * Injects 4 learning sources into agent prompts:
+ *   1. DESC: pre-vetted episodic memory of prior solutions
+ *   2. SONA: high-quality learned patterns
+ *   3. LEANN: semantic code context from codebase search
+ *   4. Reflexion: past failure trajectories for self-correction
  * Returns a single agent object or status: "complete".
  */
 export async function next(sessionId: string): Promise<void> {
@@ -319,6 +325,106 @@ export async function next(sessionId: string): Promise<void> {
         console.error(`[SONA] Injected ${patterns.length} learned patterns for ${agentKey}`);
       }
     } catch { /* optional */ }
+
+    // LEANN semantic code context injection (graceful)
+    try {
+      const { createLeannContextService } = await import('../core/pipeline/leann-context-service.js');
+      const { createLEANNAdapter } = await import('../core/search/adapters/leann-adapter.js');
+      const { createDualCodeEmbeddingProvider, createLEANNEmbedder } = await import('../core/search/dual-code-embedding.js');
+
+      const leannService = createLeannContextService({
+        defaultMaxResults: 5,
+        minSimilarityThreshold: 0.3,
+      });
+
+      const dualProvider = createDualCodeEmbeddingProvider({
+        nlpWeight: 0.4,
+        codeWeight: 0.6,
+        cacheEnabled: true,
+        cacheMaxSize: 500,
+        provider: 'local',
+      });
+
+      const dimension = dualProvider.getDimensions();
+      const embedder = createLEANNEmbedder(dualProvider);
+      const adapter = createLEANNAdapter(embedder, dimension);
+      await leannService.initialize(adapter);
+
+      // Load persisted vectors
+      const loaded = await leannService.load('vector_db_leann');
+      if (loaded) {
+        const vectorCount = leannService.getVectorCount();
+        console.error(`[LEANN] Loaded ${vectorCount} vectors from persisted index`);
+
+        // Search for relevant code context using the agent prompt as query
+        const searchQuery = prompt.substring(0, 500); // first 500 chars for search
+        const context = await leannService.buildSemanticContext({
+          taskDescription: searchQuery,
+          phase: 0,
+          maxResults: 5,
+        });
+
+        if (context.codeContext.length > 0) {
+          prompt += '\n\n---\n## SEMANTIC CODE CONTEXT (from codebase search)\n';
+          prompt += `**Found ${context.totalResults} relevant code sections:**\n`;
+          for (let i = 0; i < context.codeContext.length; i++) {
+            const c = context.codeContext[i];
+            const truncated = c.content.length > 2000
+              ? c.content.substring(0, 2000) + '\n... [truncated]'
+              : c.content;
+            const escaped = truncated.replace(/```/g, '\\`\\`\\`');
+            prompt += `\n### Context ${i + 1}: ${c.filePath} (${(c.similarity * 100).toFixed(1)}% relevant)\n`;
+            prompt += `\`\`\`${c.language ?? ''}\n${escaped}\n\`\`\`\n`;
+          }
+          prompt += '\n**Note:** Use this context to understand existing patterns and conventions.\n---\n';
+          console.error(`[LEANN] Injected ${context.codeContext.length} code contexts for ${agentKey}`);
+        }
+      } else {
+        console.error('[LEANN] No persisted vectors found, skipping semantic context');
+      }
+    } catch (err) {
+      console.error(`[LEANN] Semantic context injection failed (non-fatal): ${(err as Error).message}`);
+    }
+
+    // Reflexion: past failure trajectory injection for self-correction (graceful)
+    try {
+      const { SonaEngine } = await import('../core/learning/sona-engine.js');
+      const engine = new SonaEngine();
+      await engine.initialize();
+
+      const allTrajectories = engine.listTrajectories('reasoning.pattern');
+      const agentTag = `agent:${agentKey}`;
+      const agentTrajectories = allTrajectories.filter(t =>
+        t.context?.includes(agentTag) ?? false
+      );
+      const failures = agentTrajectories.filter(t =>
+        (t.quality !== undefined && t.quality < 0.7) || t.context?.includes('failed')
+      );
+
+      if (failures.length > 0) {
+        const totalExec = agentTrajectories.length;
+        const successCount = agentTrajectories.filter(t =>
+          t.quality !== undefined && t.quality >= 0.7
+        ).length;
+        const successRate = totalExec > 0 ? successCount / totalExec : 1;
+
+        prompt += '\n\n## REFLEXION (lessons from past failures)\n';
+        prompt += `**History:** ${totalExec} past executions, ${(successRate * 100).toFixed(0)}% success rate\n`;
+        prompt += `**Recent failures (${Math.min(failures.length, 5)}):**\n`;
+
+        const recentFailures = failures.slice(-5);
+        for (let i = 0; i < recentFailures.length; i++) {
+          const f = recentFailures[i];
+          const pipelineId = f.context?.find((c: string) => c.startsWith('pipeline:'))?.replace('pipeline:', '');
+          const pipelineNote = pipelineId ? ` (pipeline: ${pipelineId})` : '';
+          const date = new Date(f.createdAt).toISOString();
+          prompt += `${i + 1}. Quality ${(f.quality ?? 0).toFixed(2)} on ${date}${pipelineNote}\n`;
+        }
+
+        prompt += '\n**Action:** Learn from these failures. Avoid repeating the same mistakes. Focus on completeness and correctness.\n';
+        console.error(`[REFLEXION] Injected ${recentFailures.length} failure lessons for ${agentKey} (${(successRate * 100).toFixed(0)}% success rate)`);
+      }
+    } catch { /* optional — Reflexion unavailable is not an error */ }
 
     batchResponse.batch[0].prompt = prompt;
   }
@@ -437,7 +543,55 @@ export async function complete(
     } catch { /* optional — DESC unavailable is not an error */ }
   }
 
-  // 8. Output with quality + XP
+  // 9. Index produced files into LEANN for subsequent agents (graceful)
+  if (IMPLEMENTATION_AGENTS.includes(agentKey)) {
+    try {
+      const { createLeannContextService } = await import('../core/pipeline/leann-context-service.js');
+      const { createLEANNAdapter } = await import('../core/search/adapters/leann-adapter.js');
+      const { createDualCodeEmbeddingProvider, createLEANNEmbedder } = await import('../core/search/dual-code-embedding.js');
+      const { existsSync, readFileSync } = await import('fs');
+
+      const leannService = createLeannContextService({ defaultMaxResults: 5, minSimilarityThreshold: 0.3 });
+      const dualProvider = createDualCodeEmbeddingProvider({
+        nlpWeight: 0.4, codeWeight: 0.6, cacheEnabled: true, provider: 'local',
+      });
+      const dimension = dualProvider.getDimensions();
+      const embedder = createLEANNEmbedder(dualProvider);
+      const adapter = createLEANNAdapter(embedder, dimension);
+      await leannService.initialize(adapter);
+
+      // Load existing index
+      await leannService.load('vector_db_leann');
+
+      // Extract file paths from output and index them
+      const filePathPattern = /[`'"]\s*([./\w-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\s*[`'"]/g;
+      const filesToIndex = new Set<string>();
+      let m: RegExpExecArray | null;
+      while ((m = filePathPattern.exec(output)) !== null) {
+        filesToIndex.add(m[1]);
+      }
+
+      let indexedCount = 0;
+      for (const filePath of filesToIndex) {
+        try {
+          if (!existsSync(filePath)) continue;
+          const code = readFileSync(filePath, 'utf-8');
+          if (code.trim().length === 0) continue;
+          await adapter.index(code, { filePath, source: agentKey, indexed_at: Date.now() });
+          indexedCount++;
+        } catch { /* skip unreadable files */ }
+      }
+
+      if (indexedCount > 0) {
+        await leannService.save('vector_db_leann');
+        console.error(`[LEANN] Indexed ${indexedCount} files from ${agentKey}, saved to vector_db_leann`);
+      }
+    } catch (err) {
+      console.error(`[LEANN] Indexing failed (non-fatal): ${(err as Error).message}`);
+    }
+  }
+
+  // 10. Output with quality + XP
   console.log(JSON.stringify({
     success: true, agentKey, sessionId,
     quality: { score: assessment.score, tier: assessment.tier },
