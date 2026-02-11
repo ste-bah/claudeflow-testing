@@ -30,6 +30,7 @@ CLAUDE.md
 claude-flow
 
 # Keep documentation directories
-# docs/ and docs2/ are NOT ignored and will be tracked
+# docs/ is tracked, docs2/ is ignored (local reference only)
 docs/
+docs2/
 node_modules
