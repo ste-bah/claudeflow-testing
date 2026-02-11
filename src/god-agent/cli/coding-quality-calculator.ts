@@ -14,6 +14,7 @@ export interface ICodingQualityContext {
   expectedMinLength?: number;
   isCriticalAgent?: boolean;
   isImplementationAgent?: boolean;
+  isDocumentAgent?: boolean;
 }
 
 export interface ICodingQualityBreakdown {
@@ -170,6 +171,64 @@ export const IMPLEMENTATION_AGENTS: string[] = [
   'final-refactorer',
 ];
 
+/** Word count tiers for document agents (replaces code line count) */
+export const DOCUMENT_DEPTH_TIERS = [
+  { minWords: 50, score: 0.03 },
+  { minWords: 100, score: 0.06 },
+  { minWords: 200, score: 0.10 },
+  { minWords: 400, score: 0.14 },
+  { minWords: 800, score: 0.18 },
+  { minWords: 1500, score: 0.22 },
+  { minWords: 3000, score: 0.26 },
+  { minWords: 5000, score: 0.30 },
+] as const;
+
+/** Expected sections/keywords for document agents by role */
+export const DOCUMENT_EXPECTED_SECTIONS: Record<string, string[]> = {
+  // Phase 1: Understanding
+  'task-analyzer': ['requirement', 'constraint', 'scope', 'acceptance criteria', 'risk'],
+  'requirement-extractor': ['functional', 'non-functional', 'priority', 'dependency', 'user story'],
+  'requirement-prioritizer': ['critical', 'must-have', 'nice-to-have', 'priority', 'rationale'],
+  'scope-definer': ['in-scope', 'out-of-scope', 'deliverable', 'milestone', 'boundary'],
+  'context-gatherer': ['codebase', 'architecture', 'pattern', 'existing', 'convention'],
+  'feasibility-analyzer': ['feasible', 'risk', 'complexity', 'recommendation', 'approach'],
+  // Phase 2: Exploration
+  'codebase-analyzer': ['structure', 'module', 'dependency', 'pattern', 'convention'],
+  'pattern-explorer': ['pattern', 'design', 'reuse', 'example', 'recommendation'],
+  'technology-scout': ['technology', 'comparison', 'trade-off', 'recommendation', 'compatibility'],
+  'research-planner': ['approach', 'methodology', 'timeline', 'resource', 'deliverable'],
+  // Phase 3: Architecture
+  'system-designer': ['architecture', 'component', 'interface', 'data flow', 'deployment'],
+  'component-designer': ['component', 'responsibility', 'interface', 'dependency', 'contract'],
+  'interface-designer': ['interface', 'contract', 'type', 'validation', 'versioning'],
+  'data-architect': ['schema', 'model', 'relationship', 'migration', 'index'],
+  'security-architect': ['authentication', 'authorization', 'encryption', 'threat', 'mitigation'],
+  'integration-architect': ['integration', 'protocol', 'endpoint', 'contract', 'error handling'],
+  'performance-architect': ['performance', 'caching', 'scaling', 'bottleneck', 'benchmark'],
+  // Phase 5: Non-code testing agents
+  'test-runner': ['pass', 'fail', 'result', 'summary', 'output'],
+  'coverage-analyzer': ['coverage', 'uncovered', 'branch', 'line', 'gap'],
+  'security-tester': ['vulnerability', 'finding', 'severity', 'recommendation', 'remediation'],
+  'regression-tester': ['regression', 'baseline', 'comparison', 'change', 'impact'],
+  // Phase 6: Optimization
+  'code-quality-improver': ['refactor', 'quality', 'improvement', 'before', 'after'],
+  'performance-optimizer': ['bottleneck', 'optimization', 'benchmark', 'improvement', 'metric'],
+  // Phase 7: Delivery
+  'implementation-coordinator': ['integration', 'coordination', 'dependency', 'status', 'issue'],
+  'sign-off-approver': ['approved', 'criteria', 'quality', 'readiness', 'sign-off'],
+  'recovery-agent': ['issue', 'root cause', 'fix', 'rollback', 'prevention'],
+  // Reviewers
+  'phase-1-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+  'phase-2-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+  'phase-3-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+  'phase-4-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+  'phase-5-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+  'phase-6-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+  // Misc non-code agents
+  'dependency-manager': ['package', 'dependency', 'version', 'compatibility', 'update'],
+  'quality-gate': ['threshold', 'metric', 'pass', 'fail', 'criteria'],
+};
+
 /**
  * Expected output patterns for each agent
  */
@@ -247,11 +306,24 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
 
   assessQuality(output: unknown, context?: ICodingQualityContext): ICodingQualityAssessment {
     const text = this.extractText(output);
-    const codeQuality = this.calculateCodeQuality(text, context);
-    const completeness = this.calculateCompleteness(text, context);
-    const structuralIntegrity = this.calculateStructuralIntegrity(text);
-    const documentationScore = this.calculateDocumentation(text);
-    const testCoverage = this.calculateTestCoverage(text, context);
+    const isDoc = context?.isDocumentAgent ?? false;
+
+    let codeQuality: number, completeness: number, structuralIntegrity: number,
+        documentationScore: number, testCoverage: number;
+
+    if (isDoc) {
+      codeQuality = this.calculateContentDepth(text, context);
+      completeness = this.calculateDocumentCompleteness(text, context);
+      structuralIntegrity = this.calculateDesignRigor(text);
+      documentationScore = this.calculateDocumentStructure(text);
+      testCoverage = this.calculateActionability(text);
+    } else {
+      codeQuality = this.calculateCodeQuality(text, context);
+      completeness = this.calculateCompleteness(text, context);
+      structuralIntegrity = this.calculateStructuralIntegrity(text);
+      documentationScore = this.calculateDocumentation(text);
+      testCoverage = this.calculateTestCoverage(text, context);
+    }
 
     const rawTotal = codeQuality + completeness + structuralIntegrity + documentationScore + testCoverage;
     const phaseWeight = CODING_PHASE_WEIGHTS[context?.phase ?? 4] ?? 1.0;
@@ -617,6 +689,230 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
     return Math.min(0.10, score);
   }
 
+  // ==========================================================================
+  // Document-mode scoring methods (for non-implementation agents)
+  // ==========================================================================
+
+  /**
+   * Calculate content depth for document agents (max 0.30)
+   * Replaces calculateCodeQuality — measures substance via word count
+   */
+  private calculateContentDepth(text: string, context?: ICodingQualityContext): number {
+    const wordCount = this.countWords(text);
+    let score = 0;
+    for (const tier of DOCUMENT_DEPTH_TIERS) {
+      if (wordCount >= tier.minWords) score = tier.score;
+      else break;
+    }
+    // Min-length penalty: if below expected min, scale down
+    if (context?.agentKey) {
+      const expectedMin = context.expectedMinLength
+        ? Math.floor(context.expectedMinLength / 5)  // chars to words approximation
+        : undefined;
+      if (expectedMin && wordCount < expectedMin) {
+        score = score * (0.7 + (0.3 * wordCount / expectedMin));
+      }
+    }
+    // Critical agent penalty if too short
+    if (context?.isCriticalAgent && wordCount < 200) score *= 0.8;
+    return Math.min(0.30, score);
+  }
+
+  /**
+   * Calculate document completeness (max 0.25)
+   * Replaces calculateCompleteness — agent-specific section coverage
+   */
+  private calculateDocumentCompleteness(text: string, context?: ICodingQualityContext): number {
+    let score = 0;
+    const lowerText = text.toLowerCase();
+
+    // Agent expected sections (0.12 max)
+    const expectedSections = context?.agentKey && DOCUMENT_EXPECTED_SECTIONS[context.agentKey]
+      ? DOCUMENT_EXPECTED_SECTIONS[context.agentKey]
+      : (context?.agentKey && CODING_EXPECTED_OUTPUTS[context.agentKey]
+        ? CODING_EXPECTED_OUTPUTS[context.agentKey]
+        : ['analysis', 'recommendation', 'summary', 'finding', 'conclusion']);
+    const foundCount = expectedSections.filter(s => lowerText.includes(s)).length;
+    score += (foundCount / expectedSections.length) * 0.12;
+
+    // Document structural elements (0.06 max)
+    if (/^##?\s+/m.test(text)) score += 0.02;          // Has headers
+    if (/^###\s+/m.test(text)) score += 0.01;           // Has sub-sections
+    if (/\|[\s-]+\|/.test(text)) score += 0.02;         // Has tables
+    if (/```[\s\S]*?```/.test(text)) score += 0.01;     // Has code examples
+
+    // Completion indicators (0.04 max)
+    const completionPatterns = [
+      /task\s+complet/i, /summary/i, /conclusion/i,
+      /recommendation/i, /next\s+step/i, /deliverable/i,
+    ];
+    const completionCount = completionPatterns.filter(p => p.test(text)).length;
+    if (completionCount >= 1) score += 0.02;
+    if (completionCount >= 3) score += 0.02;
+
+    // Cross-references (0.03 max)
+    const crossRefPatterns = [
+      /see\s+(above|below|section)/i,
+      /as\s+(mentioned|described|defined)\s+(above|earlier)/i,
+      /refer\s+to/i, /downstream/i, /upstream/i,
+    ];
+    const crossRefCount = crossRefPatterns.filter(p => p.test(text)).length;
+    if (crossRefCount >= 1) score += 0.01;
+    if (crossRefCount >= 2) score += 0.01;
+    if (crossRefCount >= 3) score += 0.01;
+
+    return Math.min(0.25, score);
+  }
+
+  /**
+   * Calculate design rigor (max 0.20)
+   * Replaces calculateStructuralIntegrity — measures analytical depth
+   */
+  private calculateDesignRigor(text: string): number {
+    let score = 0;
+
+    // Decision rationale (0.06 max)
+    const decisionPatterns = [
+      /trade.?off/i, /alternative/i, /rationale/i,
+      /decision/i, /chose|chosen|selected\s+(?:because|due|for)/i,
+      /pros?\s+(?:and|&)\s+cons?/i, /comparison/i,
+    ];
+    const decisionCount = decisionPatterns.filter(p => p.test(text)).length;
+    if (decisionCount >= 1) score += 0.02;
+    if (decisionCount >= 3) score += 0.02;
+    if (decisionCount >= 5) score += 0.02;
+
+    // Constraints/requirements (0.04 max)
+    const constraintPatterns = [
+      /constraint/i, /requirement/i,
+      /must\s+(?:be|have|support|ensure)/i,
+      /shall\s+/i, /should\s+/i,
+    ];
+    const constraintCount = constraintPatterns.filter(p => p.test(text)).length;
+    if (constraintCount >= 2) score += 0.02;
+    if (constraintCount >= 4) score += 0.02;
+
+    // Dependencies/relationships (0.04 max)
+    const depPatterns = [
+      /depend(?:s|ency|encies)/i, /relationship/i,
+      /coupling/i, /cohesion/i, /interaction/i,
+      /communicat(?:es?|ion)/i, /integrat(?:es?|ion)/i,
+    ];
+    const depCount = depPatterns.filter(p => p.test(text)).length;
+    if (depCount >= 2) score += 0.02;
+    if (depCount >= 4) score += 0.02;
+
+    // Risk/mitigation (0.03 max)
+    const riskPatterns = [
+      /risk/i, /mitigat/i, /failure/i,
+      /fallback/i, /recovery/i, /contingency/i,
+    ];
+    const riskCount = riskPatterns.filter(p => p.test(text)).length;
+    if (riskCount >= 1) score += 0.01;
+    if (riskCount >= 3) score += 0.02;
+
+    // Design patterns mentioned (0.03 max)
+    const patternIndicators = [
+      /pattern/i, /architecture/i, /design/i,
+      /separation\s+of\s+concern/i, /modularity/i,
+      /abstraction/i, /encapsulation/i,
+    ];
+    const patternCount = patternIndicators.filter(p => p.test(text)).length;
+    if (patternCount >= 1) score += 0.01;
+    if (patternCount >= 3) score += 0.02;
+
+    return Math.min(0.20, score);
+  }
+
+  /**
+   * Calculate document structure quality (max 0.15)
+   * Replaces calculateDocumentation — measures formatting quality
+   */
+  private calculateDocumentStructure(text: string): number {
+    let score = 0;
+
+    // Header hierarchy (0.05 max)
+    if (/^#\s+[^\n]+/m.test(text)) score += 0.02;
+    if (/^##\s+[^\n]+/m.test(text)) score += 0.02;
+    if (/^###\s+[^\n]+/m.test(text)) score += 0.01;
+
+    // Paragraph density (0.04 max)
+    const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 50).length;
+    if (paragraphs >= 3) score += 0.01;
+    if (paragraphs >= 6) score += 0.01;
+    if (paragraphs >= 10) score += 0.01;
+    if (paragraphs >= 20) score += 0.01;
+
+    // Formatting richness (0.04 max)
+    if (/\*\*[^*]+\*\*/.test(text)) score += 0.01;      // Bold
+    if (/`[^`\n]+`/.test(text)) score += 0.01;           // Inline code
+    if (/^\s*[-*]\s+/m.test(text)) score += 0.01;        // Bullet lists
+    if (/^\s*\d+\.\s+/m.test(text)) score += 0.01;       // Numbered lists
+
+    // Tables (0.02 max)
+    if (/\|[\s-]+\|/.test(text)) score += 0.02;
+
+    return Math.min(0.15, score);
+  }
+
+  /**
+   * Calculate actionability for downstream agents (max 0.10)
+   * Replaces calculateTestCoverage — measures usefulness for next agents
+   */
+  private calculateActionability(text: string): number {
+    let score = 0;
+
+    // Clear deliverables (0.04 max)
+    const deliverablePatterns = [
+      /files?\s+(?:created|modified|generated)/i,
+      /output/i, /deliverable/i, /artifact/i,
+      /implementation\s+(?:plan|guide|spec)/i,
+    ];
+    const deliverableCount = deliverablePatterns.filter(p => p.test(text)).length;
+    if (deliverableCount >= 1) score += 0.02;
+    if (deliverableCount >= 3) score += 0.02;
+
+    // Next-step / handoff guidance (0.04 max)
+    const handoffPatterns = [
+      /downstream/i, /next\s+(?:agent|step|phase)/i,
+      /for\s+(?:implementation|testing|review)/i,
+      /handoff/i, /guidance/i,
+      /(?:should|must|will)\s+(?:implement|create|build|test)/i,
+    ];
+    const handoffCount = handoffPatterns.filter(p => p.test(text)).length;
+    if (handoffCount >= 1) score += 0.02;
+    if (handoffCount >= 3) score += 0.02;
+
+    // Specificity — contains specific identifiers/names (0.02 max)
+    const specificityPatterns = [
+      /`[A-Za-z]\w+`/,                  // Inline code identifiers
+      /(?:class|function|method|file|module|endpoint)\s+\w+/i,
+      /\.(?:ts|py|js|json|yaml|sql)\b/,  // File extensions
+    ];
+    const specificityCount = specificityPatterns.filter(p => p.test(text)).length;
+    if (specificityCount >= 1) score += 0.01;
+    if (specificityCount >= 2) score += 0.01;
+
+    return Math.min(0.10, score);
+  }
+
+  /**
+   * Count words in text, stripping code blocks, inline code, and markdown formatting
+   */
+  private countWords(text: string): number {
+    const clean = text
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/`[^`]+`/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/[#*_~`]/g, '')
+      .trim();
+    return clean ? clean.split(/\s+/).filter(w => w.length > 0).length : 0;
+  }
+
+  // ==========================================================================
+  // Code-mode scoring methods (for implementation agents)
+  // ==========================================================================
+
   /**
    * Extract text content from various output formats
    */
@@ -685,13 +981,21 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
    */
   private generateSummary(breakdown: ICodingQualityBreakdown, context?: ICodingQualityContext): string {
     const tier = this.determineTier(breakdown.total);
-    const factors = [
+    const isDoc = context?.isDocumentAgent ?? false;
+    const factors = isDoc ? [
+      { name: 'Depth', value: breakdown.codeQuality, max: 0.30 },
+      { name: 'Complete', value: breakdown.completeness, max: 0.25 },
+      { name: 'Rigor', value: breakdown.structuralIntegrity, max: 0.20 },
+      { name: 'Structure', value: breakdown.documentationScore, max: 0.15 },
+      { name: 'Action', value: breakdown.testCoverage, max: 0.10 },
+    ] : [
       { name: 'Code', value: breakdown.codeQuality, max: 0.30 },
       { name: 'Complete', value: breakdown.completeness, max: 0.25 },
       { name: 'Structure', value: breakdown.structuralIntegrity, max: 0.20 },
       { name: 'Docs', value: breakdown.documentationScore, max: 0.15 },
       { name: 'Tests', value: breakdown.testCoverage, max: 0.10 },
-    ].sort((a, b) => (b.value / b.max) - (a.value / a.max));
+    ];
+    factors.sort((a, b) => (b.value / b.max) - (a.value / a.max));
 
     const parts = [
       `Quality: ${tier} (${(breakdown.total * 100).toFixed(1)}%)`,
@@ -746,5 +1050,6 @@ export function createCodingQualityContext(agentKey: string, phase?: number): IC
     expectedMinLength: CODING_AGENT_MIN_LENGTHS[agentKey],
     isCriticalAgent: CRITICAL_CODING_AGENTS.includes(agentKey),
     isImplementationAgent: IMPLEMENTATION_AGENTS.includes(agentKey),
+    isDocumentAgent: !IMPLEMENTATION_AGENTS.includes(agentKey),
   };
 }
