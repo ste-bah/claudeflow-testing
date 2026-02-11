@@ -5,17 +5,25 @@
  * Each command returns a SINGLE agent (not a batch array).
  * Forces enableParallelExecution: false so every batch has exactly 1 agent.
  *
+ * Features:
+ *   - Dynamic quality scoring via CodingQualityCalculator (not hardcoded 0.8)
+ *   - XP rewards per PRD Section 7.3
+ *   - DESC injection with pre-vetting via InjectionFilter
+ *   - SONA pattern injection from SonaEngine
+ *   - Post-execution DESC episode storage for future retrieval
+ *
  * Commands:
- *   init "<task>"              - Initialize session, return first agent
- *   next <sessionId>           - Get next agent (or status: "complete")
- *   complete <sessionId> <key> - Mark one agent done
- *   status <sessionId>         - Show progress
- *   resume <sessionId>         - Get current agent without advancing
+ *   init "<task>"                              - Initialize session, return first agent
+ *   next <sessionId>                           - Get next agent with DESC/SONA augmentation
+ *   complete <sessionId> <key> [--file <path>] - Mark agent done with dynamic quality
+ *   status <sessionId>                         - Show progress + XP summary
+ *   resume <sessionId>                         - Get current agent without advancing
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import { UniversalAgent } from '../universal/universal-agent.js';
 import type { IBatchExecutionResult } from '../core/pipeline/coding-pipeline-types.js';
+import { CodingQualityCalculator, createCodingQualityContext, IMPLEMENTATION_AGENTS } from './coding-quality-calculator.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -33,6 +41,72 @@ async function createSequentialOrchestrator() {
 }
 
 /** Unwrap single-agent batch response into PhD-style output */
+// ─────────────────────────────────────────────────────────────────────────────
+// MODEL ASSIGNMENT: Explicit model per agent to prevent cost-optimization downgrades
+// ─────────────────────────────────────────────────────────────────────────────
+const AGENT_MODEL_MAP: Record<string, 'opus' | 'sonnet' | 'haiku'> = {
+  // Phase 1: Understanding
+  'task-analyzer': 'opus',            // pipeline entry — sets the entire direction
+  'requirement-extractor': 'sonnet',
+  'requirement-prioritizer': 'sonnet',
+  'scope-definer': 'sonnet',
+  'context-gatherer': 'sonnet',
+  'feasibility-analyzer': 'opus',     // critical go/no-go decision
+  // Phase 2: Exploration
+  'pattern-explorer': 'sonnet',
+  'technology-scout': 'sonnet',
+  'research-planner': 'sonnet',
+  'codebase-analyzer': 'opus',        // deep codebase understanding drives everything
+  // Phase 3: Architecture — opus (critical design decisions shape all implementation)
+  'system-designer': 'opus',
+  'component-designer': 'opus',
+  'interface-designer': 'opus',
+  'data-architect': 'opus',
+  'integration-architect': 'opus',
+  // Phase 4: Implementation — opus for core, sonnet for support
+  'code-generator': 'opus',           // primary code author
+  'type-implementer': 'sonnet',
+  'unit-implementer': 'opus',         // core business logic
+  'service-implementer': 'opus',      // core business logic
+  'data-layer-implementer': 'opus',   // data access patterns matter
+  'api-implementer': 'opus',          // public API surface
+  'frontend-implementer': 'sonnet',
+  'error-handler-implementer': 'sonnet',
+  'config-implementer': 'haiku',      // boilerplate config
+  'logger-implementer': 'haiku',      // boilerplate logging
+  'dependency-manager': 'haiku',      // package management
+  'implementation-coordinator': 'opus', // orchestrates all implementation
+  // Phase 5: Testing
+  'test-generator': 'opus',           // test quality = code quality
+  'test-runner': 'haiku',             // executing tests, reading output
+  'integration-tester': 'sonnet',
+  'regression-tester': 'sonnet',
+  'security-tester': 'opus',          // security analysis needs deep reasoning
+  'coverage-analyzer': 'haiku',       // reading coverage reports
+  'quality-gate': 'haiku',            // checking metrics against thresholds
+  'test-fixer': 'opus',               // debugging requires deep reasoning
+  // Phase 6: Optimization
+  'performance-optimizer': 'sonnet',
+  'performance-architect': 'sonnet',
+  'code-quality-improver': 'sonnet',
+  'security-architect': 'opus',       // security architecture is critical
+  'final-refactorer': 'sonnet',
+  // Phase 7: Delivery
+  'sign-off-approver': 'opus',        // final approval — highest judgment needed
+  'recovery-agent': 'opus',           // failure diagnosis needs deep reasoning
+  // Phase reviewers — haiku (checking, not creating)
+  'phase-1-reviewer': 'haiku',
+  'phase-2-reviewer': 'haiku',
+  'phase-3-reviewer': 'haiku',
+  'phase-4-reviewer': 'haiku',
+  'phase-5-reviewer': 'haiku',
+  'phase-6-reviewer': 'haiku',
+};
+
+function getAgentModel(agentKey: string): 'opus' | 'sonnet' | 'haiku' {
+  return AGENT_MODEL_MAP[agentKey] || 'sonnet'; // default to sonnet for unknown agents
+}
+
 function formatAgentResponse(batchResponse: {
   sessionId: string;
   status: string;
@@ -73,6 +147,7 @@ function formatAgentResponse(batchResponse: {
     agent: {
       key: agent.key,
       prompt: agent.prompt,
+      model: getAgentModel(agent.key),
     },
     progress: {
       completed: batchResponse.completedAgents,
@@ -129,7 +204,8 @@ export async function init(task: string): Promise<void> {
 }
 
 /**
- * Get the next agent to execute.
+ * Get the next agent to execute with DESC/SONA prompt augmentation.
+ * DESC episodes are pre-vetted via InjectionFilter before injection.
  * Returns a single agent object or status: "complete".
  */
 export async function next(sessionId: string): Promise<void> {
@@ -137,28 +213,273 @@ export async function next(sessionId: string): Promise<void> {
   const { orchestrator } = await createSequentialOrchestrator();
 
   const batchResponse = await orchestrator.getNextBatch(sessionId);
+
+  if (batchResponse.status !== 'complete' && batchResponse.batch[0]) {
+    let prompt = batchResponse.batch[0].prompt;
+    const agentKey = batchResponse.batch[0].key;
+
+    // DESC injection with pre-vetting (graceful — if UCM unavailable, continue without)
+    try {
+      const { getUCMClient } = await import('./ucm-daemon-client.js');
+      const ucmClient = getUCMClient();
+      if (await ucmClient.isHealthy()) {
+        // Step 1: Retrieve candidates (not inject) — get raw episodes with metadata
+        const candidates = await ucmClient.retrieveSimilar(prompt, {
+          threshold: 0.80,
+          maxResults: 5,
+        });
+
+        if (candidates.length > 0) {
+          // Step 2: Pre-vet each candidate with InjectionFilter
+          const { InjectionFilter } = await import('../core/ucm/desc/injection-filter.js');
+          const filter = new InjectionFilter();
+          const taskContext = {
+            agentId: agentKey,
+            pipelineName: 'coding-pipeline',
+            task: prompt.substring(0, 500),
+            metadata: {},
+          };
+
+          const vetted = candidates.filter(candidate => {
+            const episode = {
+              episodeId: candidate.episodeId,
+              queryText: '',
+              answerText: candidate.answerText,
+              queryChunkEmbeddings: [] as Float32Array[],
+              answerChunkEmbeddings: [] as Float32Array[],
+              queryChunkCount: 0,
+              answerChunkCount: 0,
+              createdAt: candidate.metadata?.storedAt
+                ? new Date(candidate.metadata.storedAt as string)
+                : new Date(),
+              metadata: candidate.metadata,
+            };
+
+            const decision = filter.shouldInject(episode, candidate.maxSimilarity, taskContext);
+
+            // Additional quality gate: reject if stored quality < 0.50
+            const storedQuality = candidate.metadata?.quality as number | undefined;
+            if (storedQuality !== undefined && storedQuality < 0.50) {
+              console.error(`[DESC-VET] Rejected ${candidate.episodeId}: low quality (${storedQuality})`);
+              return false;
+            }
+
+            if (!decision.inject) {
+              console.error(`[DESC-VET] Rejected ${candidate.episodeId}: ${decision.reason}`);
+            }
+            return decision.inject;
+          });
+
+          // Step 3: Build augmented prompt with vetted episodes + confidence metadata
+          if (vetted.length > 0) {
+            const toInject = vetted.slice(0, 3);
+            prompt += '\n\n---\n# Relevant Prior Solutions (vetted)\n';
+            prompt += 'These solutions passed quality and relevance vetting. ';
+            prompt += 'Evaluate their applicability to your specific context.\n';
+
+            for (let idx = 0; idx < toInject.length; idx++) {
+              const ep = toInject[idx];
+              const quality = ep.metadata?.quality as number | undefined;
+              const qualityLabel = quality !== undefined
+                ? ` | quality: ${(quality * 100).toFixed(0)}%`
+                : '';
+              prompt += `\n## Prior Solution ${idx + 1} (similarity: ${ep.maxSimilarity.toFixed(2)}${qualityLabel})\n`;
+              prompt += ep.answerText;
+            }
+            prompt += '\n---\n';
+
+            console.error(`[DESC] Injected ${toInject.length} vetted solutions (${candidates.length - vetted.length} rejected)`);
+          } else {
+            console.error(`[DESC] ${candidates.length} candidates retrieved, 0 passed vetting`);
+          }
+        }
+      }
+    } catch { /* optional — DESC unavailable is not an error */ }
+
+    // SONA pattern injection (graceful)
+    try {
+      const { SonaEngine } = await import('../core/learning/sona-engine.js');
+      const engine = new SonaEngine();
+      await engine.initialize();
+      const allPatterns = engine.getPatterns();
+      // Filter to high-quality patterns and take top 3 by sonaWeight
+      const patterns = allPatterns
+        .filter(p => (p.quality ?? 0) > 0.5)
+        .sort((a, b) => (b.sonaWeight ?? 0) - (a.sonaWeight ?? 0))
+        .slice(0, 3);
+      if (patterns.length > 0) {
+        prompt += '\n\n## LEARNED PATTERNS (from past successful executions)\n';
+        prompt += 'The following patterns have been learned from high-quality past outputs:\n\n';
+        for (const p of patterns) {
+          const confidence = p.sonaWeight ?? p.quality ?? 0;
+          const description = p.metadata?.description || p.taskType || p.id;
+          prompt += `- **${p.id}** (confidence: ${Math.round(confidence * 100)}%): ${description}\n`;
+        }
+        prompt += '\nConsider these patterns when executing your task.\n';
+        console.error(`[SONA] Injected ${patterns.length} learned patterns for ${agentKey}`);
+      }
+    } catch { /* optional */ }
+
+    batchResponse.batch[0].prompt = prompt;
+  }
+
   console.log(JSON.stringify(formatAgentResponse(batchResponse), null, 2));
 }
 
 /**
- * Mark a single agent as complete.
- * Takes the agent key as argument (like phd-cli: complete <sessionId> <agentKey>).
+ * Mark a single agent as complete with dynamic quality scoring and XP rewards.
+ * Accepts --file <path> to read actual agent output for quality assessment.
  */
-export async function complete(sessionId: string, agentKey: string): Promise<void> {
+export async function complete(
+  sessionId: string, agentKey: string,
+  options?: { file?: string }
+): Promise<void> {
   console.error(`[complete] Marking ${agentKey} done...`);
   const { orchestrator } = await createSequentialOrchestrator();
+  const fsP = (await import('fs')).promises;
 
-  // Build a proper result (fixes the bug where old CLI passed empty results)
+  // 1. Read agent output (from --file or fallback)
+  let output = `Agent ${agentKey} completed via CLI`;
+  if (options?.file) {
+    try {
+      output = await fsP.readFile(options.file, 'utf-8');
+      console.error(`[complete] Read ${output.length} chars from ${options.file}`);
+    } catch {
+      console.error(`[complete] Warning: could not read ${options.file}, using default output`);
+    }
+  }
+
+  // 2. For implementation agents, also read the actual source files they produced
+  let scoringOutput = output;
+  if (IMPLEMENTATION_AGENTS.includes(agentKey)) {
+    const filePathPattern = /[`'"]\s*([./\w-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\s*[`'"]/g;
+    const mentioned = new Set<string>();
+    let match: RegExpExecArray | null;
+    while ((match = filePathPattern.exec(output)) !== null) {
+      mentioned.add(match[1]);
+    }
+    if (mentioned.size > 0) {
+      const codeParts: string[] = [output];
+      for (const filePath of mentioned) {
+        try {
+          const content = await fsP.readFile(filePath, 'utf-8');
+          codeParts.push(`\n\n// === FILE: ${filePath} ===\n${content}`);
+        } catch {
+          // File doesn't exist or isn't readable — skip silently
+        }
+      }
+      if (codeParts.length > 1) {
+        scoringOutput = codeParts.join('');
+        console.error(`[complete] Augmented scoring with ${codeParts.length - 1} source file(s) from ${mentioned.size} mentioned`);
+      }
+    }
+  }
+
+  // 3. Read session to get phase index
+  const sessionData = JSON.parse(
+    await fsP.readFile(`.god-agent/coding-sessions/${sessionId}.json`, 'utf-8')
+  );
+  const phase = (sessionData.currentPhaseIndex ?? 0) + 1;
+
+  // 4. Dynamic quality scoring
+  const calculator = new CodingQualityCalculator();
+  const context = createCodingQualityContext(agentKey, phase);
+  const assessment = calculator.assessQuality(scoringOutput, context);
+  console.error(`[complete] Quality: ${assessment.score.toFixed(2)} (${assessment.tier}) | ${assessment.summary}`);
+
+  // 5. Calculate XP rewards
+  const xp = calculateXP(assessment.score, assessment.tier, sessionData, agentKey);
+
+  // 6. Submit to orchestrator with real quality
   const results: IBatchExecutionResult[] = [{
     agentKey,
     success: true,
-    output: `Agent ${agentKey} completed via CLI`,
-    quality: 0.8,
+    output,
+    quality: assessment.score,
     duration: 0,
   }];
-
   await orchestrator.markBatchComplete(sessionId, results);
-  console.log(JSON.stringify({ success: true, agentKey, sessionId }, null, 2));
+
+  // 7. Persist XP to session file
+  const updatedSession = JSON.parse(
+    await fsP.readFile(`.god-agent/coding-sessions/${sessionId}.json`, 'utf-8')
+  );
+  if (!updatedSession.xp) updatedSession.xp = { total: 0, breakdown: [] };
+  updatedSession.xp.total += xp.total;
+  updatedSession.xp.breakdown.push({
+    agentKey, phase, quality: assessment.score, tier: assessment.tier,
+    rewards: xp.rewards, total: xp.total, timestamp: Date.now(),
+  });
+  await fsP.writeFile(
+    `.god-agent/coding-sessions/${sessionId}.json`,
+    JSON.stringify(updatedSession, null, 2)
+  );
+
+  // 8. Store as DESC episode for future injection (quality > 0.50 only)
+  if (assessment.score > 0.50 && output.length > 100) {
+    try {
+      const { getUCMClient } = await import('./ucm-daemon-client.js');
+      const ucmClient = getUCMClient();
+      if (await ucmClient.isHealthy()) {
+        const sessionPrompt = sessionData.batches?.[sessionData.currentPhaseIndex]
+          ?.[sessionData.currentBatchIndex]?.[0]?.prompt || agentKey;
+        await ucmClient.storeEpisode(sessionPrompt, output, {
+          agentKey, phase,
+          quality: assessment.score,
+          tier: assessment.tier,
+          contentType: 'code',
+          storedAt: new Date().toISOString(),
+          sessionId,
+          pipelineName: 'coding-pipeline',
+        });
+        console.error(`[DESC] Stored episode for ${agentKey} (quality: ${assessment.score.toFixed(2)})`);
+      }
+    } catch { /* optional — DESC unavailable is not an error */ }
+  }
+
+  // 8. Output with quality + XP
+  console.log(JSON.stringify({
+    success: true, agentKey, sessionId,
+    quality: { score: assessment.score, tier: assessment.tier },
+    xp: { earned: xp.total, rewards: xp.rewards, sessionTotal: updatedSession.xp.total },
+  }, null, 2));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// XP CALCULATION (PRD Section 7.3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface XPResult {
+  total: number;
+  rewards: Record<string, number>;
+}
+
+function calculateXP(
+  quality: number, _tier: string,
+  session: { completedAgents?: Array<{ agentKey?: string }> },
+  agentKey: string
+): XPResult {
+  const rewards: Record<string, number> = {};
+
+  // Task Completion: 100 XP (always, if successful)
+  rewards.task_completion = 100;
+
+  // Quality Bonus: 50 XP (exceed quality gate threshold of 0.80)
+  if (quality > 0.80) rewards.quality_bonus = 50;
+
+  // First-Time Success: 75 XP (agent not previously completed in this session)
+  const completedKeys = (session.completedAgents || []).map(
+    (a: { agentKey?: string }) => a.agentKey || a
+  );
+  if (!completedKeys.includes(agentKey)) {
+    rewards.first_time_success = 75;
+  }
+
+  // Pattern Contribution: 30 XP (quality > 0.80 triggers SonaEngine pattern creation)
+  if (quality > 0.80) rewards.pattern_contribution = 30;
+
+  const total = Object.values(rewards).reduce((sum, v) => sum + v, 0);
+  return { total, rewards };
 }
 
 /**
@@ -174,7 +495,7 @@ export async function resume(sessionId: string): Promise<void> {
 }
 
 /**
- * Show session status (fast — reads disk directly, no agent init).
+ * Show session status with XP summary (fast — reads disk directly, no agent init).
  */
 export async function status(sessionId: string): Promise<void> {
   const { promises: fs } = await import('fs');
@@ -188,6 +509,16 @@ export async function status(sessionId: string): Promise<void> {
       ? data.batches[data.currentPhaseIndex]?.[data.currentBatchIndex]?.[0]?.agentKey || null
       : null;
 
+    // XP summary
+    const xpBreakdown: Array<{ quality: number; total: number; agentKey: string }> = data.xp?.breakdown || [];
+    const avgQuality = xpBreakdown.length > 0
+      ? xpBreakdown.reduce((sum: number, b: { quality: number }) => sum + b.quality, 0) / xpBreakdown.length
+      : 0;
+    const topAgent = xpBreakdown.length > 0
+      ? xpBreakdown.reduce((best: { total: number; agentKey: string }, b: { total: number; agentKey: string }) =>
+          b.total > best.total ? b : best, xpBreakdown[0])
+      : null;
+
     console.log(JSON.stringify({
       sessionId: data.sessionId,
       status: data.status,
@@ -196,6 +527,12 @@ export async function status(sessionId: string): Promise<void> {
       completedAgents: data.completedAgents.length,
       totalAgents: total,
       percentage: Math.round((data.completedAgents.length / total) * 100),
+      xp: {
+        total: data.xp?.total || 0,
+        agentsScored: xpBreakdown.length,
+        avgQuality: avgQuality.toFixed(2),
+        topAgent: topAgent ? { key: topAgent.agentKey, xp: topAgent.total } : null,
+      },
     }, null, 2));
   } catch {
     console.error(`Session not found: ${sessionPath}`);
@@ -214,6 +551,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const fail = (msg: string) => { console.error(msg); process.exit(1); };
 
+  // Parse --file flag from remaining args (for complete command)
+  const parseFileFlag = (): string | undefined => {
+    const args = process.argv.slice(5);
+    const fileIdx = args.indexOf('--file');
+    return fileIdx >= 0 && args[fileIdx + 1] ? args[fileIdx + 1] : undefined;
+  };
+
   switch (command) {
     case 'init':
       if (!arg1) fail('Usage: coding-pipeline-cli.ts init "<task>"');
@@ -225,10 +569,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       next(arg1).catch(e => { console.error('Error:', e); process.exit(1); });
       break;
 
-    case 'complete':
-      if (!arg1 || !arg2) fail('Usage: coding-pipeline-cli.ts complete <sessionId> <agentKey>');
-      complete(arg1, arg2).catch(e => { console.error('Error:', e); process.exit(1); });
+    case 'complete': {
+      if (!arg1 || !arg2) fail('Usage: coding-pipeline-cli.ts complete <sessionId> <agentKey> [--file <path>]');
+      const file = parseFileFlag();
+      complete(arg1, arg2, file ? { file } : undefined).catch(e => { console.error('Error:', e); process.exit(1); });
       break;
+    }
 
     case 'resume':
       if (!arg1) fail('Usage: coding-pipeline-cli.ts resume <sessionId>');
