@@ -164,9 +164,11 @@ npx claude-flow@alpha memory store -k "coding/testing/regression-analysis" -v '{
 ```bash
 # Create .pipeline-state directory if needed
 mkdir -p [target-dir]/.pipeline-state
+```
 
-# Write new baseline
-cat > [target-dir]/.pipeline-state/test-baseline.json << 'EOF'
+**Use the Write tool** to create `[target-dir]/.pipeline-state/test-baseline.json` with content:
+
+```json
 {
   "testsTotal": [CURRENT_TOTAL],
   "testsPassed": [CURRENT_PASSED],
@@ -182,10 +184,13 @@ cat > [target-dir]/.pipeline-state/test-baseline.json << 'EOF'
   "version": "[PROJECT_VERSION]",
   "updatedBy": "regression-detector"
 }
-EOF
+```
 
+**IMPORTANT: NEVER use `cat << 'EOF'` heredoc to write files. ALWAYS use the Write tool.**
+
+```bash
 # Also store in memory for cross-session access
-npx claude-flow@alpha memory store -k "coding/testing/baseline" -v "$(cat [target-dir]/.pipeline-state/test-baseline.json)"
+npx claude-flow@alpha memory store -k "coding/testing/baseline" --value "$(cat [target-dir]/.pipeline-state/test-baseline.json)"
 ```
 
 ## FAILURE CONDITIONS

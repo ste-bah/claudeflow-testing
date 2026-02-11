@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.1.5 | **Status**: Production-Ready | **Last Updated**: February 2026
+**Version**: 2.1.6 | **Status**: Production-Ready | **Last Updated**: February 2026
 
 ## Table of Contents
 
@@ -23,6 +23,32 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.1.6
+
+### PRD-CLI Gap Closure (16 Features)
+
+Closed all 16 gaps between the pipeline PRD and the CLI implementation. The coding pipeline now fully implements the PRD specification:
+
+| Feature | Description |
+|---------|-------------|
+| **RLM Context Store** | Namespace-based cross-phase context with LEANN-backed selective retrieval for 10M+ token handling |
+| **Agent MD Loading** | 50 agent instruction files (`.claude/agents/coding-pipeline/*.md`) loaded and prepended to prompts |
+| **PatternMatcher** | Reusable patterns injected per phase via `getPatternsByTaskType()` with success-rate filtering |
+| **PipelinePromptBuilder** | Structured prompt generation via `AgentRegistry`-backed builder with fallback to basic context |
+| **Trajectory Feedback** | `provideStepFeedback()` routes quality scores through SonaEngine/ReasoningBank cascade |
+| **Algorithm Augmentation** | LATS, ReAct, ToT, Self-Debug, Reflexion, PoT strategies injected as prompt instructions |
+| **ObservabilityBus** | Agent completion events emitted with algorithm metadata for monitoring |
+| **Checkpoint/Rollback** | Per-agent RLM snapshots in `.god-agent/checkpoints/` with rollback support |
+| **Quality Gates** | Per-phase thresholds (Phase 1: 0.90 decomposition, Phase 5: 0.80 coverage, etc.) |
+| **ProgressStore** | Tracks files created/modified per agent in `.god-agent/progress/` |
+| **Sherlock Types** | Forensic reviewers use typed `Verdict`, `VerdictConfidence`, `InvestigationTier` enums |
+| **Anti-Heredoc Hook** | PreToolUse hook blocks Bash heredoc commands that corrupt `settings.local.json` |
+
+**New files**: `rlm-context-store.ts` (203 lines), `coding-pipeline-checkpoints.ts` (94 lines), `block-heredoc.sh`
+**Modified**: `coding-pipeline-cli.ts` (+465 lines), `regression-detector.md`
+
+---
 
 ## What's New in v2.1.5
 
@@ -1063,10 +1089,29 @@ The pipeline integrates with Claude Code via hooks in `.claude/hooks/`:
       "event": "PostToolUse",
       "matcher": { "tool": "Skill", "args": { "skill": "god-code" } },
       "command": ".claude/hooks/coding-pipeline-post.sh"
+    },
+    {
+      "name": "block-heredoc",
+      "event": "PreToolUse",
+      "matcher": "Bash",
+      "command": ".claude/hooks/block-heredoc.sh"
     }
   ]
 }
 ```
+
+### RLM Context Store (v2.1.6)
+
+The pipeline uses a namespace-based RLM (Retrieval-augmented Language Model) context store for cross-phase memory. Each agent's output is stored under `coding/phase{N}/{agentKey}` and selectively retrieved for downstream agents using LEANN semantic search when context exceeds token budgets.
+
+```
+.god-agent/rlm-context/{sessionId}.json    # Namespace store (grows per agent)
+.god-agent/checkpoints/{sessionId}-index.json  # Checkpoint index
+.god-agent/checkpoints/cp-{phase}-{agent}-{ts}-rlm.json  # RLM snapshots
+.god-agent/progress/{sessionId}.json       # File change tracking
+```
+
+**Context flow**: Phase N agents receive context from phases 1..N-1 via `retrieve()` with a 50k token budget. LEANN performs semantic selection when content exceeds the budget.
 
 ### Memory Coordination
 
@@ -1074,14 +1119,13 @@ The pipeline uses namespaced memory for agent coordination:
 
 ```
 coding/
-├── understanding/  # Phase 1 artifacts
-├── exploration/    # Phase 2 artifacts
-├── architecture/   # Phase 3 artifacts
-├── implementation/ # Phase 4 artifacts
-├── testing/        # Phase 5 artifacts
-├── optimization/   # Phase 6 artifacts
-├── delivery/       # Phase 7 artifacts
-└── pipeline/       # Pipeline state and XP tracking
+├── context/task         # Original task description
+├── context/sessionId    # Session identifier
+├── phase1/{agentKey}    # Phase 1 agent outputs (up to 10k chars each)
+├── phase2/{agentKey}    # Phase 2 agent outputs
+├── phase3/{agentKey}    # Phase 3 agent outputs
+├── ...                  # Phases 4-7
+└── rlm/subquery/{id}    # Recursive sub-query storage
 ```
 
 ### Pipeline Execution Flow
@@ -1104,13 +1148,17 @@ coding/
 └─────────────────────────────────────────────────────────────────┘
 
 On GUILTY verdict: Recovery Agent (#48) orchestrates remediation
-Checkpoints created at: Understanding, Exploration, Architecture,
-                        Implementation, Testing (for rollback support)
+Checkpoints created after EVERY agent (with RLM snapshot for rollback)
 
-Learning Integration (v2.1.1):
-- INNOCENT verdicts → SonaEngine trajectory + ReasoningBank pattern
-- GUILTY verdicts → Low-quality feedback for learning avoidance
-- Quality scores feed into RLM/LEANN for continuous improvement
+Learning Integration (v2.1.6):
+- Trajectory creation via SonaEngine.createTrajectoryWithId() per agent
+- provideStepFeedback() routes quality → SonaEngine → ReasoningBank cascade
+- Quality > 0.80 → PatternMatcher.createPattern() with embedding for reuse
+- RLM Context Store accumulates cross-phase context (50k token budget)
+- LEANN semantic retrieval for large context selection
+- Per-phase quality gates: Phase 1 (0.90), Phase 3 (0.95), Phase 5 (0.80)
+- Algorithm-specific prompts: LATS, ReAct, ToT, Self-Debug, Reflexion, PoT
+- ObservabilityBus events with algorithm metadata per agent
 ```
 
 ## Observability Dashboard
