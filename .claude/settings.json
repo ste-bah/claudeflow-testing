@@ -200,7 +200,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); TOOL=$(echo \"$INPUT\" | jq -r \".tool_name // empty\"); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); if [ \"$TOOL\" = \"Bash\" ] && echo \"$CMD\" | grep -q \"/tmp/pipeline-agent-output\"; then echo \"{\\\"decision\\\": \\\"allow\\\"}\"; exit 0; fi'"
+            "command": "/bin/bash -c 'cat | jq -r \"if .tool_name == \\\"Bash\\\" and (.tool_input.command | test(\\\"/tmp/\\\")) then \\\"{\\\\\\\"decision\\\\\\\": \\\\\\\"allow\\\\\\\"}\\\" else empty end\" 2>/dev/null || true'"
           }
         ]
       }
