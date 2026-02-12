@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.1.6 | **Status**: Production-Ready | **Last Updated**: February 2026
+**Version**: 2.1.7 | **Status**: Production-Ready | **Last Updated**: February 2026
 
 ## Table of Contents
 
@@ -23,6 +23,34 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.1.7
+
+### Pipeline Daemon & Cold-Start Elimination
+
+Eliminated 8-48 minutes of Node.js cold-start overhead per 48-agent pipeline run by introducing a persistent pipeline daemon that keeps `UniversalAgent`, the orchestrator, and embedding provider warm in memory.
+
+| Change | Description |
+|--------|-------------|
+| **Pipeline Daemon** | Persistent Unix socket server (`/tmp/godagent-pipeline.sock`) holding warm orchestrator bundle — eliminates 1-30s cold start per CLI invocation |
+| **Thin CLI** | Drop-in replacement (`pipeline-thin-cli.ts`) that delegates to daemon via JSON-RPC 2.0 over Unix socket |
+| **complete-and-next** | Combined command that marks an agent complete and fetches the next agent in a single call (96 → 49 CLI invocations per run) |
+| **Embedding Timeout** | Health check timeout reduced from 30s to 2s via `EMBEDDING_HEALTH_TIMEOUT` env var |
+| **Dual-Write Race Fix** | Session XP persistence guarded with `proper-lockfile` to prevent data corruption |
+| **Auto-Start** | Daemon client auto-starts the daemon if it's not running (30s startup timeout) |
+
+**Performance Impact:**
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Per-invocation overhead | 1-30s | 0.83s |
+| CLI invocations per run | 96 | 49 |
+| Total overhead (48 agents) | 8-48 min | ~41s |
+
+**New files**: `pipeline-daemon.ts`, `pipeline-daemon-service.ts`, `pipeline-daemon-client.ts`, `pipeline-thin-cli.ts`
+**Modified**: `coding-pipeline-cli.ts`, `embedding-provider.ts`, `god-code.md`, startup/shutdown scripts, `package.json`
+
+---
 
 ## What's New in v2.1.6
 
@@ -780,7 +808,7 @@ Add to your Claude Code settings (`.claude/settings.local.json`):
 
 ## Daemon Services
 
-The God Agent system uses multiple background daemons for memory, context management, and observability. Use these commands to manage all services:
+The God Agent system uses multiple background daemons for memory, context management, pipeline orchestration, and observability. Use these commands to manage all services:
 
 ### Start All Services
 
@@ -788,11 +816,12 @@ The God Agent system uses multiple background daemons for memory, context manage
 npm run god-agent:start
 ```
 
-This starts all four daemons in order:
+This starts all five daemons in order:
 1. **Memory Daemon** - Persistent memory and vector storage
 2. **Core Daemon** - Main event processing and IPC
 3. **UCM Daemon** - Unbounded Context Memory management
-4. **Observability Daemon** - Dashboard and metrics (http://localhost:3847)
+4. **Pipeline Daemon** - Warm coding pipeline orchestrator (eliminates cold starts)
+5. **Observability Daemon** - Dashboard and metrics (http://localhost:3847)
 
 ### Stop All Services
 
@@ -813,6 +842,7 @@ npm run god-agent:status
 | Memory | `npm run memory:start` | `npm run memory:stop` | `npm run memory:status` |
 | Core Daemon | `npm run daemon:start` | `npm run daemon:stop` | `npm run daemon:status` |
 | UCM | `npm run ucm:start` | `npm run ucm:stop` | `npm run ucm:status` |
+| Pipeline | `npm run pipeline:start` | `npm run pipeline:stop` | `npm run pipeline:status` |
 | Observability | `npm run observe:start` | `npm run observe:stop` | `npm run observe:status` |
 
 ### Open Dashboard

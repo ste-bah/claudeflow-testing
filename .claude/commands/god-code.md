@@ -2,7 +2,7 @@
 description: Generate code using the 48-Agent Coding Pipeline with stateful orchestration (ALWAYS uses full pipeline)
 ---
 
-Use the Coding Pipeline CLI (`coding-pipeline-cli`) for code generation with 48 specialized agents, RLM memory handoffs, and LEANN semantic search.
+Use the Pipeline Thin CLI (delegates to pipeline daemon for zero cold-start overhead) for code generation with 48 specialized agents, RLM memory handoffs, and LEANN semantic search.
 
 **Query**: $ARGUMENTS
 
@@ -10,7 +10,9 @@ Use the Coding Pipeline CLI (`coding-pipeline-cli`) for code generation with 48 
 
 ## EXECUTION PROTOCOL
 
-**YOU MUST use coding-pipeline-cli for orchestration. DO NOT use static Task() templates.**
+**YOU MUST use pipeline-thin-cli for orchestration (it delegates to the pipeline daemon). DO NOT use static Task() templates.**
+
+> **Debug fallback**: If the daemon won't start, replace `pipeline-thin-cli.ts` with `coding-pipeline-cli.ts` in all commands below.
 
 ### CRITICAL: DO NOT STOP DURING PIPELINE EXECUTION
 
@@ -21,13 +23,13 @@ Use the Coding Pipeline CLI (`coding-pipeline-cli`) for code generation with 48 
 - **DO NOT** say "this will take a long time, would you like to proceed?"
 - **DO NOT** offer to skip, pause, or modify the pipeline mid-execution
 - **DO NOT** comment on token usage, context limits, or duration estimates
-- **JUST EXECUTE** the init -> Task -> complete -> next -> Task -> complete -> next loop until `status: "complete"`
+- **JUST EXECUTE** the init -> Task -> complete-and-next -> Task -> complete-and-next loop until `status: "complete"`
 - The ONLY reason to stop is an actual error (CLI crash, agent failure)
 
 ### Step 1: Initialize Pipeline
 
 ```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "$ARGUMENTS"
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts init "$ARGUMENTS"
 ```
 
 This returns:
@@ -53,49 +55,44 @@ Task("<agent.key>", "<agent.prompt>", "<agent.key>", model: "<agent.model>")
 
 **CRITICAL: Always pass `model: "<agent.model>"` to the Task tool.** The pipeline specifies the correct model per agent (sonnet for design/implementation/testing, haiku for reviewers/checkers). Do NOT override or omit this.
 
-After the Task agent finishes, write its full response to `/tmp/pipeline-agent-output.txt` using the Write tool, then mark complete with `--file`:
+After the Task agent finishes, write its full response to `/tmp/pipeline-agent-output.txt` using the Write tool, then mark complete AND get the next agent in one call:
 ```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete <sessionId> <agent.key> --file /tmp/pipeline-agent-output.txt
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file /tmp/pipeline-agent-output.txt
 ```
 
-This enables dynamic quality scoring and XP rewards. The complete command now returns quality + XP data.
-
-### Step 3: Loop Until Complete
-
-Repeat until `status: "complete"`:
-
-#### 3a. Get Next Agent
-```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts next <sessionId>
-```
-
-Returns:
+This returns both quality/XP data and the next agent:
 ```json
 {
-  "sessionId": "...",
-  "status": "running",
-  "currentPhase": "exploration",
-  "agent": { "key": "pattern-explorer", "prompt": "...", "model": "sonnet" },
-  "progress": { "completed": 6, "total": 48, "percentage": 13 }
+  "completed": { "success": true, "quality": { "score": 0.82, "tier": "B+" }, "xp": { "earned": 255 } },
+  "next": {
+    "status": "running",
+    "agent": { "key": "requirement-extractor", "prompt": "...", "model": "sonnet" },
+    "progress": { "completed": 1, "total": 48, "percentage": 2 }
+  }
 }
 ```
 
-#### 3b. Spawn Agent
+### Step 3: Loop Until Complete
+
+Repeat until `next.status: "complete"`:
+
+#### 3a. Spawn Next Agent
+From the `complete-and-next` response's `next` field:
 ```
-Task("<agent.key>", "<agent.prompt>", "<agent.key>", model: "<agent.model>")
+Task("<next.agent.key>", "<next.agent.prompt>", "<next.agent.key>", model: "<next.agent.model>")
 ```
 
-#### 3c. Mark Complete
-After the Task agent finishes, write its full response to `/tmp/pipeline-agent-output.txt` using the Write tool, then mark complete with `--file`:
+#### 3b. Complete-and-Next
+After the Task agent finishes, write its full response to `/tmp/pipeline-agent-output.txt` using the Write tool, then:
 ```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete <sessionId> <agent.key> --file /tmp/pipeline-agent-output.txt
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file /tmp/pipeline-agent-output.txt
 ```
 
-When pipeline is complete, `next` returns:
+When pipeline is complete, `complete-and-next` returns:
 ```json
 {
-  "status": "complete",
-  "progress": { "completed": 48, "total": 48, "percentage": 100 }
+  "completed": { "success": true, "quality": {...}, "xp": {...} },
+  "next": { "status": "complete", "progress": { "completed": 48, "total": 48, "percentage": 100 } }
 }
 ```
 
@@ -108,8 +105,8 @@ When `$ARGUMENTS` starts with `-batch`, extract all tasks after the flag and run
 ```
 FOR each task in tasks:
   1. init "<task>"
-  2. Loop: Task -> complete -> next -> Task -> complete -> next ...
-  3. Until status: "complete"
+  2. Loop: Task -> complete-and-next -> Task -> complete-and-next ...
+  3. Until next.status: "complete"
 ```
 
 Do NOT stop between tasks. Run all tasks back-to-back.
@@ -121,7 +118,7 @@ Do NOT stop between tasks. Run all tasks back-to-back.
 When `$ARGUMENTS` starts with `-resume`, extract the session ID and use `resume` instead of `init`:
 
 ```bash
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume <sessionId>
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId>
 ```
 
 Then continue with Step 2 onwards (Task -> complete -> next loop).
@@ -132,10 +129,10 @@ Then continue with Step 2 onwards (Task -> complete -> next loop).
 
 ```bash
 # Check progress
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts status <sessionId>
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts status <sessionId>
 
 # Resume interrupted session (returns current agent without advancing)
-npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume <sessionId>
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId>
 ```
 
 ---
@@ -160,7 +157,7 @@ npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume <sessionId>
 
 ```
 # Initialize
-> npx tsx src/god-agent/cli/coding-pipeline-cli.ts init "Add user authentication with JWT"
+> npx tsx src/god-agent/cli/pipeline-thin-cli.ts init "Add user authentication with JWT"
 {
   "sessionId": "abc-123",
   "status": "running",
@@ -171,29 +168,30 @@ npx tsx src/god-agent/cli/coding-pipeline-cli.ts resume <sessionId>
 # Spawn agent 1 (using model from response)
 > Task("task-analyzer", "<prompt>", "task-analyzer", model: "sonnet")
 
-# Write output, then complete agent 1 with --file
+# Write output, then complete-and-next (marks complete + gets agent 2 in one call)
 > Write "/tmp/pipeline-agent-output.txt" (agent response)
-> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123 task-analyzer --file /tmp/pipeline-agent-output.txt
-{ "success": true, "agentKey": "task-analyzer", "quality": { "score": 0.82, "tier": "B+" }, "xp": { "earned": 255, "rewards": {...} } }
-
-# Get agent 2
-> npx tsx src/god-agent/cli/coding-pipeline-cli.ts next abc-123
+> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 task-analyzer --file /tmp/pipeline-agent-output.txt
 {
-  "status": "running",
-  "agent": { "key": "requirement-extractor", "prompt": "...", "model": "sonnet" },
-  "progress": { "completed": 1, "total": 48, "percentage": 2 }
+  "completed": { "success": true, "quality": { "score": 0.82, "tier": "B+" }, "xp": { "earned": 255 } },
+  "next": {
+    "status": "running",
+    "agent": { "key": "requirement-extractor", "prompt": "...", "model": "sonnet" },
+    "progress": { "completed": 1, "total": 48, "percentage": 2 }
+  }
 }
 
-# Spawn agent 2 (using model from response)
+# Spawn agent 2 (from next field above)
 > Task("requirement-extractor", "<prompt>", "requirement-extractor", model: "sonnet")
 
-# Write output, then complete agent 2 with --file
+# Write output, then complete-and-next again
 > Write "/tmp/pipeline-agent-output.txt" (agent response)
-> npx tsx src/god-agent/cli/coding-pipeline-cli.ts complete abc-123 requirement-extractor --file /tmp/pipeline-agent-output.txt
+> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 requirement-extractor --file /tmp/pipeline-agent-output.txt
 
 # ... repeat for all 48 agents ...
 
-# Pipeline complete
-> npx tsx src/god-agent/cli/coding-pipeline-cli.ts next abc-123
-{ "status": "complete", "progress": { "completed": 48, "total": 48, "percentage": 100 } }
+# Pipeline complete (final complete-and-next shows)
+{
+  "completed": { "success": true, ... },
+  "next": { "status": "complete", "progress": { "completed": 48, "total": 48, "percentage": 100 } }
+}
 ```

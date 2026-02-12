@@ -26,11 +26,12 @@
  *   - Anti-heredoc preamble (settings file corruption prevention)
  *
  * Commands:
- *   init "<task>"                              - Initialize session, return first agent
- *   next <sessionId>                           - Get next agent with full augmentation
- *   complete <sessionId> <key> [--file <path>] - Mark agent done with dynamic quality
- *   status <sessionId>                         - Show progress + XP summary
- *   resume <sessionId>                         - Get current agent without advancing
+ *   init "<task>"                                          - Initialize session, return first agent
+ *   next <sessionId>                                       - Get next agent with full augmentation
+ *   complete <sessionId> <key> [--file <path>]             - Mark agent done with dynamic quality
+ *   complete-and-next <sessionId> <key> [--file <path>]    - Complete + next in one cold start
+ *   status <sessionId>                                     - Show progress + XP summary
+ *   resume <sessionId>                                     - Get current agent without advancing
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -39,6 +40,7 @@ import type { IBatchExecutionResult } from '../core/pipeline/coding-pipeline-typ
 import { CodingQualityCalculator, createCodingQualityContext, IMPLEMENTATION_AGENTS } from './coding-quality-calculator.js';
 import { TaskType } from '../core/reasoning/pattern-types.js';
 import type { CodingPipelineAgent, CodingPipelinePhase } from '../core/pipeline/types.js';
+import * as lockfile from 'proper-lockfile';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PHASE 12a: Anti-Heredoc Preamble (settings file corruption prevention)
@@ -132,6 +134,8 @@ const PHASE_QUALITY_THRESHOLDS: Record<number, { metric: string; threshold: numb
 
 /** Create orchestrator with parallel execution DISABLED (sequential batches of 1) */
 async function createSequentialOrchestrator() {
+  // Reduce embedding API health check from 30s to 2s for CLI mode
+  process.env.EMBEDDING_HEALTH_TIMEOUT = '2000';
   const godAgent = new UniversalAgent({ verbose: false });
   await godAgent.initialize();
   const orchestrator = await godAgent.getCodingOrchestrator({
@@ -144,6 +148,9 @@ async function createSequentialOrchestrator() {
     .agent?.getPatternMatcher?.() as import('../core/reasoning/pattern-matcher.js').PatternMatcher | undefined;
   return { godAgent, orchestrator, agentRegistry, patternMatcher };
 }
+
+/** Shared orchestrator bundle for combined commands (avoids duplicate cold starts) */
+type OrchestratorBundle = Awaited<ReturnType<typeof createSequentialOrchestrator>>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODEL ASSIGNMENT: Explicit model per agent to prevent cost-optimization downgrades
@@ -278,11 +285,14 @@ function formatAgentResponse(batchResponse: {
  * Initialize a new coding pipeline session.
  * Returns the first agent as a single object (not an array).
  */
-export async function init(task: string): Promise<void> {
+export async function init(
+  task: string,
+  _bundle?: OrchestratorBundle,
+): Promise<Record<string, unknown>> {
   const sessionId = uuidv4();
 
   console.error('[init] Creating agent...');
-  const { godAgent, orchestrator } = await createSequentialOrchestrator();
+  const { godAgent, orchestrator } = _bundle ?? await createSequentialOrchestrator();
 
   // Store hook context to force pipeline mode
   console.error('[init] Storing hook context...');
@@ -325,8 +335,8 @@ export async function init(task: string): Promise<void> {
     console.error(`[RLM] Init failed (non-fatal): ${(err as Error).message}`);
   }
 
-  // Output single agent (unwrapped from batch)
-  console.log(JSON.stringify(formatAgentResponse(batchResponse), null, 2));
+  // Return result (caller handles stdout output)
+  return formatAgentResponse(batchResponse);
 }
 
 /**
@@ -334,9 +344,12 @@ export async function init(task: string): Promise<void> {
  * Injects learning sources + RLM context + agent MD + algorithm instructions.
  * Returns a single agent object or status: "complete".
  */
-export async function next(sessionId: string): Promise<void> {
+export async function next(
+  sessionId: string,
+  _bundle?: OrchestratorBundle,
+): Promise<Record<string, unknown>> {
   console.error('[next] Loading session...');
-  const { orchestrator, agentRegistry, patternMatcher } = await createSequentialOrchestrator();
+  const { orchestrator, agentRegistry, patternMatcher } = _bundle ?? await createSequentialOrchestrator();
   const { existsSync, readFileSync } = await import('fs');
   const fsP = (await import('fs')).promises;
 
@@ -714,7 +727,7 @@ export async function next(sessionId: string): Promise<void> {
     batchResponse.batch[0].prompt = prompt;
   }
 
-  console.log(JSON.stringify(formatAgentResponse(batchResponse), null, 2));
+  return formatAgentResponse(batchResponse);
 }
 
 /**
@@ -724,9 +737,10 @@ export async function next(sessionId: string): Promise<void> {
 export async function complete(
   sessionId: string, agentKey: string,
   options?: { file?: string },
-): Promise<void> {
+  _bundle?: OrchestratorBundle,
+): Promise<Record<string, unknown>> {
   console.error(`[complete] Marking ${agentKey} done...`);
-  const { orchestrator, patternMatcher } = await createSequentialOrchestrator();
+  const { orchestrator, patternMatcher } = _bundle ?? await createSequentialOrchestrator();
   const fsP = (await import('fs')).promises;
 
   // 1. Read agent output (from --file or fallback)
@@ -849,20 +863,25 @@ export async function complete(
   }];
   await orchestrator.markBatchComplete(sessionId, results);
 
-  // 7. Persist XP to session file
-  const updatedSession = JSON.parse(
-    await fsP.readFile(`.god-agent/coding-sessions/${sessionId}.json`, 'utf-8'),
-  );
-  if (!updatedSession.xp) updatedSession.xp = { total: 0, breakdown: [] };
-  updatedSession.xp.total += xp.total;
-  updatedSession.xp.breakdown.push({
-    agentKey, phase, quality: assessment.score, tier: assessment.tier,
-    rewards: xp.rewards, total: xp.total, timestamp: Date.now(),
-  });
-  await fsP.writeFile(
-    `.god-agent/coding-sessions/${sessionId}.json`,
-    JSON.stringify(updatedSession, null, 2),
-  );
+  // 7. Persist XP to session file (locked to prevent dual-write race with markBatchComplete)
+  const sessionFilePath = `.god-agent/coding-sessions/${sessionId}.json`;
+  let sessionXpTotal = 0;
+  const release = await lockfile.lock(sessionFilePath, { retries: 3 });
+  try {
+    const updatedSession = JSON.parse(
+      await fsP.readFile(sessionFilePath, 'utf-8'),
+    );
+    if (!updatedSession.xp) updatedSession.xp = { total: 0, breakdown: [] };
+    updatedSession.xp.total += xp.total;
+    updatedSession.xp.breakdown.push({
+      agentKey, phase, quality: assessment.score, tier: assessment.tier,
+      rewards: xp.rewards, total: xp.total, timestamp: Date.now(),
+    });
+    sessionXpTotal = updatedSession.xp.total;
+    await fsP.writeFile(sessionFilePath, JSON.stringify(updatedSession, null, 2));
+  } finally {
+    await release();
+  }
 
   // 8. Store as DESC episode for future injection (quality > 0.50 only)
   if (assessment.score > 0.50 && output.length > 100) {
@@ -1020,11 +1039,36 @@ export async function complete(
     console.error(`[PROGRESS] Tracking failed (non-fatal): ${(err as Error).message}`);
   }
 
-  // 10. Output with quality + XP
-  console.log(JSON.stringify({
+  // 10. Return result (caller handles stdout output)
+  return {
     success: true, agentKey, sessionId,
     quality: { score: assessment.score, tier: assessment.tier },
-    xp: { earned: xp.total, rewards: xp.rewards, sessionTotal: updatedSession.xp.total },
+    xp: { earned: xp.total, rewards: xp.rewards, sessionTotal: sessionXpTotal },
+  };
+}
+
+/**
+ * Combined complete-and-next: marks current agent done, then gets the next agent.
+ * Reuses a single warm orchestrator instance, eliminating one cold start per cycle.
+ * Returns { completed: {...}, next: {...} } as a single JSON response.
+ */
+export async function completeAndNext(
+  sessionId: string, agentKey: string,
+  options?: { file?: string },
+): Promise<void> {
+  console.error(`[complete-and-next] Combined operation for ${agentKey}...`);
+  const bundle = await createSequentialOrchestrator();
+
+  // Phase 1: Complete the current agent (shared orchestrator)
+  const completedData = await complete(sessionId, agentKey, options, bundle);
+
+  // Phase 2: Get next agent with full augmentation (reuses warm orchestrator)
+  const nextData = await next(sessionId, bundle);
+
+  // Combined output
+  console.log(JSON.stringify({
+    completed: completedData,
+    next: nextData,
   }, null, 2));
 }
 
@@ -1068,12 +1112,15 @@ function calculateXP(
 /**
  * Resume an interrupted session — returns current agent WITHOUT advancing.
  */
-export async function resume(sessionId: string): Promise<void> {
+export async function resume(
+  sessionId: string,
+  _bundle?: OrchestratorBundle,
+): Promise<Record<string, unknown>> {
   console.error('[resume] Loading session...');
-  const { orchestrator } = await createSequentialOrchestrator();
+  const { orchestrator } = _bundle ?? await createSequentialOrchestrator();
 
   const batchResponse = await orchestrator.getNextBatch(sessionId);
-  console.log(JSON.stringify(formatAgentResponse(batchResponse), null, 2));
+  return formatAgentResponse(batchResponse);
 }
 
 /**
@@ -1143,24 +1190,39 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   switch (command) {
     case 'init':
       if (!arg1) fail('Usage: coding-pipeline-cli.ts init "<task>"');
-      init(arg1).catch(e => { console.error('Error:', e); process.exit(1); });
+      init(arg1)
+        .then(data => console.log(JSON.stringify(data, null, 2)))
+        .catch(e => { console.error('Error:', e); process.exit(1); });
       break;
 
     case 'next':
       if (!arg1) fail('Usage: coding-pipeline-cli.ts next <sessionId>');
-      next(arg1).catch(e => { console.error('Error:', e); process.exit(1); });
+      next(arg1)
+        .then(data => console.log(JSON.stringify(data, null, 2)))
+        .catch(e => { console.error('Error:', e); process.exit(1); });
       break;
 
     case 'complete': {
       if (!arg1 || !arg2) fail('Usage: coding-pipeline-cli.ts complete <sessionId> <agentKey> [--file <path>]');
       const file = parseFileFlag();
-      complete(arg1, arg2, file ? { file } : undefined).catch(e => { console.error('Error:', e); process.exit(1); });
+      complete(arg1, arg2, file ? { file } : undefined)
+        .then(data => console.log(JSON.stringify(data, null, 2)))
+        .catch(e => { console.error('Error:', e); process.exit(1); });
+      break;
+    }
+
+    case 'complete-and-next': {
+      if (!arg1 || !arg2) fail('Usage: coding-pipeline-cli.ts complete-and-next <sessionId> <agentKey> [--file <path>]');
+      const file = parseFileFlag();
+      completeAndNext(arg1, arg2, file ? { file } : undefined).catch(e => { console.error('Error:', e); process.exit(1); });
       break;
     }
 
     case 'resume':
       if (!arg1) fail('Usage: coding-pipeline-cli.ts resume <sessionId>');
-      resume(arg1).catch(e => { console.error('Error:', e); process.exit(1); });
+      resume(arg1)
+        .then(data => console.log(JSON.stringify(data, null, 2)))
+        .catch(e => { console.error('Error:', e); process.exit(1); });
       break;
 
     case 'status':
@@ -1169,6 +1231,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       break;
 
     default:
-      fail('Usage: coding-pipeline-cli.ts init|next|complete|resume|status "<arg>"');
+      fail('Usage: coding-pipeline-cli.ts init|next|complete|complete-and-next|resume|status "<arg>"');
   }
 }

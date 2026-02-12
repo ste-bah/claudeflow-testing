@@ -1,6 +1,6 @@
 #!/bin/bash
 # God Agent Services - Background Startup
-# Starts all 4 daemon services in the background with health checks
+# Starts all 5 daemon services in the background with health checks
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -15,6 +15,7 @@ NC='\033[0m'
 MEMORY_SOCKET="/tmp/god-agent-memory.sock"
 DAEMON_SOCKET="/tmp/godagent-db.sock"
 UCM_SOCKET="/tmp/godagent-ucm.sock"
+PIPELINE_SOCKET="/tmp/godagent-pipeline.sock"
 OBSERVE_PID="$HOME/.god-agent/daemon.pid"
 
 is_socket_alive() {
@@ -71,6 +72,9 @@ start_service "Core Daemon" "src/god-agent/core/daemon/daemon-cli.ts start" "$DA
 
 # 3. UCM Daemon
 start_service "UCM Daemon" "src/god-agent/core/ucm/daemon/ucm-cli.ts start" "$UCM_SOCKET" 10
+
+# 5. Pipeline Daemon (30s timeout — first start includes UniversalAgent init)
+start_service "Pipeline Daemon" "src/god-agent/cli/pipeline-daemon.ts start" "$PIPELINE_SOCKET" 30
 
 # 4. Observability
 if is_observe_running; then

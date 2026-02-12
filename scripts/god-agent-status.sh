@@ -38,13 +38,14 @@ echo "=== God Agent Service Status ==="
 check_socket "Memory Server  " "/tmp/god-agent-memory.sock"
 check_socket "Core Daemon    " "/tmp/godagent-db.sock"
 check_socket "UCM Daemon     " "/tmp/godagent-ucm.sock"
+check_socket "Pipeline Daemon" "/tmp/godagent-pipeline.sock"
 check_pid    "Observability  " "$HOME/.god-agent/daemon.pid"
 
 # Check for orphan processes
-orphans=$(ps aux | grep -E "(memory-daemon|daemon-cli|ucm-cli|daemon-server|observability/daemon)" | grep -v grep | wc -l | tr -d ' ')
+orphans=$(ps aux | grep -E "(memory-daemon|daemon-cli|ucm-cli|daemon-server|observability/daemon|pipeline-daemon)" | grep -v grep | wc -l | tr -d ' ')
 if [ "$orphans" -gt 0 ]; then
     echo ""
     echo -e "  ${YELLOW}$orphans daemon process(es) found:${NC}"
-    ps aux | grep -E "(memory-daemon|daemon-cli|ucm-cli|daemon-server|observability/daemon)" | grep -v grep | awk '{printf "    PID %-6s CPU %5s%%  %s\n", $2, $3, $11}'
+    ps aux | grep -E "(memory-daemon|daemon-cli|ucm-cli|daemon-server|observability/daemon|pipeline-daemon)" | grep -v grep | awk '{printf "    PID %-6s CPU %5s%%  %s\n", $2, $3, $11}'
 fi
 echo "================================="

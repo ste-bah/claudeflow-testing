@@ -37,6 +37,9 @@
     "ucm:start": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts start",
     "ucm:stop": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts stop",
     "ucm:status": "npx tsx src/god-agent/core/ucm/daemon/ucm-cli.ts status",
+    "pipeline:start": "npx tsx src/god-agent/cli/pipeline-daemon.ts start",
+    "pipeline:stop": "npx tsx src/god-agent/cli/pipeline-daemon.ts stop",
+    "pipeline:status": "npx tsx src/god-agent/cli/pipeline-daemon.ts status",
     "god-agent:start": "bash scripts/god-agent-start.sh",
     "god-agent:stop": "bash scripts/god-agent-stop.sh",
     "god-agent:status": "bash scripts/god-agent-status.sh"
