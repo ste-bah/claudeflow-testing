@@ -12,7 +12,7 @@ Use the Pipeline Thin CLI (delegates to pipeline daemon for zero cold-start over
 
 **YOU MUST use pipeline-thin-cli for orchestration (it delegates to the pipeline daemon). DO NOT use static Task() templates.**
 
-> **Debug fallback**: If the daemon won't start, replace `pipeline-thin-cli.ts` with `coding-pipeline-cli.ts` in all commands below.
+> **CRITICAL: NEVER fall back to coding-pipeline-cli.ts. ALWAYS use pipeline-thin-cli.ts. If the daemon times out, retry the same command — do NOT switch CLIs. The daemon is always running.**
 
 ### CRITICAL: DO NOT STOP DURING PIPELINE EXECUTION
 
@@ -55,9 +55,12 @@ Task("<agent.key>", "<agent.prompt>", "<agent.key>", model: "<agent.model>")
 
 **CRITICAL: Always pass `model: "<agent.model>"` to the Task tool.** The pipeline specifies the correct model per agent (sonnet for design/implementation/testing, haiku for reviewers/checkers). Do NOT override or omit this.
 
-After the Task agent finishes, write its full response to `/tmp/pipeline-agent-output.txt` using the Write tool, then mark complete AND get the next agent in one call:
+After the Task agent finishes, write its full response to `tmp/pipeline-agent-output.txt` using the Write tool, then mark complete AND get the next agent in one call.
+
+**CRITICAL: Always use a 5-minute (300000ms) timeout for complete-and-next calls.** The daemon does quality scoring, pattern matching, LEANN indexing, and RLM storage which takes 30-120 seconds. A 30s timeout WILL fail.
+
 ```bash
-npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file /tmp/pipeline-agent-output.txt
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file tmp/pipeline-agent-output.txt
 ```
 
 This returns both quality/XP data and the next agent:
@@ -83,9 +86,9 @@ Task("<next.agent.key>", "<next.agent.prompt>", "<next.agent.key>", model: "<nex
 ```
 
 #### 3b. Complete-and-Next
-After the Task agent finishes, write its full response to `/tmp/pipeline-agent-output.txt` using the Write tool, then:
+After the Task agent finishes, write its full response to `tmp/pipeline-agent-output.txt` using the Write tool, then:
 ```bash
-npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file /tmp/pipeline-agent-output.txt
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file tmp/pipeline-agent-output.txt
 ```
 
 When pipeline is complete, `complete-and-next` returns:
@@ -169,8 +172,8 @@ npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId>
 > Task("task-analyzer", "<prompt>", "task-analyzer", model: "sonnet")
 
 # Write output, then complete-and-next (marks complete + gets agent 2 in one call)
-> Write "/tmp/pipeline-agent-output.txt" (agent response)
-> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 task-analyzer --file /tmp/pipeline-agent-output.txt
+> Write "tmp/pipeline-agent-output.txt" (agent response)
+> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 task-analyzer --file tmp/pipeline-agent-output.txt
 {
   "completed": { "success": true, "quality": { "score": 0.82, "tier": "B+" }, "xp": { "earned": 255 } },
   "next": {
@@ -184,8 +187,8 @@ npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId>
 > Task("requirement-extractor", "<prompt>", "requirement-extractor", model: "sonnet")
 
 # Write output, then complete-and-next again
-> Write "/tmp/pipeline-agent-output.txt" (agent response)
-> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 requirement-extractor --file /tmp/pipeline-agent-output.txt
+> Write "tmp/pipeline-agent-output.txt" (agent response)
+> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 requirement-extractor --file tmp/pipeline-agent-output.txt
 
 # ... repeat for all 48 agents ...
 

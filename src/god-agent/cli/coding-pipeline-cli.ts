@@ -768,18 +768,42 @@ export async function complete(
   // 2. For implementation agents, also read the actual source files they produced
   let scoringOutput = output;
   if (IMPLEMENTATION_AGENTS.includes(agentKey)) {
-    const filePathPattern = /[`'"]\s*([./\w-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\s*[`'"]/g;
+    // Match file paths in any context: markdown lists (- path), tables (| path |), backticks, quotes, or standalone
+    const filePathPattern = /(?:^|[\s|*`'"(\-])((?:\.\/)?(?:[\w@-]+\/)+[\w@.\-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\b/gm;
     const mentioned = new Set<string>();
     let match: RegExpExecArray | null;
     while ((match = filePathPattern.exec(output)) !== null) {
       mentioned.add(match[1]);
     }
     if (mentioned.size > 0) {
+      // Resolve paths against common source roots (agents output paths relative to subprojects)
+      const { readdirSync, existsSync: existsSyncFn } = await import('fs');
+      const srcRoots: string[] = [''];
+      try {
+        for (const entry of readdirSync('.', { withFileTypes: true })) {
+          if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+          const sub = entry.name;
+          try {
+            for (const child of readdirSync(sub, { withFileTypes: true })) {
+              if (child.isDirectory() && !child.name.startsWith('.') && child.name !== 'node_modules') {
+                srcRoots.push(`${sub}/${child.name}/`);
+              }
+            }
+          } catch { /* skip */ }
+          srcRoots.push(`${sub}/`);
+        }
+      } catch { /* fallback */ }
+
       const codeParts: string[] = [output];
       for (const filePath of mentioned) {
         try {
-          const content = await fsP.readFile(filePath, 'utf-8');
-          codeParts.push(`\n\n// === FILE: ${filePath} ===\n${content}`);
+          let resolved: string | null = null;
+          for (const root of srcRoots) {
+            if (existsSyncFn(root + filePath)) { resolved = root + filePath; break; }
+          }
+          if (!resolved) continue;
+          const content = await fsP.readFile(resolved, 'utf-8');
+          codeParts.push(`\n\n// === FILE: ${resolved} ===\n${content}`);
         } catch {
           // File doesn't exist or isn't readable — skip silently
         }
@@ -943,20 +967,49 @@ export async function complete(
 
       await leannService.load('vector_db_leann');
 
-      const filePathPattern = /[`'"]\s*([./\w-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\s*[`'"]/g;
+      // Match file paths in any context: markdown lists (- path), tables (| path |), backticks, quotes, or standalone
+      const filePathPattern = /(?:^|[\s|*`'"(\-])((?:\.\/)?(?:[\w@-]+\/)+[\w@.\-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\b/gm;
       const filesToIndex = new Set<string>();
       let m: RegExpExecArray | null;
       while ((m = filePathPattern.exec(output)) !== null) {
         filesToIndex.add(m[1]);
       }
 
+      // Resolve file paths against common source roots (agents output paths relative to subprojects)
+      const { readdirSync } = await import('fs');
+      const sourceRoots: string[] = [''];
+      try {
+        for (const entry of readdirSync('.', { withFileTypes: true })) {
+          if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+          const sub = entry.name;
+          // Check for frontend/backend subdirs (monorepo pattern)
+          try {
+            for (const child of readdirSync(sub, { withFileTypes: true })) {
+              if (child.isDirectory() && !child.name.startsWith('.') && child.name !== 'node_modules') {
+                sourceRoots.push(`${sub}/${child.name}/`);
+              }
+            }
+          } catch { /* skip unreadable dirs */ }
+          sourceRoots.push(`${sub}/`);
+        }
+      } catch { /* fallback to no extra roots */ }
+
+      const resolveFilePath = (fp: string): string | null => {
+        for (const root of sourceRoots) {
+          const resolved = root + fp;
+          if (existsSync(resolved)) return resolved;
+        }
+        return null;
+      };
+
       let indexedCount = 0;
       for (const filePath of filesToIndex) {
         try {
-          if (!existsSync(filePath)) continue;
-          const code = readFileSync(filePath, 'utf-8');
+          const resolved = resolveFilePath(filePath);
+          if (!resolved) continue;
+          const code = readFileSync(resolved, 'utf-8');
           if (code.trim().length === 0) continue;
-          await adapter.index(code, { filePath, source: agentKey, indexed_at: Date.now() });
+          await adapter.index(code, { filePath: resolved, source: agentKey, indexed_at: Date.now() });
           indexedCount++;
         } catch { /* skip unreadable files */ }
       }
