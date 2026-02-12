@@ -15,7 +15,10 @@ def _get_encoder():
     return _ada002_enc
 
 def truncate_to_token_limit(text: str, max_tokens: int = 8000) -> str:
-    """Truncate text to fit within ada-002's 8191 token limit (with margin)."""
+    """Truncate text to fit within ada-002's 8191 token limit (with margin).
+    Skip tokenization for short texts (< 24000 chars) since avg token is ~3-4 chars."""
+    if len(text) < 24000:
+        return text
     enc = _get_encoder()
     tokens = enc.encode(text)
     if len(tokens) > max_tokens:
