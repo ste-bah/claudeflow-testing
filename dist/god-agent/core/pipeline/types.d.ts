@@ -161,8 +161,9 @@ export declare const PHASE_ORDER: CodingPipelinePhase[];
  */
 export declare const CHECKPOINT_PHASES: CodingPipelinePhase[];
 /**
- * Number of agents per phase (core only, excludes Sherlock forensic reviewers)
- * Sherlock reviewers are separate (7 total: phase-1-reviewer through phase-6-reviewer + recovery-agent)
+ * Number of agents per phase (includes Sherlock forensic reviewers in their respective phases)
+ * Each phase-N-reviewer runs at the END of its phase, gating progression to the next phase.
+ * recovery-agent + sign-off-approver are in delivery.
  * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export declare const PHASE_AGENT_COUNTS: Record<CodingPipelinePhase, number>;

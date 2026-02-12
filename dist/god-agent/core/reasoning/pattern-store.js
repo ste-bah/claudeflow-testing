@@ -90,12 +90,12 @@ export class PatternStore {
      *
      * @param params - Pattern creation parameters
      * @returns Created pattern
-     * @throws Error if successRate < 0.8 or duplicate detected
+     * @throws Error if successRate < 0.1 (sanity floor) or duplicate detected
      */
     async addPattern(params) {
-        // Validate success rate threshold
-        if (params.successRate < 0.8) {
-            throw new Error(`Pattern successRate ${params.successRate} is below minimum threshold 0.8`);
+        // Validate success rate sanity floor (quality gate is in CLI at 0.30)
+        if (params.successRate < 0.1) {
+            throw new Error(`Pattern successRate ${params.successRate} is below sanity floor 0.1`);
         }
         // Validate embedding dimensions (1536D)
         assertDimensions(params.embedding, 1536, 'Pattern embedding');
@@ -304,7 +304,12 @@ export class PatternStore {
             metadata: pattern.metadata
         }));
         // Store in MemoryEngine with retry (RULE-072)
-        await withRetry(() => this.memoryEngine.store(PATTERNS_STORAGE_KEY, JSON.stringify(patternsData), { namespace: PATTERNS_NAMESPACE }), { operationName: 'PatternStore.persist' });
+        // Pass a sentinel unit-vector embedding to skip auto-embed of the large JSON blob.
+        // Patterns are retrieved by exact key, not semantic search, so embedding value is irrelevant.
+        // Must be L2-normalized (norm=1.0) to pass VectorDB's assertDimensions validation.
+        const sentinel = new Float32Array(1536);
+        sentinel[0] = 1.0;
+        await withRetry(() => this.memoryEngine.store(PATTERNS_STORAGE_KEY, JSON.stringify(patternsData), { namespace: PATTERNS_NAMESPACE, embedding: sentinel }), { operationName: 'PatternStore.persist' });
     }
     /**
      * Estimate storage size in bytes

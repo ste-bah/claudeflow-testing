@@ -64,6 +64,12 @@ export declare class ReasoningBank {
      */
     setSonaEngine(engine: SonaEngine): void;
     /**
+     * Map SONA pattern task types to PatternMatcher TaskType enum values.
+     * SONA hardcodes taskType='learning' which doesn't match any TaskType enum value.
+     * This bridge translates based on phase tags or route-based heuristics.
+     */
+    private mapSonaTaskType;
+    /**
      * Set TrainingTriggerController for GNN training triggers
      *
      * Implements: TASK-GNN-009

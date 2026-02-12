@@ -13,6 +13,7 @@
  * @module src/god-agent/core/daemon/daemon-cli
  */
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
+import * as net from 'net';
 import { DaemonServer } from './daemon-server.js';
 import { DEFAULT_SOCKET_PATH } from './daemon-types.js';
 const PID_FILE = '/tmp/godagent-daemon.pid';
@@ -62,6 +63,23 @@ async function startDaemon() {
     };
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
+    // Neutralize tsx's internal ESM loader handles to prevent CPU spin.
+    // tsx creates IPC pipes for module resolution that stay active in processes
+    // with large module trees, causing libuv to poll them at 100% CPU.
+    process.stdin.pause();
+    if (typeof process.stdin.unref === 'function') {
+        process.stdin.unref();
+    }
+    const activeHandles = process._getActiveHandles?.();
+    if (Array.isArray(activeHandles)) {
+        for (const handle of activeHandles) {
+            if (handle instanceof net.Server)
+                continue; // Keep daemon socket alive
+            if (typeof handle.unref === 'function') {
+                handle.unref();
+            }
+        }
+    }
     // Keep process alive
     await new Promise(() => { }); // Never resolves
 }

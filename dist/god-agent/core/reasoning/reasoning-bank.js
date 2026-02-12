@@ -117,21 +117,56 @@ export class ReasoningBank {
         // This connects the learning system to the reasoning system
         engine.onPatternCreated(async (pattern) => {
             try {
-                // Convert SONA pattern to PatternStore format
+                const mappedTaskType = this.mapSonaTaskType(pattern);
                 await this.patternMatcher.createPattern({
-                    taskType: pattern.taskType || 'learning',
+                    taskType: mappedTaskType,
                     template: pattern.template ?? `Pattern from trajectory ${pattern.sourceTrajectory ?? 'unknown'}`,
                     embedding: pattern.embedding,
                     successRate: pattern.successRate ?? 0.9,
-                    metadata: pattern.metadata,
+                    metadata: { ...pattern.metadata, originalTaskType: pattern.taskType },
                 });
-                logger.info('Synced pattern to PatternStore', { patternId: pattern.id });
+                logger.info('Synced pattern to PatternStore', { patternId: pattern.id, taskType: mappedTaskType });
             }
             catch (error) {
-                // May fail if duplicate or validation error - that's ok
-                logger.debug('Pattern sync skipped', { error: String(error) });
+                const errMsg = String(error);
+                if (errMsg.includes('duplicate') || errMsg.includes('already exists')) {
+                    logger.debug('Pattern sync skipped (duplicate)', { error: errMsg });
+                }
+                else {
+                    logger.warn('Pattern sync failed', { error: errMsg });
+                }
             }
         });
+    }
+    /**
+     * Map SONA pattern task types to PatternMatcher TaskType enum values.
+     * SONA hardcodes taskType='learning' which doesn't match any TaskType enum value.
+     * This bridge translates based on phase tags or route-based heuristics.
+     */
+    mapSonaTaskType(pattern) {
+        const tags = pattern.metadata?.tags ?? [];
+        const phaseTag = tags.find((t) => t.startsWith('phase:'));
+        if (phaseTag) {
+            const phase = parseInt(phaseTag.split(':')[1]);
+            const phaseMap = {
+                1: TaskType.ANALYSIS, 2: TaskType.ANALYSIS, 3: TaskType.PLANNING,
+                4: TaskType.CODING, 5: TaskType.TESTING, 6: TaskType.OPTIMIZATION, 7: TaskType.CODING,
+            };
+            if (phaseMap[phase])
+                return phaseMap[phase];
+        }
+        const route = pattern.metadata?.domain || pattern.taskType || '';
+        if (route.includes('coding') || route.includes('implementation'))
+            return TaskType.CODING;
+        if (route.includes('test'))
+            return TaskType.TESTING;
+        if (route.includes('research') || route.includes('phd'))
+            return TaskType.ANALYSIS;
+        if (route.includes('optim'))
+            return TaskType.OPTIMIZATION;
+        if (route.includes('plan') || route.includes('architect'))
+            return TaskType.PLANNING;
+        return TaskType.ANALYSIS;
     }
     /**
      * Set TrainingTriggerController for GNN training triggers

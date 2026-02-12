@@ -36,6 +36,7 @@ export declare class CoreDaemonClient {
     private timeout;
     private requestId;
     private autoStartAttempted;
+    private autoStart;
     /**
      * Create a new CoreDaemonClient
      *
@@ -44,10 +45,12 @@ export declare class CoreDaemonClient {
      * @param options - Configuration options
      * @param options.socketPath - Path to Unix socket (default: /tmp/godagent-db.sock)
      * @param options.timeout - Request timeout in milliseconds (default: 30000)
+     * @param options.autoStart - Whether to auto-start daemon if not running (default: false)
      */
     constructor(options?: {
         socketPath?: string;
         timeout?: number;
+        autoStart?: boolean;
     });
     /**
      * Check if daemon socket exists

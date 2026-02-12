@@ -330,9 +330,9 @@ export class UniversalAgent {
         });
         this.log('DAI-003: Routing system initialized - Intelligent task routing enabled');
         // MEM-001: Initialize memory client for multi-process memory access
-        // Client will auto-start daemon if not running (autoStart: true by default)
+        // Daemons are started externally via scripts/god-agent-start.sh (no auto-start)
         try {
-            this.memoryClient = getMemoryClient(this.config.storageDir.replace('/universal', ''), { verbose: this.config.verbose, autoStart: true });
+            this.memoryClient = getMemoryClient(this.config.storageDir.replace('/universal', ''), { verbose: this.config.verbose, autoStart: false });
             await this.memoryClient.connect();
             this.log('MEM-001: Memory client connected to daemon');
         }
@@ -1465,6 +1465,7 @@ export class UniversalAgent {
             sonaEngine: this.agent.getSonaEngine() ?? undefined,
             leannContextService: this.leannContextService ?? undefined,
             embeddingProvider: this.embeddingProvider ?? undefined,
+            patternMatcher: this.agent.getPatternMatcher() ?? undefined,
         };
         const orchestrator = createOrchestrator(deps, {
             verbose: true,
@@ -3366,7 +3367,7 @@ Return ONLY code in markdown code blocks.`;
      *
      * @returns Configured CodingPipelineOrchestrator instance
      */
-    async getCodingOrchestrator() {
+    async getCodingOrchestrator(configOverride) {
         await this.ensureInitialized();
         const deps = {
             agentRegistry: this.agentRegistry,
@@ -3376,10 +3377,12 @@ Return ONLY code in markdown code blocks.`;
             sonaEngine: this.agent.getSonaEngine() ?? undefined,
             leannContextService: this.leannContextService ?? undefined,
             embeddingProvider: this.embeddingProvider ?? undefined,
+            patternMatcher: this.agent.getPatternMatcher() ?? undefined,
         };
         return createOrchestrator(deps, {
             verbose: true,
             enableLearning: true,
+            ...configOverride,
         });
     }
     /**

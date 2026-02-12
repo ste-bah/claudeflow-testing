@@ -42,6 +42,46 @@ export interface IPromptContext {
     semanticContext?: ISemanticContext;
     /** Situational awareness section for parallel agent coordination (optional) */
     situationalAwareness?: string;
+    /** Reflexion context: past failure lessons for self-correction (PRD: Reflexion) */
+    reflexionContext?: IReflexionContext;
+    /** Pattern context: reusable patterns from PatternStore (PRD: LEANN Pattern Store) */
+    patternContext?: IPatternContext;
+}
+/**
+ * Reflexion context containing past failure lessons for self-correction
+ */
+export interface IReflexionContext {
+    /** Past failed trajectories for this agent */
+    failures: Array<{
+        /** Trajectory ID */
+        trajectoryId: string;
+        /** Quality score (0.0 = complete failure) */
+        quality: number;
+        /** When the failure occurred */
+        createdAt: string;
+        /** Pipeline ID where the failure occurred */
+        pipelineId?: string;
+    }>;
+    /** Total number of past executions for this agent */
+    totalExecutions: number;
+    /** Success rate (0.0-1.0) */
+    successRate: number;
+}
+/**
+ * Pattern context containing reusable patterns relevant to the agent's task
+ */
+export interface IPatternContext {
+    /** Matched patterns from PatternStore */
+    patterns: Array<{
+        /** Pattern ID */
+        patternId: string;
+        /** Pattern template/description */
+        template: string;
+        /** Task type this pattern applies to */
+        taskType: string;
+        /** Confidence score of the match */
+        confidence: number;
+    }>;
 }
 /**
  * Built prompt result
@@ -165,6 +205,16 @@ export declare class PipelinePromptBuilder {
      * @returns Formatted markdown section with code context
      */
     private buildSemanticContextSection;
+    /**
+     * Build Reflexion section with past failure lessons for self-correction.
+     * PRD: Agent 31 Reflexion — episodic memory of past failures.
+     */
+    private buildReflexionSection;
+    /**
+     * Build Pattern section with reusable patterns from PatternStore.
+     * PRD: LEANN Pattern Store — reusable patterns indexed by task type.
+     */
+    private buildPatternSection;
     /**
      * Build task section
      */

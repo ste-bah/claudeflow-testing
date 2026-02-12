@@ -287,6 +287,8 @@ export class CodingPipelineOrchestrator {
             progressStore: this.progressStore,
             fileClaims: this.fileClaims,
             awarenessBuilder: this.awarenessBuilder,
+            // PRD: LEANN Pattern Store — reusable pattern retrieval
+            patternMatcher: this.dependencies.patternMatcher,
         };
         // Build config for extracted function
         const executorConfig = {
@@ -574,6 +576,19 @@ export class CodingPipelineOrchestrator {
     async markBatchComplete(sessionId, results) {
         // Load session from disk (CRITICAL: Supports resumption)
         const session = this.loadSessionFromDisk(sessionId);
+        // Idempotent guard: if the batch pointer already advanced past the last
+        // dispatched position, a previous (killed) call already did the advance.
+        // Don't advance again — just return so getNextBatch returns the correct batch.
+        if (session.lastDispatchedBatch) {
+            const dispatched = session.lastDispatchedBatch;
+            const atPhase = session.currentPhaseIndex;
+            const atBatch = session.currentBatchIndex;
+            if (atPhase > dispatched.phaseIndex ||
+                (atPhase === dispatched.phaseIndex && atBatch > dispatched.batchIndex)) {
+                this.log(`Idempotent skip: batch already advanced past dispatched (phase=${dispatched.phaseIndex},batch=${dispatched.batchIndex}) → current (phase=${atPhase},batch=${atBatch})`);
+                return;
+            }
+        }
         // Store results and provide feedback
         for (const result of results) {
             const agentKey = result.agentKey;
@@ -655,6 +670,12 @@ export class CodingPipelineOrchestrator {
         const currentPhase = session.config.phases[session.currentPhaseIndex];
         const phaseBatches = session.batches[session.currentPhaseIndex];
         const batch = phaseBatches[session.currentBatchIndex];
+        // Track which batch was dispatched (for idempotent complete guard)
+        session.lastDispatchedBatch = {
+            phaseIndex: session.currentPhaseIndex,
+            batchIndex: session.currentBatchIndex,
+        };
+        this.saveSessionToDisk(session);
         // Build contextualized prompts for each agent in batch
         const batchWithPrompts = await Promise.all(batch.map(async (agentMapping) => {
             const agentKey = agentMapping.agentKey;
@@ -720,52 +741,13 @@ export class CodingPipelineOrchestrator {
         };
     }
     /**
-     * Map agent key to Claude Code Task tool type
+     * Map agent key to Claude Code Task tool subagent_type
+     *
+     * Agent keys (task-analyzer, requirement-extractor, etc.) are registered
+     * directly as subagent_types in Claude Code's Task tool. Return the key as-is.
      */
     mapAgentToType(agentKey) {
-        const typeMap = {
-            'task-analyzer': 'code-analyzer',
-            'scope-definer': 'code-analyzer',
-            'requirement-extractor': 'code-analyzer',
-            'requirement-prioritizer': 'planner',
-            'codebase-analyzer': 'code-analyzer',
-            'feasibility-analyzer': 'code-analyzer',
-            'pattern-explorer': 'code-analyzer',
-            'technology-scout': 'researcher',
-            'research-planner': 'planner',
-            'system-designer': 'system-architect',
-            'component-designer': 'system-architect',
-            'interface-designer': 'system-architect',
-            'data-architect': 'system-architect',
-            'integration-architect': 'system-architect',
-            'code-generator': 'coder',
-            'type-implementer': 'coder',
-            'unit-implementer': 'coder',
-            'service-implementer': 'coder',
-            'data-layer-implementer': 'coder',
-            'api-implementer': 'coder',
-            'frontend-implementer': 'coder',
-            'error-handler-implementer': 'coder',
-            'config-implementer': 'coder',
-            'logger-implementer': 'coder',
-            'dependency-manager': 'coder',
-            'implementation-coordinator': 'planner',
-            'test-generator': 'tester',
-            'test-runner': 'tester',
-            'integration-tester': 'tester',
-            'regression-tester': 'tester',
-            'security-tester': 'tester',
-            'coverage-analyzer': 'tester',
-            'quality-gate': 'reviewer',
-            'test-fixer': 'coder',
-            'performance-optimizer': 'perf-analyzer',
-            'performance-architect': 'system-architect',
-            'code-quality-improver': 'reviewer',
-            'security-architect': 'system-architect',
-            'final-refactorer': 'reviewer',
-            'sign-off-approver': 'reviewer',
-        };
-        return typeMap[agentKey] || 'coder';
+        return agentKey;
     }
 }
 // ═══════════════════════════════════════════════════════════════════════════

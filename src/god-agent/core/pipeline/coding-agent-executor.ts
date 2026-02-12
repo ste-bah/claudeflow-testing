@@ -375,7 +375,8 @@ export async function executeAgent(
 
     // 7. Construct RLM context for relay-race memory handoff tracking
     const rlmContext: IRlmContext = {
-      injectionSuccess: Object.keys(memoryContext).length > 0,
+      injectionSuccess: Object.keys(memoryContext).length > 0 ||
+                       (semanticContext !== undefined && semanticContext.totalResults > 0),
       sourceAgentKey: undefined,
       sourceStepIndex: undefined,
       sourceDomain: memoryReads[0],

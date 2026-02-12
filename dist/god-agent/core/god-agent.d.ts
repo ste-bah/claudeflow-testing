@@ -15,7 +15,7 @@ import { VectorDB, type VectorDBConfig } from './vector-db/index.js';
 import { GraphDB, type GraphDBConfig } from './graph-db/index.js';
 import { type QuadFusionOptions, type QuadFusionResult, type SourceWeights } from './search/index.js';
 import { MemoryEngine, type MemoryEngineConfig } from './memory/index.js';
-import { ReasoningBank, type ReasoningBankConfig } from './reasoning/index.js';
+import { ReasoningBank, PatternMatcher, type ReasoningBankConfig } from './reasoning/index.js';
 import { SonaEngine, type SonaEngineConfig } from './learning/index.js';
 import { RelayRaceOrchestrator, type RelayRaceConfig } from './orchestration/index.js';
 import type { IRoutingConfig } from './routing/index.js';
@@ -475,6 +475,8 @@ export declare class GodAgent {
      * Get SonaEngine instance for learning integration
      */
     getSonaEngine(): SonaEngine | undefined;
+    /** Get PatternMatcher instance for pattern retrieval */
+    getPatternMatcher(): PatternMatcher | undefined;
     /**
      * @deprecated DAI-003: TinyDancer removed. Use UniversalAgent.task() for intelligent routing.
      * This method is preserved for API compatibility but returns undefined.

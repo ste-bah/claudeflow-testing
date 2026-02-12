@@ -18,6 +18,7 @@ import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
 import type { SonaEngine } from '../learning/sona-engine.js';
 import type { LeannContextService } from './leann-context-service.js';
 import type { IEmbeddingProvider } from '../memory/types.js';
+import type { PatternMatcher } from '../reasoning/pattern-matcher.js';
 /**
  * Interface for step execution function.
  * Allows injection of custom execution logic (e.g., for testing or Claude Code Task()).
@@ -41,6 +42,8 @@ export interface IOrchestratorDependencies {
     sonaEngine?: SonaEngine;
     leannContextService?: LeannContextService;
     embeddingProvider?: IEmbeddingProvider;
+    /** PatternMatcher for reusable pattern retrieval (PRD: LEANN Pattern Store) */
+    patternMatcher?: PatternMatcher;
 }
 /**
  * Configuration for the pipeline orchestrator
@@ -92,6 +95,11 @@ export interface IPipelineSession {
     createdAt: number;
     /** Pre-computed batches for all phases */
     batches: IAgentMapping[][][];
+    /** Last batch dispatched to Claude Code (for idempotent complete) */
+    lastDispatchedBatch?: {
+        phaseIndex: number;
+        batchIndex: number;
+    };
 }
 /**
  * Single agent in a batch with contextualized prompt

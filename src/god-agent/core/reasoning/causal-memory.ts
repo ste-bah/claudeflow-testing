@@ -396,10 +396,14 @@ export class CausalMemory {
     const value = JSON.stringify(serialized);
 
     // Use store with namespace for causal graph
+    // Pass sentinel unit-vector to skip auto-embed of potentially large serialized graph.
+    // Causal graph is retrieved by exact key, not semantic search.
+    const sentinel = new Float32Array(1536);
+    sentinel[0] = 1.0;
     await this.memoryEngine.store(
       this.config.storageKey,
       value,
-      { namespace: 'research' }
+      { namespace: 'research', embedding: sentinel }
     );
   }
 

@@ -21,7 +21,7 @@ import { PipelineExecutor, type IPipelineDefinition, type DAI002PipelineResult, 
 import { type IRoutingResult, type IGeneratedPipeline } from '../core/routing/index.js';
 import { MemoryClient } from '../core/memory-server/index.js';
 import { type IPipelineExecutionConfig, type IPipelineExecutionResult } from '../core/pipeline/types.js';
-import { CodingPipelineOrchestrator, type IStepExecutor } from '../core/pipeline/coding-pipeline-orchestrator.js';
+import { CodingPipelineOrchestrator, type IOrchestratorConfig, type IStepExecutor } from '../core/pipeline/coding-pipeline-orchestrator.js';
 import { type KnowledgeChunk } from './knowledge-chunker.js';
 export type AgentMode = 'code' | 'research' | 'write' | 'general';
 export interface UniversalConfig {
@@ -994,7 +994,7 @@ export declare class UniversalAgent {
      *
      * @returns Configured CodingPipelineOrchestrator instance
      */
-    getCodingOrchestrator(): Promise<CodingPipelineOrchestrator>;
+    getCodingOrchestrator(configOverride?: Partial<IOrchestratorConfig>): Promise<CodingPipelineOrchestrator>;
     /**
      * Force save current state (call periodically for safety)
      */

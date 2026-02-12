@@ -33,7 +33,7 @@ export declare class PatternStore {
      *
      * @param params - Pattern creation parameters
      * @returns Created pattern
-     * @throws Error if successRate < 0.8 or duplicate detected
+     * @throws Error if successRate < 0.1 (sanity floor) or duplicate detected
      */
     addPattern(params: CreatePatternParams): Promise<Pattern>;
     /**

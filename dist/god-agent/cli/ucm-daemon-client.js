@@ -25,9 +25,11 @@ export class UCMDaemonClient {
     timeout;
     requestId = 0;
     autoStartAttempted = false;
+    autoStart;
     constructor(options) {
         this.socketPath = options?.socketPath || DEFAULT_SOCKET_PATH;
         this.timeout = options?.timeout || DEFAULT_TIMEOUT;
+        this.autoStart = options?.autoStart ?? false;
     }
     /**
      * Check if daemon socket exists
@@ -89,6 +91,9 @@ export class UCMDaemonClient {
     async ensureDaemonRunning() {
         if (this.socketExists()) {
             return true;
+        }
+        if (!this.autoStart) {
+            return false;
         }
         return this.startDaemon();
     }

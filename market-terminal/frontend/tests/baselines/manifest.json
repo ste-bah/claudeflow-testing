@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "createdAt": "2026-02-12T14:46:57Z",
+  "updatedAt": "2026-02-12T14:46:57Z",
+  "projectName": "market-terminal-frontend",
+  "testFramework": "vitest",
+  "testSuite": "TASK-UI-001: React Project Setup + Terminal Layout",
+  "summary": {
+    "totalTests": 88,
+    "totalFiles": 11,
+    "status": "BASELINE_ESTABLISHED"
+  },
+  "testFiles": {
+    "components": {
+      "MethodologyScores.test.tsx": {
+        "testCount": 6,
+        "status": "passing"
+      },
+      "Chart.test.tsx": {
+        "testCount": 7,
+        "status": "passing"
+      },
+      "NewsFeed.test.tsx": {
+        "testCount": 7,
+        "status": "passing"
+      },
+      "Fundamentals.test.tsx": {
+        "testCount": 7,
+        "status": "passing"
+      },
+      "Watchlist.test.tsx": {
+        "testCount": 7,
+        "status": "passing"
+      },
+      "CommandBar.test.tsx": {
+        "testCount": 9,
+        "status": "passing"
+      },
+      "MacroCalendar.test.tsx": {
+        "testCount": 6,
+        "status": "passing"
+      }
+    },
+    "contexts": {
+      "TickerContext.test.tsx": {
+        "testCount": 8,
+        "status": "passing"
+      }
+    },
+    "layouts": {
+      "Terminal.test.tsx": {
+        "testCount": 16,
+        "status": "passing"
+      }
+    },
+    "integration": {
+      "ticker-propagation.test.tsx": {
+        "testCount": 10,
+        "status": "passing"
+      }
+    },
+    "App.test.tsx": {
+      "testCount": 5,
+      "status": "passing"
+    }
+  },
+  "metrics": {
+    "testsDuration": "3.32s",
+    "transformTime": "1.05s",
+    "setupTime": "3.00s",
+    "importTime": "1.63s",
+    "testsTime": "3.12s",
+    "environmentTime": "20.30s"
+  },
+  "notes": {
+    "typescript_warnings": "TS2339 errors exist in test files regarding @testing-library/jest-dom matchers (toHaveClass, toBeInTheDocument, etc.). These are type definition issues only — tests pass at runtime.",
+    "unused_imports": "Terminal.test.tsx has unused 'within' import (TS6133)",
+    "new_project": "This is a NEW frontend project with no prior baselines for regression comparison"
+  },
+  "nodeVersion": "v22.21.1",
+  "viteVersion": "5.0.0",
+  "vitestVersion": "4.0.18",
+  "reactVersion": "18.2.0"
+}

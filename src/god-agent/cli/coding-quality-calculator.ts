@@ -173,13 +173,13 @@ export const IMPLEMENTATION_AGENTS: string[] = [
 
 /** Word count tiers for document agents (replaces code line count) */
 export const DOCUMENT_DEPTH_TIERS = [
-  { minWords: 50, score: 0.06 },
-  { minWords: 100, score: 0.10 },
-  { minWords: 200, score: 0.15 },
-  { minWords: 400, score: 0.20 },
-  { minWords: 600, score: 0.24 },
-  { minWords: 800, score: 0.27 },
-  { minWords: 1500, score: 0.29 },
+  { minWords: 50, score: 0.08 },
+  { minWords: 100, score: 0.14 },
+  { minWords: 200, score: 0.20 },
+  { minWords: 400, score: 0.25 },
+  { minWords: 600, score: 0.28 },
+  { minWords: 800, score: 0.30 },
+  { minWords: 1500, score: 0.30 },
   { minWords: 3000, score: 0.30 },
 ] as const;
 
@@ -327,7 +327,10 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
 
     const rawTotal = codeQuality + completeness + structuralIntegrity + documentationScore + testCoverage;
     const phaseWeight = CODING_PHASE_WEIGHTS[context?.phase ?? 4] ?? 1.0;
-    const total = Math.min(0.95, rawTotal * phaseWeight);
+    // Document agents get 1.10x compensating boost for inherently lower
+    // scores on code-oriented metrics (depth tiers, section matching)
+    const effectiveWeight = isDoc ? phaseWeight * 1.10 : phaseWeight;
+    const total = Math.min(0.95, rawTotal * effectiveWeight);
 
     const breakdown: ICodingQualityBreakdown = {
       codeQuality,
@@ -709,8 +712,8 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       const expectedMin = context.expectedMinLength
         ? Math.floor(context.expectedMinLength / 5)  // chars to words approximation
         : undefined;
-      if (expectedMin && wordCount < expectedMin) {
-        score = score * (0.7 + (0.3 * wordCount / expectedMin));
+      if (expectedMin && wordCount < expectedMin * 0.5) {
+        score = score * (0.8 + (0.2 * wordCount / (expectedMin * 0.5)));
       }
     }
     // Critical agent penalty if too short
@@ -732,7 +735,21 @@ export class CodingQualityCalculator implements ICodingQualityCalculator {
       : (context?.agentKey && CODING_EXPECTED_OUTPUTS[context.agentKey]
         ? CODING_EXPECTED_OUTPUTS[context.agentKey]
         : ['analysis', 'recommendation', 'summary', 'finding', 'conclusion']);
-    const foundCount = expectedSections.filter(s => lowerText.includes(s)).length;
+    const sectionSynonyms: Record<string, string[]> = {
+      'trade-off': ['tradeoff', 'trade off', 'balance between', 'versus'],
+      'rationale': ['reasoning', 'justification', 'design decision'],
+      'dependency': ['depends on', 'relies on', 'prerequisite'],
+      'constraint': ['limitation', 'restriction'],
+      'deployment': ['deploy', 'hosting', 'infrastructure'],
+      'milestone': ['phase', 'stage', 'checkpoint'],
+      'convention': ['coding standard', 'best practice', 'style guide'],
+      'boundary': ['perimeter', 'scope limit', 'delineation'],
+    };
+    const foundCount = expectedSections.filter(s => {
+      if (lowerText.includes(s)) return true;
+      const syns = sectionSynonyms[s];
+      return syns ? syns.some(syn => lowerText.includes(syn)) : false;
+    }).length;
     score += (foundCount / expectedSections.length) * 0.15;
 
     // Document structural elements (0.07 max)

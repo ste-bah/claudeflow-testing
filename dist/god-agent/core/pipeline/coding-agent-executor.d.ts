@@ -15,6 +15,7 @@
 import type { SonaEngine } from '../learning/sona-engine.js';
 import type { ReasoningBank } from '../reasoning/reasoning-bank.js';
 import type { LeannContextService } from './leann-context-service.js';
+import type { PatternMatcher } from '../reasoning/pattern-matcher.js';
 import type { PipelineMemoryCoordinator } from './pipeline-memory-coordinator.js';
 import type { PipelinePromptBuilder } from './pipeline-prompt-builder.js';
 import { PipelineProgressStore } from './pipeline-progress-store.js';
@@ -45,6 +46,8 @@ export interface IAgentExecutorDependencies {
     fileClaims?: PipelineFileClaims;
     /** Situational awareness builder for prompt injection */
     awarenessBuilder?: SituationalAwarenessBuilder;
+    /** PatternMatcher for reusable pattern retrieval (PRD: LEANN Pattern Store) */
+    patternMatcher?: PatternMatcher;
 }
 /**
  * Configuration for agent executor

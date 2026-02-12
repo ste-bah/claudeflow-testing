@@ -6,25 +6,25 @@ export default {
     extend: {
       colors: {
         terminal: {
-          bg: '#0a0a0a',
-          panel: '#111111',
+          bg: '#0a0e17',
+          panel: '#111827',
           card: '#1a1a1a',
-          border: '#2a2a2a',
+          border: '#1f2937',
         },
         text: {
-          primary: '#e0e0e0',
+          primary: '#e5e7eb',
           secondary: '#888888',
           muted: '#555555',
         },
         accent: {
-          green: '#00c853',
-          red: '#ff1744',
-          amber: '#ffab00',
+          green: '#22c55e',
+          red: '#ef4444',
+          amber: '#f59e0b',
           blue: '#2979ff',
         },
       },
       fontFamily: {
-        mono: ['"JetBrains Mono"', '"Fira Code"', 'Consolas', 'monospace'],
+        mono: ['Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', 'monospace'],
       },
     },
   },

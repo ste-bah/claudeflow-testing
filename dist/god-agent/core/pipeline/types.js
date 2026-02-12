@@ -34,18 +34,19 @@ export const CHECKPOINT_PHASES = [
     'testing',
 ];
 /**
- * Number of agents per phase (core only, excludes Sherlock forensic reviewers)
- * Sherlock reviewers are separate (7 total: phase-1-reviewer through phase-6-reviewer + recovery-agent)
+ * Number of agents per phase (includes Sherlock forensic reviewers in their respective phases)
+ * Each phase-N-reviewer runs at the END of its phase, gating progression to the next phase.
+ * recovery-agent + sign-off-approver are in delivery.
  * REQ-PIPE-047: Matches actual .claude/agents/coding-pipeline/*.md files
  */
 export const PHASE_AGENT_COUNTS = {
-    understanding: 6, // task-analyzer, requirement-extractor, requirement-prioritizer, scope-definer, context-gatherer, feasibility-analyzer
-    exploration: 4, // pattern-explorer, technology-scout, research-planner, codebase-analyzer
-    architecture: 5, // system-designer, component-designer, interface-designer, data-architect, integration-architect
-    implementation: 12, // code-generator, type-implementer, unit-implementer, service-implementer, data-layer-implementer, api-implementer, frontend-implementer, error-handler-implementer, config-implementer, logger-implementer, dependency-manager, implementation-coordinator
-    testing: 7, // test-generator, test-runner, integration-tester, regression-tester, security-tester, coverage-analyzer, quality-gate
-    optimization: 5, // performance-optimizer, performance-architect, code-quality-improver, security-architect, final-refactorer
-    delivery: 1, // sign-off-approver
+    understanding: 7, // 6 core + phase-1-reviewer
+    exploration: 5, // 4 core + phase-2-reviewer
+    architecture: 6, // 5 core + phase-3-reviewer
+    implementation: 13, // 12 core + phase-4-reviewer
+    testing: 9, // 8 core (includes test-fixer) + phase-5-reviewer
+    optimization: 6, // 5 core (includes final-refactorer) + phase-6-reviewer
+    delivery: 2, // recovery-agent + sign-off-approver
 };
 /**
  * Total number of core pipeline agents

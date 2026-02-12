@@ -79,14 +79,14 @@ export const CODING_AGENT_MIN_LENGTHS = {
  * Tiered scoring based on code line count
  */
 export const CODE_QUALITY_TIERS = [
-    { minLines: 10, score: 0.02 },
-    { minLines: 30, score: 0.05 },
-    { minLines: 50, score: 0.08 },
-    { minLines: 100, score: 0.12 },
-    { minLines: 200, score: 0.18 },
-    { minLines: 500, score: 0.24 },
-    { minLines: 1000, score: 0.28 },
-    { minLines: 2000, score: 0.30 },
+    { minLines: 5, score: 0.03 },
+    { minLines: 15, score: 0.06 },
+    { minLines: 30, score: 0.10 },
+    { minLines: 60, score: 0.15 },
+    { minLines: 100, score: 0.20 },
+    { minLines: 200, score: 0.25 },
+    { minLines: 500, score: 0.28 },
+    { minLines: 1000, score: 0.30 },
 ];
 /**
  * Agents critical for pipeline success (reviewers, key decision makers)
@@ -121,6 +121,62 @@ export const IMPLEMENTATION_AGENTS = [
     'integration-tester',
     'final-refactorer',
 ];
+/** Word count tiers for document agents (replaces code line count) */
+export const DOCUMENT_DEPTH_TIERS = [
+    { minWords: 50, score: 0.08 },
+    { minWords: 100, score: 0.14 },
+    { minWords: 200, score: 0.20 },
+    { minWords: 400, score: 0.25 },
+    { minWords: 600, score: 0.28 },
+    { minWords: 800, score: 0.30 },
+    { minWords: 1500, score: 0.30 },
+    { minWords: 3000, score: 0.30 },
+];
+/** Expected sections/keywords for document agents by role */
+export const DOCUMENT_EXPECTED_SECTIONS = {
+    // Phase 1: Understanding
+    'task-analyzer': ['requirement', 'constraint', 'scope', 'acceptance criteria', 'risk'],
+    'requirement-extractor': ['functional', 'non-functional', 'priority', 'dependency', 'user story'],
+    'requirement-prioritizer': ['critical', 'must-have', 'nice-to-have', 'priority', 'rationale'],
+    'scope-definer': ['in-scope', 'out-of-scope', 'deliverable', 'milestone', 'boundary'],
+    'context-gatherer': ['codebase', 'architecture', 'pattern', 'existing', 'convention'],
+    'feasibility-analyzer': ['feasible', 'risk', 'complexity', 'recommendation', 'approach'],
+    // Phase 2: Exploration
+    'codebase-analyzer': ['structure', 'module', 'dependency', 'pattern', 'convention'],
+    'pattern-explorer': ['pattern', 'design', 'reuse', 'example', 'recommendation'],
+    'technology-scout': ['technology', 'comparison', 'trade-off', 'recommendation', 'compatibility'],
+    'research-planner': ['approach', 'methodology', 'timeline', 'resource', 'deliverable'],
+    // Phase 3: Architecture
+    'system-designer': ['architecture', 'component', 'interface', 'data flow', 'deployment'],
+    'component-designer': ['component', 'responsibility', 'interface', 'dependency', 'contract'],
+    'interface-designer': ['interface', 'contract', 'type', 'validation', 'versioning'],
+    'data-architect': ['schema', 'model', 'relationship', 'migration', 'index'],
+    'security-architect': ['authentication', 'authorization', 'encryption', 'threat', 'mitigation'],
+    'integration-architect': ['integration', 'protocol', 'endpoint', 'contract', 'error handling'],
+    'performance-architect': ['performance', 'caching', 'scaling', 'bottleneck', 'benchmark'],
+    // Phase 5: Non-code testing agents
+    'test-runner': ['pass', 'fail', 'result', 'summary', 'output'],
+    'coverage-analyzer': ['coverage', 'uncovered', 'branch', 'line', 'gap'],
+    'security-tester': ['vulnerability', 'finding', 'severity', 'recommendation', 'remediation'],
+    'regression-tester': ['regression', 'baseline', 'comparison', 'change', 'impact'],
+    // Phase 6: Optimization
+    'code-quality-improver': ['refactor', 'quality', 'improvement', 'before', 'after'],
+    'performance-optimizer': ['bottleneck', 'optimization', 'benchmark', 'improvement', 'metric'],
+    // Phase 7: Delivery
+    'implementation-coordinator': ['integration', 'coordination', 'dependency', 'status', 'issue'],
+    'sign-off-approver': ['approved', 'criteria', 'quality', 'readiness', 'sign-off'],
+    'recovery-agent': ['issue', 'root cause', 'fix', 'rollback', 'prevention'],
+    // Reviewers
+    'phase-1-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+    'phase-2-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+    'phase-3-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+    'phase-4-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+    'phase-5-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+    'phase-6-reviewer': ['review', 'finding', 'recommendation', 'approved', 'concern'],
+    // Misc non-code agents
+    'dependency-manager': ['package', 'dependency', 'version', 'compatibility', 'update'],
+    'quality-gate': ['threshold', 'metric', 'pass', 'fail', 'criteria'],
+};
 /**
  * Expected output patterns for each agent
  */
@@ -182,20 +238,34 @@ export const CODING_EXPECTED_OUTPUTS = {
 // CodingQualityCalculator Class
 // ============================================================================
 export class CodingQualityCalculator {
-    patternThreshold = 0.8;
+    patternThreshold = 0.30;
     calculateQuality(output, context) {
         return this.assessQuality(output, context).score;
     }
     assessQuality(output, context) {
         const text = this.extractText(output);
-        const codeQuality = this.calculateCodeQuality(text, context);
-        const completeness = this.calculateCompleteness(text, context);
-        const structuralIntegrity = this.calculateStructuralIntegrity(text);
-        const documentationScore = this.calculateDocumentation(text);
-        const testCoverage = this.calculateTestCoverage(text, context);
+        const isDoc = context?.isDocumentAgent ?? false;
+        let codeQuality, completeness, structuralIntegrity, documentationScore, testCoverage;
+        if (isDoc) {
+            codeQuality = this.calculateContentDepth(text, context);
+            completeness = this.calculateDocumentCompleteness(text, context);
+            structuralIntegrity = this.calculateDesignRigor(text);
+            documentationScore = this.calculateDocumentStructure(text);
+            testCoverage = this.calculateActionability(text);
+        }
+        else {
+            codeQuality = this.calculateCodeQuality(text, context);
+            completeness = this.calculateCompleteness(text, context);
+            structuralIntegrity = this.calculateStructuralIntegrity(text);
+            documentationScore = this.calculateDocumentation(text);
+            testCoverage = this.calculateTestCoverage(text, context);
+        }
         const rawTotal = codeQuality + completeness + structuralIntegrity + documentationScore + testCoverage;
         const phaseWeight = CODING_PHASE_WEIGHTS[context?.phase ?? 4] ?? 1.0;
-        const total = Math.min(0.95, rawTotal * phaseWeight);
+        // Document agents get 1.10x compensating boost for inherently lower
+        // scores on code-oriented metrics (depth tiers, section matching)
+        const effectiveWeight = isDoc ? phaseWeight * 1.10 : phaseWeight;
+        const total = Math.min(0.95, rawTotal * effectiveWeight);
         const breakdown = {
             codeQuality,
             completeness,
@@ -217,9 +287,9 @@ export class CodingQualityCalculator {
     }
     /**
      * Calculate code quality factor (max 0.30)
-     * - Code blocks: 0.08 (codeBlocks >= 1: +0.03, >= 3: +0.03, >= 5: +0.02)
-     * - Functions/classes: 0.08 (funcCount >= 1: +0.02, >= 3: +0.02, >= 5: +0.02, >= 10: +0.02)
-     * - Imports/exports: 0.06 (count >= 1: +0.02, >= 3: +0.02, >= 5: +0.02)
+     * - Code blocks: 0.08 (codeBlocks >= 1: +0.04, >= 2: +0.02, >= 4: +0.02)
+     * - Functions/classes: 0.08 (funcCount >= 1: +0.03, >= 2: +0.02, >= 4: +0.02, >= 8: +0.01)
+     * - Imports/exports: 0.06 (count >= 1: +0.03, >= 2: +0.02, >= 4: +0.01)
      * - Code length tiers: 0.08 (tiered based on line count)
      */
     calculateCodeQuality(text, context) {
@@ -228,10 +298,10 @@ export class CodingQualityCalculator {
         const codeBlockMatches = text.match(/```(?:typescript|ts|javascript|js|python|py|go|rust|java|c|cpp|csharp|sql|bash|sh|json|yaml|xml|html|css|scss)?[\s\S]*?```/g);
         const codeBlocks = codeBlockMatches ? codeBlockMatches.length : 0;
         if (codeBlocks >= 1)
-            score += 0.03;
-        if (codeBlocks >= 3)
-            score += 0.03;
-        if (codeBlocks >= 5)
+            score += 0.04;
+        if (codeBlocks >= 2)
+            score += 0.02;
+        if (codeBlocks >= 4)
             score += 0.02;
         // Functions/classes detection (0.08 max)
         const funcPatterns = [
@@ -247,13 +317,13 @@ export class CodingQualityCalculator {
             funcCount += matches ? matches.length : 0;
         }
         if (funcCount >= 1)
+            score += 0.03;
+        if (funcCount >= 2)
             score += 0.02;
-        if (funcCount >= 3)
+        if (funcCount >= 4)
             score += 0.02;
-        if (funcCount >= 5)
-            score += 0.02;
-        if (funcCount >= 10)
-            score += 0.02;
+        if (funcCount >= 8)
+            score += 0.01;
         // Imports/exports detection (0.06 max)
         const importExportPatterns = [
             /^import\s+/gm,
@@ -268,11 +338,11 @@ export class CodingQualityCalculator {
             importExportCount += matches ? matches.length : 0;
         }
         if (importExportCount >= 1)
+            score += 0.03;
+        if (importExportCount >= 2)
             score += 0.02;
-        if (importExportCount >= 3)
-            score += 0.02;
-        if (importExportCount >= 5)
-            score += 0.02;
+        if (importExportCount >= 4)
+            score += 0.01;
         // Code length tiers (0.08 max via CODE_QUALITY_TIERS, capped to 0.08)
         const codeLines = this.countCodeLines(text);
         let lengthScore = 0;
@@ -330,7 +400,7 @@ export class CodingQualityCalculator {
         const completionCount = completionPatterns.filter(p => p.test(text)).length;
         if (completionCount >= 1)
             score += 0.02;
-        if (completionCount >= 3)
+        if (completionCount >= 2)
             score += 0.02;
         // Cross-references (0.03 max)
         const crossRefPatterns = [
@@ -351,8 +421,8 @@ export class CodingQualityCalculator {
     }
     /**
      * Calculate structural integrity factor (max 0.20)
-     * - Type annotations: 0.06 (typeCount >= 3: +0.02, >= 10: +0.02, >= 20: +0.02)
-     * - Error handling: 0.06 (errorCount >= 1: +0.02, >= 3: +0.02, >= 5: +0.02)
+     * - Type annotations: 0.06 (typeCount >= 1: +0.02, >= 5: +0.02, >= 12: +0.02)
+     * - Error handling: 0.06 (errorCount >= 1: +0.03, >= 3: +0.02, >= 5: +0.01)
      * - Modularity: 0.04 (private/public, readonly/static, abstract)
      * - Design patterns: 0.04 (factory, builder, repository, etc.)
      */
@@ -371,11 +441,11 @@ export class CodingQualityCalculator {
             const matches = text.match(pattern);
             typeCount += matches ? matches.length : 0;
         }
-        if (typeCount >= 3)
+        if (typeCount >= 1)
             score += 0.02;
-        if (typeCount >= 10)
+        if (typeCount >= 5)
             score += 0.02;
-        if (typeCount >= 20)
+        if (typeCount >= 12)
             score += 0.02;
         // Error handling (0.06 max)
         const errorPatterns = [
@@ -392,11 +462,11 @@ export class CodingQualityCalculator {
             errorCount += matches ? matches.length : 0;
         }
         if (errorCount >= 1)
-            score += 0.02;
+            score += 0.03;
         if (errorCount >= 3)
             score += 0.02;
         if (errorCount >= 5)
-            score += 0.02;
+            score += 0.01;
         // Modularity indicators (0.04 max)
         const modularityPatterns = [
             /\b(?:private|public|protected)\s+/gi,
@@ -410,9 +480,9 @@ export class CodingQualityCalculator {
             const matches = text.match(pattern);
             modularityCount += matches ? matches.length : 0;
         }
-        if (modularityCount >= 2)
+        if (modularityCount >= 1)
             score += 0.02;
-        if (modularityCount >= 5)
+        if (modularityCount >= 3)
             score += 0.02;
         // Design patterns (0.04 max)
         const patternIndicators = [
@@ -432,7 +502,7 @@ export class CodingQualityCalculator {
         const patternCount = patternIndicators.filter(p => p.test(text)).length;
         if (patternCount >= 1)
             score += 0.02;
-        if (patternCount >= 3)
+        if (patternCount >= 2)
             score += 0.02;
         return Math.min(0.20, score);
     }
@@ -460,18 +530,18 @@ export class CodingQualityCalculator {
             jsdocCount += matches ? matches.length : 0;
         }
         if (jsdocCount >= 1)
+            score += 0.03;
+        if (jsdocCount >= 2)
             score += 0.02;
-        if (jsdocCount >= 3)
-            score += 0.02;
-        if (jsdocCount >= 6)
-            score += 0.02;
+        if (jsdocCount >= 4)
+            score += 0.01;
         // Inline comments (0.04 max)
         const inlineComments = (text.match(/\/\/[^\n]+/g) || []).length;
         const blockComments = (text.match(/\/\*(?!\*)[\s\S]*?\*\//g) || []).length;
         const totalInlineComments = inlineComments + blockComments;
-        if (totalInlineComments >= 2)
+        if (totalInlineComments >= 1)
             score += 0.02;
-        if (totalInlineComments >= 5)
+        if (totalInlineComments >= 3)
             score += 0.02;
         // README sections (0.03 max)
         const readmePatterns = [
@@ -524,9 +594,9 @@ export class CodingQualityCalculator {
             const matches = text.match(pattern);
             testCount += matches ? matches.length : 0;
         }
-        if (testCount >= 2)
+        if (testCount >= 1)
             score += 0.02;
-        if (testCount >= 5)
+        if (testCount >= 3)
             score += 0.02;
         // Mock patterns (0.03 max)
         const mockPatterns = [
@@ -568,6 +638,260 @@ export class CodingQualityCalculator {
         }
         return Math.min(0.10, score);
     }
+    // ==========================================================================
+    // Document-mode scoring methods (for non-implementation agents)
+    // ==========================================================================
+    /**
+     * Calculate content depth for document agents (max 0.30)
+     * Replaces calculateCodeQuality — measures substance via word count
+     */
+    calculateContentDepth(text, context) {
+        const wordCount = this.countWords(text);
+        let score = 0;
+        for (const tier of DOCUMENT_DEPTH_TIERS) {
+            if (wordCount >= tier.minWords)
+                score = tier.score;
+            else
+                break;
+        }
+        // Min-length penalty: if below expected min, scale down
+        if (context?.agentKey) {
+            const expectedMin = context.expectedMinLength
+                ? Math.floor(context.expectedMinLength / 5) // chars to words approximation
+                : undefined;
+            if (expectedMin && wordCount < expectedMin * 0.5) {
+                score = score * (0.8 + (0.2 * wordCount / (expectedMin * 0.5)));
+            }
+        }
+        // Critical agent penalty if too short
+        if (context?.isCriticalAgent && wordCount < 200)
+            score *= 0.8;
+        return Math.min(0.30, score);
+    }
+    /**
+     * Calculate document completeness (max 0.25)
+     * Replaces calculateCompleteness — agent-specific section coverage
+     */
+    calculateDocumentCompleteness(text, context) {
+        let score = 0;
+        const lowerText = text.toLowerCase();
+        // Agent expected sections (0.15 max)
+        const expectedSections = context?.agentKey && DOCUMENT_EXPECTED_SECTIONS[context.agentKey]
+            ? DOCUMENT_EXPECTED_SECTIONS[context.agentKey]
+            : (context?.agentKey && CODING_EXPECTED_OUTPUTS[context.agentKey]
+                ? CODING_EXPECTED_OUTPUTS[context.agentKey]
+                : ['analysis', 'recommendation', 'summary', 'finding', 'conclusion']);
+        const sectionSynonyms = {
+            'trade-off': ['tradeoff', 'trade off', 'balance between', 'versus'],
+            'rationale': ['reasoning', 'justification', 'design decision'],
+            'dependency': ['depends on', 'relies on', 'prerequisite'],
+            'constraint': ['limitation', 'restriction'],
+            'deployment': ['deploy', 'hosting', 'infrastructure'],
+            'milestone': ['phase', 'stage', 'checkpoint'],
+            'convention': ['coding standard', 'best practice', 'style guide'],
+            'boundary': ['perimeter', 'scope limit', 'delineation'],
+        };
+        const foundCount = expectedSections.filter(s => {
+            if (lowerText.includes(s))
+                return true;
+            const syns = sectionSynonyms[s];
+            return syns ? syns.some(syn => lowerText.includes(syn)) : false;
+        }).length;
+        score += (foundCount / expectedSections.length) * 0.15;
+        // Document structural elements (0.07 max)
+        if (/^##?\s+/m.test(text))
+            score += 0.02; // Has headers
+        if (/^###\s+/m.test(text))
+            score += 0.01; // Has sub-sections
+        if (/\|[\s-]+\|/.test(text))
+            score += 0.02; // Has tables
+        if (/```[\s\S]*?```/.test(text))
+            score += 0.01; // Has code examples
+        if (/^\s*[-*]\s+/m.test(text))
+            score += 0.01; // Has bullet lists
+        // Completion indicators (0.04 max)
+        const completionPatterns = [
+            /task\s+complet/i, /summary/i, /conclusion/i,
+            /recommendation/i, /next\s+step/i, /deliverable/i,
+        ];
+        const completionCount = completionPatterns.filter(p => p.test(text)).length;
+        if (completionCount >= 1)
+            score += 0.02;
+        if (completionCount >= 3)
+            score += 0.02;
+        // Cross-references (0.03 max)
+        const crossRefPatterns = [
+            /see\s+(above|below|section)/i,
+            /as\s+(mentioned|described|defined)\s+(above|earlier)/i,
+            /refer\s+to/i, /downstream/i, /upstream/i,
+        ];
+        const crossRefCount = crossRefPatterns.filter(p => p.test(text)).length;
+        if (crossRefCount >= 1)
+            score += 0.01;
+        if (crossRefCount >= 2)
+            score += 0.01;
+        if (crossRefCount >= 3)
+            score += 0.01;
+        return Math.min(0.25, score);
+    }
+    /**
+     * Calculate design rigor (max 0.20)
+     * Replaces calculateStructuralIntegrity — measures analytical depth
+     */
+    calculateDesignRigor(text) {
+        let score = 0;
+        // Decision rationale (0.06 max)
+        const decisionPatterns = [
+            /trade.?off/i, /alternative/i, /rationale/i,
+            /decision/i, /chose|chosen|selected\s+(?:because|due|for)/i,
+            /pros?\s+(?:and|&)\s+cons?/i, /comparison/i,
+        ];
+        const decisionCount = decisionPatterns.filter(p => p.test(text)).length;
+        if (decisionCount >= 1)
+            score += 0.03;
+        if (decisionCount >= 2)
+            score += 0.02;
+        if (decisionCount >= 4)
+            score += 0.01;
+        // Constraints/requirements (0.04 max)
+        const constraintPatterns = [
+            /constraint/i, /requirement/i,
+            /must\s+(?:be|have|support|ensure)/i,
+            /shall\s+/i, /should\s+/i,
+        ];
+        const constraintCount = constraintPatterns.filter(p => p.test(text)).length;
+        if (constraintCount >= 1)
+            score += 0.02;
+        if (constraintCount >= 3)
+            score += 0.02;
+        // Dependencies/relationships (0.04 max)
+        const depPatterns = [
+            /depend(?:s|ency|encies)/i, /relationship/i,
+            /coupling/i, /cohesion/i, /interaction/i,
+            /communicat(?:es?|ion)/i, /integrat(?:es?|ion)/i,
+        ];
+        const depCount = depPatterns.filter(p => p.test(text)).length;
+        if (depCount >= 1)
+            score += 0.02;
+        if (depCount >= 3)
+            score += 0.02;
+        // Risk/mitigation (0.03 max)
+        const riskPatterns = [
+            /risk/i, /mitigat/i, /failure/i,
+            /fallback/i, /recovery/i, /contingency/i,
+        ];
+        const riskCount = riskPatterns.filter(p => p.test(text)).length;
+        if (riskCount >= 1)
+            score += 0.02;
+        if (riskCount >= 2)
+            score += 0.01;
+        // Design patterns mentioned (0.03 max)
+        const patternIndicators = [
+            /pattern/i, /architecture/i, /design/i,
+            /separation\s+of\s+concern/i, /modularity/i,
+            /abstraction/i, /encapsulation/i,
+        ];
+        const patternCount = patternIndicators.filter(p => p.test(text)).length;
+        if (patternCount >= 1)
+            score += 0.02;
+        if (patternCount >= 2)
+            score += 0.01;
+        return Math.min(0.20, score);
+    }
+    /**
+     * Calculate document structure quality (max 0.15)
+     * Replaces calculateDocumentation — measures formatting quality
+     */
+    calculateDocumentStructure(text) {
+        let score = 0;
+        // Header hierarchy (0.05 max)
+        if (/^#\s+[^\n]+/m.test(text))
+            score += 0.02;
+        if (/^##\s+[^\n]+/m.test(text))
+            score += 0.02;
+        if (/^###\s+[^\n]+/m.test(text))
+            score += 0.01;
+        // Paragraph density (0.04 max)
+        const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 50).length;
+        if (paragraphs >= 2)
+            score += 0.01;
+        if (paragraphs >= 4)
+            score += 0.01;
+        if (paragraphs >= 7)
+            score += 0.01;
+        if (paragraphs >= 12)
+            score += 0.01;
+        // Formatting richness (0.04 max)
+        if (/\*\*[^*]+\*\*/.test(text))
+            score += 0.01; // Bold
+        if (/`[^`\n]+`/.test(text))
+            score += 0.01; // Inline code
+        if (/^\s*[-*]\s+/m.test(text))
+            score += 0.01; // Bullet lists
+        if (/^\s*\d+\.\s+/m.test(text))
+            score += 0.01; // Numbered lists
+        // Tables (0.02 max)
+        if (/\|[\s-]+\|/.test(text))
+            score += 0.02;
+        return Math.min(0.15, score);
+    }
+    /**
+     * Calculate actionability for downstream agents (max 0.10)
+     * Replaces calculateTestCoverage — measures usefulness for next agents
+     */
+    calculateActionability(text) {
+        let score = 0;
+        // Clear deliverables (0.04 max)
+        const deliverablePatterns = [
+            /files?\s+(?:created|modified|generated)/i,
+            /output/i, /deliverable/i, /artifact/i,
+            /implementation\s+(?:plan|guide|spec)/i,
+        ];
+        const deliverableCount = deliverablePatterns.filter(p => p.test(text)).length;
+        if (deliverableCount >= 1)
+            score += 0.02;
+        if (deliverableCount >= 3)
+            score += 0.02;
+        // Next-step / handoff guidance (0.04 max)
+        const handoffPatterns = [
+            /downstream/i, /next\s+(?:agent|step|phase)/i,
+            /for\s+(?:implementation|testing|review)/i,
+            /handoff/i, /guidance/i,
+            /(?:should|must|will)\s+(?:implement|create|build|test)/i,
+        ];
+        const handoffCount = handoffPatterns.filter(p => p.test(text)).length;
+        if (handoffCount >= 1)
+            score += 0.02;
+        if (handoffCount >= 3)
+            score += 0.02;
+        // Specificity — contains specific identifiers/names (0.02 max)
+        const specificityPatterns = [
+            /`[A-Za-z]\w+`/, // Inline code identifiers
+            /(?:class|function|method|file|module|endpoint)\s+\w+/i,
+            /\.(?:ts|py|js|json|yaml|sql)\b/, // File extensions
+        ];
+        const specificityCount = specificityPatterns.filter(p => p.test(text)).length;
+        if (specificityCount >= 1)
+            score += 0.01;
+        if (specificityCount >= 2)
+            score += 0.01;
+        return Math.min(0.10, score);
+    }
+    /**
+     * Count words in text, stripping code blocks, inline code, and markdown formatting
+     */
+    countWords(text) {
+        const clean = text
+            .replace(/```[\s\S]*?```/g, '')
+            .replace(/`[^`]+`/g, '')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            .replace(/[#*_~`]/g, '')
+            .trim();
+        return clean ? clean.split(/\s+/).filter(w => w.length > 0).length : 0;
+    }
+    // ==========================================================================
+    // Code-mode scoring methods (for implementation agents)
+    // ==========================================================================
     /**
      * Extract text content from various output formats
      */
@@ -642,13 +966,21 @@ export class CodingQualityCalculator {
      */
     generateSummary(breakdown, context) {
         const tier = this.determineTier(breakdown.total);
-        const factors = [
+        const isDoc = context?.isDocumentAgent ?? false;
+        const factors = isDoc ? [
+            { name: 'Depth', value: breakdown.codeQuality, max: 0.30 },
+            { name: 'Complete', value: breakdown.completeness, max: 0.25 },
+            { name: 'Rigor', value: breakdown.structuralIntegrity, max: 0.20 },
+            { name: 'Structure', value: breakdown.documentationScore, max: 0.15 },
+            { name: 'Action', value: breakdown.testCoverage, max: 0.10 },
+        ] : [
             { name: 'Code', value: breakdown.codeQuality, max: 0.30 },
             { name: 'Complete', value: breakdown.completeness, max: 0.25 },
             { name: 'Structure', value: breakdown.structuralIntegrity, max: 0.20 },
             { name: 'Docs', value: breakdown.documentationScore, max: 0.15 },
             { name: 'Tests', value: breakdown.testCoverage, max: 0.10 },
-        ].sort((a, b) => (b.value / b.max) - (a.value / a.max));
+        ];
+        factors.sort((a, b) => (b.value / b.max) - (a.value / a.max));
         const parts = [
             `Quality: ${tier} (${(breakdown.total * 100).toFixed(1)}%)`,
             `Best: ${factors[0].name} (${(factors[0].value / factors[0].max * 100).toFixed(0)}%)`,
@@ -699,6 +1031,7 @@ export function createCodingQualityContext(agentKey, phase) {
         expectedMinLength: CODING_AGENT_MIN_LENGTHS[agentKey],
         isCriticalAgent: CRITICAL_CODING_AGENTS.includes(agentKey),
         isImplementationAgent: IMPLEMENTATION_AGENTS.includes(agentKey),
+        isDocumentAgent: !IMPLEMENTATION_AGENTS.includes(agentKey),
     };
 }
 //# sourceMappingURL=coding-quality-calculator.js.map

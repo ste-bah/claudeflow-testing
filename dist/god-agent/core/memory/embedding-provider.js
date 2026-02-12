@@ -181,8 +181,10 @@ export class LocalEmbeddingProvider {
     async isAvailable() {
         try {
             const controller = new AbortController();
-            // Use configured timeout instead of hardcoded 5s - embedding models can take 20-30s on first request
-            const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+            // Allow CLI-mode override via env var (default 30s is too slow for pipeline CLI cold starts)
+            const envTimeout = parseInt(process.env.EMBEDDING_HEALTH_TIMEOUT || '0', 10);
+            const healthTimeout = envTimeout > 0 ? envTimeout : this.timeout;
+            const timeoutId = setTimeout(() => controller.abort(), healthTimeout);
             const response = await fetch(this.endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

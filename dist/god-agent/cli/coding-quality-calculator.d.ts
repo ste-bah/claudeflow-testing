@@ -9,6 +9,7 @@ export interface ICodingQualityContext {
     expectedMinLength?: number;
     isCriticalAgent?: boolean;
     isImplementationAgent?: boolean;
+    isDocumentAgent?: boolean;
 }
 export interface ICodingQualityBreakdown {
     codeQuality: number;
@@ -43,28 +44,28 @@ export declare const CODING_AGENT_MIN_LENGTHS: Record<string, number>;
  * Tiered scoring based on code line count
  */
 export declare const CODE_QUALITY_TIERS: readonly [{
-    readonly minLines: 10;
-    readonly score: 0.02;
+    readonly minLines: 5;
+    readonly score: 0.03;
+}, {
+    readonly minLines: 15;
+    readonly score: 0.06;
 }, {
     readonly minLines: 30;
-    readonly score: 0.05;
+    readonly score: 0.1;
 }, {
-    readonly minLines: 50;
-    readonly score: 0.08;
+    readonly minLines: 60;
+    readonly score: 0.15;
 }, {
     readonly minLines: 100;
-    readonly score: 0.12;
+    readonly score: 0.2;
 }, {
     readonly minLines: 200;
-    readonly score: 0.18;
+    readonly score: 0.25;
 }, {
     readonly minLines: 500;
-    readonly score: 0.24;
-}, {
-    readonly minLines: 1000;
     readonly score: 0.28;
 }, {
-    readonly minLines: 2000;
+    readonly minLines: 1000;
     readonly score: 0.3;
 }];
 /**
@@ -75,6 +76,34 @@ export declare const CRITICAL_CODING_AGENTS: string[];
  * Agents that produce actual implementation code
  */
 export declare const IMPLEMENTATION_AGENTS: string[];
+/** Word count tiers for document agents (replaces code line count) */
+export declare const DOCUMENT_DEPTH_TIERS: readonly [{
+    readonly minWords: 50;
+    readonly score: 0.08;
+}, {
+    readonly minWords: 100;
+    readonly score: 0.14;
+}, {
+    readonly minWords: 200;
+    readonly score: 0.2;
+}, {
+    readonly minWords: 400;
+    readonly score: 0.25;
+}, {
+    readonly minWords: 600;
+    readonly score: 0.28;
+}, {
+    readonly minWords: 800;
+    readonly score: 0.3;
+}, {
+    readonly minWords: 1500;
+    readonly score: 0.3;
+}, {
+    readonly minWords: 3000;
+    readonly score: 0.3;
+}];
+/** Expected sections/keywords for document agents by role */
+export declare const DOCUMENT_EXPECTED_SECTIONS: Record<string, string[]>;
 /**
  * Expected output patterns for each agent
  */
@@ -85,9 +114,9 @@ export declare class CodingQualityCalculator implements ICodingQualityCalculator
     assessQuality(output: unknown, context?: ICodingQualityContext): ICodingQualityAssessment;
     /**
      * Calculate code quality factor (max 0.30)
-     * - Code blocks: 0.08 (codeBlocks >= 1: +0.03, >= 3: +0.03, >= 5: +0.02)
-     * - Functions/classes: 0.08 (funcCount >= 1: +0.02, >= 3: +0.02, >= 5: +0.02, >= 10: +0.02)
-     * - Imports/exports: 0.06 (count >= 1: +0.02, >= 3: +0.02, >= 5: +0.02)
+     * - Code blocks: 0.08 (codeBlocks >= 1: +0.04, >= 2: +0.02, >= 4: +0.02)
+     * - Functions/classes: 0.08 (funcCount >= 1: +0.03, >= 2: +0.02, >= 4: +0.02, >= 8: +0.01)
+     * - Imports/exports: 0.06 (count >= 1: +0.03, >= 2: +0.02, >= 4: +0.01)
      * - Code length tiers: 0.08 (tiered based on line count)
      */
     private calculateCodeQuality;
@@ -101,8 +130,8 @@ export declare class CodingQualityCalculator implements ICodingQualityCalculator
     private calculateCompleteness;
     /**
      * Calculate structural integrity factor (max 0.20)
-     * - Type annotations: 0.06 (typeCount >= 3: +0.02, >= 10: +0.02, >= 20: +0.02)
-     * - Error handling: 0.06 (errorCount >= 1: +0.02, >= 3: +0.02, >= 5: +0.02)
+     * - Type annotations: 0.06 (typeCount >= 1: +0.02, >= 5: +0.02, >= 12: +0.02)
+     * - Error handling: 0.06 (errorCount >= 1: +0.03, >= 3: +0.02, >= 5: +0.01)
      * - Modularity: 0.04 (private/public, readonly/static, abstract)
      * - Design patterns: 0.04 (factory, builder, repository, etc.)
      */
@@ -123,6 +152,35 @@ export declare class CodingQualityCalculator implements ICodingQualityCalculator
      * - Testing agent bonus: 1.2x multiplier
      */
     private calculateTestCoverage;
+    /**
+     * Calculate content depth for document agents (max 0.30)
+     * Replaces calculateCodeQuality — measures substance via word count
+     */
+    private calculateContentDepth;
+    /**
+     * Calculate document completeness (max 0.25)
+     * Replaces calculateCompleteness — agent-specific section coverage
+     */
+    private calculateDocumentCompleteness;
+    /**
+     * Calculate design rigor (max 0.20)
+     * Replaces calculateStructuralIntegrity — measures analytical depth
+     */
+    private calculateDesignRigor;
+    /**
+     * Calculate document structure quality (max 0.15)
+     * Replaces calculateDocumentation — measures formatting quality
+     */
+    private calculateDocumentStructure;
+    /**
+     * Calculate actionability for downstream agents (max 0.10)
+     * Replaces calculateTestCoverage — measures usefulness for next agents
+     */
+    private calculateActionability;
+    /**
+     * Count words in text, stripping code blocks, inline code, and markdown formatting
+     */
+    private countWords;
     /**
      * Extract text content from various output formats
      */

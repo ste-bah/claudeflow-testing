@@ -44,11 +44,11 @@ export declare class PatternMatcher {
     /**
      * Create a new pattern
      *
-     * Only creates patterns with successRate >= 0.8 (quality threshold)
+     * Only creates patterns with successRate >= 0.1 (sanity floor)
      *
      * @param params - Pattern creation parameters
      * @returns Created pattern
-     * @throws Error if successRate < 0.8 or duplicate detected
+     * @throws Error if successRate < 0.1 or duplicate detected
      */
     createPattern(params: CreatePatternParams): Promise<Pattern>;
     /**

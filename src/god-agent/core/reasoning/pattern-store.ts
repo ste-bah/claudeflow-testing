@@ -387,11 +387,16 @@ export class PatternStore {
     }));
 
     // Store in MemoryEngine with retry (RULE-072)
+    // Pass a sentinel unit-vector embedding to skip auto-embed of the large JSON blob.
+    // Patterns are retrieved by exact key, not semantic search, so embedding value is irrelevant.
+    // Must be L2-normalized (norm=1.0) to pass VectorDB's assertDimensions validation.
+    const sentinel = new Float32Array(1536);
+    sentinel[0] = 1.0;
     await withRetry(
       () => this.memoryEngine.store(
         PATTERNS_STORAGE_KEY,
         JSON.stringify(patternsData),
-        { namespace: PATTERNS_NAMESPACE }
+        { namespace: PATTERNS_NAMESPACE, embedding: sentinel }
       ),
       { operationName: 'PatternStore.persist' }
     );

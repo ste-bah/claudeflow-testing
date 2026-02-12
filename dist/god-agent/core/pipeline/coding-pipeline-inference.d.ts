@@ -48,11 +48,11 @@ export interface PhaseAgentInfo {
     order: number;
 }
 /**
- * Infer dependencies from agent position and phase
+ * Infer dependencies from explicit dependency map and phase position.
  *
- * Rules:
- * - First agent in phase depends on last agent of previous phase
- * - Non-first agents depend on previous agent in same phase
+ * Uses INTRA_PHASE_DEPS for real data-flow dependencies within phases.
+ * Cross-phase: first agent in each phase depends on last agent of previous phase.
+ * The batching code filters deps to intra-phase only, so cross-phase deps are metadata.
  *
  * @param agentKey - The agent key to infer dependencies for
  * @param phaseAgents - All agents in the pipeline sorted by order

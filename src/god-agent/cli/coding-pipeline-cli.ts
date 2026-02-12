@@ -40,6 +40,7 @@ import type { IBatchExecutionResult } from '../core/pipeline/coding-pipeline-typ
 import { CodingQualityCalculator, createCodingQualityContext, IMPLEMENTATION_AGENTS } from './coding-quality-calculator.js';
 import { TaskType } from '../core/reasoning/pattern-types.js';
 import type { CodingPipelineAgent, CodingPipelinePhase } from '../core/pipeline/types.js';
+import type { IRlmContext } from '../core/learning/sona-types.js';
 import * as lockfile from 'proper-lockfile';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -367,6 +368,9 @@ export async function next(
       );
     } catch { /* proceed without session data */ }
 
+    // Default: no LEANN injection (overwritten below if LEANN succeeds)
+    sessionData.lastLeannInjected = false;
+
     const phaseIndex = (sessionData.currentPhaseIndex as number) ?? 0;
     const batchIndex = (sessionData.currentBatchIndex as number) ?? 0;
     const phase = phaseIndex + 1;
@@ -580,6 +584,13 @@ export async function next(
           }
           prompt += '\n**Note:** Use this context to understand existing patterns and conventions.\n---\n';
           console.error(`[LEANN] Injected ${context.codeContext.length} code contexts for ${agentKey}`);
+          // Persist LEANN injection status for complete() to read
+          try {
+            const sessionPath = `.god-agent/coding-sessions/${sessionId}.json`;
+            const sd = JSON.parse(await fsP.readFile(sessionPath, 'utf-8'));
+            sd.lastLeannInjected = true;
+            await fsP.writeFile(sessionPath, JSON.stringify(sd, null, 2));
+          } catch { /* non-fatal */ }
         }
       } else {
         console.error('[LEANN] No persisted vectors found, skipping semantic context');
@@ -812,13 +823,21 @@ export async function complete(
       const { provideStepFeedback } = await import('../core/pipeline/coding-phase-executor.js');
       const phaseName = ['', 'understanding', 'exploration', 'architecture',
         'implementation', 'testing', 'optimization', 'delivery'][phase] || 'understanding';
+      // Read LEANN injection status persisted by next()
+      const leannInjected = sessionData.lastLeannInjected === true;
+      const rlmContext: IRlmContext = {
+        injectionSuccess: leannInjected,
+        sourceAgentKey: leannInjected ? 'leann-semantic-search' : undefined,
+        sourceStepIndex: undefined,
+        sourceDomain: leannInjected ? 'code/semantic' : undefined,
+      };
       await provideStepFeedback(
         { sonaEngine: engine, reasoningBank: undefined },
         trajectoryId,
         assessment.score,
         agentKey as CodingPipelineAgent,
         phaseName as CodingPipelinePhase,
-        undefined, // rlmContext — CLI doesn't hold a live IRlmContext reference
+        rlmContext,
         (msg: string) => console.error(`[FEEDBACK] ${msg}`),
       );
       console.error(`[FEEDBACK] Quality feedback submitted (${assessment.score.toFixed(2)}) for ${agentKey}`);

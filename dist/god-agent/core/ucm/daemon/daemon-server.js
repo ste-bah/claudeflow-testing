@@ -334,6 +334,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     startDaemon()
         .then((daemon) => {
         console.log('UCM Daemon started successfully');
+        // Neutralize tsx's internal ESM loader handles to prevent CPU spin.
+        process.stdin?.pause();
+        if (typeof process.stdin?.unref === 'function') {
+            process.stdin.unref();
+        }
+        const activeHandles = process._getActiveHandles?.();
+        if (Array.isArray(activeHandles)) {
+            for (const handle of activeHandles) {
+                if (handle instanceof net.Server)
+                    continue; // Keep daemon socket alive
+                if (typeof handle.unref === 'function') {
+                    handle.unref();
+                }
+            }
+        }
         // Handle shutdown signals
         process.on('SIGINT', async () => {
             console.log('\nShutting down UCM Daemon...');

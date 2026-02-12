@@ -25,14 +25,81 @@ export const InferenceInputSchema = z.object({
     phaseAgents: z.array(PhaseAgentSchema),
 });
 // ═══════════════════════════════════════════════════════════════════════════
+// INTRA-PHASE DEPENDENCY MAP
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Explicit intra-phase dependency map based on real data flow.
+ * Agents not listed (or with empty arrays) have no intra-phase dependencies
+ * and can run in parallel with other independent agents in the same phase.
+ * Cross-phase ordering is handled by the orchestrator's phase loop.
+ *
+ * maxParallelAgents=3, so batches contain up to 3 parallel agents.
+ * Critical agents (parallelizable=false) always run alone regardless.
+ */
+const INTRA_PHASE_DEPS = {
+    // Phase 1: Understanding — task-analyzer, scope-definer, context-gatherer run in parallel
+    // phase-1-reviewer gates progression to Phase 2
+    'requirement-extractor': ['task-analyzer'],
+    'requirement-prioritizer': ['requirement-extractor'],
+    'feasibility-analyzer': ['requirement-prioritizer', 'scope-definer', 'context-gatherer'],
+    'phase-1-reviewer': ['feasibility-analyzer'],
+    // Phase 2: Exploration — pattern-explorer, technology-scout, codebase-analyzer run in parallel
+    // phase-2-reviewer gates progression to Phase 3
+    'research-planner': ['pattern-explorer', 'technology-scout', 'codebase-analyzer'],
+    'phase-2-reviewer': ['research-planner'],
+    // Phase 3: Architecture — system-designer runs first (critical, alone)
+    // phase-3-reviewer gates progression to Phase 4
+    'component-designer': ['system-designer'],
+    'interface-designer': ['system-designer'],
+    'data-architect': ['system-designer'],
+    'integration-architect': ['component-designer', 'interface-designer', 'data-architect'],
+    'phase-3-reviewer': ['integration-architect'],
+    // Phase 4: Implementation — code-generator runs first (critical, alone)
+    // phase-4-reviewer gates progression to Phase 5
+    'type-implementer': ['code-generator'],
+    'error-handler-implementer': ['code-generator'],
+    'config-implementer': ['code-generator'],
+    'logger-implementer': ['code-generator'],
+    'unit-implementer': ['type-implementer'],
+    'service-implementer': ['type-implementer'],
+    'data-layer-implementer': ['type-implementer'],
+    'api-implementer': ['service-implementer'],
+    'frontend-implementer': ['api-implementer'],
+    'dependency-manager': [
+        'unit-implementer', 'frontend-implementer', 'data-layer-implementer',
+        'error-handler-implementer', 'config-implementer', 'logger-implementer',
+    ],
+    'implementation-coordinator': ['dependency-manager'],
+    'phase-4-reviewer': ['implementation-coordinator'],
+    // Phase 5: Testing — test-generator runs first, then 3 testers in parallel
+    // test-fixer fixes bugs found by quality-gate
+    // phase-5-reviewer gates progression to Phase 6
+    'test-runner': ['test-generator'],
+    'integration-tester': ['test-runner'],
+    'regression-tester': ['test-runner'],
+    'security-tester': ['test-runner'],
+    'coverage-analyzer': ['integration-tester', 'regression-tester', 'security-tester'],
+    'quality-gate': ['coverage-analyzer'],
+    'test-fixer': ['quality-gate'],
+    'phase-5-reviewer': ['test-fixer'],
+    // Phase 6: Optimization — first 3 run in parallel, then security-architect, then final
+    // phase-6-reviewer gates progression to Phase 7
+    'security-architect': ['performance-optimizer', 'performance-architect', 'code-quality-improver'],
+    'final-refactorer': ['security-architect'],
+    'phase-6-reviewer': ['final-refactorer'],
+    // Phase 7: Delivery — recovery-agent reads all reviewer verdicts (cross-phase memory),
+    // sign-off-approver is the final gate
+    'sign-off-approver': ['recovery-agent'],
+};
+// ═══════════════════════════════════════════════════════════════════════════
 // INFERENCE FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 /**
- * Infer dependencies from agent position and phase
+ * Infer dependencies from explicit dependency map and phase position.
  *
- * Rules:
- * - First agent in phase depends on last agent of previous phase
- * - Non-first agents depend on previous agent in same phase
+ * Uses INTRA_PHASE_DEPS for real data-flow dependencies within phases.
+ * Cross-phase: first agent in each phase depends on last agent of previous phase.
+ * The batching code filters deps to intra-phase only, so cross-phase deps are metadata.
  *
  * @param agentKey - The agent key to infer dependencies for
  * @param phaseAgents - All agents in the pipeline sorted by order
@@ -43,23 +110,24 @@ export function inferDependencies(agentKey, phaseAgents) {
     if (!agent) {
         return undefined;
     }
+    const deps = [];
+    // Cross-phase: first agent in phase depends on last agent of previous phase
     const samePhaseAgents = phaseAgents.filter(a => a.phase === agent.phase);
     const isFirstInPhase = samePhaseAgents.length > 0 && samePhaseAgents[0].key === agentKey;
     if (isFirstInPhase && agent.order > 1) {
-        // First agent in phase depends on last agent of previous phase
         const prevAgent = phaseAgents.find(a => a.order === agent.order - 1);
         if (prevAgent) {
-            return [prevAgent.key];
+            deps.push(prevAgent.key);
         }
     }
-    if (!isFirstInPhase) {
-        // Non-first agents depend on previous agent in same phase
-        const prevInPhase = samePhaseAgents.find(a => a.order === agent.order - 1);
-        if (prevInPhase) {
-            return [prevInPhase.key];
+    // Intra-phase: explicit dependency map
+    const intraDeps = INTRA_PHASE_DEPS[agentKey];
+    if (intraDeps) {
+        for (const dep of intraDeps) {
+            deps.push(dep);
         }
     }
-    return undefined;
+    return deps.length > 0 ? deps : undefined;
 }
 /**
  * Infer memory read keys from agent phase

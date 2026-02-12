@@ -31,9 +31,11 @@ export declare class UCMDaemonClient {
     private timeout;
     private requestId;
     private autoStartAttempted;
+    private autoStart;
     constructor(options?: {
         socketPath?: string;
         timeout?: number;
+        autoStart?: boolean;
     });
     /**
      * Check if daemon socket exists

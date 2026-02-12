@@ -91,10 +91,11 @@ export declare class CodingPipelineConfigLoader {
      */
     private parseHooks;
     /**
-     * Derive pipeline phase from AGENT_ORDER position
-     * This is the source of truth for phase assignment
+     * Derive pipeline phase from agent key and order.
+     * Sherlock reviewers use SHERLOCK_PHASE_MAP (each reviewer belongs to the phase it reviews).
+     * Regular agents use order-based boundaries.
      */
-    private derivePhaseFromOrder;
+    private derivePhase;
     /**
      * Get fallback algorithm for primary algorithm
      */

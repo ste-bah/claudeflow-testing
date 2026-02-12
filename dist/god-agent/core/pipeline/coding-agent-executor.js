@@ -78,9 +78,82 @@ export async function executeAgent(deps, config, agentMapping, phase, pipelineId
                     `${error.message}`);
             }
         }
-        // 3. Load agent markdown if exists
+        // 3. Reflexion: Retrieve past failure trajectories for self-correction
+        let reflexionContext;
+        if (config.enableLearning && deps.sonaEngine) {
+            try {
+                const allTrajectories = deps.sonaEngine.listTrajectories('reasoning.pattern');
+                const agentTag = `agent:${agentKey}`;
+                const agentTrajectories = allTrajectories.filter(t => t.context?.includes(agentTag) ?? false);
+                const failures = agentTrajectories.filter(t => (t.quality !== undefined && t.quality < 0.7) || t.context?.includes('failed'));
+                if (failures.length > 0) {
+                    const totalExec = agentTrajectories.length;
+                    const successCount = agentTrajectories.filter(t => t.quality !== undefined && t.quality >= 0.7).length;
+                    reflexionContext = {
+                        failures: failures.slice(-5).map(f => ({
+                            trajectoryId: f.id,
+                            quality: f.quality ?? 0,
+                            createdAt: typeof f.createdAt === 'number'
+                                ? new Date(f.createdAt).toISOString()
+                                : String(f.createdAt),
+                            pipelineId: f.context?.find((c) => c.startsWith('pipeline:'))?.replace('pipeline:', ''),
+                        })),
+                        totalExecutions: totalExec,
+                        successRate: totalExec > 0 ? successCount / totalExec : 1,
+                    };
+                    if (config.verbose) {
+                        log(`Agent ${agentKey}: Reflexion found ${failures.length} past failures ` +
+                            `out of ${totalExec} executions (${(reflexionContext.successRate * 100).toFixed(0)}% success)`);
+                    }
+                }
+            }
+            catch (error) {
+                log(`Agent ${agentKey}: Reflexion retrieval failed: ${error.message}`);
+            }
+        }
+        // 3b. PatternStore: Retrieve reusable patterns relevant to this agent's task
+        let patternContext;
+        if (deps.patternMatcher) {
+            try {
+                // Map pipeline phase to PatternStore TaskType
+                const phaseToTaskType = {
+                    understanding: 'analysis',
+                    exploration: 'analysis',
+                    architecture: 'planning',
+                    implementation: 'coding',
+                    testing: 'testing',
+                    optimization: 'optimization',
+                    delivery: 'coding',
+                };
+                const taskType = phaseToTaskType[phase] ?? 'coding';
+                const patterns = deps.patternMatcher.getPatternsByTaskType(taskType);
+                // Sort by success rate descending, take top 5
+                const topPatterns = patterns
+                    .filter(p => p.successRate >= 0.5)
+                    .sort((a, b) => b.successRate - a.successRate)
+                    .slice(0, 5);
+                if (topPatterns.length > 0) {
+                    patternContext = {
+                        patterns: topPatterns.map(p => ({
+                            patternId: p.id,
+                            template: p.template,
+                            taskType: String(p.taskType),
+                            confidence: p.successRate,
+                        })),
+                    };
+                    if (config.verbose) {
+                        log(`Agent ${agentKey}: Found ${topPatterns.length} reusable patterns ` +
+                            `from PatternStore for phase ${phase} (taskType: ${taskType})`);
+                    }
+                }
+            }
+            catch (error) {
+                log(`Agent ${agentKey}: PatternStore retrieval failed: ${error.message}`);
+            }
+        }
+        // 4. Load agent markdown if exists
         const agentMd = loadAgentMarkdown(agentKey, config.agentMdPath);
-        // 4. Build prompt with forward-looking context (RULE-007)
+        // 5. Build prompt with forward-looking context (RULE-007)
         const promptContext = {
             step: {
                 agentKey: agentKey,
@@ -100,6 +173,8 @@ export async function executeAgent(deps, config, agentMapping, phase, pipelineId
             pipelineId,
             previousOutput: memoryContext,
             semanticContext,
+            reflexionContext,
+            patternContext,
         };
         // Inject situational awareness for parallel agent coordination
         if (deps.awarenessBuilder) {
@@ -112,7 +187,8 @@ export async function executeAgent(deps, config, agentMapping, phase, pipelineId
         const storeResult = deps.memoryCoordinator.storeStepOutput(promptContext.step, agentMapping.priority, pipelineId, executionResult.output, agentKey);
         // 7. Construct RLM context for relay-race memory handoff tracking
         const rlmContext = {
-            injectionSuccess: Object.keys(memoryContext).length > 0,
+            injectionSuccess: Object.keys(memoryContext).length > 0 ||
+                (semanticContext !== undefined && semanticContext.totalResults > 0),
             sourceAgentKey: undefined,
             sourceStepIndex: undefined,
             sourceDomain: memoryReads[0],

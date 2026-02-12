@@ -160,7 +160,10 @@ export declare class CodingPipelineOrchestrator {
      */
     private getBatchPrompts;
     /**
-     * Map agent key to Claude Code Task tool type
+     * Map agent key to Claude Code Task tool subagent_type
+     *
+     * Agent keys (task-analyzer, requirement-extractor, etc.) are registered
+     * directly as subagent_types in Claude Code's Task tool. Return the key as-is.
      */
     private mapAgentToType;
 }

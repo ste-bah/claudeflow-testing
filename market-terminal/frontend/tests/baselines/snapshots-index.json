@@ -1,0 +1,217 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-02-12T14:46:57Z",
+  "projectName": "market-terminal-frontend",
+  "testFramework": "vitest",
+  "baselineVersion": "1.0.0",
+  "snapshots": {
+    "components": {
+      "MethodologyScores": {
+        "file": "src/__tests__/components/MethodologyScores.test.tsx",
+        "snapshots": [
+          {
+            "name": "renders_methodology_scores_layout",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies MethodologyScores component renders with correct structure"
+          },
+          {
+            "name": "renders_individual_methodology_scores",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies individual methodology score cards render correctly"
+          },
+          {
+            "name": "handles_empty_scores",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies graceful handling when no scores are available"
+          }
+        ]
+      },
+      "Chart": {
+        "file": "src/__tests__/components/Chart.test.tsx",
+        "snapshots": [
+          {
+            "name": "renders_chart_container",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies Chart component renders with proper container setup"
+          },
+          {
+            "name": "renders_legend",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies chart legend displays available indicators"
+          }
+        ]
+      },
+      "NewsFeed": {
+        "file": "src/__tests__/components/NewsFeed.test.tsx",
+        "snapshots": [
+          {
+            "name": "renders_news_articles",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies NewsFeed renders articles with correct structure"
+          },
+          {
+            "name": "renders_empty_state",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies empty state message when no news available"
+          }
+        ]
+      },
+      "Fundamentals": {
+        "file": "src/__tests__/components/Fundamentals.test.tsx",
+        "snapshots": [
+          {
+            "name": "renders_fundamentals_table",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies Fundamentals component renders data table correctly"
+          },
+          {
+            "name": "renders_fundamental_metrics",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies all fundamental metrics display correctly"
+          }
+        ]
+      },
+      "Watchlist": {
+        "file": "src/__tests__/components/Watchlist.test.tsx",
+        "snapshots": [
+          {
+            "name": "renders_watchlist_items",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies Watchlist renders items with correct structure"
+          },
+          {
+            "name": "renders_action_buttons",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies add/remove action buttons are present"
+          }
+        ]
+      },
+      "CommandBar": {
+        "file": "src/__tests__/components/CommandBar.test.tsx",
+        "snapshots": [
+          {
+            "name": "renders_command_input",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies CommandBar input field renders correctly"
+          },
+          {
+            "name": "renders_command_suggestions",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies suggestion dropdown displays available commands"
+          }
+        ]
+      },
+      "MacroCalendar": {
+        "file": "src/__tests__/components/MacroCalendar.test.tsx",
+        "snapshots": [
+          {
+            "name": "renders_calendar_grid",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies MacroCalendar renders calendar grid"
+          },
+          {
+            "name": "renders_macro_events",
+            "status": "new",
+            "type": "component",
+            "description": "Verifies macro events display on calendar dates"
+          }
+        ]
+      }
+    },
+    "layouts": {
+      "Terminal": {
+        "file": "src/__tests__/layouts/Terminal.test.tsx",
+        "snapshots": [
+          {
+            "name": "renders_terminal_layout",
+            "status": "new",
+            "type": "layout",
+            "description": "Verifies Terminal layout renders with all panes"
+          },
+          {
+            "name": "renders_main_chart_pane",
+            "status": "new",
+            "type": "layout",
+            "description": "Verifies main chart pane is rendered"
+          },
+          {
+            "name": "renders_sidebar_pane",
+            "status": "new",
+            "type": "layout",
+            "description": "Verifies sidebar pane is rendered"
+          },
+          {
+            "name": "renders_resizable_panels",
+            "status": "new",
+            "type": "layout",
+            "description": "Verifies panels are resizable"
+          }
+        ]
+      }
+    },
+    "contexts": {
+      "TickerContext": {
+        "file": "src/__tests__/contexts/TickerContext.test.tsx",
+        "snapshots": [
+          {
+            "name": "context_provides_ticker_state",
+            "status": "new",
+            "type": "context",
+            "description": "Verifies context provides ticker state correctly"
+          }
+        ]
+      }
+    },
+    "integration": {
+      "TickerPropagation": {
+        "file": "src/__tests__/integration/ticker-propagation.test.tsx",
+        "snapshots": [
+          {
+            "name": "ticker_propagates_through_tree",
+            "status": "new",
+            "type": "integration",
+            "description": "Verifies ticker change propagates through component tree"
+          },
+          {
+            "name": "multiple_components_receive_updates",
+            "status": "new",
+            "type": "integration",
+            "description": "Verifies multiple components receive ticker updates simultaneously"
+          }
+        ]
+      }
+    }
+  },
+  "totalSnapshots": 31,
+  "snapshotsByType": {
+    "component": 18,
+    "layout": 4,
+    "context": 1,
+    "integration": 2,
+    "api": 0,
+    "visual": 0
+  },
+  "notes": {
+    "baseline_type": "new_project",
+    "snapshot_strategy": "Component render verification via React Testing Library",
+    "future_improvements": [
+      "Add visual regression snapshots via Percy or Chromatic",
+      "Add API snapshot testing for component data contracts",
+      "Add performance snapshots for component render times"
+    ]
+  }
+}

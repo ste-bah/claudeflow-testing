@@ -72,6 +72,8 @@ export class PipelinePromptBuilder {
             previousStepData,
             semanticContext,
             situationalAwareness: context.situationalAwareness,
+            reflexionContext: context.reflexionContext,
+            patternContext: context.patternContext,
         });
         return {
             prompt,
@@ -85,7 +87,7 @@ export class PipelinePromptBuilder {
      * Assemble the full prompt from sections
      */
     assemblePrompt(params) {
-        const { step, stepIndex, totalSteps, pipelineId, pipelineName, agentDef, previousStep, nextStep, initialInput, previousOutput, previousStepData, semanticContext, situationalAwareness, } = params;
+        const { step, stepIndex, totalSteps, pipelineId, pipelineName, agentDef, previousStep, nextStep, initialInput, previousOutput, previousStepData, semanticContext, situationalAwareness, reflexionContext, patternContext, } = params;
         const sections = [];
         // 1. Agent Header
         sections.push(this.buildAgentHeader(step, agentDef));
@@ -94,6 +96,14 @@ export class PipelinePromptBuilder {
         // 2b. Situational Awareness (parallel agent coordination)
         if (situationalAwareness) {
             sections.push(situationalAwareness);
+        }
+        // 2c. Reflexion Context (past failure lessons for self-correction)
+        if (reflexionContext && reflexionContext.failures.length > 0) {
+            sections.push(this.buildReflexionSection(reflexionContext));
+        }
+        // 2d. Pattern Context (reusable patterns from PatternStore)
+        if (patternContext && patternContext.patterns.length > 0) {
+            sections.push(this.buildPatternSection(patternContext));
         }
         // 3. Memory Retrieval Section (with injected previous output when available)
         sections.push(this.buildMemoryRetrievalSection(step, pipelineId, initialInput, stepIndex, previousOutput, previousStepData));
@@ -302,6 +312,36 @@ ${escapedContent}
 ${contextBlocks}
 
 **Note:** Use this context to understand existing patterns and conventions in the codebase.`;
+    }
+    /**
+     * Build Reflexion section with past failure lessons for self-correction.
+     * PRD: Agent 31 Reflexion — episodic memory of past failures.
+     */
+    buildReflexionSection(context) {
+        const failureLines = context.failures.slice(0, 5).map((f, i) => {
+            const pipelineNote = f.pipelineId ? ` (pipeline: ${f.pipelineId})` : '';
+            return `${i + 1}. Quality ${f.quality.toFixed(2)} on ${f.createdAt}${pipelineNote}`;
+        }).join('\n');
+        return `## REFLEXION (lessons from past failures)
+**History:** ${context.totalExecutions} past executions, ${(context.successRate * 100).toFixed(0)}% success rate
+**Recent failures (${context.failures.length}):**
+${failureLines}
+
+**Action:** Learn from these failures. Avoid repeating the same mistakes. If quality was low, focus on completeness and correctness.`;
+    }
+    /**
+     * Build Pattern section with reusable patterns from PatternStore.
+     * PRD: LEANN Pattern Store — reusable patterns indexed by task type.
+     */
+    buildPatternSection(context) {
+        const patternLines = context.patterns.slice(0, 5).map((p, i) => {
+            return `${i + 1}. **${p.taskType}** (${(p.confidence * 100).toFixed(0)}% match): ${p.template}`;
+        }).join('\n');
+        return `## REUSABLE PATTERNS (from pattern store)
+**Found ${context.patterns.length} relevant patterns:**
+${patternLines}
+
+**Action:** Apply these proven patterns where applicable. They represent successful approaches from previous pipeline runs.`;
     }
     /**
      * Build task section
