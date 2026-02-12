@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const SOCKET_PATH = '/tmp/godagent-pipeline.sock';
-const DEFAULT_TIMEOUT = 60000; // 60s (pipeline operations can be slow)
+const DEFAULT_TIMEOUT = 300000; // 300s (completeAndNext takes ~180s with embeddings + LEANN)
 const DAEMON_START_TIMEOUT = 30000; // 30s (first start includes UniversalAgent init)
 
 interface RPCResponse {
