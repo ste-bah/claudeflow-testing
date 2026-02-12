@@ -3,6 +3,25 @@ import uuid
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import tiktoken
+
+# --- Token truncation for OpenAI ada-002 (8191 token limit) ---
+_ada002_enc = None
+
+def _get_encoder():
+    global _ada002_enc
+    if _ada002_enc is None:
+        _ada002_enc = tiktoken.encoding_for_model("text-embedding-ada-002")
+    return _ada002_enc
+
+def truncate_to_token_limit(text: str, max_tokens: int = 8000) -> str:
+    """Truncate text to fit within ada-002's 8191 token limit (with margin)."""
+    enc = _get_encoder()
+    tokens = enc.encode(text)
+    if len(tokens) > max_tokens:
+        print(f"[Embedder] Truncating text from {len(tokens)} to {max_tokens} tokens ({len(text)} chars)")
+        return enc.decode(tokens[:max_tokens])
+    return text
 
 # --- 1. Configuration via Environment Variables ---
 # EMBEDDING_BACKEND: "local" (default) or "openai"
@@ -229,6 +248,8 @@ def generate_embeddings_openai(texts: List[str], is_query: bool = False) -> List
     """Generate embeddings using OpenAI text-embedding-ada-002."""
     if not openai_client:
         raise ValueError("OpenAI client not initialized. Check OPENAI_API_KEY.")
+    # Truncate texts exceeding ada-002's 8191 token limit
+    texts = [truncate_to_token_limit(t) for t in texts]
     all_embeddings = []
     batch_size = 100
     for i in range(0, len(texts), batch_size):

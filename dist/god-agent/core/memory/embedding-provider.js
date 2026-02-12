@@ -249,7 +249,7 @@ export class EmbeddingProviderFactory {
         }
         const isLocalAvailable = await this.localProvider.isAvailable();
         if (isLocalAvailable) {
-            console.log('[EmbeddingProvider] Using local gte-Qwen2-1.5B-instruct API');
+            console.log('[EmbeddingProvider] Using embedding API at http://127.0.0.1:8000');
             this.instance = this.localProvider;
             return this.instance;
         }
