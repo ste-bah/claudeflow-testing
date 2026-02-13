@@ -207,6 +207,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'cat | jq -r \"if .tool_name == \\\"Bash\\\" and (.tool_input.command | test(\\\"/tmp/\\\")) and (.tool_input.command | test(\\\"<<\\\") | not) and (.tool_input.command | length < 500) then \\\"{\\\\\\\"decision\\\\\\\": \\\\\\\"allow\\\\\\\"}\\\" else empty end\" 2>/dev/null || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'cat | jq -r \"if .tool_name == \\\"Bash\\\" and (.tool_input.command | test(\\\"npx tsx src/god-agent\\\")) then \\\"{\\\\\\\"decision\\\\\\\": \\\\\\\"allow\\\\\\\"}\\\" else empty end\" 2>/dev/null || true'"
           }
         ]
       }
