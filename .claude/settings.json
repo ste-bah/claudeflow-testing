@@ -15,6 +15,7 @@
       "Bash(cd:*)",
       "Bash(wc:*)",
       "Bash(npx vitest:*)",
+      "Bash(npx tsc:*)",
       "Bash(sleep:*)",
       "Bash(python3:*)",
       "Bash(python:*)",
