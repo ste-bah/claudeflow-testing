@@ -157,6 +157,27 @@ export declare class PatternDAO {
      */
     exists(id: string): boolean;
     /**
+     * Find pattern IDs that are linked to a given trajectory ID.
+     * Searches the trajectory_ids JSON array column for the trajectory ID.
+     *
+     * Implements: FIX-TRAJ-PATTERN-001 (trajectory-pattern link gap)
+     *
+     * @param trajectoryId - The trajectory ID to search for
+     * @returns Array of pattern IDs linked to this trajectory
+     */
+    findPatternIdsByTrajectoryId(trajectoryId: string): string[];
+    /**
+     * Add a trajectory ID to a pattern's trajectory_ids JSON array.
+     * Reads the current array, appends the new ID if not already present,
+     * and writes it back.
+     *
+     * Implements: FIX-TRAJ-PATTERN-001 (trajectory-pattern link gap)
+     *
+     * @param patternId - The pattern to link
+     * @param trajectoryId - The trajectory to link to
+     */
+    addTrajectoryId(patternId: string, trajectoryId: string): void;
+    /**
      * Delete a pattern by ID
      *
      * RULE-019 VIOLATION: Patterns cannot be deleted. Use deprecate() instead.

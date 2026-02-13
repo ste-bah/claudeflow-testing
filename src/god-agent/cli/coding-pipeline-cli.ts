@@ -898,8 +898,8 @@ export async function complete(
   // ── Phase 0: Create SONA trajectory ────────────────────────────────────
   let trajectoryId = '';
   try {
-    const { SonaEngine } = await import('../core/learning/sona-engine.js');
-    const engine = new SonaEngine();
+    const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
+    const engine = createProductionSonaEngine();
     await engine.initialize();
 
     trajectoryId = `trajectory_coding_${sessionId}_${agentKey}`;
@@ -955,13 +955,15 @@ export async function complete(
         });
         const embedding = await dualProvider.embed(output.substring(0, 2000));
         const taskType = getTaskTypeForPhase(phase);
-        await patternMatcher.createPattern({
+        const createdPattern = await patternMatcher.createPattern({
           taskType,
           template: output.substring(0, 500),
           embedding,
           successRate: assessment.score,
         });
-        console.error(`[PATTERNS] Created reusable pattern from ${agentKey} (${taskType}, quality: ${assessment.score.toFixed(2)})`);
+        // FIX-TRAJ-PATTERN-001: Link pattern to trajectory for processUnprocessedFeedback
+        engine.addPatternToTrajectory(trajectoryId, createdPattern.id);
+        console.error(`[PATTERNS] Created reusable pattern ${createdPattern.id} from ${agentKey} (${taskType}, quality: ${assessment.score.toFixed(2)})`);
       } catch (patErr) {
         console.error(`[PATTERNS] Pattern creation failed (non-fatal): ${(patErr as Error).message}`);
       }

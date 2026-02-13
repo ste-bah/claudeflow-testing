@@ -534,6 +534,34 @@ export class SonaEngine {
   }
 
   /**
+   * Link a pattern to an existing trajectory.
+   * Updates both the in-memory trajectory and the DB (via PatternDAO).
+   *
+   * Implements: FIX-TRAJ-PATTERN-001 (trajectory-pattern link gap)
+   *
+   * @param trajectoryId - Trajectory to link the pattern to
+   * @param patternId - Pattern ID to add
+   */
+  addPatternToTrajectory(trajectoryId: TrajectoryID, patternId: PatternID): void {
+    const trajectory = this.trajectories.get(trajectoryId);
+    if (!trajectory) {
+      console.warn(`[SonaEngine] addPatternToTrajectory: trajectory ${trajectoryId} not found in memory`);
+      return;
+    }
+    if (!trajectory.patterns.includes(patternId)) {
+      trajectory.patterns.push(patternId);
+    }
+    // Persist link in DB so getTrajectoryFromStorage can reconstruct it
+    if (this.patternDAO) {
+      try {
+        this.patternDAO.addTrajectoryId(patternId, trajectoryId);
+      } catch (err) {
+        console.warn(`[SonaEngine] Failed to persist pattern-trajectory link: ${err}`);
+      }
+    }
+  }
+
+  /**
    * Get weight for a single pattern in a route
    *
    * @param patternId - Pattern ID to get weight for
@@ -680,11 +708,19 @@ export class SonaEngine {
         return null;
       }
       // Implements [REQ-TRAJ-008]: Map SQLite metadata fields to ITrajectory
-      // Note: patterns and context are not stored in metadata table
+      // FIX-TRAJ-PATTERN-001: Reverse-lookup patterns linked to this trajectory
+      let patternIds: string[] = [];
+      if (this.patternDAO) {
+        try {
+          patternIds = this.patternDAO.findPatternIdsByTrajectoryId(metadata.id);
+        } catch {
+          // Non-fatal: if pattern lookup fails, proceed with empty array
+        }
+      }
       const trajectory: ITrajectory = {
         id: metadata.id,
         route: metadata.route as Route,
-        patterns: [], // Patterns not stored in trajectory_metadata
+        patterns: patternIds,
         context: [],  // Context not stored in trajectory_metadata
         createdAt: metadata.createdAt,
         quality: metadata.qualityScore, // Include quality score from database

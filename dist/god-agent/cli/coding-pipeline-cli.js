@@ -204,8 +204,22 @@ function getTaskTypeForPhase(phase) {
     };
     return map[phase] || TaskType.ANALYSIS;
 }
-function formatAgentResponse(batchResponse) {
+async function formatAgentResponse(batchResponse) {
     if (batchResponse.status === 'complete') {
+        // ── Batch-learn: final drain of remaining feedback ──────────────
+        try {
+            const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
+            const engine = createProductionSonaEngine();
+            await engine.initialize();
+            const batchStats = await engine.processUnprocessedFeedback(200);
+            if (batchStats.processed > 0) {
+                console.error(`[BATCH-LEARN] Pipeline complete: processed ${batchStats.processed} remaining feedback, ` +
+                    `created ${batchStats.patternsCreated} patterns`);
+            }
+        }
+        catch (err) {
+            console.error(`[BATCH-LEARN] Final processing failed (non-fatal): ${err.message}`);
+        }
         return {
             sessionId: batchResponse.sessionId,
             status: 'complete',
@@ -267,6 +281,20 @@ export async function init(task, _bundle) {
     }
     catch {
         console.error('[init] Warning: Failed to store hook context, continuing');
+    }
+    // ── Batch-learn: process feedback backlog from prior runs ────────────
+    try {
+        const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
+        const engine = createProductionSonaEngine();
+        await engine.initialize();
+        const batchStats = await engine.processUnprocessedFeedback(100);
+        if (batchStats.processed > 0) {
+            console.error(`[BATCH-LEARN] Startup: processed ${batchStats.processed} feedback from prior runs, ` +
+                `created ${batchStats.patternsCreated} patterns, ${batchStats.errors} errors`);
+        }
+    }
+    catch (err) {
+        console.error(`[BATCH-LEARN] Startup processing failed (non-fatal): ${err.message}`);
     }
     // Build pipeline configuration
     console.error('[init] Preparing code task...');
@@ -559,6 +587,38 @@ export async function next(sessionId, _bundle) {
             }
         }
         catch { /* optional — Reflexion unavailable is not an error */ }
+        // ── Sherlock: past GUILTY verdict injection ──────────────────────────
+        try {
+            const { getDatabaseConnection } = await import('../core/database/connection.js');
+            const { TrajectoryMetadataDAO } = await import('../core/database/dao/trajectory-metadata-dao.js');
+            const db = getDatabaseConnection();
+            const dao = new TrajectoryMetadataDAO(db);
+            const guiltyVerdicts = dao.findGuiltyByPhase(phase, 10);
+            if (guiltyVerdicts.length > 0) {
+                prompt += '\n\n## SHERLOCK VERDICT HISTORY (past forensic failures)\n';
+                prompt += `**History:** This agent has ${guiltyVerdicts.length} past GUILTY verdict(s) from forensic reviews.\n`;
+                prompt += '**Recent GUILTY verdicts:**\n';
+                const recent = guiltyVerdicts.slice(0, 3);
+                for (let i = 0; i < recent.length; i++) {
+                    const v = recent[i];
+                    const date = new Date(v.createdAt).toISOString().split('T')[0];
+                    const confidence = v.verdictConfidence || 'UNKNOWN';
+                    const remediations = v.remediationCount || 0;
+                    prompt += `${i + 1}. ${confidence} confidence on ${date} (${remediations} remediations required)\n`;
+                }
+                prompt += '\n**Action:** These are CRITICAL failures from adversarial review. Do NOT repeat them.\n';
+                console.error(`[SHERLOCK] Injected ${recent.length} GUILTY verdict warnings for phase ${phase} (agent: ${agentKey})`);
+                // Persist injection status to session
+                try {
+                    const sessionPath = `.god-agent/coding-sessions/${sessionId}.json`;
+                    const sd = JSON.parse(await fsP.readFile(sessionPath, 'utf-8'));
+                    sd.lastSherlockInjected = true;
+                    await fsP.writeFile(sessionPath, JSON.stringify(sd, null, 2));
+                }
+                catch { /* non-fatal */ }
+            }
+        }
+        catch { /* Sherlock verdict injection unavailable — not an error */ }
         // ── Phase 6: Algorithm-specific behavior ─────────────────────────────
         try {
             const batches = sessionData.batches;
@@ -675,18 +735,48 @@ export async function complete(sessionId, agentKey, options, _bundle) {
     // 2. For implementation agents, also read the actual source files they produced
     let scoringOutput = output;
     if (IMPLEMENTATION_AGENTS.includes(agentKey)) {
-        const filePathPattern = /[`'"]\s*([./\w-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\s*[`'"]/g;
+        // Match file paths in any context: markdown lists (- path), tables (| path |), backticks, quotes, or standalone
+        const filePathPattern = /(?:^|[\s|*`'"(\-])((?:\.\/)?(?:[\w@-]+\/)+[\w@.\-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\b/gm;
         const mentioned = new Set();
         let match;
         while ((match = filePathPattern.exec(output)) !== null) {
             mentioned.add(match[1]);
         }
         if (mentioned.size > 0) {
+            // Resolve paths against common source roots (agents output paths relative to subprojects)
+            const { readdirSync, existsSync: existsSyncFn } = await import('fs');
+            const srcRoots = [''];
+            try {
+                for (const entry of readdirSync('.', { withFileTypes: true })) {
+                    if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules')
+                        continue;
+                    const sub = entry.name;
+                    try {
+                        for (const child of readdirSync(sub, { withFileTypes: true })) {
+                            if (child.isDirectory() && !child.name.startsWith('.') && child.name !== 'node_modules') {
+                                srcRoots.push(`${sub}/${child.name}/`);
+                            }
+                        }
+                    }
+                    catch { /* skip */ }
+                    srcRoots.push(`${sub}/`);
+                }
+            }
+            catch { /* fallback */ }
             const codeParts = [output];
             for (const filePath of mentioned) {
                 try {
-                    const content = await fsP.readFile(filePath, 'utf-8');
-                    codeParts.push(`\n\n// === FILE: ${filePath} ===\n${content}`);
+                    let resolved = null;
+                    for (const root of srcRoots) {
+                        if (existsSyncFn(root + filePath)) {
+                            resolved = root + filePath;
+                            break;
+                        }
+                    }
+                    if (!resolved)
+                        continue;
+                    const content = await fsP.readFile(resolved, 'utf-8');
+                    codeParts.push(`\n\n// === FILE: ${resolved} ===\n${content}`);
                 }
                 catch {
                     // File doesn't exist or isn't readable — skip silently
@@ -709,8 +799,8 @@ export async function complete(sessionId, agentKey, options, _bundle) {
     // ── Phase 0: Create SONA trajectory ────────────────────────────────────
     let trajectoryId = '';
     try {
-        const { SonaEngine } = await import('../core/learning/sona-engine.js');
-        const engine = new SonaEngine();
+        const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
+        const engine = createProductionSonaEngine();
         await engine.initialize();
         trajectoryId = `trajectory_coding_${sessionId}_${agentKey}`;
         const tags = [
@@ -726,11 +816,20 @@ export async function complete(sessionId, agentKey, options, _bundle) {
                 'implementation', 'testing', 'optimization', 'delivery'][phase] || 'understanding';
             // Read LEANN injection status persisted by next()
             const leannInjected = sessionData.lastLeannInjected === true;
+            const sherlockInjected = sessionData.lastSherlockInjected === true;
             const rlmContext = {
-                injectionSuccess: leannInjected,
-                sourceAgentKey: leannInjected ? 'leann-semantic-search' : undefined,
+                injectionSuccess: leannInjected || sherlockInjected,
+                sourceAgentKey: sherlockInjected
+                    ? 'sherlock-verdict-reviewer'
+                    : leannInjected
+                        ? 'leann-semantic-search'
+                        : undefined,
                 sourceStepIndex: undefined,
-                sourceDomain: leannInjected ? 'code/semantic' : undefined,
+                sourceDomain: sherlockInjected
+                    ? 'coding/forensics'
+                    : leannInjected
+                        ? 'code/semantic'
+                        : undefined,
             };
             await provideStepFeedback({ sonaEngine: engine, reasoningBank: undefined }, trajectoryId, assessment.score, agentKey, phaseName, rlmContext, (msg) => console.error(`[FEEDBACK] ${msg}`));
             console.error(`[FEEDBACK] Quality feedback submitted (${assessment.score.toFixed(2)}) for ${agentKey}`);
@@ -747,13 +846,15 @@ export async function complete(sessionId, agentKey, options, _bundle) {
                 });
                 const embedding = await dualProvider.embed(output.substring(0, 2000));
                 const taskType = getTaskTypeForPhase(phase);
-                await patternMatcher.createPattern({
+                const createdPattern = await patternMatcher.createPattern({
                     taskType,
                     template: output.substring(0, 500),
                     embedding,
                     successRate: assessment.score,
                 });
-                console.error(`[PATTERNS] Created reusable pattern from ${agentKey} (${taskType}, quality: ${assessment.score.toFixed(2)})`);
+                // FIX-TRAJ-PATTERN-001: Link pattern to trajectory for processUnprocessedFeedback
+                engine.addPatternToTrajectory(trajectoryId, createdPattern.id);
+                console.error(`[PATTERNS] Created reusable pattern ${createdPattern.id} from ${agentKey} (${taskType}, quality: ${assessment.score.toFixed(2)})`);
             }
             catch (patErr) {
                 console.error(`[PATTERNS] Pattern creation failed (non-fatal): ${patErr.message}`);
@@ -830,21 +931,52 @@ export async function complete(sessionId, agentKey, options, _bundle) {
             const adapter = createLEANNAdapter(embedder, dimension);
             await leannService.initialize(adapter);
             await leannService.load('vector_db_leann');
-            const filePathPattern = /[`'"]\s*([./\w-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\s*[`'"]/g;
+            // Match file paths in any context: markdown lists (- path), tables (| path |), backticks, quotes, or standalone
+            const filePathPattern = /(?:^|[\s|*`'"(\-])((?:\.\/)?(?:[\w@-]+\/)+[\w@.\-]+\.(?:ts|tsx|js|jsx|py|sql|json|yaml|yml|css|scss|html))\b/gm;
             const filesToIndex = new Set();
             let m;
             while ((m = filePathPattern.exec(output)) !== null) {
                 filesToIndex.add(m[1]);
             }
+            // Resolve file paths against common source roots (agents output paths relative to subprojects)
+            const { readdirSync } = await import('fs');
+            const sourceRoots = [''];
+            try {
+                for (const entry of readdirSync('.', { withFileTypes: true })) {
+                    if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules')
+                        continue;
+                    const sub = entry.name;
+                    // Check for frontend/backend subdirs (monorepo pattern)
+                    try {
+                        for (const child of readdirSync(sub, { withFileTypes: true })) {
+                            if (child.isDirectory() && !child.name.startsWith('.') && child.name !== 'node_modules') {
+                                sourceRoots.push(`${sub}/${child.name}/`);
+                            }
+                        }
+                    }
+                    catch { /* skip unreadable dirs */ }
+                    sourceRoots.push(`${sub}/`);
+                }
+            }
+            catch { /* fallback to no extra roots */ }
+            const resolveFilePath = (fp) => {
+                for (const root of sourceRoots) {
+                    const resolved = root + fp;
+                    if (existsSync(resolved))
+                        return resolved;
+                }
+                return null;
+            };
             let indexedCount = 0;
             for (const filePath of filesToIndex) {
                 try {
-                    if (!existsSync(filePath))
+                    const resolved = resolveFilePath(filePath);
+                    if (!resolved)
                         continue;
-                    const code = readFileSync(filePath, 'utf-8');
+                    const code = readFileSync(resolved, 'utf-8');
                     if (code.trim().length === 0)
                         continue;
-                    await adapter.index(code, { filePath, source: agentKey, indexed_at: Date.now() });
+                    await adapter.index(code, { filePath: resolved, source: agentKey, indexed_at: Date.now() });
                     indexedCount++;
                 }
                 catch { /* skip unreadable files */ }
@@ -937,6 +1069,20 @@ export async function complete(sessionId, agentKey, options, _bundle) {
     }
     catch (err) {
         console.error(`[PROGRESS] Tracking failed (non-fatal): ${err.message}`);
+    }
+    // ── Batch-learn: process feedback after agent completion ────────────
+    try {
+        const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
+        const engine = createProductionSonaEngine();
+        await engine.initialize();
+        const batchStats = await engine.processUnprocessedFeedback(50);
+        if (batchStats.processed > 0) {
+            console.error(`[BATCH-LEARN] Post-agent: processed ${batchStats.processed} feedback, ` +
+                `created ${batchStats.patternsCreated} patterns`);
+        }
+    }
+    catch (err) {
+        console.error(`[BATCH-LEARN] Post-agent processing failed (non-fatal): ${err.message}`);
     }
     // 10. Return result (caller handles stdout output)
     return {

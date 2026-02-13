@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.1.7 | **Status**: Production-Ready | **Last Updated**: February 2026
+**Version**: 2.1.8 | **Status**: Production-Ready | **Last Updated**: February 2026
 
 ## Table of Contents
 
@@ -23,6 +23,31 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.1.8
+
+### Self-Learning Feedback Loop & Trajectory-Pattern Linking
+
+Fixed three critical bugs that prevented the coding pipeline's learning system from functioning:
+
+| Fix | Description |
+|-----|-------------|
+| **Feedback Processing** | Wired `processUnprocessedFeedback()` at 3 lifecycle points (startup, post-agent, pipeline end) — feedback backlog now drains at 50/agent |
+| **Trajectory Persistence** | Changed `new SonaEngine()` to `createProductionSonaEngine()` so trajectories persist to SQLite instead of ephemeral memory |
+| **Pattern Linking** | Added `addPatternToTrajectory()` and `findPatternIdsByTrajectoryId()` so `getTrajectoryFromStorage()` reconstructs pattern associations from DB |
+| **RLM Verdict Persistence** | Added verdict/confidence/remediation columns to `trajectory_metadata` with ALTER TABLE migration |
+| **Sherlock Verdict Injection** | Past GUILTY verdicts injected into future agent prompts via `findGuiltyByAgent()` |
+
+**Root Cause**: Three storage layers were disconnected:
+1. Trajectories created with non-production engine (no DB persistence)
+2. Patterns created by `PatternStore` (vector DB) never linked to trajectories
+3. `getTrajectoryFromStorage()` hardcoded `patterns: []` with no reverse lookup
+
+**Impact**: Pattern `success_count` / `failure_count` counters now increment correctly. Learning feedback processes at 50 records per agent completion.
+
+**Files Changed**: `coding-pipeline-cli.ts`, `sona-engine.ts`, `pattern-dao.ts`, `trajectory-metadata-dao.ts`, `sherlock-learning-integration.ts`
+
+---
 
 ## What's New in v2.1.7
 

@@ -141,6 +141,16 @@ export declare class SonaEngine {
      */
     createTrajectoryWithId(trajectoryId: TrajectoryID, route: Route, patterns: PatternID[], context?: string[]): void;
     /**
+     * Link a pattern to an existing trajectory.
+     * Updates both the in-memory trajectory and the DB (via PatternDAO).
+     *
+     * Implements: FIX-TRAJ-PATTERN-001 (trajectory-pattern link gap)
+     *
+     * @param trajectoryId - Trajectory to link the pattern to
+     * @param patternId - Pattern ID to add
+     */
+    addPatternToTrajectory(trajectoryId: TrajectoryID, patternId: PatternID): void;
+    /**
      * Get weight for a single pattern in a route
      *
      * @param patternId - Pattern ID to get weight for

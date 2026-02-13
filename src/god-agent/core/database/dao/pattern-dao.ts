@@ -392,6 +392,73 @@ export class PatternDAO {
   }
 
   // ============================================================
+  // TRAJECTORY-PATTERN LINKING
+  // ============================================================
+
+  /**
+   * Find pattern IDs that are linked to a given trajectory ID.
+   * Searches the trajectory_ids JSON array column for the trajectory ID.
+   *
+   * Implements: FIX-TRAJ-PATTERN-001 (trajectory-pattern link gap)
+   *
+   * @param trajectoryId - The trajectory ID to search for
+   * @returns Array of pattern IDs linked to this trajectory
+   */
+  findPatternIdsByTrajectoryId(trajectoryId: string): string[] {
+    // trajectory_ids is stored as a JSON array, e.g. '["traj_1","traj_2"]'
+    // LIKE with '%"<id>"%' is safe because trajectory IDs are UUID-like (no SQL wildcards)
+    const stmt = this.db.prepare(`
+      SELECT id FROM patterns
+      WHERE trajectory_ids LIKE '%"' || ? || '"%'
+        AND deprecated = 0
+    `);
+
+    const rows = withRetrySync(
+      () => stmt.all(trajectoryId) as Array<{ id: string }>,
+      { operationName: 'PatternDAO.findPatternIdsByTrajectoryId' }
+    );
+
+    return rows.map(row => row.id);
+  }
+
+  /**
+   * Add a trajectory ID to a pattern's trajectory_ids JSON array.
+   * Reads the current array, appends the new ID if not already present,
+   * and writes it back.
+   *
+   * Implements: FIX-TRAJ-PATTERN-001 (trajectory-pattern link gap)
+   *
+   * @param patternId - The pattern to link
+   * @param trajectoryId - The trajectory to link to
+   */
+  addTrajectoryId(patternId: string, trajectoryId: string): void {
+    // Read current trajectory_ids
+    const row = this.selectByIdStmt!.get(patternId) as IPatternRow | undefined;
+    if (!row) {
+      return; // Pattern not found — nothing to link
+    }
+
+    const currentIds: string[] = JSON.parse(row.trajectory_ids);
+    if (currentIds.includes(trajectoryId)) {
+      return; // Already linked
+    }
+
+    currentIds.push(trajectoryId);
+    const now = Date.now();
+
+    const updateStmt = this.db.prepare(`
+      UPDATE patterns
+      SET trajectory_ids = ?, updated_at = ?, version = version + 1
+      WHERE id = ?
+    `);
+
+    withRetrySync(
+      () => updateStmt.run(JSON.stringify(currentIds), now, patternId),
+      { operationName: 'PatternDAO.addTrajectoryId' }
+    );
+  }
+
+  // ============================================================
   // FORBIDDEN OPERATIONS
   // ============================================================
 
