@@ -11,6 +11,9 @@
     "allow": [
       "Bash(npx tsx:*)",
       "Bash(npx claude-flow:*)",
+      "Bash(npx claude-flow@alpha:*)",
+      "Bash(cd:*)",
+      "Bash(wc:*)",
       "Bash(sleep:*)",
       "Bash(python3:*)",
       "Bash(python:*)",
