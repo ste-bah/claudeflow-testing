@@ -19,6 +19,8 @@ import {
   VerdictConfidence,
   FORENSIC_MEMORY_NAMESPACE,
 } from './sherlock-phase-reviewer-types.js';
+import { getDatabaseConnection } from '../database/connection.js';
+import { TrajectoryMetadataDAO } from '../database/dao/trajectory-metadata-dao.js';
 
 // TYPE DEFINITIONS
 
@@ -292,6 +294,43 @@ export class SherlockLearningIntegration {
 
     if (this._sonaEngine) {
       this._sonaEngine.createTrajectoryWithId(trajectoryId, route, patterns, context);
+
+      // Persist verdict to SQLite for future injection into agent prompts.
+      // INSERT a new trajectory_metadata row — SonaEngine stores trajectories
+      // in memory only, so dao.exists() would return false. We create the
+      // SQLite record ourselves with verdict data attached.
+      try {
+        const db = getDatabaseConnection();
+        const dao = new TrajectoryMetadataDAO(db);
+        if (dao.exists(trajectoryId)) {
+          // Row already exists (e.g. from a prior run) — just update verdict
+          dao.updateVerdict(
+            trajectoryId,
+            result.verdict,
+            result.confidence,
+            result.remediations.length
+          );
+        } else {
+          // Create new trajectory_metadata row with verdict
+          dao.insert({
+            id: trajectoryId,
+            filePath: '',           // no binary trajectory file for Sherlock
+            fileOffset: 0,
+            fileLength: 0,
+            route,
+            stepCount: result.caseFile.verificationResults.length,
+            qualityScore: verdictToQuality(result.verdict, result.confidence),
+            createdAt: Date.now(),
+            status: 'completed',
+            verdict: result.verdict,
+            verdictConfidence: result.confidence,
+            remediationCount: result.remediations.length,
+          });
+        }
+        this._log(`Persisted verdict ${result.verdict} (${result.confidence}) to SQLite`);
+      } catch (err) {
+        this._log(`Warning: Failed to persist verdict to SQLite: ${err}`);
+      }
     }
 
     return trajectoryId;

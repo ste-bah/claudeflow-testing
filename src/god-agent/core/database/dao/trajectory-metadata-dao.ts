@@ -11,7 +11,7 @@
  *
  * CRITICAL: RULE-016 - trajectory_metadata is APPEND-ONLY
  * - DELETE operations are FORBIDDEN
- * - UPDATE only allowed for: status, quality_score, completed_at, version
+ * - UPDATE only allowed for: status, quality_score, completed_at, verdict, verdict_confidence, remediation_count, version
  */
 
 import type { IDatabaseConnection } from '../connection.js';
@@ -41,6 +41,10 @@ export interface ITrajectoryMetadataInput {
   qualityScore?: number;
   createdAt: number;
   status?: TrajectoryStatus;
+  // Sherlock verdict tracking
+  verdict?: 'INNOCENT' | 'GUILTY' | 'INSUFFICIENT_EVIDENCE';
+  verdictConfidence?: 'HIGH' | 'MEDIUM' | 'LOW';
+  remediationCount?: number;
 }
 
 /**
@@ -64,6 +68,9 @@ interface ITrajectoryMetadataRow {
   route: string;
   step_count: number;
   quality_score: number | null;
+  verdict: string | null;
+  verdict_confidence: string | null;
+  remediation_count: number;
   created_at: number;
   completed_at: number | null;
   version: number;
@@ -103,8 +110,9 @@ interface IStatsResult {
  *
  * Key features:
  * - Insert new trajectory metadata (with retry)
- * - Update status (with retry) - ONLY status, quality_score, completed_at allowed
+ * - Update status (with retry) - ONLY status, quality_score, completed_at, verdict fields allowed
  * - Update quality score (with retry)
+ * - Update verdict (with retry)
  * - Query by ID or status
  * - Aggregate statistics for observability
  * - DELETE/CLEAR operations throw errors (RULE-016)
@@ -145,6 +153,11 @@ export class TrajectoryMetadataDAO {
         quality_score REAL
             CHECK (quality_score IS NULL OR (quality_score >= 0.0 AND quality_score <= 1.0)),
 
+        -- Sherlock verdict tracking
+        verdict TEXT CHECK (verdict IS NULL OR verdict IN ('INNOCENT', 'GUILTY', 'INSUFFICIENT_EVIDENCE')),
+        verdict_confidence TEXT CHECK (verdict_confidence IS NULL OR verdict_confidence IN ('HIGH', 'MEDIUM', 'LOW')),
+        remediation_count INTEGER DEFAULT 0,
+
         -- Timestamps (RULE-020)
         created_at INTEGER NOT NULL,
         completed_at INTEGER,
@@ -161,12 +174,20 @@ export class TrajectoryMetadataDAO {
       CREATE INDEX IF NOT EXISTS idx_trajectory_created ON trajectory_metadata(created_at DESC);
 
       -- RULE-016, RULE-017: Append-only triggers
-      -- Only status, quality_score, completed_at, version updates allowed
+      -- Only status, quality_score, completed_at, verdict, verdict_confidence, remediation_count, version updates allowed
 
       -- Drop existing triggers if they exist (for idempotent schema creation)
       DROP TRIGGER IF EXISTS trajectory_metadata_no_delete;
       DROP TRIGGER IF EXISTS trajectory_metadata_limited_update;
     `);
+
+    // Migration: add verdict columns if table already exists without them
+    try { this.db.db.exec(`ALTER TABLE trajectory_metadata ADD COLUMN verdict TEXT`); } catch { /* already exists */ }
+    try { this.db.db.exec(`ALTER TABLE trajectory_metadata ADD COLUMN verdict_confidence TEXT`); } catch { /* already exists */ }
+    try { this.db.db.exec(`ALTER TABLE trajectory_metadata ADD COLUMN remediation_count INTEGER DEFAULT 0`); } catch { /* already exists */ }
+
+    // Verdict index created AFTER migration to avoid "no such column" on pre-existing tables
+    try { this.db.db.exec(`CREATE INDEX IF NOT EXISTS idx_trajectory_verdict ON trajectory_metadata(verdict)`); } catch { /* already exists */ }
 
     // Create triggers separately to avoid issues with conditional creation
     try {
@@ -193,7 +214,7 @@ export class TrajectoryMetadataDAO {
            OR OLD.step_count != NEW.step_count
            OR OLD.created_at != NEW.created_at
         BEGIN
-            SELECT RAISE(ABORT, 'Trajectory metadata: only status, quality_score, completed_at updates allowed (RULE-016).');
+            SELECT RAISE(ABORT, 'Trajectory metadata: only status, quality_score, completed_at, verdict, verdict_confidence, remediation_count updates allowed (RULE-016).');
         END;
       `);
     } catch {
@@ -208,10 +229,12 @@ export class TrajectoryMetadataDAO {
     this.insertStmt = this.db.prepare(`
       INSERT INTO trajectory_metadata (
         id, file_path, file_offset, file_length, route, step_count,
-        quality_score, created_at, completed_at, version, status
+        quality_score, verdict, verdict_confidence, remediation_count,
+        created_at, completed_at, version, status
       ) VALUES (
         @id, @filePath, @fileOffset, @fileLength, @route, @stepCount,
-        @qualityScore, @createdAt, @completedAt, @version, @status
+        @qualityScore, @verdict, @verdictConfidence, @remediationCount,
+        @createdAt, @completedAt, @version, @status
       )
     `);
 
@@ -265,6 +288,9 @@ export class TrajectoryMetadataDAO {
       route: metadata.route,
       stepCount: metadata.stepCount,
       qualityScore: metadata.qualityScore ?? null,
+      verdict: metadata.verdict ?? null,
+      verdictConfidence: metadata.verdictConfidence ?? null,
+      remediationCount: metadata.remediationCount ?? 0,
       createdAt: metadata.createdAt,
       completedAt: null,
       version: 1,
@@ -330,6 +356,34 @@ export class TrajectoryMetadataDAO {
     withRetrySync(
       () => this.updateQualityStmt!.run(params),
       { operationName: 'TrajectoryMetadataDAO.updateQuality' }
+    );
+  }
+
+  /**
+   * Update the verdict of a trajectory.
+   * RULE-016 COMPLIANCE: Only verdict, verdict_confidence, remediation_count, version can be updated.
+   *
+   * @param id - The trajectory ID
+   * @param verdict - Sherlock verdict value
+   * @param confidence - Confidence level of the verdict
+   * @param remediationCount - Number of remediation attempts
+   */
+  updateVerdict(
+    id: string,
+    verdict: 'INNOCENT' | 'GUILTY' | 'INSUFFICIENT_EVIDENCE',
+    confidence: 'HIGH' | 'MEDIUM' | 'LOW',
+    remediationCount: number
+  ): void {
+    const stmt = this.db.prepare(`
+      UPDATE trajectory_metadata
+      SET verdict = @verdict, verdict_confidence = @confidence,
+          remediation_count = @remediationCount, version = version + 1
+      WHERE id = @id
+    `);
+
+    withRetrySync(
+      () => stmt.run({ id, verdict, confidence, remediationCount }),
+      { operationName: 'TrajectoryMetadataDAO.updateVerdict' }
     );
   }
 
@@ -429,11 +483,53 @@ export class TrajectoryMetadataDAO {
       route: row.route,
       stepCount: row.step_count,
       qualityScore: row.quality_score ?? undefined,
+      verdict: (row.verdict as 'INNOCENT' | 'GUILTY' | 'INSUFFICIENT_EVIDENCE') ?? undefined,
+      verdictConfidence: (row.verdict_confidence as 'HIGH' | 'MEDIUM' | 'LOW') ?? undefined,
+      remediationCount: row.remediation_count ?? 0,
       createdAt: row.created_at,
       completedAt: row.completed_at ?? undefined,
       version: row.version,
       status: row.status as TrajectoryStatus
     };
+  }
+
+  /**
+   * Find past GUILTY verdicts for a specific agent key pattern.
+   * Used for Sherlock verdict injection into future agent prompts.
+   *
+   * @param agentKeyPattern - Route pattern to match (uses SQL LIKE with wildcards)
+   * @param limit - Maximum number of results to return (default 10)
+   * @returns Array of matching trajectory metadata with GUILTY verdicts (newest first)
+   */
+  findGuiltyByAgent(agentKeyPattern: string, limit: number = 10): ITrajectoryMetadata[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM trajectory_metadata
+      WHERE verdict = 'GUILTY' AND route LIKE @pattern
+      ORDER BY created_at DESC
+      LIMIT @limit
+    `);
+    const rows = stmt.all({ pattern: `%${agentKeyPattern}%`, limit }) as ITrajectoryMetadataRow[];
+    return rows.map(row => this.rowToMetadata(row));
+  }
+
+  /**
+   * Find past GUILTY verdicts for a specific pipeline phase.
+   * Sherlock trajectories use routes like `coding/forensics/phase-N/verdict`,
+   * so we match by phase number rather than agent key.
+   *
+   * @param phase - Pipeline phase number (1-6)
+   * @param limit - Maximum number of results to return (default 10)
+   * @returns Array of matching trajectory metadata with GUILTY verdicts (newest first)
+   */
+  findGuiltyByPhase(phase: number, limit: number = 10): ITrajectoryMetadata[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM trajectory_metadata
+      WHERE verdict = 'GUILTY' AND route LIKE @pattern
+      ORDER BY created_at DESC
+      LIMIT @limit
+    `);
+    const rows = stmt.all({ pattern: `%/phase-${phase}/%`, limit }) as ITrajectoryMetadataRow[];
+    return rows.map(row => this.rowToMetadata(row));
   }
 
   /**

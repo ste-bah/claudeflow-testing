@@ -228,7 +228,7 @@ function getTaskTypeForPhase(phase: number): TaskType {
   return map[phase] || TaskType.ANALYSIS;
 }
 
-function formatAgentResponse(batchResponse: {
+async function formatAgentResponse(batchResponse: {
   sessionId: string;
   status: string;
   currentPhase: string;
@@ -237,6 +237,22 @@ function formatAgentResponse(batchResponse: {
   totalAgents: number;
 }) {
   if (batchResponse.status === 'complete') {
+    // ── Batch-learn: final drain of remaining feedback ──────────────
+    try {
+      const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
+      const engine = createProductionSonaEngine();
+      await engine.initialize();
+      const batchStats = await engine.processUnprocessedFeedback(200);
+      if (batchStats.processed > 0) {
+        console.error(
+          `[BATCH-LEARN] Pipeline complete: processed ${batchStats.processed} remaining feedback, ` +
+          `created ${batchStats.patternsCreated} patterns`
+        );
+      }
+    } catch (err) {
+      console.error(`[BATCH-LEARN] Final processing failed (non-fatal): ${(err as Error).message}`);
+    }
+
     return {
       sessionId: batchResponse.sessionId,
       status: 'complete',
@@ -306,6 +322,22 @@ export async function init(
     });
   } catch {
     console.error('[init] Warning: Failed to store hook context, continuing');
+  }
+
+  // ── Batch-learn: process feedback backlog from prior runs ────────────
+  try {
+    const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
+    const engine = createProductionSonaEngine();
+    await engine.initialize();
+    const batchStats = await engine.processUnprocessedFeedback(100);
+    if (batchStats.processed > 0) {
+      console.error(
+        `[BATCH-LEARN] Startup: processed ${batchStats.processed} feedback from prior runs, ` +
+        `created ${batchStats.patternsCreated} patterns, ${batchStats.errors} errors`
+      );
+    }
+  } catch (err) {
+    console.error(`[BATCH-LEARN] Startup processing failed (non-fatal): ${(err as Error).message}`);
   }
 
   // Build pipeline configuration
@@ -639,6 +671,42 @@ export async function next(
       }
     } catch { /* optional — Reflexion unavailable is not an error */ }
 
+    // ── Sherlock: past GUILTY verdict injection ──────────────────────────
+    try {
+      const { getDatabaseConnection } = await import('../core/database/connection.js');
+      const { TrajectoryMetadataDAO } = await import('../core/database/dao/trajectory-metadata-dao.js');
+
+      const db = getDatabaseConnection();
+      const dao = new TrajectoryMetadataDAO(db);
+      const guiltyVerdicts = dao.findGuiltyByPhase(phase, 10);
+
+      if (guiltyVerdicts.length > 0) {
+        prompt += '\n\n## SHERLOCK VERDICT HISTORY (past forensic failures)\n';
+        prompt += `**History:** This agent has ${guiltyVerdicts.length} past GUILTY verdict(s) from forensic reviews.\n`;
+        prompt += '**Recent GUILTY verdicts:**\n';
+
+        const recent = guiltyVerdicts.slice(0, 3);
+        for (let i = 0; i < recent.length; i++) {
+          const v = recent[i];
+          const date = new Date(v.createdAt).toISOString().split('T')[0];
+          const confidence = v.verdictConfidence || 'UNKNOWN';
+          const remediations = v.remediationCount || 0;
+          prompt += `${i + 1}. ${confidence} confidence on ${date} (${remediations} remediations required)\n`;
+        }
+
+        prompt += '\n**Action:** These are CRITICAL failures from adversarial review. Do NOT repeat them.\n';
+        console.error(`[SHERLOCK] Injected ${recent.length} GUILTY verdict warnings for phase ${phase} (agent: ${agentKey})`);
+
+        // Persist injection status to session
+        try {
+          const sessionPath = `.god-agent/coding-sessions/${sessionId}.json`;
+          const sd = JSON.parse(await fsP.readFile(sessionPath, 'utf-8'));
+          sd.lastSherlockInjected = true;
+          await fsP.writeFile(sessionPath, JSON.stringify(sd, null, 2));
+        } catch { /* non-fatal */ }
+      }
+    } catch { /* Sherlock verdict injection unavailable — not an error */ }
+
     // ── Phase 6: Algorithm-specific behavior ─────────────────────────────
     try {
       const batches = sessionData.batches as unknown[][][] | undefined;
@@ -849,11 +917,20 @@ export async function complete(
         'implementation', 'testing', 'optimization', 'delivery'][phase] || 'understanding';
       // Read LEANN injection status persisted by next()
       const leannInjected = sessionData.lastLeannInjected === true;
+      const sherlockInjected = sessionData.lastSherlockInjected === true;
       const rlmContext: IRlmContext = {
-        injectionSuccess: leannInjected,
-        sourceAgentKey: leannInjected ? 'leann-semantic-search' : undefined,
+        injectionSuccess: leannInjected || sherlockInjected,
+        sourceAgentKey: sherlockInjected
+          ? 'sherlock-verdict-reviewer'
+          : leannInjected
+            ? 'leann-semantic-search'
+            : undefined,
         sourceStepIndex: undefined,
-        sourceDomain: leannInjected ? 'code/semantic' : undefined,
+        sourceDomain: sherlockInjected
+          ? 'coding/forensics'
+          : leannInjected
+            ? 'code/semantic'
+            : undefined,
       };
       await provideStepFeedback(
         { sonaEngine: engine, reasoningBank: undefined },
@@ -1109,6 +1186,22 @@ export async function complete(
     );
   } catch (err) {
     console.error(`[PROGRESS] Tracking failed (non-fatal): ${(err as Error).message}`);
+  }
+
+  // ── Batch-learn: process feedback after agent completion ────────────
+  try {
+    const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
+    const engine = createProductionSonaEngine();
+    await engine.initialize();
+    const batchStats = await engine.processUnprocessedFeedback(50);
+    if (batchStats.processed > 0) {
+      console.error(
+        `[BATCH-LEARN] Post-agent: processed ${batchStats.processed} feedback, ` +
+        `created ${batchStats.patternsCreated} patterns`
+      );
+    }
+  } catch (err) {
+    console.error(`[BATCH-LEARN] Post-agent processing failed (non-fatal): ${(err as Error).message}`);
   }
 
   // 10. Return result (caller handles stdout output)
