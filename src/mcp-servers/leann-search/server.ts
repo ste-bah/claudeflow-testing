@@ -483,6 +483,13 @@ export class LEANNMCPServer {
       return;
     }
 
+    // Only save if we have vectors — otherwise we'd overwrite the pipeline daemon's index
+    // The pipeline daemon is the primary writer; MCP server is a read-mostly consumer
+    if (this.backend.count() === 0) {
+      this.logger.debug('Skipping save — no vectors in backend (avoiding overwrite of pipeline index)');
+      return;
+    }
+
     try {
       await this.backend.save(this.config.persistPath);
       this.logger.debug(`Saved index to ${this.config.persistPath}`);

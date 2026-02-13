@@ -4445,14 +4445,18 @@ Return ONLY code in markdown code blocks.`;
       await this.savePersistedState();
     }
 
-    // Save LEANN vectors before shutdown
+    // Save LEANN vectors before shutdown (only if we have vectors to avoid overwriting pipeline index)
     if (this.leannContextService) {
-      try {
-        await this.leannContextService.save(LEANN_PERSISTENCE_PATH);
-        const vectorCount = this.leannContextService.getVectorCount();
-        this.log(`LEANN: Saved ${vectorCount} vectors to ${LEANN_PERSISTENCE_PATH}`);
-      } catch (error) {
-        this.log(`LEANN: Failed to save vectors: ${error}`);
+      const vectorCount = this.leannContextService.getVectorCount();
+      if (vectorCount > 0) {
+        try {
+          await this.leannContextService.save(LEANN_PERSISTENCE_PATH);
+          this.log(`LEANN: Saved ${vectorCount} vectors to ${LEANN_PERSISTENCE_PATH}`);
+        } catch (error) {
+          this.log(`LEANN: Failed to save vectors: ${error}`);
+        }
+      } else {
+        this.log('LEANN: Skipping save — 0 vectors (avoiding overwrite of pipeline index)');
       }
     }
 
