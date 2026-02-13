@@ -43,6 +43,7 @@
       "Bash(cat>/tmp/:*)",
       "Bash(cat:*)",
       "Write(/tmp/**)",
+      "Write(/Volumes/Externalwork/projects/claudeflow-testing/tmp/**)",
       "Bash(which:*)",
       "Bash(pwd)",
       "Bash(ls:*)",
@@ -200,7 +201,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'cat | jq -r \"if .tool_name == \\\"Bash\\\" and (.tool_input.command | test(\\\"/tmp/\\\")) then \\\"{\\\\\\\"decision\\\\\\\": \\\\\\\"allow\\\\\\\"}\\\" else empty end\" 2>/dev/null || true'"
+            "command": "/bin/bash -c 'cat | jq -r \"if .tool_name == \\\"Bash\\\" and (.tool_input.command | test(\\\"/tmp/\\\")) and (.tool_input.command | test(\\\"<<\\\") | not) and (.tool_input.command | length < 500) then \\\"{\\\\\\\"decision\\\\\\\": \\\\\\\"allow\\\\\\\"}\\\" else empty end\" 2>/dev/null || true'"
           }
         ]
       }
@@ -223,6 +224,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/leann-process-queue.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; echo \"[LEANN] Processing index queue...\"; timeout 120 npx tsx \"$ROOT/scripts/hooks/leann-process-queue.ts\" 2>/dev/null || echo \"[LEANN] Queue processing skipped or timed out\"'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/clean-settings.sh\" ] && \"$ROOT/.claude/hooks/clean-settings.sh\" || true'"
           }
         ]
       }
@@ -230,6 +235,10 @@
     "SessionStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/clean-settings.sh\" ] && \"$ROOT/.claude/hooks/clean-settings.sh\" || true'"
+          },
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && [ -f \".swarm/memory.db\" ] && sqlite3 .swarm/memory.db \"DELETE FROM memory_entries WHERE status=\\\"deleted\\\";\" 2>/dev/null && echo \"[memory-fix] Purged ghost entries\" || true'"
