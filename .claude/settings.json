@@ -206,7 +206,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); TOOL=$(echo \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); if [ \"$TOOL\" = \"Bash\" ] && [ -n \"$CMD\" ]; then TRIMMED=$(echo \"$CMD\" | sed \"s/^[[:space:]]*//\"); case \"$TRIMMED\" in cd\\ *|npx\\ *|python*|node\\ *|npm\\ *|git\\ *|wc\\ *|tail\\ *|head\\ *|ls\\ *|ls|grep\\ *|cat\\ *|test\\ *|sleep\\ *|kill\\ *|jq\\ *|which\\ *|pwd|sed\\ *|awk\\ *|mkdir\\ *|timeout\\ *) echo \"{\\\"decision\\\": \\\"allow\\\"}\"; exit 0;; esac; fi'"
+            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); TOOL=$(echo \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); if [ \"$TOOL\" = \"Bash\" ] && [ -n \"$CMD\" ]; then TRIMMED=$(echo \"$CMD\" | grep -m1 \"[^[:space:]]\" | sed \"s/^[[:space:]]*//\"); case \"$TRIMMED\" in cd\\ *|npx\\ *|python*|node\\ *|npm\\ *|git\\ *|wc\\ *|tail\\ *|head\\ *|ls\\ *|ls|grep\\ *|cat\\ *|test\\ *|sleep\\ *|kill\\ *|jq\\ *|which\\ *|pwd|sed\\ *|awk\\ *|mkdir\\ *|timeout\\ *) echo \"{\\\"decision\\\": \\\"allow\\\"}\"; exit 0;; esac; fi'"
           }
         ]
       }
