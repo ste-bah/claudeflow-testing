@@ -206,15 +206,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'cat | jq -r \"if .tool_name == \\\"Bash\\\" and (.tool_input.command | test(\\\"/tmp/\\\")) and (.tool_input.command | test(\\\"<<\\\") | not) and (.tool_input.command | length < 500) then \\\"{\\\\\\\"decision\\\\\\\": \\\\\\\"allow\\\\\\\"}\\\" else empty end\" 2>/dev/null || true'"
-          },
-          {
-            "type": "command",
-            "command": "/bin/bash -c 'cat | jq -r \"if .tool_name == \\\"Bash\\\" and (.tool_input.command | test(\\\"npx tsx src/god-agent\\\")) then \\\"{\\\\\\\"decision\\\\\\\": \\\\\\\"allow\\\\\\\"}\\\" else empty end\" 2>/dev/null || true'"
-          },
-          {
-            "type": "command",
-            "command": "/bin/bash -c 'cat | jq -r \"if .tool_name == \\\"Bash\\\" and ((.tool_input.command | ltrimstr(\\\" \\\") | ltrimstr(\\\" \\\") | ltrimstr(\\\" \\\") | ltrimstr(\\\" \\\")) as $cmd | ($cmd | test(\\\"^(cd |npx |python|node |npm |git |wc |tail |head |ls |grep |cat |test |sleep |kill |jq |which |pwd|sed )\\\")) ) then \\\"{\\\\\\\"decision\\\\\\\": \\\\\\\"allow\\\\\\\"}\\\" else empty end\" 2>/dev/null || true'"
+            "command": "/bin/bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\" 2>/dev/null); TOOL=$(echo \"$INPUT\" | jq -r \".tool_name // empty\" 2>/dev/null); if [ \"$TOOL\" = \"Bash\" ] && [ -n \"$CMD\" ]; then TRIMMED=$(echo \"$CMD\" | sed \"s/^[[:space:]]*//\"); case \"$TRIMMED\" in cd\\ *|npx\\ *|python*|node\\ *|npm\\ *|git\\ *|wc\\ *|tail\\ *|head\\ *|ls\\ *|ls|grep\\ *|cat\\ *|test\\ *|sleep\\ *|kill\\ *|jq\\ *|which\\ *|pwd|sed\\ *|awk\\ *|mkdir\\ *|timeout\\ *) echo \"{\\\"decision\\\": \\\"allow\\\"}\"; exit 0;; esac; fi'"
           }
         ]
       }
