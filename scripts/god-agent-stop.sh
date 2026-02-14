@@ -38,3 +38,4 @@ done
 rm -f /tmp/godagent-daemon.pid /tmp/godagent-ucm.pid /tmp/godagent-pipeline.pid 2>/dev/null
 
 echo "=========================="
+echo "Logs: $ROOT_DIR/logs/"
