@@ -355,6 +355,41 @@ export async function init(
   console.error('[init] Initializing session...');
   const batchResponse = await orchestrator.initSession(sessionId, pipelineConfig);
 
+  // Create session-scoped output directory for compaction recovery
+  const fsInit = (await import('fs')).promises;
+  const { existsSync: existsSyncInit } = await import('fs');
+  const outputDir = `.god-agent/pipeline-output/${sessionId}`;
+  await fsInit.mkdir(outputDir, { recursive: true });
+
+  // Cleanup stale output directories from previous sessions (>24h old)
+  try {
+    const outputRoot = '.god-agent/pipeline-output';
+    if (existsSyncInit(outputRoot)) {
+      const dirs = await fsInit.readdir(outputRoot);
+      const now = Date.now();
+      for (const dir of dirs) {
+        try {
+          if (dir === sessionId) continue; // never clean our own directory
+          const dirStat = await fsInit.stat(`${outputRoot}/${dir}`);
+          if (now - dirStat.mtimeMs > 24 * 60 * 60 * 1000) {
+            // Check if session is still running before deleting its output
+            try {
+              const sessionJson = JSON.parse(
+                await fsInit.readFile(`.god-agent/coding-sessions/${dir}.json`, 'utf-8'),
+              );
+              if (sessionJson.status === 'running') {
+                console.error(`[init] Skipping stale output dir ${dir} — session still running`);
+                continue;
+              }
+            } catch { /* session file missing/unreadable — safe to clean */ }
+            await fsInit.rm(`${outputRoot}/${dir}`, { recursive: true, force: true });
+            console.error(`[init] Cleaned stale output directory: ${dir}`);
+          }
+        } catch { /* skip individual dir errors */ }
+      }
+    }
+  } catch { /* cleanup is best-effort */ }
+
   // Phase 4b: Initialize RLM Context Store for session
   try {
     const { RLMContextStore } = await import('../core/pipeline/rlm-context-store.js');
@@ -822,6 +857,32 @@ export async function complete(
   const { orchestrator, patternMatcher } = _bundle ?? await createSequentialOrchestrator();
   const fsP = (await import('fs')).promises;
 
+  // ── Double-completion guard ──────────────────────────────────────────
+  // Must run BEFORE any side effects (trajectories, XP, LEANN, DESC, RLM).
+  // Handles both string and {agentKey} object shapes in completedAgents.
+  try {
+    const guardSession = JSON.parse(
+      await fsP.readFile(`.god-agent/coding-sessions/${sessionId}.json`, 'utf-8'),
+    );
+    const completedKeys = (guardSession.completedAgents || []).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (a: any) => (typeof a === 'string' ? a : a.agentKey) || '',
+    );
+    if (completedKeys.includes(agentKey)) {
+      console.error(`[complete] SKIP: ${agentKey} already completed — no-op to prevent duplicates`);
+      return {
+        success: true, agentKey, sessionId,
+        quality: { score: 0, tier: 'skipped' },
+        xp: { earned: 0, rewards: {}, sessionTotal: guardSession.xp?.total || 0 },
+        skipped: true, reason: 'already-completed',
+      };
+    }
+  } catch (guardErr) {
+    // Fail-closed: if we can't read the session, downstream reads will also fail.
+    // Surface a clear error rather than letting a raw JSON parse error appear later.
+    console.error(`[complete] WARNING: Could not read session file for guard check: ${(guardErr as Error).message}`);
+  }
+
   // 1. Read agent output (from --file or fallback)
   let output = `Agent ${agentKey} completed via CLI`;
   if (options?.file) {
@@ -1277,17 +1338,83 @@ function calculateXP(
 }
 
 /**
- * Resume an interrupted session — returns current agent WITHOUT advancing.
+ * Resume an interrupted session — checks for leftover output file and
+ * auto-completes the pending agent if found, then returns the NEXT agent.
+ * If no output file exists, returns the current pending agent (existing behavior).
+ *
+ * Output file lookup order:
+ *   1. Session-scoped: .god-agent/pipeline-output/{sessionId}/{agentKey}.txt
+ *   2. Legacy fallback: /tmp/pipeline-agent-output.txt (if modified within 2 hours)
  */
 export async function resume(
   sessionId: string,
   _bundle?: OrchestratorBundle,
 ): Promise<Record<string, unknown>> {
   console.error('[resume] Loading session...');
-  const { orchestrator } = _bundle ?? await createSequentialOrchestrator();
+  const bundle = _bundle ?? await createSequentialOrchestrator();
+  const { orchestrator } = bundle;
+  const fsP = (await import('fs')).promises;
+  const { existsSync } = await import('fs');
 
   const batchResponse = await orchestrator.getNextBatch(sessionId);
-  return formatAgentResponse(batchResponse);
+
+  // If pipeline is already complete or no pending agent, return as-is
+  if (batchResponse.status === 'complete' || !batchResponse.batch?.[0]) {
+    return formatAgentResponse(batchResponse);
+  }
+
+  const pendingAgentKey = batchResponse.batch[0].key;
+
+  // ── Locate output file (session-scoped first, then legacy fallback) ──
+  const sessionScopedPath = `.god-agent/pipeline-output/${sessionId}/${pendingAgentKey}.txt`;
+  const legacyPath = '/tmp/pipeline-agent-output.txt';
+
+  let outputFile: string | null = null;
+  if (existsSync(sessionScopedPath)) {
+    outputFile = sessionScopedPath;
+  } else if (existsSync(legacyPath)) {
+    // Legacy path — validate freshness (within 2 hours) to reject stale files
+    try {
+      const stat = await fsP.stat(legacyPath);
+      if (Date.now() - stat.mtimeMs < 2 * 60 * 60 * 1000) {
+        outputFile = legacyPath;
+        console.error(`[resume] Using legacy output file (modified ${Math.round((Date.now() - stat.mtimeMs) / 60000)}min ago)`);
+      } else {
+        console.error(`[resume] Ignoring stale legacy output file (${Math.round((Date.now() - stat.mtimeMs) / 3600000)}h old)`);
+      }
+    } catch { /* stat failed — skip legacy path */ }
+  }
+
+  if (!outputFile) {
+    console.error(`[resume] No output file for ${pendingAgentKey} — returning for re-execution`);
+    return formatAgentResponse(batchResponse);
+  }
+
+  // ── Validate file is non-empty (guard against partial writes) ────────
+  try {
+    const stat = await fsP.stat(outputFile);
+    if (stat.size < 50) {
+      console.error(`[resume] Output file too small (${stat.size} bytes) — likely partial write, ignoring`);
+      await fsP.unlink(outputFile).catch(() => {});
+      return formatAgentResponse(batchResponse);
+    }
+  } catch {
+    return formatAgentResponse(batchResponse);
+  }
+
+  // ── Auto-complete the pending agent with persisted output ────────────
+  console.error(`[resume] Found output for ${pendingAgentKey} (${outputFile}) — auto-completing...`);
+  try {
+    await complete(sessionId, pendingAgentKey, { file: outputFile }, bundle);
+    console.error(`[resume] Auto-completed ${pendingAgentKey}`);
+    // Clean up consumed output file
+    await fsP.unlink(outputFile).catch(() => {});
+    // Return the NEXT agent with full learning context injection
+    return await next(sessionId, bundle);
+  } catch (err) {
+    console.error(`[resume] Auto-complete failed: ${(err as Error).message} — returning pending agent`);
+    return formatAgentResponse(batchResponse);
+  }
 }
 
 /**

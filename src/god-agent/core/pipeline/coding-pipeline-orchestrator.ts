@@ -787,6 +787,12 @@ export class CodingPipelineOrchestrator {
     for (const result of results) {
       const agentKey = result.agentKey as CodingPipelineAgent;
 
+      // Skip if agent already completed (defense-in-depth against double-completion)
+      if (session.completedAgents.includes(agentKey)) {
+        this.log(`Idempotent skip: ${agentKey} already in completedAgents`);
+        continue;
+      }
+
       // Store in execution state
       this.executionState.executionResults.set(agentKey, {
         agentKey,
