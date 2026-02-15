@@ -28,32 +28,34 @@ Use the Pipeline Thin CLI (delegates to pipeline daemon for zero cold-start over
 
 ### Step 1: Initialize Pipeline
 
+**ALWAYS pipe CLI output through the parser script** to extract fields and save the prompt to a file:
+
 ```bash
-npx tsx src/god-agent/cli/pipeline-thin-cli.ts init "$ARGUMENTS"
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts init "$ARGUMENTS" 2>&1 | python3 scripts/parse-pipeline.py
 ```
 
-This returns:
-```json
-{
-  "sessionId": "uuid",
-  "status": "running",
-  "currentPhase": "understanding",
-  "agent": { "key": "task-analyzer", "prompt": "...", "model": "sonnet" },
-  "progress": { "completed": 0, "total": 48, "percentage": 0 }
-}
+This prints compact summary lines:
+```
+SESSION: abc-123
+STATUS: running
+NEXT: task-analyzer | model: opus
+PROGRESS: {"completed": 0, "total": 50, "percentage": 0}
+PROMPT_FILE: .god-agent/pipeline-output/abc-123/_next-prompt-task-analyzer.txt
+PROMPT_LEN: 42150
 ```
 
-**Save the `sessionId` - you need it for all subsequent commands.**
+**Save the `SESSION` value - you need it for all subsequent commands.**
 
 ### Step 2: Execute First Agent
 
-From the init response, spawn the first agent using the `model` field from the response:
+Read the prompt from the `PROMPT_FILE` path using the Read tool, then spawn the agent:
 
 ```
-Task("<agent.key>", "<agent.prompt>", "<agent.key>", model: "<agent.model>")
+Read("<PROMPT_FILE>")
+Task("<agent.key>", "<prompt from file>", "<agent.key>", model: "<model from NEXT line>")
 ```
 
-**CRITICAL: Always pass `model: "<agent.model>"` to the Task tool.** The pipeline specifies the correct model per agent (sonnet for design/implementation/testing, haiku for reviewers/checkers). Do NOT override or omit this.
+**CRITICAL: Always pass `model: "<model>"` to the Task tool.** The pipeline specifies the correct model per agent (opus for analysis, sonnet for design/implementation/testing, haiku for reviewers/checkers). Do NOT override or omit this.
 
 After the Task agent finishes, write its full response to `.god-agent/pipeline-output/<sessionId>/<agent.key>.txt` using the Write tool, then mark complete AND get the next agent in one call.
 
@@ -62,44 +64,50 @@ After the Task agent finishes, write its full response to `.god-agent/pipeline-o
 **CRITICAL: Always use a 5-minute (300000ms) timeout for complete-and-next calls.** The daemon does quality scoring, pattern matching, LEANN indexing, and RLM storage which takes 30-120 seconds. A 30s timeout WILL fail.
 
 ```bash
-npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file .god-agent/pipeline-output/<sessionId>/<agent.key>.txt
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file .god-agent/pipeline-output/<sessionId>/<agent.key>.txt 2>&1 | python3 scripts/parse-pipeline.py
 ```
 
-This returns both quality/XP data and the next agent:
-```json
-{
-  "completed": { "success": true, "quality": { "score": 0.82, "tier": "B+" }, "xp": { "earned": 255 } },
-  "next": {
-    "status": "running",
-    "agent": { "key": "requirement-extractor", "prompt": "...", "model": "sonnet" },
-    "progress": { "completed": 1, "total": 48, "percentage": 2 }
-  }
-}
+This prints:
+```
+COMPLETED: task-analyzer | quality: 0.82 | xp: 255
+STATUS: running
+NEXT: requirement-extractor | model: sonnet
+PROGRESS: {"completed": 1, "total": 50, "percentage": 2}
+PROMPT_FILE: .god-agent/pipeline-output/abc-123/_next-prompt-requirement-extractor.txt
+PROMPT_LEN: 38500
 ```
 
 ### Step 3: Loop Until Complete
 
-Repeat until `next.status: "complete"`:
+Repeat until `STATUS: complete`:
 
-#### 3a. Spawn Next Agent
-From the `complete-and-next` response's `next` field:
+#### 3a. Read Prompt and Spawn Next Agent
 ```
-Task("<next.agent.key>", "<next.agent.prompt>", "<next.agent.key>", model: "<next.agent.model>")
+Read("<PROMPT_FILE>")   ← from the previous complete-and-next output
+Task("<agent.key>", "<prompt from file>", "<agent.key>", model: "<model>")
 ```
 
-#### 3b. Complete-and-Next
+#### 3b. Write Output, Complete-and-Next
 After the Task agent finishes, write its full response to `.god-agent/pipeline-output/<sessionId>/<agent.key>.txt` using the Write tool, then:
 ```bash
-npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file .god-agent/pipeline-output/<sessionId>/<agent.key>.txt
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next <sessionId> <agent.key> --file .god-agent/pipeline-output/<sessionId>/<agent.key>.txt 2>&1 | python3 scripts/parse-pipeline.py
 ```
 
-When pipeline is complete, `complete-and-next` returns:
-```json
-{
-  "completed": { "success": true, "quality": {...}, "xp": {...} },
-  "next": { "status": "complete", "progress": { "completed": 48, "total": 48, "percentage": 100 } }
-}
+When pipeline is complete, the parser prints:
 ```
+COMPLETED: final-agent | quality: 0.85 | xp: 200
+STATUS: complete
+PIPELINE COMPLETE: {"completed": 50, "total": 50, "percentage": 100}
+PROMPT_FILE:
+PROMPT_LEN: 0
+```
+
+#### 3c. If PROMPT_LEN is 0 but STATUS is not complete
+This means the prompt was lost (output truncated or parser error). Recover by calling `next` directly:
+```bash
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts next <sessionId> 2>&1 | python3 scripts/parse-pipeline.py
+```
+This will regenerate the enriched prompt (with LEANN/patterns/etc) and save it to `PROMPT_FILE`.
 
 ---
 
@@ -123,23 +131,26 @@ Do NOT stop between tasks. Run all tasks back-to-back.
 When `$ARGUMENTS` starts with `-resume`, extract the session ID and use `resume` instead of `init`:
 
 ```bash
-npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId>
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId> 2>&1 | python3 scripts/parse-pipeline.py
 ```
 
 **Auto-Complete on Resume**: If the pending agent's output file exists at `.god-agent/pipeline-output/<sessionId>/<agent.key>.txt` (written before compaction), `resume` will automatically complete that agent and return the NEXT agent. This means you can continue directly with Step 2 using the returned agent — no need to re-run the completed agent.
 
-If no output file exists, `resume` returns the pending agent for re-execution. Continue with Step 2 onwards (Task -> complete-and-next loop).
+If no output file exists, `resume` returns the pending agent for re-execution. Read the prompt from `PROMPT_FILE` and continue with Step 2 onwards (Task -> complete-and-next loop).
 
 ---
 
 ## SESSION MANAGEMENT
 
 ```bash
-# Check progress
+# Check progress (status is lightweight, no prompt — do NOT use to get prompts)
 npx tsx src/god-agent/cli/pipeline-thin-cli.ts status <sessionId>
 
 # Resume interrupted session (auto-completes if output file exists, otherwise returns pending agent)
-npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId>
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId> 2>&1 | python3 scripts/parse-pipeline.py
+
+# Get next agent with full enriched prompt (if you need the prompt outside the normal loop)
+npx tsx src/god-agent/cli/pipeline-thin-cli.ts next <sessionId> 2>&1 | python3 scripts/parse-pipeline.py
 ```
 
 ---
@@ -163,42 +174,43 @@ npx tsx src/god-agent/cli/pipeline-thin-cli.ts resume <sessionId>
 ## EXAMPLE EXECUTION
 
 ```
-# Initialize
-> npx tsx src/god-agent/cli/pipeline-thin-cli.ts init "Add user authentication with JWT"
-{
-  "sessionId": "abc-123",
-  "status": "running",
-  "agent": { "key": "task-analyzer", "prompt": "...", "model": "sonnet" },
-  "progress": { "completed": 0, "total": 48, "percentage": 0 }
-}
+# Initialize (pipe through parser)
+> npx tsx src/god-agent/cli/pipeline-thin-cli.ts init "Add user authentication with JWT" 2>&1 | python3 scripts/parse-pipeline.py
+SESSION: abc-123
+STATUS: running
+NEXT: task-analyzer | model: opus
+PROGRESS: {"completed": 0, "total": 50, "percentage": 0}
+PROMPT_FILE: .god-agent/pipeline-output/abc-123/_next-prompt-task-analyzer.txt
+PROMPT_LEN: 42150
 
-# Spawn agent 1 (using model from response)
-> Task("task-analyzer", "<prompt>", "task-analyzer", model: "sonnet")
+# Read prompt from file, spawn agent 1
+> Read(".god-agent/pipeline-output/abc-123/_next-prompt-task-analyzer.txt")
+> Task("task-analyzer", "<prompt from file>", "task-analyzer", model: "opus")
 
-# Write output, then complete-and-next (marks complete + gets agent 2 in one call)
+# Write output, then complete-and-next (pipe through parser)
 > Write ".god-agent/pipeline-output/abc-123/task-analyzer.txt" (agent response)
-> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 task-analyzer --file .god-agent/pipeline-output/abc-123/task-analyzer.txt
-{
-  "completed": { "success": true, "quality": { "score": 0.82, "tier": "B+" }, "xp": { "earned": 255 } },
-  "next": {
-    "status": "running",
-    "agent": { "key": "requirement-extractor", "prompt": "...", "model": "sonnet" },
-    "progress": { "completed": 1, "total": 48, "percentage": 2 }
-  }
-}
+> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 task-analyzer --file .god-agent/pipeline-output/abc-123/task-analyzer.txt 2>&1 | python3 scripts/parse-pipeline.py
+COMPLETED: task-analyzer | quality: 0.82 | xp: 255
+STATUS: running
+NEXT: requirement-extractor | model: sonnet
+PROGRESS: {"completed": 1, "total": 50, "percentage": 2}
+PROMPT_FILE: .god-agent/pipeline-output/abc-123/_next-prompt-requirement-extractor.txt
+PROMPT_LEN: 38500
 
-# Spawn agent 2 (from next field above)
-> Task("requirement-extractor", "<prompt>", "requirement-extractor", model: "sonnet")
+# Read prompt, spawn agent 2
+> Read(".god-agent/pipeline-output/abc-123/_next-prompt-requirement-extractor.txt")
+> Task("requirement-extractor", "<prompt from file>", "requirement-extractor", model: "sonnet")
 
-# Write output, then complete-and-next again
+# Write output, complete-and-next again...
 > Write ".god-agent/pipeline-output/abc-123/requirement-extractor.txt" (agent response)
-> npx tsx src/god-agent/cli/pipeline-thin-cli.ts complete-and-next abc-123 requirement-extractor --file .god-agent/pipeline-output/abc-123/requirement-extractor.txt
+> npx tsx ... complete-and-next abc-123 requirement-extractor --file ... 2>&1 | python3 scripts/parse-pipeline.py
 
-# ... repeat for all 48 agents ...
+# ... repeat for all 50 agents ...
 
 # Pipeline complete (final complete-and-next shows)
-{
-  "completed": { "success": true, ... },
-  "next": { "status": "complete", "progress": { "completed": 48, "total": 48, "percentage": 100 } }
-}
+COMPLETED: recovery-agent | quality: 0.9 | xp: 300
+STATUS: complete
+PIPELINE COMPLETE: {"completed": 50, "total": 50, "percentage": 100}
+PROMPT_FILE:
+PROMPT_LEN: 0
 ```
