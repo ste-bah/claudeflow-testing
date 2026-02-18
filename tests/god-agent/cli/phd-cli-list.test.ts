@@ -164,13 +164,13 @@ describe('phd-cli list command', () => {
 
     it('should calculate progress as percentage', async () => {
       await createTestSession({
-        completedAgents: Array.from({ length: 9 }, (_, i) => `agent-${i}`) // 9 of 45 = 20%
+        completedAgents: Array.from({ length: 9 }, (_, i) => `agent-${i}`) // 9 of 46
       });
 
       const response = await commandList({}, testSessionDir);
 
-      // 9/45 = 20%
-      expect(response.sessions[0].progress).toBe(20);
+      // 9/46 = ~19.6% (rounded by implementation)
+      expect(response.sessions[0].progress).toBeCloseTo(19.6, 0);
     });
 
     it('should include pipeline ID', async () => {

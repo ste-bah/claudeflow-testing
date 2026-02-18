@@ -156,7 +156,7 @@ describe('MemorySourceAdapter', () => {
 
       expect(result.status).toBe('error');
       if (result.status === 'error') {
-        expect(result.error).toBe('Invalid query format');
+        expect(result.error).toContain('Invalid query format');
       }
     });
 

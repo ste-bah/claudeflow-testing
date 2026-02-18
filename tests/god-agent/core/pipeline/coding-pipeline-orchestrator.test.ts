@@ -54,20 +54,20 @@ import {
  * - Sherlock reviewers: +100 XP each (except recovery-agent: +150)
  */
 const EXPECTED_PHASE_XP: Record<CodingPipelinePhase, number> = {
-  understanding: 375,   // 275 (core) + 100 (phase-1-reviewer)
-  exploration: 270,     // 170 (core) + 100 (phase-2-reviewer)
-  architecture: 355,    // 255 (core) + 100 (phase-3-reviewer)
-  implementation: 740,  // 640 (core) + 100 (phase-4-reviewer)
-  testing: 485,         // 385 (core) + 100 (phase-5-reviewer)
-  optimization: 380,    // 280 (core) + 100 (phase-6-reviewer)
-  delivery: 225,        // 75 (core) + 150 (recovery-agent)
+  understanding: 375,
+  exploration: 270,
+  architecture: 355,
+  implementation: 740,
+  testing: 550,         // 8 core + phase-5-reviewer (includes test-fixer)
+  optimization: 380,
+  delivery: 225,
 };
 
 /**
  * Expected total XP for full pipeline completion
  * 40 core agents + 7 Sherlock forensic reviewers = 47 agents
  */
-const EXPECTED_TOTAL_XP = 2830;
+const EXPECTED_TOTAL_XP = 2895;
 
 // ==================== Mock Implementations ====================
 
@@ -411,8 +411,8 @@ describe('Coding Pipeline Orchestrator Integration', () => {
       expect(result.success).toBe(true);
 
       for (const phaseResult of result.phaseResults) {
-        // PHASE_AGENT_COUNTS has core agents only; add +1 for Sherlock reviewer per phase
-        const expectedCount = PHASE_AGENT_COUNTS[phaseResult.phase] + 1;
+        // PHASE_AGENT_COUNTS already includes Sherlock reviewers
+        const expectedCount = PHASE_AGENT_COUNTS[phaseResult.phase];
         expect(phaseResult.agentResults.length).toBe(expectedCount);
       }
     });
@@ -470,7 +470,7 @@ describe('Coding Pipeline Orchestrator Integration', () => {
 
       expect(result.success).toBe(true);
       expect(result.completedPhases).toEqual(['understanding']);
-      expect(executor.executedAgents.length).toBe(7); // 6 core + 1 Sherlock reviewer
+      expect(executor.executedAgents.length).toBe(PHASE_AGENT_COUNTS['understanding']);
     });
 
     it('should execute agents in dependency order within phase', async () => {
@@ -657,7 +657,7 @@ describe('Coding Pipeline Orchestrator Integration', () => {
       const config = createTestConfig();
       const result = await executeMockPipeline(config, executor, memoryCoordinator);
 
-      expect(result.totalXP).toBeGreaterThan(2700); // 2785 total with Sherlock agents
+      expect(result.totalXP).toBeGreaterThan(2800); // 2895 total with Sherlock agents
     });
 
     it('should track XP per phase', async () => {
@@ -700,12 +700,12 @@ describe('Coding Pipeline Orchestrator Integration', () => {
       expect(implResult?.totalXP).toBe(740);
     });
 
-    it('should calculate testing phase XP as 485 (7 core + 1 Sherlock)', async () => {
+    it('should calculate testing phase XP as 550 (8 core + 1 Sherlock)', async () => {
       const config = createTestConfig(['understanding', 'exploration', 'architecture', 'implementation', 'testing']);
       const result = await executeMockPipeline(config, executor, memoryCoordinator);
 
       const testResult = result.phaseResults.find(r => r.phase === 'testing');
-      expect(testResult?.totalXP).toBe(485);
+      expect(testResult?.totalXP).toBe(550);
     });
 
     it('should award 0 XP for failed agents', async () => {
@@ -848,8 +848,8 @@ describe('Coding Pipeline Orchestrator Integration', () => {
 
       for (const phase of PHASE_ORDER) {
         const phaseAgents = dag.phases.get(phase);
-        // PHASE_AGENT_COUNTS has core agents only; add +1 for Sherlock reviewer per phase
-        expect(phaseAgents?.length).toBe(PHASE_AGENT_COUNTS[phase] + 1);
+        // PHASE_AGENT_COUNTS already includes Sherlock reviewers
+        expect(phaseAgents?.length).toBe(PHASE_AGENT_COUNTS[phase]);
       }
     });
 
@@ -883,8 +883,8 @@ describe('Coding Pipeline Orchestrator Integration', () => {
     it('getAgentsForPhase should return sorted agents', () => {
       for (const phase of PHASE_ORDER) {
         const agents = getAgentsForPhase(phase);
-        // PHASE_AGENT_COUNTS has core agents only; add +1 for Sherlock reviewer per phase
-        expect(agents.length).toBe(PHASE_AGENT_COUNTS[phase] + 1);
+        // PHASE_AGENT_COUNTS already includes Sherlock reviewers
+        expect(agents.length).toBe(PHASE_AGENT_COUNTS[phase]);
 
         // Verify sorted by priority
         for (let i = 1; i < agents.length; i++) {
@@ -893,7 +893,7 @@ describe('Coding Pipeline Orchestrator Integration', () => {
       }
     });
 
-    it('getTotalPipelineXP should return 2785', () => {
+    it('getTotalPipelineXP should return 2895', () => {
       expect(getTotalPipelineXP()).toBe(EXPECTED_TOTAL_XP);
     });
 
@@ -910,9 +910,10 @@ describe('Coding Pipeline Orchestrator Integration', () => {
       expect(critical.length).toBe(11);
 
       const keys = critical.map(a => a.agentKey);
-      // 3 Core critical agents
+      // 4 Core critical agents
       expect(keys).toContain('task-analyzer');
       expect(keys).toContain('interface-designer');
+      expect(keys).toContain('quality-gate');
       expect(keys).toContain('sign-off-approver');
       // 7 Sherlock forensic reviewers (all critical)
       expect(keys).toContain('phase-1-reviewer');

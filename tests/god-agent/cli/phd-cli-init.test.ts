@@ -73,14 +73,14 @@ describe('phd-cli init command', () => {
       expect(pipelineId1).toMatch(/^pipeline-[0-9a-f]+$/);
     });
 
-    it('should return totalAgents as 45', async () => {
+    it('should return totalAgents as 46', async () => {
       const query = 'test research query';
       const options: InitOptions = {};
 
       const response = await commandInit(query, options);
 
-      // [REQ-PIPE-040] Support 45 agents
-      expect(response.totalAgents).toBe(45);
+      // [REQ-PIPE-040] Support 46 agents (7+4+4+5+9+6+11)
+      expect(response.totalAgents).toBe(46);
     });
 
     it('should return first agent with index 0', async () => {

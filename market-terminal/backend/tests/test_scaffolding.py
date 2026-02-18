@@ -97,12 +97,7 @@ class TestRouteStubsMutations:
 
     # Scan POST stub removed — TASK-ANALYSIS-010 implemented
 
-    def test_query_post_stub(self):
-        response = client.post("/api/query/")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "not_implemented"
-        assert data["task"] == "TASK-GOD-005"
+    # Query POST stub removed — TASK-GOD-005 implemented
 
 
 # ===================================================================
@@ -179,7 +174,7 @@ class TestFileStructure:
         req_file = BACKEND_ROOT / "requirements.txt"
         assert req_file.exists(), "requirements.txt not found"
 
-    def test_requirements_has_16_packages(self):
+    def test_requirements_has_17_packages(self):
         req_file = BACKEND_ROOT / "requirements.txt"
         lines = req_file.read_text().splitlines()
         packages = [
@@ -187,8 +182,8 @@ class TestFileStructure:
             for line in lines
             if line.strip() and not line.startswith("#")
         ]
-        assert len(packages) == 16, (
-            f"Expected 16 packages, found {len(packages)}: {packages}"
+        assert len(packages) == 17, (
+            f"Expected 17 packages, found {len(packages)}: {packages}"
         )
 
     @pytest.mark.parametrize(

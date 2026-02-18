@@ -1,0 +1,21 @@
+{
+  "testsTotal": 85,
+  "testsPassed": 85,
+  "testsFailed": 0,
+  "passRate": 100,
+  "failingTests": [],
+  "timestamp": "2026-02-16T15:30:00Z",
+  "version": "1.0.0",
+  "updatedBy": "regression-detector",
+  "taskContext": "TASK-GOD-002",
+  "testSuite": "vitest",
+  "testFiles": 2,
+  "executionCommand": "npx vitest run tests/god-agent/cli/market-analysis-cli.test.ts tests/god-agent/cli/market-analysis-integration.test.ts --reporter=verbose",
+  "testBreakdown": {
+    "unitTests": 50,
+    "integrationTests": 35
+  },
+  "duration": "109.78s",
+  "testDuration": "167.88s",
+  "notes": "Initial baseline for CLI integration tests (TASK-GOD-002). All 85 tests passing. Tests cover market-analysis CLI commands and end-to-end integration scenarios."
+}

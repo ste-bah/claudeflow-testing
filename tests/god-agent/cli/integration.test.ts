@@ -41,7 +41,7 @@ describe('PhD CLI Integration Tests', () => {
       const initResponse = await commandInit('Test research query', {}, testSessionDir);
 
       expect(initResponse.sessionId).toMatch(/^[0-9a-f-]{36}$/);
-      expect(initResponse.totalAgents).toBe(45);
+      expect(initResponse.totalAgents).toBe(46);
       expect(initResponse.agent.index).toBe(0);
       expect(initResponse.agent.key).toBe('step-back-analyzer');
       expect(initResponse.agent.phase).toBe(1);
@@ -78,7 +78,7 @@ describe('PhD CLI Integration Tests', () => {
       expect(next2Response.agent?.index).toBe(1);
       expect(next2Response.agent?.key).toBe('self-ask-decomposer');
       expect(next2Response.progress.completed).toBe(1);
-      expect(next2Response.progress.percentage).toBe(2.2); // 1/45 = 2.2%
+      expect(next2Response.progress.percentage).toBe(2.2); // 1/46 ≈ 2.2%
 
       // Verify session state persisted
       const session = await sessionManager.loadSession(sessionId);
@@ -101,7 +101,7 @@ describe('PhD CLI Integration Tests', () => {
       const agents = ['step-back-analyzer', 'self-ask-decomposer', 'ambiguity-clarifier'];
 
       for (let i = 0; i < agents.length; i++) {
-        const completeResponse = await commandComplete(sessionId, agents[i], {}, testSessionDir);
+        const completeResponse = await commandComplete(sessionId, agents[i], { force: true }, testSessionDir);
         expect(completeResponse.success).toBe(true);
 
         if (i < agents.length - 1) {
@@ -125,8 +125,8 @@ describe('PhD CLI Integration Tests', () => {
 
       // Manually fast-forward session to completion
       const session = await sessionManager.loadSession(sessionId);
-      session.currentAgentIndex = 45;
-      session.completedAgents = Array.from({ length: 45 }, (_, i) => `agent-${i}`);
+      session.currentAgentIndex = 46;
+      session.completedAgents = Array.from({ length: 46 }, (_, i) => `agent-${i}`);
       await sessionManager.saveSession(session);
 
       // Next should report complete
@@ -135,7 +135,7 @@ describe('PhD CLI Integration Tests', () => {
       expect(nextResponse.status).toBe('complete');
       expect(nextResponse.progress.percentage).toBe(100);
       expect(nextResponse.summary).toBeDefined();
-      expect(nextResponse.summary?.agentsCompleted).toBe(45);
+      expect(nextResponse.summary?.agentsCompleted).toBe(46);
 
       // Cleanup
       await commandAbort(sessionId, {}, testSessionDir);
@@ -192,8 +192,8 @@ describe('PhD CLI Integration Tests', () => {
       const sessionId = initResponse.sessionId;
 
       // Complete some agents
-      await commandComplete(sessionId, 'step-back-analyzer', {}, testSessionDir);
-      await commandComplete(sessionId, 'self-ask-decomposer', {}, testSessionDir);
+      await commandComplete(sessionId, 'step-back-analyzer', { force: true }, testSessionDir);
+      await commandComplete(sessionId, 'self-ask-decomposer', { force: true }, testSessionDir);
 
       // Simulate interruption (just stop calling commands)
 
@@ -226,8 +226,8 @@ describe('PhD CLI Integration Tests', () => {
       expect(sessionIds).toContain(session3.sessionId);
 
       // Work on different sessions independently
-      await commandComplete(session1.sessionId, 'step-back-analyzer', {}, testSessionDir);
-      await commandComplete(session2.sessionId, 'step-back-analyzer', {}, testSessionDir);
+      await commandComplete(session1.sessionId, 'step-back-analyzer', { force: true }, testSessionDir);
+      await commandComplete(session2.sessionId, 'step-back-analyzer', { force: true }, testSessionDir);
 
       // Verify each session has independent state
       const status1 = await commandStatus(session1.sessionId, {}, testSessionDir);
@@ -271,8 +271,8 @@ describe('PhD CLI Integration Tests', () => {
       const sessionId = initResponse.sessionId;
 
       // Complete some agents
-      await commandComplete(sessionId, 'step-back-analyzer', {}, testSessionDir);
-      await commandComplete(sessionId, 'self-ask-decomposer', {}, testSessionDir);
+      await commandComplete(sessionId, 'step-back-analyzer', { force: true }, testSessionDir);
+      await commandComplete(sessionId, 'self-ask-decomposer', { force: true }, testSessionDir);
 
       // Abort session
       const abortResponse = await commandAbort(sessionId, {}, testSessionDir);
@@ -322,7 +322,7 @@ describe('PhD CLI Integration Tests', () => {
       const sessionId = initResponse.sessionId;
 
       // Try to complete second agent without completing first
-      await expect(commandComplete(sessionId, 'self-ask-decomposer', {}, testSessionDir))
+      await expect(commandComplete(sessionId, 'self-ask-decomposer', { force: true }, testSessionDir))
         .rejects.toThrow(AgentMismatchError);
 
       // Cleanup
@@ -364,7 +364,7 @@ describe('PhD CLI Integration Tests', () => {
 
       const start = Date.now();
 
-      await commandComplete(sessionId, 'step-back-analyzer', {}, testSessionDir);
+      await commandComplete(sessionId, 'step-back-analyzer', { force: true }, testSessionDir);
 
       const duration = Date.now() - start;
       expect(duration).toBeLessThan(500); // 500ms max

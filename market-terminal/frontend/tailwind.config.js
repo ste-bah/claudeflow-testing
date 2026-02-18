@@ -26,6 +26,15 @@ export default {
       fontFamily: {
         mono: ['Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', 'monospace'],
       },
+      keyframes: {
+        'slide-down': {
+          '0%': { opacity: '0', transform: 'translateY(-4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'slide-down': 'slide-down 150ms ease-out',
+      },
     },
   },
   plugins: [],

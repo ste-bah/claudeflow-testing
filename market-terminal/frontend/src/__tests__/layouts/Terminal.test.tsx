@@ -1,14 +1,70 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Terminal from '../../layouts/Terminal';
 import { TickerProvider } from '../../contexts/TickerContext';
+
+// Mock WebSocketContext so components using useWebSocketContext do not throw
+vi.mock('../../contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => ({
+    status: 'connected' as const,
+    clientId: 'test-client',
+    subscribe: vi.fn(),
+    unsubscribe: vi.fn(),
+    onMessage: vi.fn(() => vi.fn()),
+  }),
+}));
 
 // Mock react-resizable-panels to avoid complex layout testing
 vi.mock('react-resizable-panels', () => ({
   Panel: ({ children }: { children: React.ReactNode }) => <div data-testid="panel">{children}</div>,
   PanelGroup: ({ children }: { children: React.ReactNode }) => <div data-testid="panel-group">{children}</div>,
   PanelResizeHandle: () => <div data-testid="resize-handle" />,
+}));
+
+// Mock lightweight-charts to avoid canvas/matchMedia errors in jsdom
+vi.mock('lightweight-charts', () => ({
+  createChart: vi.fn(() => ({
+    addCandlestickSeries: vi.fn(() => ({ setData: vi.fn() })),
+    addHistogramSeries: vi.fn(() => ({ setData: vi.fn() })),
+    priceScale: vi.fn(() => ({ applyOptions: vi.fn() })),
+    timeScale: vi.fn(() => ({ fitContent: vi.fn() })),
+    applyOptions: vi.fn(),
+    remove: vi.fn(),
+  })),
+  ColorType: { Solid: 'solid' },
+  CrosshairMode: { Normal: 0 },
+}));
+
+// Mock API client to prevent real HTTP requests in jsdom
+vi.mock('../../api/client', () => ({
+  getTicker: vi.fn(() => Promise.resolve({})),
+  getNews: vi.fn(() =>
+    Promise.resolve({ symbol: '', articles: [], total_count: 0, limit: 20, offset: 0, data_source: 'mock', data_timestamp: new Date().toISOString() }),
+  ),
+  getFundamentals: vi.fn(() => Promise.resolve({
+    symbol: 'NVDA',
+    company_name: 'NVIDIA Corp',
+    cik: null,
+    ttm: null,
+    quarterly: [],
+    next_earnings_date: null,
+    data_sources: { financials: 'test', market_data: 'test' },
+    data_timestamp: '2024-01-01T00:00:00Z',
+  })),
+  getOwnership: vi.fn(() => Promise.resolve({ symbol: '', holders: [], filing_period: '', total_institutional_shares: 0, total_institutional_value: 0, institutional_ownership_percent: null, quarter_over_quarter: { new_positions: 0, increased_positions: 0, decreased_positions: 0, closed_positions: 0, net_shares_change: 0 }, data_source: 'mock', data_timestamp: new Date().toISOString() })),
+  getInsider: vi.fn(() => Promise.resolve({ symbol: '', transactions: [], insider_stats: { bullish_ratio: 0, bearish_ratio: 0, net_transactions: 0 }, data_source: 'mock', data_timestamp: new Date().toISOString() })),
+  getMacroCalendar: vi.fn(() => Promise.resolve({ events: [], date_range: { from: '2024-01-01', to: '2024-02-01' }, data_source: 'mock', data_timestamp: new Date().toISOString() })),
+  getMacroReaction: vi.fn(() => Promise.resolve({ symbol: '', event_type: '', reactions: [], averages: { avg_return_1d_on_beat: null, avg_return_1d_on_miss: null, avg_return_5d_on_beat: null, avg_return_5d_on_miss: null, avg_volume_ratio: null }, sample_size: 0, data_sources: [], data_timestamp: new Date().toISOString() })),
+  analyzeSymbol: vi.fn(() => Promise.resolve({})),
+  getAnalysis: vi.fn(() => Promise.resolve({ symbol: '', composite: { overall_direction: 'neutral', overall_confidence: 0, confluence_count: 0, timeframe_breakdown: {}, trade_thesis: '', weights_used: {}, timestamp: '' }, signals: [], metadata: { analysis_duration_ms: 0, methodologies_requested: 0, methodologies_completed: 0, methodologies_failed: 0, failed_methodologies: [], cached: false, data_sources_used: [] } })),
+  postQuery: vi.fn(() => Promise.resolve({})),
+  getWatchlist: vi.fn(() =>
+    Promise.resolve({ tickers: [], count: 0, max_allowed: 50, groups: ['default'] }),
+  ),
+  addToWatchlist: vi.fn(() => Promise.resolve({})),
+  removeFromWatchlist: vi.fn(() => Promise.resolve()),
+  getTickerHistory: vi.fn(() => Promise.resolve({ ohlcv: [] })),
 }));
 
 const renderTerminal = () => {
@@ -27,7 +83,7 @@ describe('Terminal Layout', () => {
       // Check for all panel headings/content
       expect(screen.getByRole('heading', { name: 'Watchlist' })).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Chart/i })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: /Methodology Scores/i })).toBeInTheDocument();
+      // MethodologyScores returns null for empty symbol — no heading rendered
       expect(screen.getByRole('heading', { name: /News/i })).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Fundamentals/i })).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Macro Calendar/i })).toBeInTheDocument();
@@ -149,19 +205,28 @@ describe('Terminal Layout', () => {
   });
 
   describe('Watchlist Integration', () => {
-    it('should render Watchlist with empty items initially', () => {
+    it('should render self-contained Watchlist component', () => {
       renderTerminal();
 
+      // Watchlist heading is rendered
       expect(screen.getByText('Watchlist')).toBeInTheDocument();
-      expect(screen.getByText('No tickers in watchlist')).toBeInTheDocument();
     });
 
-    it('should pass onSelect handler to Watchlist', () => {
+    it('should render Watchlist with empty state initially', async () => {
       renderTerminal();
 
-      // Watchlist component is rendered (tested by heading presence)
-      // onSelect handler is passed (can't test directly without items)
-      expect(screen.getByText('Watchlist')).toBeInTheDocument();
+      // The self-contained Watchlist uses useWatchlist which fetches from API
+      // Our mock returns an empty tickers array, so the empty state should show
+      await waitFor(() => {
+        expect(screen.getByText('Watchlist is empty. Add a ticker above.')).toBeInTheDocument();
+      });
+    });
+
+    it('should render Watchlist add form', () => {
+      renderTerminal();
+
+      // The self-contained Watchlist always renders its add form
+      expect(screen.getByPlaceholderText('AAPL')).toBeInTheDocument();
     });
   });
 
@@ -177,7 +242,7 @@ describe('Terminal Layout', () => {
       // All panels should render with placeholder content
       expect(screen.getByRole('heading', { name: 'Watchlist' })).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Chart/i })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: /Methodology Scores/i })).toBeInTheDocument();
+      // MethodologyScores returns null for empty symbol — no heading rendered
       expect(screen.getByRole('heading', { name: /News/i })).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Fundamentals/i })).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: /Macro Calendar/i })).toBeInTheDocument();

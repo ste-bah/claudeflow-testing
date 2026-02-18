@@ -94,7 +94,7 @@ async function createTestSession(
  */
 function getFirstAgentKey(): string {
   const phase1Agents = getAgentsByPhase(1);
-  return phase1Agents[0]?.key || 'self-ask-decomposer';
+  return phase1Agents[0]?.key || 'step-back-analyzer';
 }
 
 /**
@@ -264,7 +264,7 @@ describe('PhD Pipeline Integration', () => {
       const completeResponse = await commandComplete(
         initResponse.sessionId,
         firstAgentKey,
-        {},
+        { force: true },
         TEST_SESSION_BASE_DIR
       );
 
@@ -289,7 +289,7 @@ describe('PhD Pipeline Integration', () => {
       await commandComplete(
         initResponse.sessionId,
         firstAgentKey,
-        {},
+        { force: true },
         TEST_SESSION_BASE_DIR
       );
 
@@ -314,7 +314,7 @@ describe('PhD Pipeline Integration', () => {
       await commandComplete(
         initResponse.sessionId,
         initResponse.agent.key,
-        {},
+        { force: true },
         TEST_SESSION_BASE_DIR
       );
 
@@ -337,7 +337,7 @@ describe('PhD Pipeline Integration', () => {
         const completeResponse = await commandComplete(
           initResponse.sessionId,
           currentAgentKey,
-          {},
+          { force: true },
           TEST_SESSION_BASE_DIR
         );
 
@@ -372,7 +372,7 @@ describe('PhD Pipeline Integration', () => {
       await commandComplete(
         initResponse.sessionId,
         initResponse.agent.key,
-        {},
+        { force: true },
         TEST_SESSION_BASE_DIR
       );
 
@@ -387,7 +387,7 @@ describe('PhD Pipeline Integration', () => {
   // ==========================================================================
 
   describe('Full Phase 1 Cycle', () => {
-    it('should complete all 6 Phase 1 agents sequentially', async () => {
+    it('should complete all 7 Phase 1 agents sequentially', async () => {
       const initResponse = await commandInit(
         'Integration test: full Phase 1 cycle',
         {},
@@ -395,7 +395,7 @@ describe('PhD Pipeline Integration', () => {
       );
 
       const phase1AgentCount = getAgentsByPhase(1).length;
-      expect(phase1AgentCount).toBe(6);
+      expect(phase1AgentCount).toBe(7);
 
       let currentAgentKey = initResponse.agent.key;
       let completedCount = 0;
@@ -405,7 +405,7 @@ describe('PhD Pipeline Integration', () => {
         const completeResponse = await commandComplete(
           initResponse.sessionId,
           currentAgentKey,
-          {},
+          { force: true },
           TEST_SESSION_BASE_DIR
         );
 
@@ -438,7 +438,7 @@ describe('PhD Pipeline Integration', () => {
         const completeResponse = await commandComplete(
           initResponse.sessionId,
           currentAgentKey,
-          {},
+          { force: true },
           TEST_SESSION_BASE_DIR
         );
 
@@ -480,7 +480,7 @@ describe('PhD Pipeline Integration', () => {
         const completeResponse = await commandComplete(
           initResponse.sessionId,
           currentAgentKey,
-          {},
+          { force: true },
           TEST_SESSION_BASE_DIR
         );
 
@@ -517,7 +517,7 @@ describe('PhD Pipeline Integration', () => {
         const completeResponse = await commandComplete(
           initResponse.sessionId,
           currentAgentKey,
-          {},
+          { force: true },
           TEST_SESSION_BASE_DIR
         );
         if (completeResponse.nextAgent) {
@@ -553,7 +553,7 @@ describe('PhD Pipeline Integration', () => {
       await commandComplete(
         initResponse.sessionId,
         initResponse.agent.key,
-        {},
+        { force: true },
         TEST_SESSION_BASE_DIR
       );
 
@@ -587,7 +587,7 @@ describe('PhD Pipeline Integration', () => {
         const completeResponse = await commandComplete(
           initResponse.sessionId,
           currentAgentKey,
-          {},
+          { force: true },
           TEST_SESSION_BASE_DIR
         );
         if (completeResponse.nextAgent) {
@@ -609,7 +609,7 @@ describe('PhD Pipeline Integration', () => {
       const completeResponse = await commandComplete(
         initResponse.sessionId,
         resumeResponse.agent.key,
-        {},
+        { force: true },
         TEST_SESSION_BASE_DIR
       );
 
@@ -630,7 +630,7 @@ describe('PhD Pipeline Integration', () => {
         const completeResponse = await commandComplete(
           initResponse.sessionId,
           currentAgentKey,
-          {},
+          { force: true },
           TEST_SESSION_BASE_DIR
         );
         if (completeResponse.nextAgent) {
@@ -808,7 +808,7 @@ describe('PhD Pipeline Integration', () => {
       await commandComplete(
         initResponse.sessionId,
         initResponse.agent.key,
-        {},
+        { force: true },
         TEST_SESSION_BASE_DIR
       );
 
@@ -876,26 +876,26 @@ describe('PhD Pipeline Integration', () => {
     });
 
     it('should have correct agent counts per phase', () => {
-      // Phase 1: 6 agents (Foundation)
-      expect(getAgentsByPhase(1).length).toBe(6);
+      // Phase 1: 7 agents (Foundation)
+      expect(getAgentsByPhase(1).length).toBe(7);
 
-      // Phase 2: 5 agents (Literature)
-      expect(getAgentsByPhase(2).length).toBe(5);
+      // Phase 2: 4 agents (Discovery)
+      expect(getAgentsByPhase(2).length).toBe(4);
 
-      // Phase 3: 6 agents (Analysis)
-      expect(getAgentsByPhase(3).length).toBe(6);
+      // Phase 3: 4 agents (Architecture)
+      expect(getAgentsByPhase(3).length).toBe(4);
 
-      // Phase 4: 6 agents (Synthesis)
-      expect(getAgentsByPhase(4).length).toBe(6);
+      // Phase 4: 5 agents (Synthesis)
+      expect(getAgentsByPhase(4).length).toBe(5);
 
-      // Phase 5: 6 agents (Methods)
-      expect(getAgentsByPhase(5).length).toBe(6);
+      // Phase 5: 9 agents (Design)
+      expect(getAgentsByPhase(5).length).toBe(9);
 
-      // Phase 6: 8 agents (Writing)
-      expect(getAgentsByPhase(6).length).toBe(8);
+      // Phase 6: 6 agents (Writing)
+      expect(getAgentsByPhase(6).length).toBe(6);
 
-      // Phase 7: 9 agents (Quality)
-      expect(getAgentsByPhase(7).length).toBe(9);
+      // Phase 7: 11 agents (Validation)
+      expect(getAgentsByPhase(7).length).toBe(11);
 
       // Total: 46 agents
       const totalFromPhases = PHD_PHASES.reduce(

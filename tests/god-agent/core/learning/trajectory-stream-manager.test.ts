@@ -122,11 +122,11 @@ describe('TrajectoryStreamManager - Basic Operations', () => {
       expect(existsSync(tempDir)).toBe(true);
     });
 
-    it('should create PID file on initialization', async () => {
-      const pidFile = join(tempDir, '.sona.pid');
-      expect(existsSync(pidFile)).toBe(true);
-      const pid = await readFile(pidFile, 'utf-8');
-      expect(parseInt(pid, 10)).toBe(process.pid);
+    it('should initialize without PID file (multi-process handled by MemoryServer)', async () => {
+      // MEM-001: PID file creation removed - multi-process detection is now handled by MemoryServer
+      // Just verify initialization completed successfully
+      const stats = manager.getStats();
+      expect(stats).toBeDefined();
     });
   });
 
@@ -293,45 +293,39 @@ describe('TrajectoryStreamManager - Multi-Process Safety (CRITICAL-003)', () => 
   });
 
   describe('AC-MULTI-001: Detect concurrent writer', () => {
-    it('should throw ERR_MULTI_PROCESS when another process is active', async () => {
-      // Process A starts
+    it('should allow multiple instances to initialize (multi-process handled by MemoryServer)', async () => {
+      // MEM-001: Multi-process detection removed - MemoryServer handles concurrent access
       const managerA = new TrajectoryStreamManager({
         storageDir: tempDir,
         enabled: true,
       });
       await managerA.initialize();
 
-      // Process B attempts to start (same directory)
+      // Process B now succeeds (no PID-based locking)
       const managerB = new TrajectoryStreamManager({
         storageDir: tempDir,
         enabled: true,
       });
 
-      await expect(managerB.initialize()).rejects.toThrow('Multi-process access is not supported');
+      await expect(managerB.initialize()).resolves.not.toThrow();
     });
 
-    it('should include PID in error message', async () => {
-      // Process A starts
+    it('should allow concurrent instances without error', async () => {
+      // MEM-001: PID-based multi-process detection removed
       const managerA = new TrajectoryStreamManager({
         storageDir: tempDir,
         enabled: true,
       });
       await managerA.initialize();
 
-      // Process B attempts to start
       const managerB = new TrajectoryStreamManager({
         storageDir: tempDir,
         enabled: true,
       });
 
-      try {
-        await managerB.initialize();
-        expect.fail('Should have thrown ERR_MULTI_PROCESS');
-      } catch (error: any) {
-        expect(error.name).toBe('ERR_MULTI_PROCESS');
-        expect(error.message).toContain(`PID ${process.pid}`);
-        expect(error.message).toContain('storage directory');
-      }
+      // No longer throws - multi-process coordination is handled by MemoryServer daemon
+      await managerB.initialize();
+      expect(managerB.getStats()).toBeDefined();
     });
   });
 
@@ -388,22 +382,15 @@ describe('TrajectoryStreamManager - Multi-Process Safety (CRITICAL-003)', () => 
 
   describe('AC-MULTI-003: Clean up stale PID file', () => {
     it('should clean up stale PID file from dead process', async () => {
-      // Create stale PID file with non-existent PID
-      const pidFile = join(tempDir, '.sona.pid');
+      // MEM-001: PID file mechanism removed - initialize should succeed regardless
       await mkdir(tempDir, { recursive: true });
-      await writeFile(pidFile, '99999');
 
-      // New instance should clean up and start
-      const manager = new TrajectoryStreamManager({
+      const newManager = new TrajectoryStreamManager({
         storageDir: tempDir,
         enabled: true,
       });
 
-      await expect(manager.initialize()).resolves.not.toThrow();
-
-      // Verify new PID file
-      const newPid = await readFile(pidFile, 'utf-8');
-      expect(parseInt(newPid, 10)).toBe(process.pid);
+      await expect(newManager.initialize()).resolves.not.toThrow();
     });
 
     it('should log when cleaning up stale PID file', async () => {

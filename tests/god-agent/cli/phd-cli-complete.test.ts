@@ -56,7 +56,7 @@ describe('phd-cli complete command', () => {
       const response = await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        {},
+        { force: true },
         testSessionDir
       );
 
@@ -71,7 +71,7 @@ describe('phd-cli complete command', () => {
       await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        {},
+        { force: true },
         testSessionDir
       );
 
@@ -89,7 +89,7 @@ describe('phd-cli complete command', () => {
       await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        {},
+        { force: true },
         testSessionDir
       );
 
@@ -107,7 +107,7 @@ describe('phd-cli complete command', () => {
       await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        {},
+        { force: true },
         testSessionDir
       );
 
@@ -173,11 +173,11 @@ describe('phd-cli complete command', () => {
         completedAgents: []
       });
 
-      // Invalid JSON should still complete agent
+      // Invalid JSON should still complete agent (with force flag since output is null)
       await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        { result: 'not valid json{' },
+        { result: 'not valid json{', force: true },
         testSessionDir
       );
 
@@ -221,7 +221,7 @@ describe('phd-cli complete command', () => {
       await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        { file: filePath },
+        { file: filePath, force: true },
         testSessionDir
       );
 
@@ -239,7 +239,7 @@ describe('phd-cli complete command', () => {
       await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        { file: '/nonexistent/file.json' },
+        { file: '/nonexistent/file.json', force: true },
         testSessionDir
       );
 
@@ -255,7 +255,7 @@ describe('phd-cli complete command', () => {
       const response = await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        {},
+        { force: true },
         testSessionDir
       );
 
@@ -265,16 +265,16 @@ describe('phd-cli complete command', () => {
     });
 
     it('should omit nextAgent if all agents complete', async () => {
-      // Create session at the last agent (file-length-manager at index 44)
+      // Create session at the last agent (file-length-manager at index 45)
       const session = await createTestSession({
-        currentAgentIndex: 44, // Last agent (0-indexed, 45 total)
-        completedAgents: Array.from({ length: 44 }, (_, i) => `agent-${i}`)
+        currentAgentIndex: 45, // Last agent (0-indexed, 46 total)
+        completedAgents: Array.from({ length: 45 }, (_, i) => `agent-${i}`)
       });
 
       const response = await commandComplete(
         session.sessionId,
-        'file-length-manager', // Last agent in pipeline (order 45, index 44)
-        {},
+        'file-length-manager', // Last agent in pipeline (order 46, index 45)
+        { force: true },
         testSessionDir
       );
 
@@ -360,7 +360,7 @@ describe('phd-cli complete command', () => {
       const response1 = await commandComplete(
         session.sessionId,
         'step-back-analyzer',
-        {},
+        { force: true },
         testSessionDir
       );
       expect(response1.nextAgent).toBe('self-ask-decomposer');
@@ -369,7 +369,7 @@ describe('phd-cli complete command', () => {
       const response2 = await commandComplete(
         session.sessionId,
         'self-ask-decomposer',
-        {},
+        { force: true },
         testSessionDir
       );
       // After self-ask-decomposer (index 1), next is ambiguity-clarifier (index 2)

@@ -1,12 +1,18 @@
 import { TickerProvider } from './contexts/TickerContext';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 import Terminal from './layouts/Terminal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   return (
     <div className="dark">
-      <TickerProvider>
-        <Terminal />
-      </TickerProvider>
+      <ErrorBoundary>
+        <WebSocketProvider>
+          <TickerProvider>
+            <Terminal />
+          </TickerProvider>
+        </WebSocketProvider>
+      </ErrorBoundary>
     </div>
   );
 }

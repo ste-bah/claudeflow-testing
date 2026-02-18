@@ -12,8 +12,8 @@ from __future__ import annotations
 import asyncio
 import json
 import math
-import os
 import re
+from pathlib import Path
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
@@ -120,11 +120,7 @@ def _load_lm_dict() -> dict[str, set[str]]:
     if _lm_dict is not None:
         return _lm_dict
 
-    data_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "data",
-        "loughran_mcdonald.json",
-    )
+    data_path = Path(__file__).resolve().parent / "data" / "loughran_mcdonald.json"
     with open(data_path, "r", encoding="utf-8") as fh:
         raw: dict[str, list[str]] = json.load(fh)
 

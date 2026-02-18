@@ -23,6 +23,7 @@ import {
   ClientRejectionReason,
   isDaemonError,
 } from '../../../../src/god-agent/core/daemon/daemon-types.js';
+import { _resetHookRegistryForTesting } from '../../../../src/god-agent/core/hooks/hook-registry.js';
 
 // Use unique socket paths for parallel test execution
 const TEST_SOCKET_PATH = `/tmp/godagent-test-${process.pid}.sock`;
@@ -31,6 +32,7 @@ describe('DaemonServer', () => {
   let server: DaemonServer;
 
   beforeEach(() => {
+    _resetHookRegistryForTesting();
     server = new DaemonServer(TEST_SOCKET_PATH);
   });
 
@@ -100,7 +102,7 @@ describe('DaemonServer', () => {
       expect(startHandler).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'start',
-          data: { socketPath: TEST_SOCKET_PATH },
+          data: expect.objectContaining({ socketPath: TEST_SOCKET_PATH }),
         })
       );
     });
@@ -133,7 +135,8 @@ describe('DaemonServer', () => {
       await server.start();
       await server.stop();
 
-      // Create new server with same path
+      // Create new server with same path (reset hooks to avoid registration error)
+      _resetHookRegistryForTesting();
       const newServer = new DaemonServer(TEST_SOCKET_PATH);
       await newServer.start();
       expect(newServer.getState()).toBe('running');

@@ -118,7 +118,7 @@ describe('Layer 3: Advanced Features', () => {
       // Verify stored in InteractionStore
       const knowledge = interactionStore.getKnowledgeByDomain('system/delegation');
       expect(knowledge.length).toBeGreaterThan(0);
-      expect(knowledge[0].category).toBe('delegation-pattern');
+      expect(knowledge[0].type).toBe('pattern');
     });
 
     it('should handle delegation keywords', () => {

@@ -40,7 +40,7 @@ describe('TaskAnalyzer', () => {
       expect(result.primaryVerb).toBe('research');
       expect(result.verbs).toContain('research');
       expect(result.embedding).toBeInstanceOf(Float32Array);
-      expect(result.embedding.length).toBe(768);
+      expect(result.embedding.length).toBe(1536);
       expect(result.isMultiStep).toBe(false);
       expect(result.analyzedAt).toBeGreaterThan(0);
       expect(result.analysisTimeMs).toBeGreaterThan(0);
@@ -313,10 +313,10 @@ describe('TaskAnalyzer', () => {
   // ==================== Embedding Generation ====================
 
   describe('Embedding Generation', () => {
-    it('should generate 768-dimensional embedding', async () => {
+    it('should generate 1536-dimensional embedding', async () => {
       const result = await analyzer.analyze('test the implementation');
       expect(result.embedding).toBeInstanceOf(Float32Array);
-      expect(result.embedding.length).toBe(768);
+      expect(result.embedding.length).toBe(1536);
     });
 
     it('should generate L2-normalized embedding', async () => {

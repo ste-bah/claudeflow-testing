@@ -142,11 +142,11 @@ class TestCompositeAggregatorInit(unittest.TestCase):
         self.assertIsNone(agg._db_path)
 
     def test_tables_ensured_starts_false(self):
-        agg = CompositeAggregator(db_path="/tmp/nonexistent.db")
+        agg = CompositeAggregator(db_path=os.path.join(tempfile.gettempdir(), "nonexistent.db"))
         self.assertFalse(agg._tables_ensured)
 
     def test_close_on_unused_instance_no_error(self):
-        agg = CompositeAggregator(db_path="/tmp/nonexistent.db")
+        agg = CompositeAggregator(db_path=os.path.join(tempfile.gettempdir(), "nonexistent.db"))
         _run(agg.close())  # should be a no-op
 
     def test_close_resets_tables_ensured(self):

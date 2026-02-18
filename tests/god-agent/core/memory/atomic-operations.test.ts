@@ -16,21 +16,21 @@ const createMockEmbeddingProvider = (): IEmbeddingProvider => {
   return {
     embed: async (text: string) => {
       // Simple deterministic embedding based on text length
-      const embedding = new Float32Array(768);
-      const seed = text.length % 768;
-      for (let i = 0; i < 768; i++) {
+      const embedding = new Float32Array(1536);
+      const seed = text.length % 1536;
+      for (let i = 0; i < 1536; i++) {
         embedding[i] = Math.sin(i + seed) * 0.1;
       }
 
       // L2 normalize the vector
       let sumSquares = 0;
-      for (let i = 0; i < 768; i++) {
+      for (let i = 0; i < 1536; i++) {
         sumSquares += embedding[i] * embedding[i];
       }
       const norm = Math.sqrt(sumSquares);
 
       if (norm > 0) {
-        for (let i = 0; i < 768; i++) {
+        for (let i = 0; i < 1536; i++) {
           embedding[i] /= norm;
         }
       }
@@ -61,7 +61,7 @@ describe('Atomic Operations Integration', () => {
       dataDir: '.test-graphs',
       enablePersistence: false,
       validateDimensions: true,
-      expectedDimensions: 768
+      expectedDimensions: 1536
     });
     await graphDB.initialize();
 

@@ -123,7 +123,7 @@ describe('Layer 4: E2E Integration (TASK-ORC-013, ORC-014)', () => {
       expect(knowledge.length).toBeGreaterThan(0);
 
       const stored = knowledge[0];
-      expect(stored.category).toBe('implementation');
+      expect(stored.type).toBe('implementation');
       expect(stored.tags).toContain('backend-dev');
 
       // Verify metrics updated
@@ -623,6 +623,6 @@ describe('Layer 4: E2E Integration (TASK-ORC-013, ORC-014)', () => {
       // Verify storage succeeded
       const knowledge = interactionStore.getKnowledgeByDomain('project/long-test');
       expect(knowledge.length).toBe(1);
-    }, 30000); // 30 second timeout for long output
+    }, 60000); // 60 second timeout for long output (embedding generation is slow)
   });
 });

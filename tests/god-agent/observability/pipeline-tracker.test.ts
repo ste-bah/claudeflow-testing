@@ -310,7 +310,8 @@ describe('PipelineTracker', () => {
 
   describe('Error Handling', () => {
     it('should handle unknown pipeline ID gracefully', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      // PipelineTracker uses structured logger (ConsoleLogHandler) which outputs JSON via console.log
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       tracker.startStep('unknown-pipeline-id', { name: 'step1' });
 
@@ -322,7 +323,8 @@ describe('PipelineTracker', () => {
     });
 
     it('should handle unknown step ID gracefully', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      // PipelineTracker uses structured logger (ConsoleLogHandler) which outputs JSON via console.log
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
       const pipelineId = tracker.startPipeline({
         name: 'test',

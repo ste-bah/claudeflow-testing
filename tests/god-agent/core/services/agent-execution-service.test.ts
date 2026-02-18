@@ -172,7 +172,7 @@ describe('AgentExecutionService', () => {
       expect(result.success).toBe(true);
       expect(result.trajectoryId).toBe('trajectory-123');
       expect(mockSona.createTrajectory).toHaveBeenCalled();
-      expect(mockSona.provideFeedback).toHaveBeenCalledWith('trajectory-123', 1.0);
+      expect(mockSona.provideFeedback).toHaveBeenCalledWith('trajectory-123', 1.0, { skipAutoSave: false });
     });
 
     it('should provide negative feedback on failure', async () => {
@@ -187,7 +187,7 @@ describe('AgentExecutionService', () => {
 
       await serviceWithSona.executeAgent('coder', 'Write code');
 
-      expect(mockSona.provideFeedback).toHaveBeenCalledWith('trajectory-123', 0.0);
+      expect(mockSona.provideFeedback).toHaveBeenCalledWith('trajectory-123', 0.0, { skipAutoSave: false });
     });
 
     it('should store result in memory when namespace provided', async () => {

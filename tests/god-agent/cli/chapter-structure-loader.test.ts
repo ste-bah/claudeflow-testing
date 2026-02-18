@@ -171,7 +171,7 @@ describe('ChapterStructureLoader', () => {
         .rejects.toThrow('No chapters defined');
     });
 
-    it('should throw error when chapter missing required fields', async () => {
+    it('should apply defaults when chapter missing optional fields', async () => {
       const structure = {
         locked: true,
         generatedAt: new Date().toISOString(),
@@ -181,7 +181,7 @@ describe('ChapterStructureLoader', () => {
           {
             number: 1,
             title: 'Introduction'
-            // Missing writerAgent and outputFile
+            // Missing writerAgent and outputFile - should get defaults
           }
         ],
         writerMapping: {}
@@ -192,8 +192,10 @@ describe('ChapterStructureLoader', () => {
         `\`\`\`json\n${JSON.stringify(structure, null, 2)}\n\`\`\``
       );
 
-      await expect(loader.loadChapterStructure(testSlug))
-        .rejects.toThrow("missing required field 'writerAgent'");
+      const result = await loader.loadChapterStructure(testSlug);
+      // normalizeStructure provides defaults for missing fields
+      expect(result.chapters[0].writerAgent).toBe('chapter-synthesizer');
+      expect(result.chapters[0].outputFile).toBe('chapter-01.md');
     });
 
     it('should set default targetWords when not specified', async () => {

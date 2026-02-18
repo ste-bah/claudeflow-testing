@@ -371,7 +371,8 @@ export class CapabilityIndex implements ICapabilityIndex {
       await this.vectorDB.insertWithId(agentKey, embedding);
     }
 
-    this.lastSyncTime = cachedData.generatedAt;
+    // Cache hit with valid hash means agents haven't changed, so mark as fresh now
+    this.lastSyncTime = Date.now();
   }
 
   /**

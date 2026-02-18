@@ -49,6 +49,9 @@ export interface IPipelineGeneratorConfig {
 
   /** Enable verbose logging (default: false) */
   verbose?: boolean;
+
+  /** Capability index configuration overrides (optional, passed through to CapabilityIndex) */
+  capabilityIndexConfig?: Record<string, unknown>;
 }
 
 // ==================== Sequence Markers ====================
@@ -89,7 +92,7 @@ export class PipelineGenerator implements IPipelineGenerator {
   constructor(config: IPipelineGeneratorConfig = {}) {
     // Create shared capability index if routing engine not provided
     if (!config.routingEngine) {
-      this.capabilityIndex = new CapabilityIndex({ verbose: config.verbose });
+      this.capabilityIndex = new CapabilityIndex({ verbose: config.verbose, ...config.capabilityIndexConfig });
       this.routingEngine = new RoutingEngine({
         capabilityIndex: this.capabilityIndex,
         routingConfig: config.routingConfig,

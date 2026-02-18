@@ -246,6 +246,10 @@ export class TrajectoryBridge {
         // Writing benefits from contextual similarity
         return ReasoningMode.CONTEXTUAL;
 
+      case 'market-analysis':
+        // Market analysis benefits from pattern matching (technical patterns, signals)
+        return ReasoningMode.PATTERN_MATCH;
+
       case 'general':
       default:
         // General questions use hybrid approach

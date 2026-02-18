@@ -369,7 +369,7 @@ describe('VectorScaleTest', () => {
 
   describe('default config', () => {
     it('should have sensible defaults', () => {
-      expect(DEFAULT_VECTOR_SCALE_CONFIG.dimensions).toBe(768);
+      expect(DEFAULT_VECTOR_SCALE_CONFIG.dimensions).toBe(1536);
       expect(DEFAULT_VECTOR_SCALE_CONFIG.scalePoints).toContain(1000000);
       expect(DEFAULT_VECTOR_SCALE_CONFIG.compressionEnabled).toBe(true);
     });

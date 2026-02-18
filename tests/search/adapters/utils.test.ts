@@ -67,11 +67,9 @@ describe('search utils', () => {
       const resultPromise = withTimeout(promise, 100, 'test');
       vi.advanceTimersByTime(150);
 
-      await expect(resultPromise).rejects.toThrow(TimeoutError);
-      await expect(resultPromise).rejects.toMatchObject({
-        timeoutMs: 100,
-        source: 'test',
-      });
+      // withTimeout wraps all errors (including TimeoutError) in a regular Error with context
+      await expect(resultPromise).rejects.toThrow(/Operation from "test" failed or timed out/);
+      await expect(resultPromise).rejects.toThrow(/timed out after 100ms/);
     });
 
     it('should propagate original error if promise rejects before timeout', async () => {

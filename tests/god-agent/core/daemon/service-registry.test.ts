@@ -294,7 +294,7 @@ describe('ServiceRegistry', () => {
     let backend: FallbackHNSW;
 
     beforeEach(() => {
-      backend = new FallbackHNSW(768, DistanceMetric.COSINE);
+      backend = new FallbackHNSW(1536, DistanceMetric.COSINE);
       vectorService = createVectorService(backend);
       registry.registerService('vector', vectorService);
     });
@@ -302,7 +302,7 @@ describe('ServiceRegistry', () => {
     it('should add vector via service', async () => {
       const result = await registry.callService('vector', 'add', {
         id: 'test1',
-        vector: new Array(768).fill(0.5),
+        vector: new Array(1536).fill(0.5),
       });
       expect(result).toEqual({ success: true });
       expect(backend.count()).toBe(1);
@@ -311,11 +311,11 @@ describe('ServiceRegistry', () => {
     it('should search vectors via service', async () => {
       await registry.callService('vector', 'add', {
         id: 'test1',
-        vector: new Array(768).fill(0.5),
+        vector: new Array(1536).fill(0.5),
       });
 
       const results = await registry.callService('vector', 'search', {
-        query: new Array(768).fill(0.5),
+        query: new Array(1536).fill(0.5),
         k: 1,
       });
 
@@ -327,11 +327,11 @@ describe('ServiceRegistry', () => {
     it('should get vector stats via service', async () => {
       await registry.callService('vector', 'add', {
         id: 'test1',
-        vector: new Array(768).fill(0.5),
+        vector: new Array(1536).fill(0.5),
       });
 
       const stats = await registry.callService('vector', 'stats', {});
-      expect(stats).toEqual({ count: 1, dimension: 768 });
+      expect(stats).toEqual({ count: 1, dimension: 1536 });
     });
   });
 
@@ -469,7 +469,7 @@ describe('ServiceRegistry', () => {
   describe('Reasoning Service Integration', () => {
     it('should create reasoning service placeholder', async () => {
       // Create minimal reasoning bank for testing
-      const vectorDB = new VectorDB({ dimension: 768, metric: DistanceMetric.COSINE });
+      const vectorDB = new VectorDB({ dimension: 1536, metric: DistanceMetric.COSINE });
       await vectorDB.initialize();
 
       const patternMatcher = new PatternMatcher(vectorDB);
@@ -504,17 +504,17 @@ describe('ServiceRegistry', () => {
 
     it('should enhance embedding via service', async () => {
       const result = await registry.callService('gnn', 'enhance', {
-        embedding: new Array(768).fill(0.5),
+        embedding: new Array(1536).fill(0.5),
       });
 
       expect(result).toHaveProperty('enhanced');
-      expect(result.enhanced.length).toBe(1024);
+      expect(result.enhanced.length).toBe(1536);
       expect(result).toHaveProperty('enhancementTime');
     });
 
     it('should get GNN metrics via service', async () => {
       await registry.callService('gnn', 'enhance', {
-        embedding: new Array(768).fill(0.5),
+        embedding: new Array(1536).fill(0.5),
       });
 
       const metrics = await registry.callService('gnn', 'getMetrics', {});
@@ -523,7 +523,7 @@ describe('ServiceRegistry', () => {
 
     it('should clear cache via service', async () => {
       await registry.callService('gnn', 'enhance', {
-        embedding: new Array(768).fill(0.5),
+        embedding: new Array(1536).fill(0.5),
       });
 
       const result = await registry.callService('gnn', 'clearCache', {});
@@ -531,62 +531,106 @@ describe('ServiceRegistry', () => {
     });
   });
 
-  describe('Episode Service (Placeholder)', () => {
-    let episodeService: ReturnType<typeof createEpisodeService>;
-
+  describe('Episode Service (Real Implementation)', () => {
     beforeEach(() => {
-      episodeService = createEpisodeService();
+      // Create a mock EpisodeStore that satisfies the service interface
+      const mockEpisodeStore = {
+        createEpisode: async () => 'episode-test-id',
+        queryByTimeRange: async () => [],
+        searchBySimilarity: async () => [],
+        getById: async () => null,
+        update: async () => {},
+        delete: async () => {},
+        getLinks: async () => [],
+        save: async () => {},
+        getStats: () => ({ episodeCount: 0, vectorCount: 0, dbSizeBytes: 0 }),
+      } as any;
+      const episodeService = createEpisodeService(mockEpisodeStore);
       registry.registerService('episode', episodeService);
     });
 
-    it('should return placeholder response for create', async () => {
-      const result = await registry.callService('episode', 'create', {});
-      expect(result).toHaveProperty('warning');
-      expect(result.warning).toContain('not yet implemented');
+    it('should create an episode via service', async () => {
+      const result = await registry.callService('episode', 'create', {
+        taskId: 'test-task',
+        embedding: new Array(1536).fill(0.1),
+        metadata: { type: 'test' },
+      });
+      expect(result).toHaveProperty('episodeId');
+      expect(result.episodeId).toBe('episode-test-id');
     });
 
-    it('should return empty results for query', async () => {
-      const result = await registry.callService('episode', 'query', {});
+    it('should return empty results for time range query', async () => {
+      const result = await registry.callService('episode', 'query', {
+        queryType: 'timeRange',
+        timeRange: { startTime: 0, endTime: Date.now() },
+      });
       expect(result.episodes).toEqual([]);
+      expect(result.count).toBe(0);
     });
 
     it('should return zero stats', async () => {
       const stats = await registry.callService('episode', 'stats', {});
-      expect(stats.count).toBe(0);
-      expect(stats).toHaveProperty('warning');
+      expect(stats.episodeCount).toBe(0);
+      expect(stats.vectorCount).toBe(0);
     });
   });
 
-  describe('Hyperedge Service (Placeholder)', () => {
-    let hyperedgeService: ReturnType<typeof createHyperedgeService>;
-
-    beforeEach(() => {
-      hyperedgeService = createHyperedgeService();
+  describe('Hyperedge Service (Real Implementation)', () => {
+    beforeEach(async () => {
+      // Use a real GraphDB with FallbackGraph backend for hyperedge operations
+      // Disable persistence to avoid cross-test contamination via shared disk state
+      const fallbackGraph = new FallbackGraph('.test-hyperedge-graphs', 5000, false);
+      const graphDB = new GraphDB(fallbackGraph);
+      await graphDB.initialize();
+      const hyperedgeService = createHyperedgeService(graphDB);
       registry.registerService('hyperedge', hyperedgeService);
     });
 
-    it('should return placeholder response for create', async () => {
-      const result = await registry.callService('hyperedge', 'create', {});
-      expect(result).toHaveProperty('warning');
-      expect(result.warning).toContain('not yet implemented');
+    it('should create a hyperedge via service', async () => {
+      // GraphDB requires nodes to exist before creating a hyperedge
+      // Disable persistence to avoid cross-test contamination
+      const fallbackGraph2 = new FallbackGraph('.test-hyperedge-graphs2', 5000, false);
+      const graphDB2 = new GraphDB(fallbackGraph2);
+      await graphDB2.initialize();
+
+      // Add nodes first using createNode (root-level keys auto-link to graph:root)
+      const nodeA = await graphDB2.createNode({ type: 'test', properties: { key: 'node-a', name: 'a' } });
+      const nodeB = await graphDB2.createNode({ type: 'test', properties: { key: 'node-b', name: 'b' }, linkTo: nodeA });
+      const nodeC = await graphDB2.createNode({ type: 'test', properties: { key: 'node-c', name: 'c' }, linkTo: nodeA });
+
+      // Register a fresh hyperedge service with this graph that has the nodes
+      const registry2 = new ServiceRegistry();
+      const hyperedgeService2 = createHyperedgeService(graphDB2);
+      registry2.registerService('hyperedge', hyperedgeService2);
+
+      const result = await registry2.callService('hyperedge', 'create', {
+        nodes: [nodeA, nodeB, nodeC],
+        type: 'test-relation',
+      });
+      expect(result).toHaveProperty('hyperedgeId');
+      expect(typeof result.hyperedgeId).toBe('string');
     });
 
-    it('should return empty results for query', async () => {
-      const result = await registry.callService('hyperedge', 'query', {});
-      expect(result.hyperedges).toEqual([]);
+    it('should return empty results for query all', async () => {
+      const result = await registry.callService('hyperedge', 'query', {
+        queryType: 'all',
+      });
+      // New graph has no hyperedges initially (unless create was called first)
+      expect(Array.isArray(result.hyperedges)).toBe(true);
+      expect(result).toHaveProperty('count');
     });
 
-    it('should return zero stats', async () => {
+    it('should return zero stats on empty graph', async () => {
       const stats = await registry.callService('hyperedge', 'stats', {});
-      expect(stats.count).toBe(0);
-      expect(stats).toHaveProperty('warning');
+      expect(stats.hyperedgeCount).toBe(0);
+      expect(stats.temporalCount).toBe(0);
     });
   });
 
   describe('E2E All Services', () => {
     it('should register all 8 services', async () => {
       // Vector
-      const vectorBackend = new FallbackHNSW(768, DistanceMetric.COSINE);
+      const vectorBackend = new FallbackHNSW(1536, DistanceMetric.COSINE);
       registry.registerService('vector', createVectorService(vectorBackend));
 
       // Graph
@@ -609,7 +653,7 @@ describe('ServiceRegistry', () => {
       registry.registerService('sona', createSonaService(sonaEngine));
 
       // Reasoning (minimal)
-      const vectorDB = new VectorDB({ dimension: 768, metric: DistanceMetric.COSINE });
+      const vectorDB = new VectorDB({ dimension: 1536, metric: DistanceMetric.COSINE });
       await vectorDB.initialize();
       const reasoningBank = new ReasoningBank({
         patternMatcher: new PatternMatcher(vectorDB),
@@ -622,11 +666,22 @@ describe('ServiceRegistry', () => {
       // GNN
       registry.registerService('gnn', createGNNService(new GNNEnhancer()));
 
-      // Episode (placeholder)
-      registry.registerService('episode', createEpisodeService());
+      // Episode (with mock store)
+      const mockEpisodeStore = {
+        createEpisode: async () => 'episode-test-id',
+        queryByTimeRange: async () => [],
+        searchBySimilarity: async () => [],
+        getById: async () => null,
+        update: async () => {},
+        delete: async () => {},
+        getLinks: async () => [],
+        save: async () => {},
+        getStats: () => ({ episodeCount: 0, vectorCount: 0, dbSizeBytes: 0 }),
+      } as any;
+      registry.registerService('episode', createEpisodeService(mockEpisodeStore));
 
-      // Hyperedge (placeholder)
-      registry.registerService('hyperedge', createHyperedgeService());
+      // Hyperedge (with real GraphDB)
+      registry.registerService('hyperedge', createHyperedgeService(graphDB));
 
       const services = registry.listServices();
       expect(services).toHaveLength(8);
@@ -642,7 +697,7 @@ describe('ServiceRegistry', () => {
 
     it('should call one method from each service', async () => {
       // Setup all services
-      const vectorBackend = new FallbackHNSW(768, DistanceMetric.COSINE);
+      const vectorBackend = new FallbackHNSW(1536, DistanceMetric.COSINE);
       registry.registerService('vector', createVectorService(vectorBackend));
 
       const fallbackGraph = new FallbackGraph();
@@ -661,7 +716,7 @@ describe('ServiceRegistry', () => {
       await sonaEngine.initialize();
       registry.registerService('sona', createSonaService(sonaEngine));
 
-      const vectorDB = new VectorDB({ dimension: 768, metric: DistanceMetric.COSINE });
+      const vectorDB = new VectorDB({ dimension: 1536, metric: DistanceMetric.COSINE });
       await vectorDB.initialize();
       const reasoningBank = new ReasoningBank({
         patternMatcher: new PatternMatcher(vectorDB),
@@ -672,8 +727,23 @@ describe('ServiceRegistry', () => {
       registry.registerService('reasoning', createReasoningService(reasoningBank));
 
       registry.registerService('gnn', createGNNService(new GNNEnhancer()));
-      registry.registerService('episode', createEpisodeService());
-      registry.registerService('hyperedge', createHyperedgeService());
+
+      // Episode (with mock store)
+      const mockEpisodeStore2 = {
+        createEpisode: async () => 'episode-test-id',
+        queryByTimeRange: async () => [],
+        searchBySimilarity: async () => [],
+        getById: async () => null,
+        update: async () => {},
+        delete: async () => {},
+        getLinks: async () => [],
+        save: async () => {},
+        getStats: () => ({ episodeCount: 0, vectorCount: 0, dbSizeBytes: 0 }),
+      } as any;
+      registry.registerService('episode', createEpisodeService(mockEpisodeStore2));
+
+      // Hyperedge (with real GraphDB)
+      registry.registerService('hyperedge', createHyperedgeService(graphDB));
 
       // Call one method from each
       const vectorStats = await registry.callService('vector', 'stats', {});
@@ -695,10 +765,10 @@ describe('ServiceRegistry', () => {
       expect(gnnMetrics).toHaveProperty('totalEnhancements');
 
       const episodeStats = await registry.callService('episode', 'stats', {});
-      expect(episodeStats).toHaveProperty('warning');
+      expect(episodeStats).toHaveProperty('episodeCount');
 
       const hyperedgeStats = await registry.callService('hyperedge', 'stats', {});
-      expect(hyperedgeStats).toHaveProperty('warning');
+      expect(hyperedgeStats).toHaveProperty('hyperedgeCount');
 
       // Verify metrics
       const metrics = registry.getMetrics();

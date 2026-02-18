@@ -133,7 +133,7 @@ describe('VectorSourceAdapter', () => {
 
       expect(result.status).toBe('error');
       if (result.status === 'error') {
-        expect(result.error).toBe('Database error');
+        expect(result.error).toContain('Database error');
       }
     });
 

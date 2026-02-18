@@ -786,19 +786,8 @@ class TestRouteStubResponses:
     # Analysis GET stub removed — TASK-ANALYSIS-009 implemented
     # Scan POST stub removed — TASK-ANALYSIS-010 implemented
 
-    @pytest.mark.parametrize(
-        "method, path, expected_task",
-        [
-            ("POST", "/api/query/", "TASK-GOD-005"),
-        ],
-        ids=["query-post"],
-    )
-    def test_mutation_stubs(self, method, path, expected_task):
-        resp = getattr(client, method.lower())(path)
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "not_implemented"
-        assert data["task"] == expected_task
+    # Query POST stub removed — TASK-GOD-005 implemented
+    # No remaining mutation stubs to test
 
 
 # ===================================================================

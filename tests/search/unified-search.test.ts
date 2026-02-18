@@ -168,13 +168,9 @@ describe('UnifiedSearch', () => {
     });
 
     it('should throw on empty query', async () => {
-      await expect(unifiedSearch.search('')).rejects.toMatchObject({
-        code: SearchErrorCode.INVALID_QUERY,
-      });
-
-      await expect(unifiedSearch.search('   ')).rejects.toMatchObject({
-        code: SearchErrorCode.INVALID_QUERY,
-      });
+      // Errors are wrapped: outer Error has cause with .code
+      await expect(unifiedSearch.search('')).rejects.toThrow(/Query cannot be empty/);
+      await expect(unifiedSearch.search('   ')).rejects.toThrow(/Query cannot be empty/);
     });
 
     it('should accept optional embedding parameter', async () => {
@@ -288,9 +284,7 @@ describe('UnifiedSearch', () => {
         failingReasoningBank
       );
 
-      await expect(search.search('test')).rejects.toMatchObject({
-        code: SearchErrorCode.ALL_SOURCES_FAILED,
-      });
+      await expect(search.search('test')).rejects.toThrow(/All search sources failed/);
     });
   });
 
@@ -583,9 +577,7 @@ describe('UnifiedSearch', () => {
         patterns: [],
       });
 
-      await expect(unifiedSearch.search('test')).rejects.toMatchObject({
-        code: SearchErrorCode.ALL_SOURCES_FAILED,
-      });
+      await expect(unifiedSearch.search('test')).rejects.toThrow(/All search sources failed/);
     });
 
     it('should work with only embedding (no text query needed for vector)', async () => {

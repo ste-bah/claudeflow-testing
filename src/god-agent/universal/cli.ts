@@ -14,7 +14,7 @@
  *   npx tsx src/god-agent/universal/cli.ts status
  */
 
-import { UniversalAgent, type ICodeTaskPreparation, type IWriteTaskPreparation } from './universal-agent.js';
+import { UniversalAgent, type ICodeTaskPreparation, type IWriteTaskPreparation, type IMarketAnalysisTaskPreparation } from './universal-agent.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
@@ -216,6 +216,8 @@ function getSelectedAgent(command: string): string {
     bl: 'batch-learn-agent',
     query: 'query-agent',
     q: 'query-agent',
+    'market-analysis': 'god-market-analysis',
+    ma: 'god-market-analysis',
   };
   return agentMap[command.toLowerCase()] || 'unknown';
 }
@@ -1273,6 +1275,167 @@ async function main() {
         process.exit(0);
       }
 
+      case 'market-analysis':
+      case 'ma': {
+        // TASK-GOD-002: Market analysis command - two-phase execution model
+        // Implements [REQ-MA-001]: CLI does NOT attempt task execution
+        // Implements [REQ-MA-002]: CLI returns builtPrompt in JSON
+        // Implements [REQ-MA-006]: CLI exits immediately after JSON output
+
+        // Parse sub-command from first positional argument
+        const maSubCommand = positional[0] as 'analyze' | 'scan' | 'compare' | undefined;
+        const validSubCommands = ['analyze', 'scan', 'compare'];
+
+        if (!maSubCommand || !validSubCommands.includes(maSubCommand)) {
+          if (jsonMode) {
+            outputJson({
+              command: 'market-analysis',
+              selectedAgent: getSelectedAgent(command),
+              prompt: '',
+              isPipeline: false,
+              result: null,
+              success: false,
+              error: maSubCommand
+                ? `Invalid sub-command: '${maSubCommand}'. Valid: analyze, scan, compare`
+                : 'No sub-command provided. Usage: market-analysis <analyze|scan|compare> [options]',
+            });
+          } else {
+            console.error(maSubCommand
+              ? `Error: Invalid sub-command '${maSubCommand}'. Valid sub-commands: analyze, scan, compare`
+              : 'Error: No sub-command provided. Usage: market-analysis <analyze|scan|compare> [options]');
+          }
+          process.exit(1);
+        }
+
+        // Parse market analysis flags
+        const maTicker = getFlag(flags, 'ticker', 't') as string | undefined;
+        const maCompareTicker = getFlag(flags, 'compare', 'c') as string | undefined;
+        const maMethodology = getFlag(flags, 'methodology', 'm') as string | undefined;
+        const maSignalFilter = getFlag(flags, 'signal', 's') as string | undefined;
+
+        // Validate required flags per sub-command
+        if (maSubCommand === 'analyze' && !maTicker) {
+          if (jsonMode) {
+            outputJson({
+              command: 'market-analysis',
+              selectedAgent: getSelectedAgent(command),
+              prompt: '',
+              isPipeline: false,
+              result: null,
+              success: false,
+              error: 'The analyze sub-command requires --ticker/-t flag',
+            });
+          } else {
+            console.error('Error: The analyze sub-command requires --ticker/-t flag');
+          }
+          process.exit(1);
+        }
+
+        if (maSubCommand === 'compare' && (!maTicker || !maCompareTicker)) {
+          if (jsonMode) {
+            outputJson({
+              command: 'market-analysis',
+              selectedAgent: getSelectedAgent(command),
+              prompt: '',
+              isPipeline: false,
+              result: null,
+              success: false,
+              error: 'The compare sub-command requires both --ticker/-t and --compare/-c flags',
+            });
+          } else {
+            console.error('Error: The compare sub-command requires both --ticker/-t and --compare/-c flags');
+          }
+          process.exit(1);
+        }
+
+        // Build task text from sub-command and options
+        const maTaskParts: string[] = [`market-analysis ${maSubCommand}`];
+        if (maTicker) maTaskParts.push(`ticker:${maTicker}`);
+        if (maCompareTicker) maTaskParts.push(`compare:${maCompareTicker}`);
+        if (maMethodology) maTaskParts.push(`methodology:${maMethodology}`);
+        if (maSignalFilter) maTaskParts.push(`signal:${maSignalFilter}`);
+        // Include remaining positional args as additional context
+        if (positional.length > 1) {
+          maTaskParts.push(positional.slice(1).join(' '));
+        }
+        const maTask = maTaskParts.join(' ');
+
+        // Phase 1: Prepare task (agent selection, DESC injection, prompt building)
+        const maPreparation = await agent.prepareMarketAnalysisTask(maTask, {
+          subCommand: maSubCommand,
+          ticker: maTicker,
+          compareTicker: maCompareTicker,
+          methodology: maMethodology,
+          signalFilter: maSignalFilter,
+        });
+
+        // Implements [REQ-MA-002]: Output structured JSON with builtPrompt
+        if (jsonMode) {
+          // TASK-LOOPFIX-001: Build feedback command for programmatic enforcement
+          const maTrajectoryId = maPreparation.trajectoryId ?? undefined;
+          const maFeedbackCommand = maTrajectoryId
+            ? `npx tsx src/god-agent/universal/cli.ts feedback "${maTrajectoryId}" [quality_score] --trajectory --notes "Market analysis task completed"`
+            : undefined;
+
+          // Machine-readable output for skill consumption
+          outputJson({
+            command: 'market-analysis',
+            selectedAgent: maPreparation.selectedAgent,
+            prompt: maTask,
+            isPipeline: maPreparation.isPipeline,
+            result: {
+              // Implements [REQ-MA-002]: builtPrompt field
+              builtPrompt: maPreparation.builtPrompt,
+              // Implements [REQ-MA-003]: agentType for Task()
+              agentType: maPreparation.agentType,
+              agentCategory: maPreparation.agentCategory,
+              subCommand: maPreparation.subCommand,
+              ticker: maPreparation.ticker,
+              compareTicker: maPreparation.compareTicker,
+              methodology: maPreparation.methodology,
+              signalFilter: maPreparation.signalFilter,
+              descContext: maPreparation.descContext,
+              memoryContext: maPreparation.memoryContext,
+              // TASK-LOOPFIX-001: Feedback enforcement fields
+              feedbackRequired: true,
+              feedbackCommand: maFeedbackCommand,
+            },
+            success: true,
+            trajectoryId: maTrajectoryId,
+            // TASK-LOOPFIX-001: Include orphan warning if any exist
+            orphanWarning: getOrphanWarningForJson(),
+          });
+        } else {
+          // Human-readable output
+          console.log('\n--- Market Analysis Task Preparation ---\n');
+          console.log(`Sub-command: ${maPreparation.subCommand}`);
+          if (maPreparation.ticker) console.log(`Ticker: ${maPreparation.ticker}`);
+          if (maPreparation.compareTicker) console.log(`Compare Ticker: ${maPreparation.compareTicker}`);
+          if (maPreparation.methodology) console.log(`Methodology: ${maPreparation.methodology}`);
+          if (maPreparation.signalFilter) console.log(`Signal Filter: ${maPreparation.signalFilter}`);
+          console.log(`Selected Agent: ${maPreparation.selectedAgent}`);
+          console.log(`Agent Type: ${maPreparation.agentType}`);
+          console.log(`Agent Category: ${maPreparation.agentCategory}`);
+          console.log(`Pipeline: ${maPreparation.isPipeline}`);
+          if (maPreparation.descContext) {
+            console.log(`DESC Context: ${maPreparation.descContext.substring(0, 100)}...`);
+          }
+          if (maPreparation.trajectoryId) {
+            console.log(`Trajectory: ${maPreparation.trajectoryId}`);
+          }
+          console.log('\n--- Built Prompt ---\n');
+          console.log(maPreparation.builtPrompt);
+          console.log('\n--- Execution Instructions ---');
+          console.log('Execute via Task() in /god-market-analysis skill with:');
+          console.log(`  agentType: "${maPreparation.agentType}"`);
+          console.log(`  prompt: [builtPrompt above]`);
+        }
+
+        // Implements [REQ-MA-006]: Shutdown and exit immediately
+        await agent.shutdown();
+        process.exit(0);
+      }
+
       case 'status':
       case 's': {
         const status = agent.getStatus();
@@ -1875,7 +2038,7 @@ async function main() {
             prompt: '',
             isPipeline: false,
             result: {
-              commands: ['ask', 'code', 'research', 'write', 'status', 'learn', 'feedback', 'code-feedback', 'auto-complete-coding', 'batch-learn', 'query', 'help'],
+              commands: ['ask', 'code', 'research', 'write', 'market-analysis', 'status', 'learn', 'feedback', 'code-feedback', 'auto-complete-coding', 'batch-learn', 'query', 'help'],
               usage: 'npx tsx src/god-agent/universal/cli.ts <command> [input] [options]',
             },
             success: true,
@@ -1939,6 +2102,7 @@ COMMANDS:
   code, c     <task>                    Generate code with pattern learning
   research, r <query>                   Research a topic deeply
   write, w    <topic> [options]         Write documents/articles/papers
+  market-analysis, ma <sub-cmd> [opts] Analyze tickers (analyze/scan/compare)
   status, s                             Show agent status and learning stats
   learn, l    <content> [options]       Store knowledge (text or file)
   feedback, f <id> <rating> [options]   Provide feedback (0-1) for learning
@@ -1983,6 +2147,12 @@ WRITE OPTIONS:
   --format, -f <type>    essay, report, article, paper
   --style-profile, -p <id>  Style profile ID for learned writing styles
   --execute, -e          Execute full write (legacy mode, bypasses two-phase)
+
+MARKET-ANALYSIS OPTIONS:
+  --ticker, -t <sym>     Ticker symbol to analyze (required for analyze/compare)
+  --compare, -c <sym>    Comparison ticker (required for compare sub-command)
+  --methodology, -m <m>  Methodology filter (e.g., wyckoff, elliott, ict, canslim)
+  --signal, -s <filter>  Signal filter (e.g., bullish, bearish, neutral)
 
 GLOBAL OPTIONS:
   --json, -j             Output results as JSON (DAI-002: machine-readable)
@@ -2030,6 +2200,12 @@ EXAMPLES:
   npx tsx src/god-agent/universal/cli.ts batch-learn --dry-run
   npx tsx src/god-agent/universal/cli.ts batch-learn --limit 50
   npx tsx src/god-agent/universal/cli.ts bl --json
+
+  # Market analysis commands
+  npx tsx src/god-agent/universal/cli.ts market-analysis analyze --ticker AAPL --methodology wyckoff
+  npx tsx src/god-agent/universal/cli.ts ma scan --signal bullish --methodology ict
+  npx tsx src/god-agent/universal/cli.ts ma compare --ticker AAPL --compare MSFT
+  npx tsx src/god-agent/universal/cli.ts ma analyze -t TSLA -m canslim --json
 
 SELF-LEARNING:
   The agent automatically learns from every interaction:

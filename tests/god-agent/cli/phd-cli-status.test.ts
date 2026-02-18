@@ -135,7 +135,7 @@ describe('phd-cli status command', () => {
     it('should handle completed pipeline', async () => {
       const session = await createTestSession({
         currentAgentIndex: 999, // Beyond all agents
-        completedAgents: Array.from({ length: 45 }, (_, i) => `agent-${i}`)
+        completedAgents: Array.from({ length: 46 }, (_, i) => `agent-${i}`)
       });
 
       const response = await commandStatus(session.sessionId, {}, testSessionDir);

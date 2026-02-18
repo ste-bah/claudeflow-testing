@@ -164,26 +164,26 @@ describe('PhD Pipeline Configuration', () => {
     it('should have expected phase names', () => {
       const expectedNames = [
         'Foundation',
-        'Literature',
-        'Analysis',
+        'Discovery',
+        'Architecture',
         'Synthesis',
-        'Methods',
+        'Design',
         'Writing',
-        'Quality',
+        'Validation',
       ];
       const actualNames = PHD_PHASES.map((phase) => phase.name);
       expect(actualNames).toEqual(expectedNames);
     });
 
     it('should have expected agent counts per phase', () => {
-      // Phase 1: 6 agents (Foundation)
-      // Phase 2: 5 agents (Literature)
-      // Phase 3: 6 agents (Analysis)
-      // Phase 4: 6 agents (Synthesis)
-      // Phase 5: 6 agents (Methods)
-      // Phase 6: 8 agents (Writing)
-      // Phase 7: 9 agents (Quality)
-      const expectedCounts = [6, 5, 6, 6, 6, 8, 9];
+      // Phase 1: 7 agents (Foundation)
+      // Phase 2: 4 agents (Discovery)
+      // Phase 3: 4 agents (Architecture)
+      // Phase 4: 5 agents (Synthesis)
+      // Phase 5: 9 agents (Design)
+      // Phase 6: 6 agents (Writing)
+      // Phase 7: 11 agents (Validation)
+      const expectedCounts = [7, 4, 4, 5, 9, 6, 11];
 
       for (let i = 0; i < PHD_PHASES.length; i++) {
         expect(PHD_PHASES[i].agentKeys).toHaveLength(expectedCounts[i]);
@@ -240,12 +240,13 @@ describe('PhD Pipeline Configuration', () => {
 
     it('should return correct agent for each Phase 1 agent', () => {
       const phase1Keys = [
-        'self-ask-decomposer',
         'step-back-analyzer',
+        'self-ask-decomposer',
         'ambiguity-clarifier',
-        'construct-definer',
-        'theoretical-framework-analyst',
         'research-planner',
+        'construct-definer',
+        'dissertation-architect',
+        'chapter-synthesizer',
       ];
 
       for (const key of phase1Keys) {
@@ -256,9 +257,9 @@ describe('PhD Pipeline Configuration', () => {
     });
 
     it('should return correct agent for last agent in pipeline', () => {
-      const agent = getAgentByKey('chapter-synthesizer');
+      const agent = getAgentByKey('file-length-manager');
       expect(agent).toBeDefined();
-      expect(agent?.key).toBe('chapter-synthesizer');
+      expect(agent?.key).toBe('file-length-manager');
       expect(agent?.phase).toBe(7);
     });
 
@@ -273,39 +274,39 @@ describe('PhD Pipeline Configuration', () => {
   // ============================================================================
 
   describe('getAgentsByPhase()', () => {
-    it('should return 6 agents for Phase 1', () => {
+    it('should return 7 agents for Phase 1', () => {
       const agents = getAgentsByPhase(1);
-      expect(agents).toHaveLength(6);
+      expect(agents).toHaveLength(7);
     });
 
-    it('should return 5 agents for Phase 2', () => {
+    it('should return 4 agents for Phase 2', () => {
       const agents = getAgentsByPhase(2);
+      expect(agents).toHaveLength(4);
+    });
+
+    it('should return 4 agents for Phase 3', () => {
+      const agents = getAgentsByPhase(3);
+      expect(agents).toHaveLength(4);
+    });
+
+    it('should return 5 agents for Phase 4', () => {
+      const agents = getAgentsByPhase(4);
       expect(agents).toHaveLength(5);
     });
 
-    it('should return 6 agents for Phase 3', () => {
-      const agents = getAgentsByPhase(3);
-      expect(agents).toHaveLength(6);
-    });
-
-    it('should return 6 agents for Phase 4', () => {
-      const agents = getAgentsByPhase(4);
-      expect(agents).toHaveLength(6);
-    });
-
-    it('should return 6 agents for Phase 5', () => {
+    it('should return 9 agents for Phase 5', () => {
       const agents = getAgentsByPhase(5);
+      expect(agents).toHaveLength(9);
+    });
+
+    it('should return 6 agents for Phase 6', () => {
+      const agents = getAgentsByPhase(6);
       expect(agents).toHaveLength(6);
     });
 
-    it('should return 8 agents for Phase 6', () => {
-      const agents = getAgentsByPhase(6);
-      expect(agents).toHaveLength(8);
-    });
-
-    it('should return 9 agents for Phase 7', () => {
+    it('should return 11 agents for Phase 7', () => {
       const agents = getAgentsByPhase(7);
-      expect(agents).toHaveLength(9);
+      expect(agents).toHaveLength(11);
     });
 
     it('should return empty array for invalid phase 0', () => {
@@ -406,7 +407,7 @@ describe('PhD Pipeline Configuration', () => {
     });
 
     it('should return correct name for Phase 7', () => {
-      expect(getPhaseName(7)).toBe('Quality');
+      expect(getPhaseName(7)).toBe('Validation');
     });
 
     it('should return "Unknown" for invalid phase', () => {
@@ -418,12 +419,12 @@ describe('PhD Pipeline Configuration', () => {
     it('should return correct names for all phases', () => {
       const expectedNames = [
         'Foundation',
-        'Literature',
-        'Analysis',
+        'Discovery',
+        'Architecture',
         'Synthesis',
-        'Methods',
+        'Design',
         'Writing',
-        'Quality',
+        'Validation',
       ];
 
       for (let i = 0; i < expectedNames.length; i++) {
@@ -438,11 +439,11 @@ describe('PhD Pipeline Configuration', () => {
 
   describe('getAgentIndex()', () => {
     it('should return 0 for first agent', () => {
-      expect(getAgentIndex('self-ask-decomposer')).toBe(0);
+      expect(getAgentIndex('step-back-analyzer')).toBe(0);
     });
 
     it('should return 45 for last agent', () => {
-      expect(getAgentIndex('chapter-synthesizer')).toBe(45);
+      expect(getAgentIndex('file-length-manager')).toBe(45);
     });
 
     it('should return -1 for non-existent agent', () => {
@@ -460,13 +461,13 @@ describe('PhD Pipeline Configuration', () => {
     it('should return first agent at index 0', () => {
       const agent = getAgentByIndex(0);
       expect(agent).toBeDefined();
-      expect(agent?.key).toBe('self-ask-decomposer');
+      expect(agent?.key).toBe('step-back-analyzer');
     });
 
     it('should return last agent at index 45', () => {
       const agent = getAgentByIndex(45);
       expect(agent).toBeDefined();
-      expect(agent?.key).toBe('chapter-synthesizer');
+      expect(agent?.key).toBe('file-length-manager');
     });
 
     it('should return undefined for negative index', () => {
@@ -727,37 +728,35 @@ describe('PhD Pipeline Configuration', () => {
     it('should have correct Phase 1 (Foundation) agents', () => {
       const phase1 = getPhaseById(1);
       const expectedKeys = [
-        'self-ask-decomposer',
         'step-back-analyzer',
+        'self-ask-decomposer',
         'ambiguity-clarifier',
-        'construct-definer',
-        'theoretical-framework-analyst',
         'research-planner',
+        'construct-definer',
+        'dissertation-architect',
+        'chapter-synthesizer',
       ];
       expect(phase1?.agentKeys).toEqual(expectedKeys);
     });
 
-    it('should have correct Phase 2 (Literature) agents', () => {
+    it('should have correct Phase 2 (Discovery) agents', () => {
       const phase2 = getPhaseById(2);
       const expectedKeys = [
         'literature-mapper',
         'source-tier-classifier',
-        'methodology-scanner',
+        'citation-extractor',
         'context-tier-manager',
-        'systematic-reviewer',
       ];
       expect(phase2?.agentKeys).toEqual(expectedKeys);
     });
 
-    it('should have correct Phase 3 (Analysis) agents', () => {
+    it('should have correct Phase 3 (Architecture) agents', () => {
       const phase3 = getPhaseById(3);
       const expectedKeys = [
-        'quality-assessor',
+        'theoretical-framework-analyst',
         'contradiction-analyzer',
-        'bias-detector',
-        'risk-analyst',
-        'evidence-synthesizer',
         'gap-hunter',
+        'risk-analyst',
       ];
       expect(phase3?.agentKeys).toEqual(expectedKeys);
     });
@@ -765,25 +764,27 @@ describe('PhD Pipeline Configuration', () => {
     it('should have correct Phase 4 (Synthesis) agents', () => {
       const phase4 = getPhaseById(4);
       const expectedKeys = [
+        'evidence-synthesizer',
         'pattern-analyst',
         'thematic-synthesizer',
         'theory-builder',
-        'hypothesis-generator',
-        'model-architect',
         'opportunity-identifier',
       ];
       expect(phase4?.agentKeys).toEqual(expectedKeys);
     });
 
-    it('should have correct Phase 5 (Methods) agents', () => {
+    it('should have correct Phase 5 (Design) agents', () => {
       const phase5 = getPhaseById(5);
       const expectedKeys = [
         'method-designer',
+        'hypothesis-generator',
+        'model-architect',
+        'analysis-planner',
         'sampling-strategist',
         'instrument-developer',
-        'analysis-planner',
-        'ethics-reviewer',
         'validity-guardian',
+        'methodology-scanner',
+        'methodology-writer',
       ];
       expect(phase5?.agentKeys).toEqual(expectedKeys);
     });
@@ -791,30 +792,30 @@ describe('PhD Pipeline Configuration', () => {
     it('should have correct Phase 6 (Writing) agents', () => {
       const phase6 = getPhaseById(6);
       const expectedKeys = [
-        'dissertation-architect',
-        'abstract-writer',
         'introduction-writer',
         'literature-review-writer',
-        'methodology-writer',
         'results-writer',
         'discussion-writer',
         'conclusion-writer',
+        'abstract-writer',
       ];
       expect(phase6?.agentKeys).toEqual(expectedKeys);
     });
 
-    it('should have correct Phase 7 (Quality) agents', () => {
+    it('should have correct Phase 7 (Validation) agents', () => {
       const phase7 = getPhaseById(7);
       const expectedKeys = [
-        'apa-citation-specialist',
-        'citation-extractor',
-        'citation-validator',
+        'systematic-reviewer',
+        'ethics-reviewer',
         'adversarial-reviewer',
         'confidence-quantifier',
+        'citation-validator',
         'reproducibility-checker',
+        'apa-citation-specialist',
         'consistency-validator',
+        'quality-assessor',
+        'bias-detector',
         'file-length-manager',
-        'chapter-synthesizer',
       ];
       expect(phase7?.agentKeys).toEqual(expectedKeys);
     });

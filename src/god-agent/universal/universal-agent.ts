@@ -167,7 +167,7 @@ type PatternWithMetadata = {
 
 // ==================== Types ====================
 
-export type AgentMode = 'code' | 'research' | 'write' | 'general';
+export type AgentMode = 'code' | 'research' | 'write' | 'market-analysis' | 'general';
 
 export interface UniversalConfig {
   /** Enable automatic learning from all interactions */
@@ -440,6 +440,65 @@ export interface IWriteTaskPreparation {
 
   /** Whether a style profile was applied */
   styleProfileApplied: boolean;
+}
+
+/**
+ * TASK-GOD-002: Market analysis task preparation result for two-phase execution
+ *
+ * Implements [REQ-MA-001]: CLI does NOT attempt task execution
+ * Implements [REQ-MA-002]: CLI returns builtPrompt in JSON
+ * Implements [REQ-MA-003]: CLI returns agentType for Task()
+ *
+ * Phase 1: CLI calls prepareMarketAnalysisTask() -> returns this interface
+ * Phase 2: Skill executes Task() with builtPrompt and agentType
+ */
+export interface IMarketAnalysisTaskPreparation {
+  /** Agent key from registry (DAI-001) */
+  selectedAgent: string;
+
+  /** Agent type for Task() subagent_type parameter */
+  agentType: string;
+
+  /** Agent category (e.g., "analysis", "market") */
+  agentCategory: string;
+
+  /** Full prompt with DESC injection for Task() execution */
+  builtPrompt: string;
+
+  /** Original user input task */
+  userTask: string;
+
+  /** Injected DESC episodes context (RULE-010) */
+  descContext: string | null;
+
+  /** Retrieved memory context from InteractionStore */
+  memoryContext: string | null;
+
+  /** Trajectory ID for learning feedback (FR-11) */
+  trajectoryId: string | null;
+
+  /** Whether this is a multi-agent pipeline task (always false for market-analysis) */
+  isPipeline: false;
+
+  /** Pipeline definition (undefined for market-analysis) */
+  pipeline?: undefined;
+
+  // ========== Market-Analysis-Specific Fields ==========
+
+  /** The sub-command: analyze, scan, or compare */
+  subCommand: 'analyze' | 'scan' | 'compare';
+
+  /** Primary ticker symbol */
+  ticker?: string;
+
+  /** Comparison ticker symbol (for compare sub-command) */
+  compareTicker?: string;
+
+  /** Analysis methodology filter (e.g., wyckoff, elliott, ict, canslim) */
+  methodology?: string;
+
+  /** Signal filter (e.g., bullish, bearish, neutral) */
+  signalFilter?: string;
 }
 
 /**
@@ -2431,6 +2490,230 @@ export class UniversalAgent {
       /research.*paper/i,
     ];
     return longFormIndicators.some(pattern => pattern.test(topic));
+  }
+
+  /**
+   * TASK-GOD-002: Prepare a market analysis task for two-phase execution.
+   *
+   * Implements [REQ-MA-001]: CLI does NOT attempt task execution
+   * Implements [REQ-MA-002]: Returns builtPrompt for Task() execution
+   * Implements [REQ-MA-003]: Returns agentType for Task() subagent_type
+   * Implements [REQ-MA-005]: DESC episode injection (RULE-010)
+   *
+   * This method performs Phase 1 preparation:
+   * 1. Injects DESC episodes for prior solutions (RULE-010: window size 3)
+   * 2. Selects optimal agent via AgentSelector (DAI-001)
+   * 3. Builds full prompt via TaskExecutor.buildPrompt()
+   * 4. Creates trajectory for learning feedback (FR-11)
+   * 5. Returns IMarketAnalysisTaskPreparation (NO execution)
+   *
+   * Phase 2 execution happens in the /god-market-analysis skill via Task() tool.
+   *
+   * @param task - The market analysis task description
+   * @param options - Market analysis options (subCommand, ticker, etc.)
+   * @returns IMarketAnalysisTaskPreparation with builtPrompt for Task() execution
+   */
+  async prepareMarketAnalysisTask(task: string, options: {
+    subCommand: 'analyze' | 'scan' | 'compare';
+    ticker?: string;
+    compareTicker?: string;
+    methodology?: string;
+    signalFilter?: string;
+  }): Promise<IMarketAnalysisTaskPreparation> {
+    // Implements [REQ-MA-006]: Ensure initialized before processing
+    await this.ensureInitialized();
+
+    // Implements [REQ-MA-005]: DESC episode injection (RULE-010: window size 3)
+    let descContext: string | null = null;
+    let augmentedTask = task;
+    try {
+      const descResult = await this.injectDESCEpisodes(task, { command: 'god-market-analysis', mode: 'market-analysis' });
+      augmentedTask = descResult.augmentedPrompt;
+      if (descResult.episodesUsed > 0) {
+        // Extract just the DESC portion (difference between augmented and original)
+        descContext = augmentedTask.length > task.length
+          ? augmentedTask.substring(0, augmentedTask.length - task.length).trim()
+          : null;
+        this.log(`TASK-GOD-002: DESC injected ${descResult.episodesUsed} episodes`);
+      }
+    } catch (error) {
+      // Implements [REQ-MA-007]: Graceful DESC failure handling
+      // RULE-070: Log error with context before continuing
+      this.log(`TASK-GOD-002: DESC injection failed (continuing): ${error}`);
+    }
+
+    // Implements [REQ-MA-004]: Agent selection via AgentSelector (DAI-001)
+    const agentSelection = await this.selectAgentForTask(augmentedTask);
+    const agent = agentSelection.selection.selected;
+    this.log(`TASK-GOD-002: Selected agent '${agent.key}' (${agent.category})`);
+
+    // Implements [REQ-MA-003]: Extract agentType for Task() subagent_type
+    const agentType = agent.frontmatter?.type ?? agent.category;
+
+    // Implements [REQ-MA-008]: Create trajectory for learning feedback (FR-11)
+    let trajectoryId: string | null = null;
+    if (this.trajectoryBridge) {
+      try {
+        const embedding = await this.embed(task);
+        const trajectory = await this.trajectoryBridge.createTrajectoryFromInteraction(
+          task, 'market-analysis', embedding
+        );
+        trajectoryId = trajectory.trajectoryId;
+        this.log(`TASK-GOD-002: Trajectory created: ${trajectoryId}`);
+      } catch (error) {
+        // Implements [REQ-MA-007]: Graceful trajectory failure handling
+        // RULE-070: Log error with context before continuing
+        this.log(`TASK-GOD-002: Trajectory creation failed (continuing): ${error}`);
+      }
+    }
+
+    // Build market analysis instructions with sub-command context
+    const maInstructions = this.buildMarketAnalysisInstructions(
+      options.subCommand,
+      options.ticker,
+      options.compareTicker,
+      options.methodology,
+      options.signalFilter
+    );
+
+    // Build the full task text combining instructions with the augmented task
+    const fullTaskText = this.buildMarketAnalysisTaskText(
+      maInstructions,
+      augmentedTask,
+      options.subCommand
+    );
+
+    // Implements [REQ-MA-002]: Build full prompt via TaskExecutor.buildPrompt()
+    const builtPrompt = this.taskExecutor.buildPrompt(
+      agent,
+      fullTaskText,
+      agentSelection.context
+    );
+
+    // Implements [REQ-MA-001]: Return preparation result (NO execution)
+    return {
+      selectedAgent: agent.key,
+      agentType,
+      agentCategory: agent.category,
+      builtPrompt,
+      userTask: task,
+      descContext,
+      memoryContext: agentSelection.context ?? null,
+      trajectoryId,
+      isPipeline: false as const,
+      pipeline: undefined,
+      subCommand: options.subCommand,
+      ticker: options.ticker,
+      compareTicker: options.compareTicker,
+      methodology: options.methodology,
+      signalFilter: options.signalFilter,
+    };
+  }
+
+  /**
+   * Build market analysis instructions based on sub-command and options.
+   * Used by prepareMarketAnalysisTask() to construct the prompt.
+   *
+   * @param subCommand - The analysis sub-command (analyze, scan, compare)
+   * @param ticker - Primary ticker symbol
+   * @param compareTicker - Comparison ticker symbol (for compare)
+   * @param methodology - Analysis methodology filter
+   * @param signalFilter - Signal direction filter
+   * @returns Formatted market analysis instructions string
+   */
+  private buildMarketAnalysisInstructions(
+    subCommand: 'analyze' | 'scan' | 'compare',
+    ticker?: string,
+    compareTicker?: string,
+    methodology?: string,
+    signalFilter?: string
+  ): string {
+    const methodologyGuide: Record<string, string> = {
+      wyckoff: 'Wyckoff Method - accumulation/distribution phases, spring/upthrust patterns, volume analysis',
+      elliott: 'Elliott Wave Theory - impulse/corrective wave counts, Fibonacci retracements, wave degree analysis',
+      ict: 'ICT Smart Money Concepts - order blocks, fair value gaps, liquidity pools, market structure shifts',
+      canslim: 'CAN SLIM - current earnings, annual earnings, new products, supply/demand, leader/laggard, institutional sponsorship, market direction',
+      larry_williams: 'Larry Williams - COT data analysis, seasonal patterns, sentiment indicators, commercial positioning',
+    };
+
+    const subCommandGuide: Record<string, string> = {
+      analyze: 'Perform comprehensive technical and fundamental analysis on the specified ticker',
+      scan: 'Scan the market for opportunities matching the specified criteria',
+      compare: 'Compare two tickers across technical, fundamental, and momentum metrics',
+    };
+
+    let instructions = `## Market Analysis Instructions
+
+**Mode**: ${subCommand} - ${subCommandGuide[subCommand]}`;
+
+    if (ticker) {
+      instructions += `\n**Primary Ticker**: ${ticker.toUpperCase()}`;
+    }
+    if (compareTicker) {
+      instructions += `\n**Comparison Ticker**: ${compareTicker.toUpperCase()}`;
+    }
+    if (methodology && methodologyGuide[methodology]) {
+      instructions += `\n**Methodology**: ${methodologyGuide[methodology]}`;
+    } else if (methodology) {
+      instructions += `\n**Methodology**: ${methodology}`;
+    }
+    if (signalFilter) {
+      instructions += `\n**Signal Filter**: ${signalFilter} signals only`;
+    }
+
+    // Add sub-command specific guidance
+    switch (subCommand) {
+      case 'analyze':
+        instructions += `\n\n### Analysis Requirements
+- Technical analysis: price action, support/resistance, trend analysis
+- Volume analysis: volume profile, accumulation/distribution
+- Momentum indicators: RSI, MACD, Stochastic
+- Key levels: support, resistance, pivot points
+- Risk assessment: volatility, correlation, position sizing guidance`;
+        break;
+
+      case 'scan':
+        instructions += `\n\n### Scan Requirements
+- Screen for tickers matching the specified criteria
+- Rank results by signal strength and confidence
+- Include entry/exit levels for top candidates
+- Provide risk/reward ratios for each opportunity`;
+        break;
+
+      case 'compare':
+        instructions += `\n\n### Comparison Requirements
+- Side-by-side technical analysis of both tickers
+- Relative strength comparison
+- Correlation analysis
+- Fundamental metrics comparison (P/E, revenue growth, margins)
+- Recommendation on which ticker presents better risk/reward`;
+        break;
+    }
+
+    return instructions;
+  }
+
+  /**
+   * Build the full task text combining market analysis instructions with the augmented task.
+   * Used by prepareMarketAnalysisTask() to create the prompt body.
+   *
+   * @param instructions - The formatted market analysis instructions
+   * @param augmentedTask - The DESC-augmented task text
+   * @param subCommand - The analysis sub-command
+   * @returns Combined task text for prompt building
+   */
+  private buildMarketAnalysisTaskText(
+    instructions: string,
+    augmentedTask: string,
+    subCommand: 'analyze' | 'scan' | 'compare'
+  ): string {
+    return `${instructions}\n\n## Task Context\n${augmentedTask}\n\n## Output Format
+Provide structured analysis output with:
+1. Executive summary (2-3 sentences)
+2. Detailed ${subCommand} results
+3. Key findings and actionable insights
+4. Risk warnings and caveats
+5. Confidence level (low/medium/high) with reasoning`;
   }
 
   /**

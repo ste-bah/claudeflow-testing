@@ -444,14 +444,15 @@ describe('ExpressServer', () => {
       expect(response.body.message).toContain('ReasoningBank');
     });
 
-    it('GET /api/learning/stats should return placeholder', async () => {
+    it('GET /api/learning/stats should return learning metrics', async () => {
       const app = server.getApp();
       const response = await request(app).get('/api/learning/stats');
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('totalTrajectories', 0);
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toContain('SonaEngine');
+      expect(response.body).toHaveProperty('totalTrajectories');
+      expect(response.body).toHaveProperty('baselineQuality');
+      expect(response.body).toHaveProperty('learnedQuality');
+      expect(response.body).toHaveProperty('improvement');
     });
   });
 

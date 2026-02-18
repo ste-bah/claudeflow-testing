@@ -435,8 +435,19 @@ export async function next(
       );
     } catch { /* proceed without session data */ }
 
-    // Default: no LEANN injection (overwritten below if LEANN succeeds)
-    sessionData.lastLeannInjected = false;
+    // Detect LEANN injection from orchestrator's PipelinePromptBuilder
+    // (orchestrator does LEANN search and builder injects via buildSemanticContextSection)
+    // Persist to disk so complete() can read it for quality feedback metadata.
+    const leannDetected = prompt.includes('## SEMANTIC CONTEXT (from codebase search)');
+    sessionData.lastLeannInjected = leannDetected;
+    if (leannDetected) {
+      try {
+        const sessionPath = `.god-agent/coding-sessions/${sessionId}.json`;
+        const sd = JSON.parse(await fsP.readFile(sessionPath, 'utf-8'));
+        sd.lastLeannInjected = true;
+        await fsP.writeFile(sessionPath, JSON.stringify(sd, null, 2));
+      } catch { /* non-fatal */ }
+    }
 
     const phaseIndex = (sessionData.currentPhaseIndex as number) ?? 0;
     const batchIndex = (sessionData.currentBatchIndex as number) ?? 0;
@@ -446,15 +457,8 @@ export async function next(
     // ── Phase 12a: Anti-heredoc preamble (ALWAYS first) ──────────────────
     prompt = AGENT_FILE_SAFETY_PREAMBLE + '\n' + prompt;
 
-    // ── Phase 1: Agent MD file loading ───────────────────────────────────
-    try {
-      const mdPath = `.claude/agents/coding-pipeline/${agentKey}.md`;
-      if (existsSync(mdPath)) {
-        const mdContent = readFileSync(mdPath, 'utf-8');
-        prompt = `# Agent Instructions\n\n${mdContent}\n\n---\n\n# Task\n\n${prompt}`;
-        console.error(`[MD] Loaded agent instructions for ${agentKey} (${mdContent.length} chars)`);
-      }
-    } catch { /* optional — missing MD is not an error */ }
+    // ── Agent MD: SKIPPED (orchestrator already loads via getAgentMarkdownFromLoader
+    //    and includes it as step.task in PipelinePromptBuilder) ──────────────
 
     // ── Phase 4c: RLM context injection ──────────────────────────────────
     try {
@@ -462,22 +466,32 @@ export async function next(
       const rlm = new RLMContextStore();
       const rlmPath = `.god-agent/rlm-context/${sessionId}.json`;
       if (await rlm.load(rlmPath)) {
-        // Collect namespaces from all prior phases
+        // Collect ALL prior phases but in reverse order (most recent first)
+        // so the 15K token budget prioritizes recent context over old phases.
+        // Previously used forward order with 50K budget, causing 200KB+ prompts.
         const namespaces = ['coding/context/task'];
-        for (let i = 1; i < phase; i++) {
+        // Current phase first, then walk backward through prior phases
+        namespaces.push(`coding/phase${phase}/`);
+        for (let i = phase - 1; i >= 1; i--) {
           namespaces.push(`coding/phase${i}/`);
         }
-        const matchingNs = rlm.getNamespaces().filter(ns =>
-          namespaces.some(pattern => pattern.endsWith('/')
-            ? ns.startsWith(pattern)
-            : ns === pattern),
-        );
+        // Preserve caller's reverse order by iterating OUR patterns first,
+        // then matching store keys. (rlm.getNamespaces() returns Map insertion
+        // order = chronological, which would defeat the reverse priority.)
+        const storeKeys = rlm.getNamespaces();
+        const matchingNs: string[] = [];
+        for (const pattern of namespaces) {
+          const matches = storeKeys.filter(ns =>
+            pattern.endsWith('/') ? ns.startsWith(pattern) : ns === pattern,
+          );
+          matchingNs.push(...matches);
+        }
         if (matchingNs.length > 0) {
           const phaseContext = await rlm.retrieve(
-            prompt.substring(0, 500), matchingNs, 50000,
+            prompt.substring(0, 500), matchingNs, 15000,
           );
           if (phaseContext.length > 0) {
-            prompt = `## PIPELINE CONTEXT (from prior phases)\n\n${phaseContext}\n\n---\n\n${prompt}`;
+            prompt = `## PIPELINE CONTEXT (from prior phases)\n\n${phaseContext}\n\n<!-- END_PIPELINE_CONTEXT -->\n\n${prompt}`;
             console.error(`[RLM] Injected ${matchingNs.length} namespace(s) (${rlm.getTotalTokenCount()} tokens total)`);
           }
         }
@@ -601,70 +615,9 @@ export async function next(
       }
     } catch { /* optional — PatternMatcher unavailable is not an error */ }
 
-    // ── LEANN semantic code context injection ────────────────────────────
-    try {
-      const { createLeannContextService } = await import('../core/pipeline/leann-context-service.js');
-      const { createLEANNAdapter } = await import('../core/search/adapters/leann-adapter.js');
-      const { createDualCodeEmbeddingProvider, createLEANNEmbedder } = await import('../core/search/dual-code-embedding.js');
-
-      const leannService = createLeannContextService({
-        defaultMaxResults: 5,
-        minSimilarityThreshold: 0.3,
-      });
-
-      const dualProvider = createDualCodeEmbeddingProvider({
-        nlpWeight: 0.4,
-        codeWeight: 0.6,
-        cacheEnabled: true,
-        cacheMaxSize: 500,
-        provider: 'local',
-      });
-
-      const dimension = dualProvider.getDimensions();
-      const embedder = createLEANNEmbedder(dualProvider);
-      const adapter = createLEANNAdapter(embedder, dimension);
-      await leannService.initialize(adapter);
-
-      const loaded = await leannService.load('vector_db_leann');
-      if (loaded) {
-        const vectorCount = leannService.getVectorCount();
-        console.error(`[LEANN] Loaded ${vectorCount} vectors from persisted index`);
-
-        const searchQuery = prompt.substring(0, 500);
-        const context = await leannService.buildSemanticContext({
-          taskDescription: searchQuery,
-          phase: 0,
-          maxResults: 5,
-        });
-
-        if (context.codeContext.length > 0) {
-          prompt += '\n\n---\n## SEMANTIC CODE CONTEXT (from codebase search)\n';
-          prompt += `**Found ${context.totalResults} relevant code sections:**\n`;
-          for (let i = 0; i < context.codeContext.length; i++) {
-            const c = context.codeContext[i];
-            const truncated = c.content.length > 2000
-              ? c.content.substring(0, 2000) + '\n... [truncated]'
-              : c.content;
-            const escaped = truncated.replace(/```/g, '\\`\\`\\`');
-            prompt += `\n### Context ${i + 1}: ${c.filePath} (${(c.similarity * 100).toFixed(1)}% relevant)\n`;
-            prompt += `\`\`\`${c.language ?? ''}\n${escaped}\n\`\`\`\n`;
-          }
-          prompt += '\n**Note:** Use this context to understand existing patterns and conventions.\n---\n';
-          console.error(`[LEANN] Injected ${context.codeContext.length} code contexts for ${agentKey}`);
-          // Persist LEANN injection status for complete() to read
-          try {
-            const sessionPath = `.god-agent/coding-sessions/${sessionId}.json`;
-            const sd = JSON.parse(await fsP.readFile(sessionPath, 'utf-8'));
-            sd.lastLeannInjected = true;
-            await fsP.writeFile(sessionPath, JSON.stringify(sd, null, 2));
-          } catch { /* non-fatal */ }
-        }
-      } else {
-        console.error('[LEANN] No persisted vectors found, skipping semantic context');
-      }
-    } catch (err) {
-      console.error(`[LEANN] Semantic context injection failed (non-fatal): ${(err as Error).message}`);
-    }
+    // ── LEANN semantic code context: SKIPPED (orchestrator already does LEANN
+    //    search via buildSemanticContext and passes results to PipelinePromptBuilder
+    //    which includes them via buildSemanticContextSection) ─────────────────
 
     // ── Reflexion: past failure trajectory injection ─────────────────────
     try {
@@ -791,51 +744,44 @@ export async function next(
       } catch { /* Sherlock injection failed — proceed without */ }
     }
 
-    // ── Phase 5: Structured prompt via PipelinePromptBuilder ────────────
-    try {
-      const { PipelinePromptBuilder } = await import('../core/pipeline/pipeline-prompt-builder.js');
-      const promptBuilder = new PipelinePromptBuilder(agentRegistry);
-
-      // Build IPromptContext for the builder
+    // ── Workflow context append (lightweight — NO second builder pass) ───
+    // The orchestrator's PipelinePromptBuilder already provides full structure
+    // (Agent Header, Workflow Context, Memory, Task, Quality, Success Criteria).
+    // CLI only appends its unique enrichments (RLM, DESC, SONA, patterns,
+    // reflexion, sherlock) without re-wrapping in a second builder pass.
+    {
       const totalAgents = batchResponse.totalAgents;
-      const step = {
-        agentKey,
-        task: prompt,
-        inputDomain: 'coding/input',
-        outputDomain: `coding/phase${phase}/${agentKey}`,
-        inputTags: [] as string[],
-        outputTags: [`phase:${phase}`, `agent:${agentKey}`],
-      };
-      const pipelineDef = {
-        name: 'coding-pipeline',
-        description: '48-agent sequential coding pipeline',
-        agents: Array.from({ length: totalAgents }, (_, i) => ({
-          task: `Agent ${i + 1}`,
-          outputDomain: `coding/phase`,
-          outputTags: [] as string[],
-        })),
-        sequential: true,
-      };
-
-      const built = promptBuilder.buildPrompt({
-        step,
-        stepIndex: completedAgents,
-        pipeline: pipelineDef,
-        pipelineId: sessionId,
-        previousOutput: undefined,
-      });
-
-      // Use the builder's structured workflow context sections, keep CLI augmentations
-      // The builder output replaces the task section — we prepend our CLI-specific augmentations
-      prompt = built.prompt;
-      console.error(`[PROMPT-BUILDER] Built structured prompt for ${agentKey} (step ${built.stepNumber}/${built.totalSteps})`);
-    } catch (err) {
-      // Fallback: add basic workflow context if builder unavailable
-      const totalAgents = batchResponse.totalAgents;
-      prompt += `\n\n## WORKFLOW CONTEXT\n`;
+      prompt += `\n\n---\n\n## PIPELINE PROGRESS\n`;
       prompt += `Agent #${completedAgents + 1} of ${totalAgents} | Phase ${phase}/7 | Session: ${sessionId}\n`;
       prompt += `Progress: ${Math.round((completedAgents / totalAgents) * 100)}% complete\n`;
-      console.error(`[PROMPT-BUILDER] Fallback to basic context (${(err as Error).message})`);
+      console.error(`[WORKFLOW] Appended pipeline progress for ${agentKey} (step ${completedAgents + 1}/${totalAgents})`);
+    }
+
+    // ── Safety cap: 120K char hard limit ──────────────────────────────────
+    const MAX_PROMPT_CHARS = 120000;
+    if (prompt.length > MAX_PROMPT_CHARS) {
+      const originalLen = prompt.length;
+      // Truncate RLM section first (largest variable-size section).
+      // Uses unique END_PIPELINE_CONTEXT marker (not ---) to avoid matching
+      // the --- separators INSIDE the RLM content between namespaces.
+      const rlmMarker = '## PIPELINE CONTEXT (from prior phases)';
+      const rlmEndMarker = '<!-- END_PIPELINE_CONTEXT -->';
+      const rlmStart = prompt.indexOf(rlmMarker);
+      const rlmEnd = prompt.indexOf(rlmEndMarker);
+      if (rlmStart >= 0 && rlmEnd > rlmStart) {
+        const excess = prompt.length - MAX_PROMPT_CHARS;
+        const rlmContent = prompt.substring(rlmStart, rlmEnd);
+        const keepLen = Math.max(200, rlmContent.length - excess);
+        const truncatedRlm = rlmContent.substring(0, keepLen);
+        prompt = prompt.substring(0, rlmStart) + truncatedRlm + '\n... [RLM context truncated for size]\n' + prompt.substring(rlmEnd);
+      }
+      // Fallback: if still over limit after RLM truncation (or no RLM section),
+      // hard-truncate the entire prompt from the end
+      if (prompt.length > MAX_PROMPT_CHARS) {
+        prompt = prompt.substring(0, MAX_PROMPT_CHARS) + '\n... [prompt hard-truncated at 120K chars]';
+        console.error(`[PROMPT-CAP] Hard truncation applied`);
+      }
+      console.error(`[PROMPT-CAP] Truncated prompt from ${originalLen} to ${prompt.length} chars (limit: ${MAX_PROMPT_CHARS})`);
     }
 
     batchResponse.batch[0].prompt = prompt;

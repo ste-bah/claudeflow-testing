@@ -325,14 +325,14 @@ describe('OBS-011: God Agent Observability Integration', () => {
       store.addKnowledge({
         id: 'test-knowledge-meta',
         content: 'Test content for metadata validation',
-        category: 'test-category',
+        type: 'pattern',
         domain: 'project/testing/metadata',
         tags: ['meta', 'validation', 'test'],
         quality: 0.95,
         usageCount: 0,
         lastUsed: Date.now(),
         createdAt: Date.now(),
-      });
+      } as any);
 
       const storedEvents = emitSpy.mock.calls.filter(
         ([event]) => event.operation === 'memory_stored'
@@ -340,7 +340,7 @@ describe('OBS-011: God Agent Observability Integration', () => {
       const meta = storedEvents[0][0].metadata;
 
       expect(meta.domain).toBe('project/testing/metadata');
-      expect(meta.category).toBe('test-category');
+      expect(meta.type).toBe('pattern');
       expect(meta.tags).toEqual(['meta', 'validation', 'test']);
       expect(meta.entryId).toBe('test-knowledge-meta');
       expect(meta.contentLength).toBeGreaterThan(0);

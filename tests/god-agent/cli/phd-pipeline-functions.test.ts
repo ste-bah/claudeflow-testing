@@ -560,14 +560,14 @@ describe('Phase Validation Functions', () => {
       const session: IPhdSession = {
         sessionId: 'test',
         currentPhase: 1,
-        currentAgentIndex: 6,
+        currentAgentIndex: 7,
         completedAgents: phase1Keys,
       };
       expect(isPhaseComplete(session, 1)).toBe(true);
     });
 
     it('should return false when some Phase 1 agents are missing', () => {
-      const phase1Keys = PHD_PHASES[0].agentKeys.slice(0, 3); // Only first 3 of 6
+      const phase1Keys = PHD_PHASES[0].agentKeys.slice(0, 3); // Only first 3 of 7
       const session: IPhdSession = {
         sessionId: 'test',
         currentPhase: 1,
@@ -647,7 +647,7 @@ describe('Phase Validation Functions', () => {
       };
       const progress = getPhaseProgress(session, 1);
       expect(progress.completed).toBe(0);
-      expect(progress.total).toBe(6);
+      expect(progress.total).toBe(7);
       expect(progress.percentage).toBe(0);
     });
 
@@ -656,17 +656,17 @@ describe('Phase Validation Functions', () => {
       const session: IPhdSession = {
         sessionId: 'test',
         currentPhase: 1,
-        currentAgentIndex: 6,
+        currentAgentIndex: 7,
         completedAgents: phase1Keys,
       };
       const progress = getPhaseProgress(session, 1);
-      expect(progress.completed).toBe(6);
-      expect(progress.total).toBe(6);
+      expect(progress.completed).toBe(7);
+      expect(progress.total).toBe(7);
       expect(progress.percentage).toBe(100);
     });
 
-    it('should return 50% when half of phase agents completed', () => {
-      const phase1Keys = PHD_PHASES[0].agentKeys.slice(0, 3); // 3 of 6 = 50%
+    it('should return approximately 43% when 3 of 7 phase agents completed', () => {
+      const phase1Keys = PHD_PHASES[0].agentKeys.slice(0, 3); // 3 of 7
       const session: IPhdSession = {
         sessionId: 'test',
         currentPhase: 1,
@@ -675,8 +675,8 @@ describe('Phase Validation Functions', () => {
       };
       const progress = getPhaseProgress(session, 1);
       expect(progress.completed).toBe(3);
-      expect(progress.total).toBe(6);
-      expect(progress.percentage).toBe(50);
+      expect(progress.total).toBe(7);
+      expect(progress.percentage).toBeCloseTo(42.86, 0);
     });
 
     it('should return correct completed agent list', () => {
@@ -702,7 +702,7 @@ describe('Phase Validation Functions', () => {
         completedAgents: [...completedKeys],
       };
       const progress = getPhaseProgress(session, 1);
-      expect(progress.remainingAgents).toHaveLength(4); // 6 - 2 = 4
+      expect(progress.remainingAgents).toHaveLength(5); // 7 - 2 = 5
     });
 
     it('should return empty result for invalid phase', () => {
@@ -720,7 +720,7 @@ describe('Phase Validation Functions', () => {
       expect(progress.remainingAgents).toEqual([]);
     });
 
-    it('should handle Phase 7 with 9 agents', () => {
+    it('should handle Phase 7 with 11 agents', () => {
       const session: IPhdSession = {
         sessionId: 'test',
         currentPhase: 7,
@@ -728,7 +728,7 @@ describe('Phase Validation Functions', () => {
         completedAgents: [],
       };
       const progress = getPhaseProgress(session, 7);
-      expect(progress.total).toBe(9);
+      expect(progress.total).toBe(11);
     });
 
     it('should handle dynamic Phase 6 agents', () => {
@@ -786,7 +786,7 @@ describe('Phase Validation Functions', () => {
         completedAgents: [],
       };
       const allProgress = getAllPhaseProgress(session);
-      const expectedNames = ['Foundation', 'Literature', 'Analysis', 'Synthesis', 'Methods', 'Writing', 'Quality'];
+      const expectedNames = ['Foundation', 'Discovery', 'Architecture', 'Synthesis', 'Design', 'Writing', 'Validation'];
 
       for (let i = 0; i < 7; i++) {
         expect(allProgress[i].phaseName).toBe(expectedNames[i]);
@@ -799,12 +799,12 @@ describe('Phase Validation Functions', () => {
       expect(getPhaseForAgentIndex(0)).toBe(1);
     });
 
-    it('should return Phase 1 for index 5 (last Phase 1 agent)', () => {
-      expect(getPhaseForAgentIndex(5)).toBe(1);
+    it('should return Phase 1 for index 6 (last Phase 1 agent)', () => {
+      expect(getPhaseForAgentIndex(6)).toBe(1);
     });
 
-    it('should return Phase 2 for index 6 (first Phase 2 agent)', () => {
-      expect(getPhaseForAgentIndex(6)).toBe(2);
+    it('should return Phase 2 for index 7 (first Phase 2 agent)', () => {
+      expect(getPhaseForAgentIndex(7)).toBe(2);
     });
 
     it('should return Phase 7 for index 45 (last agent)', () => {
@@ -855,7 +855,7 @@ describe('Phase Validation Functions', () => {
     it('should return false when Phase 7 incomplete', () => {
       // All phases 1-6 complete, but Phase 7 missing some agents
       const phase1to6Keys = PHD_AGENTS.filter(a => a.phase <= 6).map(a => a.key);
-      const phase7Partial = PHD_PHASES[6].agentKeys.slice(0, 5); // Only 5 of 9
+      const phase7Partial = PHD_PHASES[6].agentKeys.slice(0, 5); // Only 5 of 11
       const session: IPhdSession = {
         sessionId: 'test',
         currentPhase: 7,
@@ -890,13 +890,13 @@ describe('getNextAgent()', () => {
 
         if (result) {
           expect(result.agentIndex).toBe(0);
-          expect(result.agent.key).toBe('self-ask-decomposer');
+          expect(result.agent.key).toBe('step-back-analyzer');
           expect(result.agent.phase).toBe(1);
         }
       } catch (error) {
         // May fail if agent files don't exist - that's expected
         if (error instanceof AgentFileNotFoundError) {
-          expect(error.agentKey).toBe('self-ask-decomposer');
+          expect(error.agentKey).toBe('step-back-analyzer');
         }
       }
     });

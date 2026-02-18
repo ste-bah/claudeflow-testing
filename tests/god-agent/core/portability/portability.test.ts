@@ -717,7 +717,7 @@ describe('PerformanceComparator', () => {
     it('should use default config', () => {
       expect(DEFAULT_COMPARATOR_CONFIG.iterations).toBe(1000);
       expect(DEFAULT_COMPARATOR_CONFIG.warmupIterations).toBe(100);
-      expect(DEFAULT_COMPARATOR_CONFIG.dimensions).toBe(768);
+      expect(DEFAULT_COMPARATOR_CONFIG.dimensions).toBe(1536);
     });
   });
 

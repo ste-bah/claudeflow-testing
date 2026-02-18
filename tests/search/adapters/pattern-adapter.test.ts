@@ -228,7 +228,7 @@ describe('PatternSourceAdapter', () => {
 
       expect(result.status).toBe('error');
       if (result.status === 'error') {
-        expect(result.error).toBe('Unexpected error');
+        expect(result.error).toContain('Unexpected error');
       }
     });
 

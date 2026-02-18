@@ -30,7 +30,7 @@ describe('KnowledgeChunker', () => {
       expect(config.maxChars).toBe(2000);
       expect(config.minChars).toBe(200);
       expect(config.overlap).toBe(300);
-      expect(config.maxChunks).toBe(25);
+      expect(config.maxChunks).toBe(2000);
     });
 
     it('should accept custom config overrides', () => {

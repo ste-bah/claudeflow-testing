@@ -79,9 +79,9 @@ describe('Quality Monitoring', () => {
       expect(alertEvent?.metadata?.message).toContain('90%');
       expect(alertEvent?.metadata?.category).toBe('low-accuracy');
 
-      // Should log to console
+      // Should log alert to console (JSON format with severity)
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[ALERT] WARNING:')
+        expect.stringContaining('"severity":"WARNING"')
       );
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('85.0%')
@@ -113,9 +113,9 @@ describe('Quality Monitoring', () => {
       expect(alertEvent?.metadata?.message).toContain('3%');
       expect(alertEvent?.metadata?.category).toBe('high-fpr');
 
-      // Should log to console
+      // Should log alert to console (JSON format with severity)
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[ALERT] CRITICAL:')
+        expect.stringContaining('"severity":"CRITICAL"')
       );
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('5.0%')

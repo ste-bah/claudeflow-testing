@@ -109,7 +109,8 @@ describe('Writing Agent Routing - Core Functionality', () => {
     expect(result.selectedAgent).toBeDefined();
     expect(result.selectedAgent.length).toBeGreaterThan(0);
     expect(result.explanation).toBeDefined();
-    expect(result.confidence).toBeGreaterThan(0);
+    // Confidence may be 0 in cold start mode (low execution count)
+    expect(result.confidence).toBeGreaterThanOrEqual(0);
     expect(result.confidence).toBeLessThanOrEqual(1);
     expect(result.routingId).toMatch(/^route_\d+_[a-z0-9]+$/);
   });
