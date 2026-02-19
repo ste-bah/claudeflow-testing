@@ -34,3 +34,8 @@ claude-flow
 docs/
 docs2/
 node_modules
+
+# Environment files (contain API keys and secrets)
+.env
+.env.local
+.env.*.local

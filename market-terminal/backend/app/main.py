@@ -139,7 +139,8 @@ app = FastAPI(
 settings = get_settings()
 _cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 # Ensure localhost:3000 and :5173 are always included for dev
-for dev_origin in ("http://localhost:3000", "http://localhost:5173"):
+_fe_port = settings.frontend_port
+for dev_origin in (f"http://localhost:{_fe_port}", "http://localhost:5173"):
     if dev_origin not in _cors_origins:
         _cors_origins.append(dev_origin)
 
@@ -260,4 +261,5 @@ async def health_check() -> dict:
 # Dev entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    _settings = get_settings()
+    uvicorn.run("app.main:app", host=_settings.backend_host, port=_settings.backend_port, reload=True)
