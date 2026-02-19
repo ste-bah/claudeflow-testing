@@ -289,7 +289,7 @@ class CacheManager:
         if data_type == "news" and source == "finnhub":
             from app.data.finnhub_client import get_finnhub_client
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+            week_ago = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
             return await get_finnhub_client().get_company_news(symbol, week_ago, today)
 
         if data_type == "macro" and source == "fred":
