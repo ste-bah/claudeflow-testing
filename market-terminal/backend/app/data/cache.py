@@ -279,8 +279,8 @@ class CacheManager:
             return await get_yfinance_client().get_quote(symbol)
 
         if data_type == "fundamentals" and source == "edgar":
-            from app.data.edgar_client import get_edgar_client
-            return await get_edgar_client().get_key_metrics(symbol)
+            from app.data.fundamentals_service import get_fundamentals_data
+            return await get_fundamentals_data(symbol)
 
         if data_type == "fundamentals" and source == "yfinance":
             from app.data.yfinance_client import get_yfinance_client

@@ -47,16 +47,22 @@ interface ChartSeriesData {
   readonly volumes: HistogramData[];
 }
 
-/**
- * Convert OHLCV bars into candlestick and volume histogram arrays in a single
- * pass (avoids iterating the bar array twice).
- */
+
 function mapBarsSinglePass(bars: readonly OHLCVBar[]): ChartSeriesData {
   const candles: CandlestickData[] = [];
   const volumes: HistogramData[] = [];
 
+  const parseTime = (date: string): Time => {
+    if (date.includes('T') || date.includes(':')) {
+      // Intraday: unix timestamp (seconds)
+      return (new Date(date).getTime() / 1000) as Time;
+    }
+    // Daily: YYYY-MM-DD string
+    return date as Time;
+  };
+
   for (const bar of bars) {
-    const time = bar.date as Time;
+    const time = parseTime(bar.date);
 
     candles.push({
       time,
@@ -75,6 +81,24 @@ function mapBarsSinglePass(bars: readonly OHLCVBar[]): ChartSeriesData {
 
   return { candles, volumes };
 }
+
+// Ref-based update to avoid re-creating chart on every render, 
+// but we need to update data.
+// Note: We are replacing the useEffect logic below with this computed data 
+// to ensure consistency, stripping out the separate mapBarsSinglePass function 
+// or updating it. 
+// Actually, let's keep the hook structure and just update the data mapping *inside* the effect 
+// or update mapBarsSinglePass.
+
+// Let's stick to updating mapBarsSinglePass logic if possible, 
+// but since I can't edit the function definition easily without replacing the whole file,
+// I will inline the logic in the effect or add a helper in the component body.
+// Wait, I am replacing a chunk. I should target mapBarsSinglePass.
+
+// ... (Re-evaluating replacement target) ...
+// The 'mapBarsSinglePass' function is defined outside the component. 
+// I'll replace THAT function.
+
 
 /** Price chart panel with candlestick and volume series. */
 export default function Chart({ symbol }: ChartProps) {
@@ -193,9 +217,17 @@ export default function Chart({ symbol }: ChartProps) {
     }
 
     if (chartRef.current) {
+      // Enable time on x-axis for intraday timeframes
+      const isIntraday = ['1h', '4h', '8h', '12h'].includes(timeframe);
+      chartRef.current.applyOptions({
+        timeScale: {
+          timeVisible: isIntraday,
+          secondsVisible: false,
+        },
+      });
       chartRef.current.timeScale().fitContent();
     }
-  }, [bars]);
+  }, [bars, timeframe]);
 
   // WebSocket live price update effect: update the last candlestick in real-time.
   useEffect(() => {
@@ -245,10 +277,9 @@ export default function Chart({ symbol }: ChartProps) {
                 onClick={() => setTimeframe(tf)}
                 className={`
                   px-2 py-0.5 text-xs font-mono rounded transition-colors duration-150
-                  ${
-                    tf === timeframe
-                      ? 'bg-amber-500 text-terminal-bg'
-                      : 'text-text-secondary hover:text-text-primary hover:bg-terminal-border'
+                  ${tf === timeframe
+                    ? 'bg-amber-500 text-terminal-bg'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-terminal-border'
                   }
                 `}
               >

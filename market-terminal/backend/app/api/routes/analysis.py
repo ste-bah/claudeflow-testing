@@ -201,6 +201,7 @@ async def _broadcast_progress(
 
 async def _fetch_data(
     symbol: str,
+    force_refresh: bool = False,
 ) -> tuple[
     pd.DataFrame, pd.DataFrame,
     dict[str, Any] | None,
@@ -238,7 +239,7 @@ async def _fetch_data(
     # -- Fundamentals (optional) --------------------------------------------
     fundamentals: dict[str, Any] | None = None
     try:
-        fund_result = await cm.get_fundamentals(symbol)
+        fund_result = await cm.get_fundamentals(symbol, force_refresh=force_refresh)
         if fund_result is not None and isinstance(fund_result.data, dict):
             fundamentals = fund_result.data
             sources.append(f"fundamentals:{fund_result.source}")
@@ -402,7 +403,7 @@ async def run_analysis(
         # -- Fetch data -----------------------------------------------------
         t_start = time.monotonic()
         price_df, volume_df, fundamentals, news_articles, sources = (
-            await _fetch_data(symbol)
+            await _fetch_data(symbol, force_refresh=not use_cache)
         )
 
         # -- Run with timeout -----------------------------------------------

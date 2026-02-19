@@ -278,9 +278,9 @@ class EdgarClient:
             "gross_profit": ["GrossProfit", "Gross profit", "Gross Profit"],
             "operating_income": ["OperatingIncomeLoss", "Operating income",
                                  "Income from operations"],
-            "net_income": ["NetIncomeLoss", "Net income"],
-            "eps_basic": ["EarningsPerShareBasic", "Basic earnings per share"],
-            "eps_diluted": ["EarningsPerShareDiluted", "Diluted earnings per share"],
+            "net_income": ["NetIncomeLoss", "Net income", "NetIncome", "ProfitLoss"],
+            "eps_basic": ["EarningsPerShareBasic", "Basic earnings per share", "EarningsPerShare"],
+            "eps_diluted": ["EarningsPerShareDiluted", "Diluted earnings per share", "EarningsPerShare"],
         }
         data = await self._fetch_statement(symbol, "income_statement", field_map, periods)
         if data is None:
@@ -309,6 +309,7 @@ class EdgarClient:
             "total_current_liabilities": ["LiabilitiesCurrent", "Current liabilities",
                                           "Total current liabilities"],
             "long_term_debt": ["LongTermDebt", "Long-term debt"],
+            "shares_outstanding": ["CommonStockSharesOutstanding", "EntityCommonStockSharesOutstanding"],
         }
         data = await self._fetch_statement(symbol, "balance_sheet", field_map, periods)
         if data is None:
@@ -390,14 +391,20 @@ class EdgarClient:
             return None
 
     async def get_eps_history(self, symbol: str, quarters: int = 12) -> list[dict[str, Any]] | None:
-        """Return quarterly EPS and revenue history for *symbol*."""
+        """Return quarterly EPS, revenue, and margins history for *symbol*."""
         cached = await self._get_cached(symbol, "eps_history")
         if cached is not None and isinstance(cached, list):
             return _tag(cached, cached=True)  # type: ignore[return-value]
         field_map: dict[str, list[str]] = {
-            "eps_basic": ["EarningsPerShareBasic", "Basic earnings per share"],
-            "eps_diluted": ["EarningsPerShareDiluted", "Diluted earnings per share"],
-            "revenue": ["Revenue", "Revenues", "Net sales"],
+            "eps_basic": ["EarningsPerShareBasic", "Basic earnings per share", "EarningsPerShare"],
+            "eps_diluted": ["EarningsPerShareDiluted", "Diluted earnings per share", "EarningsPerShare"],
+            "revenue": ["Revenue", "Revenues", "Net sales",
+                        "RevenueFromContractWithCustomerExcludingAssessedTax"],
+            "cost_of_revenue": ["CostOfGoodsAndServicesSold", "CostOfRevenue", "Cost of"],
+            "gross_profit": ["GrossProfit", "Gross profit", "Gross Profit"],
+            "operating_income": ["OperatingIncomeLoss", "Operating income",
+                                 "Income from operations"],
+            "net_income": ["NetIncomeLoss", "Net income", "NetIncome", "ProfitLoss"],
         }
         try:
             company = await self._get_company_obj(symbol)
@@ -414,8 +421,17 @@ class EdgarClient:
             await _wait_for_edgar_rate_limit()
             df = await asyncio.to_thread(stmt.to_dataframe)
             data = self._parse_statement(df, field_map, periods=quarters)
-            # YoY growth (compare to same quarter 4 periods back)
+            
+            # Calculate margins and YoY growth
             for i, row in enumerate(data):
+                # Margins
+                rev, gp, oi, ni = row.get("revenue"), row.get("gross_profit"), \
+                    row.get("operating_income"), row.get("net_income")
+                row["gross_margin"] = _safe_div(gp, rev)
+                row["operating_margin"] = _safe_div(oi, rev)
+                row["net_margin"] = _safe_div(ni, rev)
+
+                # YoY growth (compare to same quarter 4 periods back)
                 yoy_idx = i + 4
                 if yoy_idx < len(data):
                     prev = data[yoy_idx]
@@ -424,11 +440,13 @@ class EdgarClient:
                 else:
                     row["eps_growth_yoy"] = None
                     row["revenue_growth_yoy"] = None
+            
             # Acceleration detection
             for i, row in enumerate(data):
                 cur_g = row.get("eps_growth_yoy")
                 prev_g = data[i + 1].get("eps_growth_yoy") if i + 1 < len(data) else None
                 row["is_accelerating"] = (cur_g > prev_g) if (cur_g is not None and prev_g is not None) else None
+            
             await self._store_cache(symbol, "eps_history", data)
             return _tag(data, cached=False)  # type: ignore[return-value]
         except Exception as exc:

@@ -39,6 +39,15 @@ TX_CODE_MAP: dict[str, str] = {
 # In-memory CUSIP cache (populated from EFTS results)
 CUSIP_CACHE: dict[str, str] = {}
 
+# Specific ticker aliases for 13F parsing where institutions use old symbols
+# Format: {CURRENT_TICKER: [LEGACY_TICKER_1, ...]}
+TICKER_ALIASES: dict[str, list[str]] = {
+    "META": ["FB"],
+    "GOOG": ["GOOGL"],  # Handle share class variations
+    "GOOGL": ["GOOG"],
+}
+
+
 
 # ---------------------------------------------------------------------------
 # Pure helpers

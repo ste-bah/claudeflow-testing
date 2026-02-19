@@ -162,6 +162,7 @@ async def get_news(
     from_date: str | None = Query(None, description="From date (YYYY-MM-DD)"),
     to_date: str | None = Query(None, description="To date (YYYY-MM-DD)"),
     category: Category = Query(Category.all, description="News category filter"),
+    force_refresh: bool = Query(False, description="Bypass cache and force fresh fetch"),
 ) -> dict[str, Any]:
     """Return paginated news articles for *symbol* with optional sentiment."""
     symbol = _validate_symbol(symbol)
@@ -172,7 +173,7 @@ async def get_news(
 
     # Fetch news through cache (finnhub fallback chain)
     try:
-        news_result = await cache.get_news(symbol)
+        news_result = await cache.get_news(symbol, force_refresh=force_refresh)
     except Exception:
         logger.warning("Cache fetch error for news:%s", symbol, exc_info=True)
         news_result = None

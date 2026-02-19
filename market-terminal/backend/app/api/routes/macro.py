@@ -388,22 +388,48 @@ async def get_calendar(
         raw_events = []
 
     events = [_format_calendar_event(e) for e in raw_events]
+    data_source = "finnhub"
 
-    # Filter by importance
+    # Fallback to FRED if Finnhub returns nothing (likely 403)
+    if not events:
+        try:
+            fred = get_fred_client()
+            # Filter event types if requested
+            target_types = _EVENT_TYPES
+            if event_type != "all":
+                if event_type in _EVENT_TYPES:
+                    target_types = {event_type: _EVENT_TYPES[event_type]}
+                else:
+                    target_types = {}
+            
+            if target_types:
+                # Get latest releases for these types
+                fred_events = await fred.get_latest_releases(target_types)
+                if fred_events:
+                    events = fred_events
+                    data_source = "fred"
+                    # Sort by date descending for history? Or ascending?
+                    # Calendar usually ascending.
+                    pass
+        except Exception:
+            logger.warning("FRED calendar fallback failed", exc_info=True)
+
+    # Filter by importance (if not already handled or if mixed)
     if importance != "all":
-        events = [e for e in events if e["importance"] == importance]
+        events = [e for e in events if e.get("importance") == importance]
 
-    # Filter by event_type
+    # Filter by event_type (already done for fallback, but check again for consistency)
     if event_type != "all":
-        events = [e for e in events if e["event_type"] == event_type]
+        events = [e for e in events if e.get("event_type") == event_type]
 
-    # Sort by date
+    # Sort by date. For fallback (historical), maybe Descending? 
+    # But calendar standard is Ascending.
     events.sort(key=lambda e: e.get("date") or "")
 
     return {
         "events": events,
         "date_range": {"from": from_date, "to": to_date},
-        "data_source": "finnhub",
+        "data_source": data_source,
         "data_timestamp": now.isoformat(),
     }
 

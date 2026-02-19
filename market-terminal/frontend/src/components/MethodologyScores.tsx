@@ -251,19 +251,14 @@ function KeyLevelsSection({
   const entries = Object.entries(levels);
   if (entries.length === 0) return null;
 
-  const visibleEntries = entries.slice(0, 8);
-
   return (
     <div className={`text-xs ${depth > 0 ? 'ml-3 mt-0.5' : 'mt-1'}`}>
-      {visibleEntries.map(([key, value]) => (
+      {entries.map(([key, value]) => (
         <div key={key} className="flex gap-1">
           <span className="text-text-muted shrink-0">{key}:</span>
           {renderKeyLevelValue(value, depth)}
         </div>
       ))}
-      {entries.length > 8 && (
-        <span className="text-text-muted">...{entries.length - 8} more</span>
-      )}
     </div>
   );
 }
@@ -322,7 +317,7 @@ const SignalCard = React.memo(function SignalCard({ signal }: { readonly signal:
   const timeframeLabel = TIMEFRAME_LABELS[signal.timeframe] ?? signal.timeframe;
 
   return (
-    <div className="bg-terminal-panel border border-terminal-border rounded p-2">
+    <div className="bg-terminal-panel border border-terminal-border rounded p-2 resize-y overflow-auto h-auto min-h-[10rem] max-h-[500px]">
       {/* Header: methodology name + direction */}
       <div className="flex items-center gap-2 mb-1">
         <span className="text-text-primary font-bold text-xs">
@@ -353,7 +348,7 @@ const SignalCard = React.memo(function SignalCard({ signal }: { readonly signal:
 
       {/* Reasoning */}
       {signal.reasoning && (
-        <p className="text-text-secondary text-xs line-clamp-2 mt-1">
+        <p className="text-text-secondary text-xs mt-1">
           {signal.reasoning}
         </p>
       )}

@@ -1,9 +1,13 @@
 /**
  * Custom hook for fetching multi-methodology analysis data with client-side caching.
  * Follows the same cancelled-flag pattern as useOwnership.ts.
+ *
+ * If no cached analysis exists (GET returns 404), the hook automatically
+ * triggers a fresh analysis run via POST and then re-fetches the result.
  */
 import { useState, useEffect } from 'react';
-import { getAnalysis } from '../api/client';
+import { getAnalysis, analyzeSymbol } from '../api/client';
+import { isApiError } from '../api/errors';
 import type { AnalysisData, AnalysisApiResponse } from '../types/analysis';
 import {
   ANALYSIS_CACHE_TTL_MS,
@@ -36,9 +40,10 @@ export function clearAnalysisCache(): void {
  *
  * - Returns null data when symbol is empty (no fetch).
  * - Serves from a 15-minute client-side cache when available.
+ * - If no cached result exists on the server (404), auto-triggers a fresh
+ *   analysis run via POST, then re-fetches the result.
  * - Normalises snake_case backend response to camelCase via normalizeAnalysis.
  * - Uses safe static error messages (no XSS -- never reflects user input).
- * - No auto-retry on failure.
  *
  * @param symbol - Ticker symbol (e.g. "AAPL")
  * @param refreshKey - Optional key to force a re-fetch when incremented (e.g. after WebSocket analysis_complete)
@@ -73,6 +78,14 @@ export function useAnalysis(symbol: string, refreshKey?: number): UseAnalysisRes
     setError(null);
 
     getAnalysis(key, { signal: controller.signal })
+      .catch(async (err: unknown) => {
+        // If no cached analysis exists (404), trigger a fresh analysis run
+        if (isApiError(err) && err.status === 404) {
+          await analyzeSymbol(key);
+          return getAnalysis(key, { signal: controller.signal });
+        }
+        throw err;
+      })
       .then((raw: AnalysisApiResponse) => {
         if (cancelled) return;
 
@@ -109,3 +122,4 @@ export function useAnalysis(symbol: string, refreshKey?: number): UseAnalysisRes
 
   return { data, loading, error };
 }
+

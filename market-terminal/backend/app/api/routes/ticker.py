@@ -51,14 +51,76 @@ class Period(str, Enum):
     w1 = "1w"
     m1 = "1m"
     m3 = "3m"
-    m6 = "6m"
+    y6 = "6mo" # Fix: yfinance uses "mo" for months
     y1 = "1y"
     y5 = "5y"
+    h1 = "1h"
+    h4 = "4h"
+    h8 = "8h"
+    h12 = "12h"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _aggregate_bars(bars: list[dict[str, Any]], hours: int) -> list[dict[str, Any]]:
+    """Aggregate 1h bars into N-hour bars."""
+    if not bars:
+        return []
+    
+    aggregated = []
+    current_batch = []
+    batch_start_time = None
+    
+    # Simple aggregation: group by N entries since we expect continuous hourly data
+    # A more robust approach would align to clock hours (e.g. 9:30, 13:30) but this suffices for now.
+    
+    for bar in bars:
+        # Check for session breaks (large time gaps) to reset batch
+        # For simplicity, we just group every 'hours' bars. 
+        # Ideally we'd respect trading sessions.
+        
+        current_batch.append(bar)
+        
+        if len(current_batch) == hours:
+            # Aggregate
+            open_p = current_batch[0]["open"]
+            close_p = current_batch[-1]["close"]
+            high_p = max(b["high"] for b in current_batch)
+            low_p = min(b["low"] for b in current_batch)
+            volume = sum(b.get("volume", 0) or 0 for b in current_batch)
+            date = current_batch[-1]["date"] # Use close time/date
+            
+            aggregated.append({
+                "date": date,
+                "open": open_p,
+                "high": high_p,
+                "low": low_p,
+                "close": close_p,
+                "volume": volume,
+            })
+            current_batch = []
+            
+    # Handle remaining partial batch
+    if current_batch:
+        open_p = current_batch[0]["open"]
+        close_p = current_batch[-1]["close"]
+        high_p = max(b["high"] for b in current_batch)
+        low_p = min(b["low"] for b in current_batch)
+        volume = sum(b.get("volume", 0) or 0 for b in current_batch)
+        date = current_batch[-1]["date"]
+        
+        aggregated.append({
+            "date": date,
+            "open": open_p,
+            "high": high_p,
+            "low": low_p,
+            "close": close_p,
+            "volume": volume,
+        })
+        
+    return aggregated
 
 def _validate_symbol(symbol: str) -> str:
     """Strip, upper-case, and validate *symbol*.  Raises 400 on failure."""
@@ -185,16 +247,42 @@ async def get_ticker(
 
     # -- 4. Optional OHLCV history ------------------------------------------
     if include_history:
-        yf_period = _PERIOD_MAP[period.value]
+        # Determine yfinance parameters based on requested period
+        if period in (Period.h1, Period.h4, Period.h8, Period.h12):
+            # Intraday: fetch 1h data for max available time (2y)
+            yf_period = "2y"
+            yf_interval = "1h"
+        elif period == Period.d1:
+            yf_period = "max"
+            yf_interval = "1d"
+        elif period == Period.w1:
+            yf_period = "max"
+            yf_interval = "1wk"
+        elif period == Period.m1:
+            yf_period = "max"
+            yf_interval = "1mo"
+        elif period == Period.m3:
+            yf_period = "max"
+            yf_interval = "3mo"
+        elif period in (Period.y6, Period.y1, Period.y5):
+            # Aggregate from 3mo data
+            yf_period = "max"
+            yf_interval = "3mo"
+        else:
+            # Fallback (should cover all enum cases already)
+            yf_period = "max"
+            yf_interval = "1d"
+
         try:
             hist_result = await cache.get_historical_prices(
-                symbol, period=yf_period, interval="1d",
+                symbol, period=yf_period, interval=yf_interval,
             )
         except Exception:
             logger.debug("Historical prices fetch failed for %s", symbol, exc_info=True)
             hist_result = None
+
         if hist_result is not None and isinstance(hist_result.data, list):
-            response["ohlcv"] = [
+            bars = [
                 {
                     "date": bar.get("date"),
                     "open": bar.get("open"),
@@ -205,8 +293,32 @@ async def get_ticker(
                 }
                 for bar in hist_result.data
             ]
+            
+            # Aggregate if needed
+            # Intraday Aggregation
+            if period == Period.h4:
+                bars = _aggregate_bars(bars, 4)
+            elif period == Period.h8:
+                bars = _aggregate_bars(bars, 8)
+            elif period == Period.h12:
+                bars = _aggregate_bars(bars, 12)
+            
+            # Long-term Aggregation (from 3mo bars)
+            elif period == Period.y6:
+                # 6 months = 2 * 3mo
+                bars = _aggregate_bars(bars, 2)
+            elif period == Period.y1:
+                # 1 year = 4 * 3mo
+                bars = _aggregate_bars(bars, 4)
+            elif period == Period.y5:
+                # 5 years = 20 * 3mo
+                bars = _aggregate_bars(bars, 20)
+                
+            response["ohlcv"] = bars
         else:
             response["ohlcv"] = []
+
+
 
     logger.info(
         "Ticker %s: source=%s cache_hit=%s age=%.0fs",

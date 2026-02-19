@@ -179,12 +179,27 @@ class EdgarOwnershipClient:
                 return None
             ticker_upper = target_ticker.upper()
             try:
-                matched = holdings[holdings["Ticker"] == ticker_upper]
-                if matched.empty:
-                    matched = holdings[
-                        holdings["Ticker"].str.upper() == ticker_upper
-                    ]
-                if matched.empty:
+                # Handle Ticker aliases using shared configuration
+                from app.data.edgar_ownership_helpers import TICKER_ALIASES
+                
+                search_tickers = [ticker_upper]
+                aliases = TICKER_ALIASES.get(ticker_upper, [])
+                search_tickers.extend(aliases)
+
+                matched = None
+                for t in search_tickers:
+                    # Exact match
+                    m = holdings[holdings["Ticker"] == t]
+                    if not m.empty:
+                        matched = m
+                        break
+                    # Case-insensitive match
+                    m = holdings[holdings["Ticker"].str.upper() == t]
+                    if not m.empty:
+                        matched = m
+                        break
+
+                if matched is None or matched.empty:
                     return None
             except Exception:
                 return None
@@ -249,13 +264,37 @@ class EdgarOwnershipClient:
             return tag(result, cached=True)  # type: ignore[return-value]
 
         # -- EFTS search ---------------------------------------------------
+        # Try to resolve Company Name first for better search results (fixes short tickers like HL)
+        query = sym
+        try:
+            company = await self._get_company_obj(sym)
+            if company and hasattr(company, "name"):
+                # Use company name for search if available
+                # Clean the name: EDGAR often has "NAME /DE/" or "NAME /NV/"
+                # We strip everything after the first slash to get the "clean" name
+                raw_name = company.name
+                query = raw_name.split("/")[0].strip()
+                logger.info("Resolved %s to company name '%s' (raw: '%s') for EFTS search", sym, query, raw_name)
+        except Exception as exc:
+            logger.warning("Failed to resolve company name for %s: %s", sym, exc)
+
         start_date = quarter_start(quarters)
         end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         efts_hits = await self._search_efts(
-            query=sym, forms="13F-HR",
+            query=query, forms="13F-HR",
             start_date=start_date, end_date=end_date,
             max_results=MAX_FILINGS_PER_SEARCH,
         )
+        if not efts_hits:
+            # Fallback: if name search failed (or yielded 0 hits), try ticker
+            if query != sym:
+                logger.info("No EFTS hits for name '%s', retrying with ticker '%s'", query, sym)
+                efts_hits = await self._search_efts(
+                    query=sym, forms="13F-HR",
+                    start_date=start_date, end_date=end_date,
+                    max_results=MAX_FILINGS_PER_SEARCH,
+                )
+
         if not efts_hits:
             logger.info("No 13F EFTS hits for %s", sym)
             return None

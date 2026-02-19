@@ -170,7 +170,10 @@ class FinnhubClient:
     async def _request(self, endpoint: str, params: dict[str, Any] | None = None) -> dict | list | None:
         """Send GET to *endpoint* with resilience wrappers.  Never raises."""
         if not self.is_enabled:
-            logger.warning("Finnhub client disabled (no API key)")
+            if not self._enabled:
+                logger.warning("Finnhub client disabled (no API key)")
+            elif self._permanently_disabled:
+                logger.warning("Finnhub client disabled (permanently disabled due to previous 403)")
             return None
         if not self._check_circuit():
             logger.warning("Finnhub circuit breaker OPEN, skipping request to %s", endpoint)
@@ -191,8 +194,9 @@ class FinnhubClient:
                 logger.warning("Finnhub 429 rate limited, pausing %.0fs", _RATE_LIMIT_PAUSE)
                 await asyncio.sleep(_RATE_LIMIT_PAUSE)
             elif status == 403:
-                logger.error("Finnhub 403 forbidden -- disabling client permanently")
-                self._permanently_disabled = True
+                logger.warning("Finnhub 403 forbidden on %s -- check API key scope/plan", endpoint)
+                # Do NOT permanently disable, as some endpoints (e.g. economic calendar)
+                # might be restricted while others (price/news) work fine.
             else:
                 logger.error("Finnhub HTTP %d on %s: %s", status, endpoint, exc)
             self._record_failure()
@@ -334,6 +338,7 @@ class FinnhubClient:
             results.append({
                 "headline": item.get("headline"), "summary": item.get("summary"),
                 "source": item.get("source"), "url": item.get("url"),
+                "image": item.get("image"),
                 "published_at": self._unix_to_iso(item.get("datetime")),
                 "category": item.get("category"), "related": item.get("related"),
                 "_source": "finnhub", "_fetched_at": now_iso,

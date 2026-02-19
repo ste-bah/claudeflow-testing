@@ -286,18 +286,48 @@ class YFinanceClient:
             self._record_failure()
             return None
         import pandas as pd
+
+        # yfinance >= 0.2.31 returns MultiIndex columns like ('Close', 'MSFT').
+        # Flatten to single-level ('Close', 'Open', ...) so row access works.
+        if hasattr(df.columns, "nlevels") and df.columns.nlevels > 1:
+            df.columns = df.columns.droplevel(1)
+
+        # Ensure index is sorted and unique to prevent chart assertion errors
+        df = df.sort_index()
+        df = df[~df.index.duplicated(keep="first")]
+
+        # Define intervals that are treated as intraday (require time component)
+        intraday_intervals = {"1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"}
+        is_intraday = interval in intraday_intervals
+
         records: list[dict[str, Any]] = []
         for idx, row in df.iterrows():
-            date_str = idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)
+            if is_intraday:
+                date_str = idx.isoformat()
+            elif hasattr(idx, "strftime"):
+                date_str = idx.strftime("%Y-%m-%d")
+            else:
+                date_str = str(idx)
             rec: dict[str, Any] = {"date": date_str}
             for col_name, out_key in (
                 ("Open", "open"), ("High", "high"), ("Low", "low"),
                 ("Close", "close"), ("Adj Close", "adjusted_close"),
             ):
                 val = row.get(col_name)
-                rec[out_key] = float(val) if pd.notna(val) else None
+                if val is not None and not isinstance(val, float):
+                    # Guard against Series (shouldn't happen after flatten, but be safe)
+                    try:
+                        val = float(val)
+                    except (TypeError, ValueError):
+                        val = None
+                rec[out_key] = float(val) if val is not None and pd.notna(val) else None
             vol = row.get("Volume")
-            rec["volume"] = int(vol) if pd.notna(vol) else None
+            if vol is not None and not isinstance(vol, (int, float)):
+                try:
+                    vol = int(vol)
+                except (TypeError, ValueError):
+                    vol = None
+            rec["volume"] = int(vol) if vol is not None and pd.notna(vol) else None
             records.append(rec)
         if not self._validate_historical(records):
             logger.warning("yfinance: get_historical(%s) - validation failed", symbol)
@@ -348,6 +378,7 @@ class YFinanceClient:
             "52w_low": info.get("fiftyTwoWeekLow"),
             "avg_volume": info.get("averageDailyVolume10Day"),
             "shares_outstanding": info.get("sharesOutstanding"),
+            "heldPercentInstitutions": info.get("heldPercentInstitutions"),
             "_reliability": "low - unofficial API, verify against SEC filings",
         }
         self._record_success()
@@ -373,6 +404,9 @@ class YFinanceClient:
                 "income": ticker.quarterly_income_stmt,
                 "balance": ticker.quarterly_balance_sheet,
                 "cashflow": ticker.quarterly_cashflow,
+                "annual_income": ticker.income_stmt,
+                "annual_balance": ticker.balance_sheet,
+                "annual_cashflow": ticker.cashflow,
             }
 
         raw = await self._run_sync(_sync)
@@ -385,6 +419,9 @@ class YFinanceClient:
             "income_statement": self._df_to_records(raw.get("income")),
             "balance_sheet": self._df_to_records(raw.get("balance")),
             "cash_flow": self._df_to_records(raw.get("cashflow")),
+            "annual_income_statement": self._df_to_records(raw.get("annual_income")),
+            "annual_balance_sheet": self._df_to_records(raw.get("annual_balance")),
+            "annual_cash_flow": self._df_to_records(raw.get("annual_cashflow")),
             "_reliability": "low - use EDGAR (TASK-DATA-003) as primary source",
         }
         self._record_success()

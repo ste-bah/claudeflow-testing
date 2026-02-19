@@ -32,7 +32,7 @@ DATA_TYPES: list[str] = [
 # ---------------------------------------------------------------------------
 FALLBACK_CHAINS: dict[str, list[str]] = {
     "price":        ["finnhub", "yfinance"],
-    "fundamentals": ["edgar", "yfinance"],
+    "fundamentals": ["edgar"],
     "news":         ["finnhub"],
     "macro":        ["fred"],
     "cot":          ["cftc"],

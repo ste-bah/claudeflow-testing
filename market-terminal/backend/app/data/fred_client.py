@@ -459,6 +459,77 @@ class FredClient:
         """
         return await self.get_series(indicator, start=start, end=end)
 
+    async def get_latest_releases(
+        self,
+        event_types: dict[str, dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Fetch the latest release info for a set of event types.
+
+        Used as a fallback for the macro calendar when Finnhub is unavailable.
+        Returns a list of dicts with:
+        event_type, date, time, actual, previous, importance='medium'
+        """
+        if not self._enabled or self._fred is None:
+            return []
+
+        results: list[dict[str, Any]] = []
+
+        # Helper to fetch one
+        async def _fetch_one(evt_type: str, meta: dict[str, Any]):
+            fred_id = meta.get("fred_id")
+            indicator = meta.get("fred_indicator")
+            if not fred_id or not indicator:
+                return None
+
+            # Fetch info for release date
+            try:
+                # Run in thread to avoid blocking
+                info = await asyncio.to_thread(self._fred.get_series_info, fred_id)
+                last_updated = str(info.get("last_updated"))  # e.g. "2024-03-12 08:30:00-05"
+            except Exception:
+                return None
+
+            # Fetch value
+            try:
+                latest = await self.get_latest(indicator)
+            except Exception:
+                latest = None
+
+            if not last_updated:
+                return None
+
+            # Parse date/time
+            # Simplistic parsing
+            try:
+                dt_str = last_updated.split()[0] # YYYY-MM-DD
+                tm_str = last_updated.split()[1] if " " in last_updated else "00:00:00"
+            except IndexError:
+                dt_str = _now_iso().split("T")[0]
+                tm_str = "00:00:00"
+
+            return {
+                "event_type": evt_type,
+                "event_name": meta["name"],
+                "date": dt_str,
+                "time": tm_str,
+                "actual": latest["value"] if latest else None,
+                "previous": latest["previous_value"] if latest else None,
+                "expected": None,
+                "importance": "high" if evt_type in ("cpi", "nfp", "fomc", "gdp") else "medium",
+                "unit": meta.get("unit", ""),
+                "country": "US",
+            }
+
+        # Run in parallel
+        tasks = [_fetch_one(k, v) for k, v in event_types.items()]
+        completed = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for res in completed:
+            if isinstance(res, dict):
+                results.append(res)
+        
+        return results
+
 
 # ---------------------------------------------------------------------------
 # Module-level singleton
