@@ -24,6 +24,8 @@ DATA_TYPES: list[str] = [
     "ownership",
     "insider",
     "analysis",
+    "options",
+    "economic_calendar",
 ]
 
 
@@ -39,6 +41,8 @@ FALLBACK_CHAINS: dict[str, list[str]] = {
     "ownership":    ["edgar"],
     "insider":      ["edgar"],
     "analysis":     [],
+    "options":      ["massive"],
+    "economic_calendar": ["forex_calendar", "finnhub"],
 }
 
 

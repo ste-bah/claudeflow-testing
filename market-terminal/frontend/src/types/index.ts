@@ -81,9 +81,13 @@ export type {
   FundamentalsTtmRaw,
   FundamentalsQuarterRaw,
   FundamentalsApiResponse,
+  ShortInterestRaw,
+  AnalystRatingsRaw,
   FundamentalsTtm,
   FundamentalsQuarter,
   FundamentalsData,
+  ShortInterest,
+  AnalystRatings,
 } from './fundamentals';
 export {
   FUNDAMENTALS_CACHE_TTL_MS,
@@ -94,7 +98,13 @@ export {
   formatEps,
   normalizeQuarter,
   normalizeFundamentals,
+  normalizeShortInterest,
+  normalizeAnalystRatings,
 } from './fundamentals';
+
+export * from './options';
+export * from './economicCalendar';
+export * from './ticker';
 
 export type {
   OwnershipHolderRaw,
@@ -260,11 +270,13 @@ export type {
   CircuitBreakerConfig,
   FinBertConfig,
   LogConfig,
+} from './env';
+export {
+  DEFAULT_CONFIG,
   createConfigFromEnv,
   parseIntEnv,
   parseBoolEnv,
 } from './env';
-export { DEFAULT_CONFIG } from './env';
 
 export type {
   ServiceStatus,

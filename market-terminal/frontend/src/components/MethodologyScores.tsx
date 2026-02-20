@@ -393,7 +393,7 @@ const MetadataFooter = React.memo(function MetadataFooter({ metadata }: { readon
 
 export default function MethodologyScores({ symbol }: MethodologyScoresProps) {
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data, loading, error } = useAnalysis(symbol, refreshKey);
+  const { data, loading, error } = useAnalysis(symbol, undefined, refreshKey);
   const [timeframeFilter, setTimeframeFilter] = useState<SignalTimeframe | 'all'>('all');
   const { subscribe, unsubscribe, onMessage } = useWebSocketContext();
 

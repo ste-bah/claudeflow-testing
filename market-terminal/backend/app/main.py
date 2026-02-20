@@ -66,6 +66,8 @@ _watchlist_router = _import_router("app.api.routes.watchlist", "watchlist")
 _query_router = _import_router("app.api.routes.query", "query")
 _scan_router = _import_router("app.api.routes.scan", "scan")
 _websocket_router = _import_router("app.api.routes.websocket", "websocket")
+_options_router = _import_router("app.api.routes.options", "options")
+_economic_calendar_router = _import_router("app.api.routes.economic_calendar", "economic-calendar")
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +220,8 @@ for _router in (
     _query_router,
     _scan_router,
     _websocket_router,
+    _options_router,
+    _economic_calendar_router,
 ):
     if _router is not None:
         app.include_router(_router)

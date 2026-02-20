@@ -129,6 +129,74 @@ export interface AnalysisData {
   readonly metadata: AnalysisMetadata;
 }
 
+/** A single turning point in an Elliott Wave count, used to draw the overlay. */
+export interface EWavePoint {
+  readonly time: string;   // ISO date/datetime string matching chart bar format
+  readonly price: number;
+  readonly label: string;  // '0','1','2','3','4','5' or 'A','B','C'
+}
+
+/** A single Fibonacci level from the Elliott Wave analysis. */
+export interface EFibLevel {
+  readonly ratio: number;
+  readonly price: number;
+  readonly label: string;
+  readonly aligned: boolean;
+  readonly type: 'retracement' | 'extension';
+}
+
+/** All Elliott Wave overlay data extracted from the elliott_wave key_levels. */
+export interface EWaveOverlayData {
+  readonly wavePoints: EWavePoint[];
+  readonly fibLevels: EFibLevel[];
+  readonly patternType: string;
+  readonly invalidation: number | null;
+  readonly primaryTarget: number | null;
+}
+
+/**
+ * Extract Elliott Wave overlay data from a normalised AnalysisData object.
+ * Returns null if no elliott_wave signal or wave_points are missing.
+ */
+export function extractEWaveOverlay(data: AnalysisData): EWaveOverlayData | null {
+  const ewSignal = data.signals.find((s) => s.methodology === 'elliott_wave');
+  if (!ewSignal) return null;
+
+  const kl = ewSignal.keyLevels;
+  const rawPoints = kl['wave_points'];
+  if (!Array.isArray(rawPoints) || rawPoints.length === 0) return null;
+
+  const wavePoints: EWavePoint[] = rawPoints
+    .filter((p): p is Record<string, unknown> => typeof p === 'object' && p !== null)
+    .map((p) => ({
+      time: typeof p['time'] === 'string' ? p['time'] : '',
+      price: typeof p['price'] === 'number' ? p['price'] : 0,
+      label: typeof p['label'] === 'string' ? p['label'] : '',
+    }))
+    .filter((p) => p.time !== '' && p.price !== 0);
+
+  const rawFibs = kl['fib_levels_detailed'];
+  const fibLevels: EFibLevel[] = Array.isArray(rawFibs)
+    ? rawFibs
+      .filter((f): f is Record<string, unknown> => typeof f === 'object' && f !== null)
+      .map((f) => ({
+        ratio: typeof f['ratio'] === 'number' ? f['ratio'] : 0,
+        price: typeof f['price'] === 'number' ? f['price'] : 0,
+        label: typeof f['label'] === 'string' ? f['label'] : '',
+        aligned: f['aligned'] === true,
+        type: f['type'] === 'extension' ? 'extension' : 'retracement',
+      }))
+    : [];
+
+  return {
+    wavePoints,
+    fibLevels,
+    patternType: typeof kl['pattern_type'] === 'string' ? kl['pattern_type'] : '',
+    invalidation: typeof kl['invalidation'] === 'number' ? kl['invalidation'] : null,
+    primaryTarget: typeof kl['primary_target'] === 'number' ? kl['primary_target'] : null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -272,8 +340,8 @@ export function normalizeSignal(raw: AnalysisSignalRaw): AnalysisSignal {
   // Guard key_levels: must be a non-null, non-array object
   const keyLevels: Record<string, unknown> =
     typeof raw.key_levels === 'object' &&
-    raw.key_levels !== null &&
-    !Array.isArray(raw.key_levels)
+      raw.key_levels !== null &&
+      !Array.isArray(raw.key_levels)
       ? raw.key_levels
       : {};
 
@@ -350,8 +418,8 @@ export function normalizeAnalysis(raw: AnalysisApiResponse): AnalysisData {
   // Extract timeframe breakdown: only pick short/medium/long with defaults
   const rawBreakdown =
     typeof composite?.timeframe_breakdown === 'object' &&
-    composite.timeframe_breakdown !== null &&
-    !Array.isArray(composite.timeframe_breakdown)
+      composite.timeframe_breakdown !== null &&
+      !Array.isArray(composite.timeframe_breakdown)
       ? composite.timeframe_breakdown
       : {};
 
@@ -370,8 +438,8 @@ export function normalizeAnalysis(raw: AnalysisApiResponse): AnalysisData {
   // Guard weights_used
   const weightsUsed: Record<string, number> =
     typeof composite?.weights_used === 'object' &&
-    composite.weights_used !== null &&
-    !Array.isArray(composite.weights_used)
+      composite.weights_used !== null &&
+      !Array.isArray(composite.weights_used)
       ? composite.weights_used
       : {};
 

@@ -144,6 +144,24 @@ export async function getFundamentals(
   return data;
 }
 
+export async function getShortInterest(
+  symbol: string,
+): Promise<any> {
+  const { data } = await client.get<any>(
+    `/fundamentals/${symbol}/short-interest`
+  );
+  return data;
+}
+
+export async function getAnalystRatings(
+  symbol: string,
+): Promise<any> {
+  const { data } = await client.get<any>(
+    `/fundamentals/${symbol}/analyst-ratings`
+  );
+  return data;
+}
+
 export async function getOwnership(
   symbol: string,
 ): Promise<OwnershipApiResponse> {
@@ -190,8 +208,13 @@ export async function getMacroReaction(
 
 export async function analyzeSymbol(
   symbol: string,
+  options?: { timeframe?: Timeframe },
 ): Promise<CompositeSignal> {
-  const { data } = await client.post<CompositeSignal>(`/analyze/${symbol}`);
+  const { data } = await client.post<CompositeSignal>(
+    `/analyze/${symbol}`,
+    {},
+    { params: options?.timeframe ? { timeframe: options.timeframe } : undefined },
+  );
   return data;
 }
 
@@ -244,11 +267,14 @@ export async function getTickerHistory(
 
 export async function getAnalysis(
   symbol: string,
-  options?: { signal?: AbortSignal },
+  options?: { signal?: AbortSignal; timeframe?: Timeframe },
 ): Promise<AnalysisApiResponse> {
   const { data } = await client.get<AnalysisApiResponse>(
     `/analyze/${symbol}`,
-    { signal: options?.signal },
+    {
+      signal: options?.signal,
+      params: options?.timeframe ? { timeframe: options.timeframe } : undefined,
+    },
   );
   return data;
 }

@@ -57,6 +57,26 @@ export interface FundamentalsApiResponse {
   readonly note?: string;
 }
 
+export interface ShortInterestRaw {
+  readonly symbol: string;
+  readonly shares_short: number | null;
+  readonly short_ratio: number | null;
+  readonly percent_of_float: number | null;
+  readonly settlement_date: string | null;
+}
+
+export interface AnalystRatingsRaw {
+  readonly symbol: string;
+  readonly buy: number;
+  readonly hold: number;
+  readonly sell: number;
+  readonly consensus: string;
+  readonly total_analysts: number;
+  readonly price_target_mean: number | null;
+  readonly price_target_high: number | null;
+  readonly price_target_low: number | null;
+}
+
 // ---------------------------------------------------------------------------
 // Display types (camelCase -- for React components)
 // ---------------------------------------------------------------------------
@@ -105,6 +125,26 @@ export interface FundamentalsData {
     readonly marketData: string;
   };
   readonly dataTimestamp: string;
+}
+
+export interface ShortInterest {
+  readonly symbol: string;
+  readonly sharesShort: number | null;
+  readonly shortRatio: number | null;
+  readonly percentOfFloat: number | null;
+  readonly settlementDate: string | null;
+}
+
+export interface AnalystRatings {
+  readonly symbol: string;
+  readonly buy: number;
+  readonly hold: number;
+  readonly sell: number;
+  readonly consensus: string;
+  readonly totalAnalysts: number;
+  readonly priceTargetMean: number | null;
+  readonly priceTargetHigh: number | null;
+  readonly priceTargetLow: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -257,20 +297,20 @@ export function normalizeFundamentals(
   const ttm: FundamentalsTtm | null =
     raw.ttm != null
       ? {
-          revenue: sanitizeNumber(raw.ttm.revenue),
-          netIncome: sanitizeNumber(raw.ttm.net_income),
-          epsDiluted: sanitizeNumber(raw.ttm.eps_diluted),
-          grossMargin: sanitizeNumber(raw.ttm.gross_margin),
-          operatingMargin: sanitizeNumber(raw.ttm.operating_margin),
-          netMargin: sanitizeNumber(raw.ttm.net_margin),
-          peRatio: sanitizeNumber(raw.ttm.pe_ratio),
-          marketCap: sanitizeNumber(raw.ttm.market_cap),
-          sharesOutstanding: sanitizeNumber(raw.ttm.shares_outstanding),
-          freeCashFlow: sanitizeNumber(raw.ttm.free_cash_flow),
-          debtToEquity: sanitizeNumber(raw.ttm.debt_to_equity),
-          returnOnEquity: sanitizeNumber(raw.ttm.return_on_equity),
-          dividendYield: sanitizeNumber(raw.ttm.dividend_yield),
-        }
+        revenue: sanitizeNumber(raw.ttm.revenue),
+        netIncome: sanitizeNumber(raw.ttm.net_income),
+        epsDiluted: sanitizeNumber(raw.ttm.eps_diluted),
+        grossMargin: sanitizeNumber(raw.ttm.gross_margin),
+        operatingMargin: sanitizeNumber(raw.ttm.operating_margin),
+        netMargin: sanitizeNumber(raw.ttm.net_margin),
+        peRatio: sanitizeNumber(raw.ttm.pe_ratio),
+        marketCap: sanitizeNumber(raw.ttm.market_cap),
+        sharesOutstanding: sanitizeNumber(raw.ttm.shares_outstanding),
+        freeCashFlow: sanitizeNumber(raw.ttm.free_cash_flow),
+        debtToEquity: sanitizeNumber(raw.ttm.debt_to_equity),
+        returnOnEquity: sanitizeNumber(raw.ttm.return_on_equity),
+        dividendYield: sanitizeNumber(raw.ttm.dividend_yield),
+      }
       : null;
 
   const quarterly: FundamentalsQuarter[] = Array.isArray(raw.quarterly)
@@ -287,5 +327,29 @@ export function normalizeFundamentals(
       marketData: raw.data_sources.market_data,
     },
     dataTimestamp: raw.data_timestamp,
+  };
+}
+
+export function normalizeShortInterest(raw: ShortInterestRaw): ShortInterest {
+  return {
+    symbol: raw.symbol,
+    sharesShort: sanitizeNumber(raw.shares_short),
+    shortRatio: sanitizeNumber(raw.short_ratio),
+    percentOfFloat: sanitizeNumber(raw.percent_of_float),
+    settlementDate: raw.settlement_date,
+  };
+}
+
+export function normalizeAnalystRatings(raw: AnalystRatingsRaw): AnalystRatings {
+  return {
+    symbol: raw.symbol,
+    buy: sanitizeNumber(raw.buy) || 0,
+    hold: sanitizeNumber(raw.hold) || 0,
+    sell: sanitizeNumber(raw.sell) || 0,
+    consensus: raw.consensus,
+    totalAnalysts: sanitizeNumber(raw.total_analysts) || 0,
+    priceTargetMean: sanitizeNumber(raw.price_target_mean),
+    priceTargetHigh: sanitizeNumber(raw.price_target_high),
+    priceTargetLow: sanitizeNumber(raw.price_target_low),
   };
 }

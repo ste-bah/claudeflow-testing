@@ -41,8 +41,10 @@ and the remaining three offer free tiers that are sufficient for personal use.
 
 | Source | Key required | Free tier | Used for |
 |--------|-------------|-----------|----------|
-| Finnhub | Recommended | 60 calls/min | Real-time quotes, news |
-| FRED | Recommended | Unlimited | Macro indicators, economic calendar |
+| Finnhub | Recommended | 60 calls/min | Real-time quotes, news, economic calendar |
+| FRED | Recommended | Unlimited | Macro indicators, yield curve |
+| Massive | Optional | Starter Tier/Live | Options chains, Analyst ratings, Short interest |
+| JBlanked | None | Unlimited | Economic ML predictions |
 | Alpha Vantage | Optional | 25 calls/day | Fallback price data |
 | yfinance | None | Unlimited | Price, fundamentals, insider data |
 | CFTC COT | None | Public data | Commitment of Traders reports |
@@ -77,6 +79,7 @@ Optional entries:
 
 ```env
 ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+MASSIVE_API_KEY=your_massive_key_here
 SEC_EDGAR_USER_AGENT=YourName your@email.com
 ```
 
@@ -166,11 +169,12 @@ to uppercase automatically.
 | `news TICKER` | `news MSFT` | Show recent news articles |
 | `fundamentals TICKER` | `fundamentals GOOG` | Show key fundamental metrics |
 | `insider TICKER` | `insider NVDA` | Show insider buy/sell activity |
+| `options TICKER` | `options AMZN` | Load options chain into terminal |
 | `watch add TICKER` | `watch add AMZN` | Add a symbol to the watchlist |
 | `watch remove TICKER` | `watch remove AMZN` | Remove a symbol from the watchlist |
 | `scan` | `scan` | Scan all watchlist tickers |
 | `scan PRESET` | `scan bullish` | Filter by signal preset (`bullish`, `bearish`, `strong`) |
-| `macro` | `macro` | Show the economic calendar |
+| `macro` | `macro` | Show the economic calendar with JBlanked API predictions |
 
 ### Panel Layout
 
@@ -244,10 +248,11 @@ The server name is `market-terminal` and it communicates over stdio.
 | `get_price` | `symbol`, `timeframe` | Historical OHLCV price bars |
 | `get_volume` | `symbol`, `period` | Volume analysis with trend and anomalies |
 | `get_fundamentals` | `symbol` | Key financial metrics (PE, EPS, margins) |
+| `get_options_chain` | `symbol` | Fetches options chain strings |
 | `get_ownership` | `symbol` | Institutional 13F ownership data |
 | `get_insider_activity` | `symbol`, `days` | Form 4 insider transactions |
 | `get_news` | `symbol`, `limit` | Recent news articles |
-| `get_macro_calendar` | `days` | Upcoming economic events |
+| `get_macro_calendar` | `days` | Upcoming economic events from ForexFactory |
 | `get_macro_history` | `indicator`, `symbol` | FRED macro indicator history |
 
 #### Analysis (7 Tools)
@@ -301,6 +306,7 @@ can start without any configuration at all.
 |----------|---------|-------------|
 | `FINNHUB_API_KEY` | (empty) | Finnhub API key for quotes and news |
 | `FRED_API_KEY` | (empty) | FRED API key for macro data |
+| `MASSIVE_API_KEY` | (empty) | Massive API key for options data |
 | `ALPHA_VANTAGE_API_KEY` | (empty) | Alpha Vantage key (optional fallback) |
 | `SEC_EDGAR_USER_AGENT` | `MarketTerminal user@example.com` | SEC EDGAR request identity |
 
@@ -328,6 +334,8 @@ Each data type has an independent time-to-live in seconds:
 | `CACHE_TTL_OWNERSHIP` | `86400` | 24 hours |
 | `CACHE_TTL_INSIDER` | `14400` | 4 hours |
 | `CACHE_TTL_ANALYSIS` | `3600` | 1 hour |
+| `CACHE_TTL_OPTIONS` | `300` | 5 minutes |
+| `CACHE_TTL_ECONOMIC_CALENDAR` | `43200` | 12 hours |
 
 Note: `CACHE_TTL_OWNERSHIP`, `CACHE_TTL_INSIDER`, and `CACHE_TTL_ANALYSIS` are
 defined in `backend/app/config.py` only and are not present in `.env.example`.
@@ -566,6 +574,9 @@ All data sources used by Market Terminal offer free tiers:
 |--------|----------------|---------------|
 | Finnhub | 60 calls/minute | Well within limits with caching |
 | FRED | Unlimited | No cost |
+| Massive | Starter API Tier | Excludes real-time options |
+| JBlanked | Unlimited | Returns ML predictions for /macro |
+| ForexFactory | No authentication | Primary source for /macro endpoints |
 | Alpha Vantage | 25 calls/day | Optional; rarely hit with caching |
 | yfinance | Unlimited (unofficial) | No cost |
 | SEC EDGAR | Unlimited | No cost; requires User-Agent |

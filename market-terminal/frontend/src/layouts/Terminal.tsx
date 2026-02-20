@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useTickerContext } from '../contexts/TickerContext';
 import { useWebSocketContext } from '../contexts/WebSocketContext';
 import type { WsConnectionStatus } from '../types/websocket';
+import { useAnalysis } from '../hooks/useAnalysis';
+import { extractEWaveOverlay, type EWaveOverlayData } from '../types/analysis';
+import { DEFAULT_TIMEFRAME, type Timeframe } from '../types/ticker';
 import CommandBar from '../components/CommandBar';
 import Chart from '../components/Chart';
 import Watchlist from '../components/Watchlist';
@@ -9,6 +13,7 @@ import NewsFeed from '../components/NewsFeed';
 import Fundamentals from '../components/Fundamentals';
 import MethodologyScores from '../components/MethodologyScores';
 import MacroCalendar from '../components/MacroCalendar';
+import { OptionsChainComponent } from '../components/OptionsChain';
 import InstitutionalOwnership from '../components/InstitutionalOwnership';
 import InsiderActivity from '../components/InsiderActivity';
 import AnalysisProgress from '../components/AnalysisProgress';
@@ -47,6 +52,16 @@ export default function Terminal() {
   const { status } = useWebSocketContext();
   const statusIndicator = getStatusIndicator(status);
 
+  // Track the chart's active timeframe so we can re-run analysis for the
+  // right data window when the user switches TFs.
+  const [chartTimeframe, setChartTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
+
+  // Fetch analysis at the Terminal level and share the EW overlay to Chart.
+  // MethodologyScores uses the same hook so client-side cache prevents double fetches.
+  const { data: analysisData } = useAnalysis(activeTicker, chartTimeframe);
+  const ewOverlay: EWaveOverlayData | null =
+    analysisData ? extractEWaveOverlay(analysisData) : null;
+
   return (
     <div className="h-screen w-screen bg-terminal-bg flex flex-col overflow-hidden">
       <div className="shrink-0 p-2 pb-0 flex items-center gap-2">
@@ -79,7 +94,11 @@ export default function Terminal() {
               <ResizeHandle direction="vertical" />
               <Panel defaultSize={50} minSize={25}>
                 <div className="h-full overflow-auto">
-                  <Chart symbol={activeTicker} />
+                  <Chart
+                    symbol={activeTicker}
+                    ewOverlay={ewOverlay}
+                    onTimeframeChange={setChartTimeframe}
+                  />
                 </div>
               </Panel>
               <ResizeHandle direction="vertical" />
@@ -93,8 +112,17 @@ export default function Terminal() {
 
           <ResizeHandle direction="horizontal" />
 
-          {/* Row 2: NewsFeed | Fundamentals */}
+          {/* Row 2: Options Chain */}
           <Panel defaultSize={22} minSize={12}>
+            <div className="h-full overflow-auto">
+              <OptionsChainComponent symbol={activeTicker} />
+            </div>
+          </Panel>
+
+          <ResizeHandle direction="horizontal" />
+
+          {/* Row 3: NewsFeed | Fundamentals */}
+          <Panel defaultSize={20} minSize={12}>
             <PanelGroup direction="horizontal" autoSaveId="terminal-bottom">
               <Panel defaultSize={40} minSize={20}>
                 <div className="h-full overflow-auto">

@@ -240,12 +240,12 @@ class AnalysisService {
       const analysis = await this.getAnalysis(symbol);
       return {
         isAnalyzing: false,
-        lastAnalysis: analysis.metadata.timestamp,
+        lastAnalysis: analysis.composite.timestamp,
         cached: analysis.metadata.cached,
       };
     } catch (error) {
       if (error instanceof AnalysisError && error.code === 'ANALYSIS_NOT_FOUND') {
-        return { isAnalyzing: false };
+        return { isAnalyzing: false, cached: false };
       }
       // Re-throw other errors
       throw error;
@@ -263,6 +263,3 @@ export const triggerAnalysis = (symbol: string) =>
   analysisService.triggerAnalysis(symbol);
 export const getAnalysisStatus = (symbol: string) =>
   analysisService.getAnalysisStatus(symbol);
-
-// Export error class for type checking
-export { AnalysisError };

@@ -182,6 +182,34 @@ CREATE TABLE IF NOT EXISTS cot_data (
     UNIQUE(market_name, report_date)
 );
 
+-- --------------------------------------------------------------------------
+-- 11. Options cache — API snapshot options chain data
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS options_cache (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol              TEXT NOT NULL,
+    expiration_date     TEXT NOT NULL,
+    contract_type       TEXT NOT NULL,
+    strike_price        REAL NOT NULL,
+    option_ticker       TEXT NOT NULL,
+    implied_volatility  REAL,
+    open_interest       INTEGER,
+    volume              INTEGER,
+    delta               REAL,
+    gamma               REAL,
+    theta               REAL,
+    vega                REAL,
+    bid                 REAL,
+    ask                 REAL,
+    last_price          REAL,
+    break_even_price    REAL,
+    fair_market_value   REAL,
+    underlying_price    REAL,
+    source              TEXT NOT NULL DEFAULT 'massive',
+    fetched_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(symbol, option_ticker, fetched_at)
+);
+
 -- ==========================================================================
 -- Indexes
 -- ==========================================================================
@@ -214,6 +242,40 @@ CREATE INDEX IF NOT EXISTS idx_insider_transactions_symbol
 
 CREATE INDEX IF NOT EXISTS idx_cot_data_market
     ON cot_data(market_name, report_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_options_cache_symbol
+    ON options_cache(symbol, expiration_date);
+
+CREATE INDEX IF NOT EXISTS idx_options_cache_time 
+    ON options_cache(fetched_at DESC);
+
+-- =====================================================================
+-- Economic Calendar (ForexFactory + Finnhub + JBlanked)
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS economic_calendar_cache (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_name      TEXT NOT NULL,
+    country         TEXT,
+    event_date      TEXT NOT NULL,
+    impact          TEXT,
+    actual          TEXT,
+    forecast        TEXT,
+    previous        TEXT,
+    source          TEXT NOT NULL,
+    event_id        TEXT,
+    prediction_json TEXT,
+    fetched_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(event_name, event_date, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_econ_cal_cache_date
+    ON economic_calendar_cache(event_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_econ_cal_cache_name
+    ON economic_calendar_cache(event_name, event_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_econ_cal_cache_source
+    ON economic_calendar_cache(source);
 
 -- ==========================================================================
 -- Initial version record

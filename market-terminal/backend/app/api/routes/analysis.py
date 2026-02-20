@@ -39,6 +39,22 @@ _METHODOLOGY_MODULES: dict[str, tuple[str, str]] = {
     "sentiment": ("app.analysis.sentiment", "SentimentAnalyzer"),
 }
 
+# Per chart-timeframe data window: (yfinance period, yfinance interval)
+# Higher timeframes need more history to capture macro wave structure.
+_TIMEFRAME_DATA_MAP: dict[str, tuple[str, str]] = {
+    "1h":  ("3mo",  "1h"),
+    "4h":  ("6mo",  "1h"),   # aggregated from 1h bars
+    "8h":  ("9mo",  "1h"),
+    "12h": ("9mo",  "1h"),
+    "1d":  ("2y",   "1d"),
+    "1w":  ("10y",  "1wk"),
+    "1m":  ("20y",  "1mo"),
+    "3m":  ("20y",  "1mo"),
+    "6m":  ("10y",  "1mo"),
+    "1y":  ("10y",  "1d"),
+    "5y":  ("20y",  "1wk"),
+}
+
 _DISPLAY_NAMES: dict[str, str] = {
     "wyckoff": "Wyckoff Method",
     "elliott_wave": "Elliott Wave",
@@ -201,6 +217,7 @@ async def _broadcast_progress(
 
 async def _fetch_data(
     symbol: str,
+    timeframe: str = "1d",
     force_refresh: bool = False,
 ) -> tuple[
     pd.DataFrame, pd.DataFrame,
@@ -210,6 +227,8 @@ async def _fetch_data(
 ]:
     """Fetch price, volume, fundamentals, and news for *symbol*.
 
+    The OHLCV window is driven by *timeframe* via :data:`_TIMEFRAME_DATA_MAP`
+    so that weekly analysis gets 10 years of data and hourly gets 3 months.
     Returns ``(price_df, volume_df, fundamentals, news_articles, sources)``.
     Raises :class:`HTTPException` (502) if price data is unavailable.
     """
@@ -217,11 +236,13 @@ async def _fetch_data(
     sources: list[str] = []
 
     # -- Historical OHLCV (required) ----------------------------------------
+    tf_period, tf_interval = _TIMEFRAME_DATA_MAP.get(timeframe, ("2y", "1d"))
     price_df = pd.DataFrame()
     volume_df = pd.DataFrame()
     try:
-        hist_result = await cm.get_historical_prices(symbol, period="1y",
-                                                      interval="1d")
+        hist_result = await cm.get_historical_prices(
+            symbol, period=tf_period, interval=tf_interval,
+        )
         if hist_result is not None and isinstance(hist_result.data, list):
             price_df, volume_df = _build_dataframes(hist_result.data)
             if not price_df.empty:
@@ -269,6 +290,7 @@ async def _run_methodologies(
     requested: list[str],
     weights: dict[str, float] | None,
     stream_progress: bool,
+    timeframe: str = "1d",
 ) -> dict[str, Any]:
     """Run requested methodology modules and aggregate results.
 
@@ -301,6 +323,8 @@ async def _run_methodologies(
                 kwargs["articles"] = news_articles
             if name == "larry_williams":
                 kwargs["cot_data"] = None
+            if name == "elliott_wave":
+                kwargs["chart_timeframe"] = timeframe
 
             signal = await analyzer.analyze(
                 symbol,
@@ -361,15 +385,21 @@ async def _run_methodologies(
 
 @router.post("/{symbol}")
 async def run_analysis(
-    symbol: str, body: AnalyzeRequest | None = None,
+    symbol: str,
+    body: AnalyzeRequest | None = None,
+    timeframe: str = Query(default="1d"),
 ) -> dict[str, Any]:
     """Trigger full analysis pipeline for *symbol*.
 
     Runs all (or a subset of) 6 methodology modules, aggregates via
     :class:`CompositeAggregator`, and returns the composite signal plus
     individual methodology signals.
+
+    Query param ``timeframe`` drives the OHLCV data window and EW ZigZag
+    sensitivity (e.g. ``?timeframe=1w`` fetches 10 years of weekly bars).
     """
     symbol = _validate_symbol(symbol)
+    timeframe = timeframe.lower().strip()
     req = body or AnalyzeRequest()
 
     methodologies = req.methodologies or list(METHODOLOGY_NAMES)
@@ -403,7 +433,8 @@ async def run_analysis(
         # -- Fetch data -----------------------------------------------------
         t_start = time.monotonic()
         price_df, volume_df, fundamentals, news_articles, sources = (
-            await _fetch_data(symbol, force_refresh=not use_cache)
+            await _fetch_data(symbol, timeframe=timeframe,
+                              force_refresh=not use_cache)
         )
 
         # -- Run with timeout -----------------------------------------------
@@ -412,6 +443,7 @@ async def run_analysis(
                 _run_methodologies(
                     symbol, price_df, volume_df, fundamentals,
                     news_articles, methodologies, weights, stream_progress,
+                    timeframe=timeframe,
                 ),
                 timeout=_MAX_ANALYSIS_SECONDS,
             )
@@ -453,10 +485,13 @@ async def run_analysis(
 async def get_cached_analysis(
     symbol: str,
     max_age_minutes: int = Query(default=60, ge=1, le=1440),
+    timeframe: str = Query(default="1d"),
 ) -> dict[str, Any]:
     """Return cached analysis for *symbol*, or 404 if none exists.
 
     Does **not** trigger a new analysis run.  Use ``POST`` for that.
+    The ``timeframe`` param is forwarded so future cache versions can store
+    per-timeframe results separately.
     """
     symbol = _validate_symbol(symbol)
 

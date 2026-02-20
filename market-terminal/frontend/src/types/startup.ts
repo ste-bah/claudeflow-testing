@@ -165,9 +165,9 @@ export const DEFAULT_STARTUP_PROGRESS: StartupProgress = {
  */
 export const STARTUP_PHASE_PROGRESS: Record<StartupProgress['phase'], number> = {
   initializing: 5,
-  checking-deps: 15,
-  starting-backend: 30,
-  starting-frontend: 55,
+  'checking-deps': 15,
+  'starting-backend': 30,
+  'starting-frontend': 55,
   'health-check': 80,
   ready: 100,
   error: 0,

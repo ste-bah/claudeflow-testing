@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     finnhub_api_key: str = ""
     fred_api_key: str = ""
     alpha_vantage_api_key: str = ""
+    massive_api_key: str = ""
+    jblanked_api_key: str = ""
 
     # -- SEC EDGAR ------------------------------------------------------------
     sec_edgar_user_agent: str = "MarketTerminal user@example.com"
@@ -77,6 +79,11 @@ class Settings(BaseSettings):
     cache_ttl_ownership: int = 86400
     cache_ttl_insider: int = 14400
     cache_ttl_analysis: int = 3600
+    cache_ttl_options: int = 300
+    cache_ttl_economic_calendar: int = 43200
+
+    # -- Massive Options ------------------------------------------------------
+    massive_options_tier: str = "starter"
 
     # -- Circuit breaker ------------------------------------------------------
     circuit_breaker_failure_threshold: int = 3
@@ -139,6 +146,7 @@ def _validate_config_inner() -> Dict[str, str]:
         ("Finnhub API", settings.finnhub_api_key, "finnhub", False),
         ("FRED API", settings.fred_api_key, "fred", False),
         ("Alpha Vantage", settings.alpha_vantage_api_key, "alpha_vantage", True),
+        ("Massive API", settings.massive_api_key, "massive", True),
     ]
 
     lines: list[str] = ["", "=== Market Terminal Configuration ==="]
@@ -158,6 +166,8 @@ def _validate_config_inner() -> Dict[str, str]:
                 extra = " - get free key at https://fred.stlouisfed.org/docs/api/api_key.html"
             elif key_name == "alpha_vantage":
                 extra = " - fallback data source"
+            elif key_name == "massive":
+                extra = " - options data source"
             lines.append(
                 f"  {display_name + ':':<20s} NOT CONFIGURED ({label}{extra})"
             )

@@ -13,6 +13,7 @@ import {
   ANALYSIS_CACHE_TTL_MS,
   normalizeAnalysis,
 } from '../types/analysis';
+import { DEFAULT_TIMEFRAME, type Timeframe } from '../types/ticker';
 
 interface CacheEntry {
   readonly data: AnalysisData;
@@ -36,19 +37,21 @@ export function clearAnalysisCache(): void {
 }
 
 /**
- * Fetch multi-methodology analysis data for a given symbol.
+ * Fetch multi-methodology analysis data for a given symbol and chart timeframe.
  *
- * - Returns null data when symbol is empty (no fetch).
- * - Serves from a 15-minute client-side cache when available.
- * - If no cached result exists on the server (404), auto-triggers a fresh
- *   analysis run via POST, then re-fetches the result.
- * - Normalises snake_case backend response to camelCase via normalizeAnalysis.
- * - Uses safe static error messages (no XSS -- never reflects user input).
+ * - `timeframe` controls the OHLCV window and EW ZigZag sensitivity. Defaults to '1d'.
+ * - Cache key is `symbol:timeframe` so different timeframes are cached separately.
+ * - On 404, auto-triggers a POST to run analysis, then re-fetches.
  *
  * @param symbol - Ticker symbol (e.g. "AAPL")
- * @param refreshKey - Optional key to force a re-fetch when incremented (e.g. after WebSocket analysis_complete)
+ * @param timeframe - Chart timeframe (e.g. "1w" fetches 10yr of weekly bars)
+ * @param refreshKey - Optional key to force a re-fetch when incremented
  */
-export function useAnalysis(symbol: string, refreshKey?: number): UseAnalysisResult {
+export function useAnalysis(
+  symbol: string,
+  timeframe: Timeframe = DEFAULT_TIMEFRAME,
+  refreshKey?: number,
+): UseAnalysisResult {
   const [data, setData] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +64,8 @@ export function useAnalysis(symbol: string, refreshKey?: number): UseAnalysisRes
       return;
     }
 
-    const key = symbol.toUpperCase();
+    // Include timeframe in the cache key so 1W and 1D results are stored separately.
+    const key = `${symbol.toUpperCase()}:${timeframe}`;
 
     // Check cache first
     const cached = cache.get(key);
@@ -77,12 +81,12 @@ export function useAnalysis(symbol: string, refreshKey?: number): UseAnalysisRes
     setLoading(true);
     setError(null);
 
-    getAnalysis(key, { signal: controller.signal })
+    getAnalysis(symbol.toUpperCase(), { timeframe, signal: controller.signal })
       .catch(async (err: unknown) => {
         // If no cached analysis exists (404), trigger a fresh analysis run
         if (isApiError(err) && err.status === 404) {
-          await analyzeSymbol(key);
-          return getAnalysis(key, { signal: controller.signal });
+          await analyzeSymbol(symbol.toUpperCase(), { timeframe });
+          return getAnalysis(symbol.toUpperCase(), { timeframe, signal: controller.signal });
         }
         throw err;
       })
@@ -107,7 +111,6 @@ export function useAnalysis(symbol: string, refreshKey?: number): UseAnalysisRes
           return;
         }
         setData(null);
-        // Static error message -- NEVER reflect user input (XSS prevention)
         setError('Failed to load analysis data. Please try again later.');
       })
       .finally(() => {
@@ -118,7 +121,7 @@ export function useAnalysis(symbol: string, refreshKey?: number): UseAnalysisRes
       cancelled = true;
       controller.abort();
     };
-  }, [symbol, refreshKey]);
+  }, [symbol, timeframe, refreshKey]);
 
   return { data, loading, error };
 }

@@ -12,7 +12,6 @@ import type {
   CircuitBreakerConfig,
 } from '../types';
 import { DEFAULT_CONFIG, createConfigFromEnv } from '../types';
-
 /**
  * Configuration service singleton
  */
@@ -28,7 +27,7 @@ class ConfigService {
       return this.config!;
     }
 
-    this.config = createConfigFromEnv();
+    this.config = createConfigFromEnv() as AppEnvConfig;
     this.initialized = true;
     this.validate();
     return this.config;

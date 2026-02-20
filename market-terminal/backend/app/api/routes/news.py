@@ -8,6 +8,7 @@ Full implementation: TASK-API-003
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -29,6 +30,9 @@ router = APIRouter(prefix="/api/news", tags=["news"])
 _SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-]{1,10}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _MAX_SUMMARY_LEN = 500
+# Timeout for the cache/Finnhub fetch. If Finnhub is slow on cold cache,
+# we return empty and the background task warms the cache for the retry.
+_NEWS_FETCH_TIMEOUT: float = 12.0
 
 
 class Category(str, Enum):
@@ -171,12 +175,31 @@ async def get_news(
 
     cache = get_cache_manager()
 
-    # Fetch news through cache (finnhub fallback chain)
+    # Fetch news through cache (finnhub fallback chain).
+    # We cap at _NEWS_FETCH_TIMEOUT seconds — Finnhub can be slow on cold cache miss.
+    # On timeout we return empty immediately and schedule a background warm-up;
+    # the frontend's auto-retry (5 s) will pick up the warmed cache.
+    news_result = None
     try:
-        news_result = await cache.get_news(symbol, force_refresh=force_refresh)
+        news_result = await asyncio.wait_for(
+            cache.get_news(symbol, force_refresh=force_refresh),
+            timeout=_NEWS_FETCH_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "News fetch timed out for %s (%.0fs) — scheduling background warm-up",
+            symbol, _NEWS_FETCH_TIMEOUT,
+        )
+        # Fire-and-forget background warm-up so the *next* request hits the cache.
+        async def _bg_warmup(sym: str) -> None:
+            try:
+                await cache.get_news(sym, force_refresh=True)
+                logger.info("Background news warm-up complete for %s", sym)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Background news warm-up failed for %s: %s", sym, exc)
+        asyncio.create_task(_bg_warmup(symbol))
     except Exception:
         logger.warning("Cache fetch error for news:%s", symbol, exc_info=True)
-        news_result = None
 
     # Determine data source and raw articles
     if news_result is not None and isinstance(news_result.data, list):

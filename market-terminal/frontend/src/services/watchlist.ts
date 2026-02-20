@@ -383,4 +383,3 @@ export const getWatchlistGroups = () => watchlistService.getGroups();
 export const invalidateWatchlistCache = () => watchlistService.invalidateCache();
 
 // Export error class for type checking
-export { WatchlistError };

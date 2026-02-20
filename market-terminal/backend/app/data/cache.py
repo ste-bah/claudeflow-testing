@@ -56,6 +56,8 @@ def _get_ttl_map() -> dict[str, int]:
             "ownership":    s.cache_ttl_ownership,
             "insider":      s.cache_ttl_insider,
             "analysis":     s.cache_ttl_analysis,
+            "options":      s.cache_ttl_options,
+            "economic_calendar": s.cache_ttl_economic_calendar,
         }
     return _ttl_map
 
@@ -308,6 +310,37 @@ class CacheManager:
             from app.data.edgar_ownership import get_ownership_client
             days = kwargs.get("days", 365)
             return await get_ownership_client().get_insider_transactions(symbol, days=days)
+
+        if data_type == "options" and source == "massive":
+            from app.data.massive_client import get_massive_client
+            return await get_massive_client().get_options_chain(
+                symbol,
+                expiration_gte=kwargs.get("expiration_gte"),
+                expiration_lte=kwargs.get("expiration_lte"),
+                strike_gte=kwargs.get("strike_gte"),
+                strike_lte=kwargs.get("strike_lte"),
+                contract_type=kwargs.get("contract_type"),
+            )
+
+        if data_type == "economic_calendar" and source == "forex_calendar":
+            from app.data.forex_calendar_client import get_forex_calendar_client
+            client = get_forex_calendar_client()
+            if period == "weekly":
+                return await client.get_weekly_calendar()
+            if period == "today":
+                return await client.get_today_events()
+            if period == "history":
+                return await client.get_event_history(kwargs.get("event_id", ""))
+            if period == "predictions":
+                return await client.get_predictions()
+            return None
+            
+        if data_type == "economic_calendar" and source == "finnhub":
+            from app.data.finnhub_client import get_finnhub_client
+            client = get_finnhub_client()
+            if period in ("weekly", "today"):
+                return await client.get_economic_calendar()
+            return None
 
         logger.warning("No dispatch for %s:%s", data_type, source)
         return None

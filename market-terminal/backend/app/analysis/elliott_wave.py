@@ -31,6 +31,30 @@ _MAX_CANDIDATES: int = 100
 _EPSILON: float = 1e-10
 _MAX_TICKER_LENGTH: int = 20
 
+# ZigZag pivot detection — defaults (1D)
+_ZIGZAG_ATR_MULTIPLIER: float = 1.5
+_ZIGZAG_MIN_PCT: float = 0.04   # 4% minimum swing on daily bars
+
+# Per chart-timeframe ZigZag parameters: (atr_multiplier, min_pct_swing)
+# Higher timeframes need wider pivots to capture macro wave structure;
+# lower timeframes need tighter pivots for short-term price action.
+_TIMEFRAME_ZIGZAG: dict[str, tuple[float, float]] = {
+    "1h":   (1.0, 0.015),   # Minute/Minuette degree — 1.5% min swing
+    "4h":   (1.2, 0.020),   # Minor degree — 2%
+    "8h":   (1.3, 0.025),
+    "12h":  (1.3, 0.025),
+    "1d":   (1.5, 0.040),   # Intermediate degree — 4% (default)
+    "1w":   (2.0, 0.060),   # Primary / Cycle degree — 6%
+    "1m":   (2.5, 0.080),   # Supercycle — 8%
+    "3m":   (2.5, 0.080),
+    "6m":   (2.0, 0.070),
+    "1y":   (2.0, 0.060),
+    "5y":   (2.5, 0.080),
+}
+
+# Target sanity clamp
+_MAX_TARGET_DEVIATION: float = 0.40  # never show target >40% from price
+
 _FIB_RETRACEMENTS: tuple[float, ...] = (0.236, 0.382, 0.500, 0.618, 0.786)
 _FIB_EXTENSIONS: tuple[float, ...] = (1.000, 1.272, 1.618, 2.000, 2.618)
 _FIB_OUTPUT_KEYS: tuple[str, ...] = (
@@ -114,11 +138,12 @@ class ElliottWaveAnalyzer(BaseMethodology):
         fundamentals: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> MethodologySignal:
+        # Pull chart-level timeframe so we pick the right ZigZag sensitivity.
+        chart_timeframe: str = str(kwargs.get("chart_timeframe", "1d")).lower()
         self.validate_input(price_data, volume_data)
         merged = self._merge_data(price_data, volume_data)
         current_price = float(merged["close"].iloc[-1])
-        swing_n = kwargs.get("swing_n", _DEFAULT_SWING_N)
-        swings = self._detect_swings(merged, swing_n)
+        swings = self._detect_pivots_zigzag(merged, chart_timeframe)
 
         if len(swings) < _MIN_SWINGS_REQUIRED:
             return self.create_signal(
@@ -129,14 +154,17 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 key_levels={"current_price": current_price},
             )
 
+        # Only keep candidates that satisfy ALL cardinal EW rules.
+        # Partial matches (1/3, 2/3 rules) are discarded — a structure that
+        # violates Rule 3 (Wave 4 overlaps Wave 1) is NOT an impulse, period.
         candidates = self._build_candidates(swings)
         scored: list[_WaveCount] = []
-        for waves in candidates:
-            ptype = "impulse" if len(waves) == 5 else "corrective"
+        for waves, ptype in candidates:
             all_ok, rpassed = self._validate_rules(waves, ptype)
+            if not all_ok:
+                continue  # Hard reject — EW theory has no partial impulses
             gscore = self._score_guidelines(waves, ptype)
-            rbonus = 3.0 if all_ok else float(rpassed)
-            scored.append(_WaveCount(waves, ptype, rpassed, gscore, rbonus + gscore))
+            scored.append(_WaveCount(waves, ptype, rpassed, gscore, 3.0 + gscore))
 
         if not scored:
             return self.create_signal(
@@ -147,9 +175,36 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 key_levels={"current_price": current_price},
             )
 
-        scored.sort(key=lambda c: c.total_score, reverse=True)
-        primary = scored[0]
-        alternative = scored[1] if len(scored) > 1 else None
+        # Sort: prefer candidates whose pattern ends furthest right (most recent)
+        # and highest score within same end position.
+        scored.sort(key=lambda c: (c.waves[-1].end_index, c.total_score), reverse=True)
+
+        # ── Invalidation filter ───────────────────────────────────────────────
+        # Drop any candidate whose invalidation level is ALREADY breached by
+        # the current price. E.g. a bullish impulse with invalidation at $20
+        # when price is $4 is meaningless — that wave count collapsed long ago.
+        def _already_invalidated(wc: _WaveCount) -> bool:
+            inval = self._determine_invalidation(wc, merged)
+            w0 = wc.waves[0]
+            if w0.direction == "up":      # bullish count: invalid if below inval
+                return current_price < inval * 0.995
+            else:                          # bearish count: invalid if above inval
+                return current_price > inval * 1.005
+
+        valid_scored = [c for c in scored if not _already_invalidated(c)]
+
+        # If everything is invalidated fall back gracefully to neutral signal
+        if not valid_scored:
+            return self.create_signal(
+                ticker=ticker, direction="neutral",
+                confidence=_INSUFFICIENT_DATA_CONFIDENCE,
+                timeframe=self.default_timeframe,
+                reasoning="All detected wave counts already invalidated by current price.",
+                key_levels={"current_price": current_price},
+            )
+
+        primary = valid_scored[0]
+        alternative = valid_scored[1] if len(valid_scored) > 1 else None
 
         wave_label, direction, timeframe = self._assess_position(
             primary, current_price, merged,
@@ -161,18 +216,26 @@ class ElliottWaveAnalyzer(BaseMethodology):
             if alternative is not None else invalidation
         )
 
+        # Target: first extension that hasn't been hit, clamped to ±40% of price
         primary_target: float | None = None
-        for fl in fib_levels:
-            if fl.ratio in _FIB_EXTENSIONS:
-                primary_target = fl.price
-                break
+        for fl in sorted(fib_levels, key=lambda f: abs(f.price - current_price)):
+            if fl.ratio not in _FIB_EXTENSIONS:
+                continue
+            if direction == "bullish" and fl.price > current_price * 0.99:
+                if fl.price <= current_price * (1 + _MAX_TARGET_DEVIATION):
+                    primary_target = fl.price
+                    break
+            elif direction == "bearish" and fl.price < current_price * 1.01:
+                if fl.price >= current_price * (1 - _MAX_TARGET_DEVIATION):
+                    primary_target = fl.price
+                    break
 
         confidence = self._calculate_confidence(
             primary, alternative, fib_levels, merged,
         )
         key_levels = self._build_key_levels(
             primary, alternative, fib_levels, wave_label,
-            invalidation, alt_invalidation, primary_target,
+            invalidation, alt_invalidation, primary_target, merged,
         )
         reasoning = self._build_reasoning(
             ticker, primary, alternative, wave_label,
@@ -193,43 +256,91 @@ class ElliottWaveAnalyzer(BaseMethodology):
         merged = merged.sort_values("date", ascending=True).reset_index(drop=True)
         return merged[["date", "open", "high", "low", "close", "volume"]]
 
-    # -- swing detection ----------------------------------------------------
+    # -- pivot detection (ZigZag) -------------------------------------------
 
-    def _detect_swings(
-        self, df: pd.DataFrame, swing_n: int = _DEFAULT_SWING_N,
+    def _compute_atr(
+        self, df: pd.DataFrame, chart_timeframe: str = "1d", period: int = 50,
+    ) -> float:
+        """Median ATR percentage threshold for ZigZag, scaled to `chart_timeframe`."""
+        # Look up per-timeframe (atr_mult, min_pct) — fall back to 1d defaults.
+        atr_mult, min_pct = _TIMEFRAME_ZIGZAG.get(
+            chart_timeframe, (_ZIGZAG_ATR_MULTIPLIER, _ZIGZAG_MIN_PCT)
+        )
+        highs = df["high"].values
+        lows = df["low"].values
+        closes = df["close"].values
+        n = len(df)
+        if n < 2:
+            return min_pct
+        lookback = min(n - 1, period)
+        true_ranges: list[float] = []
+        for i in range(n - lookback, n):
+            hl = highs[i] - lows[i]
+            hc = abs(highs[i] - closes[i - 1])
+            lc = abs(lows[i] - closes[i - 1])
+            true_ranges.append(max(hl, hc, lc))
+        if not true_ranges:
+            return min_pct
+        true_ranges.sort()
+        median_tr = true_ranges[len(true_ranges) // 2]
+        current_close = float(closes[-1])
+        if current_close <= 0:
+            return min_pct
+        pct = (median_tr / current_close) * atr_mult
+        return max(min(pct, 0.25), min_pct)
+
+    def _detect_pivots_zigzag(
+        self, df: pd.DataFrame, chart_timeframe: str = "1d",
     ) -> list[_SwingPoint]:
-        highs: np.ndarray = df["high"].values
-        lows: np.ndarray = df["low"].values
-        raw: list[_SwingPoint] = []
+        """Identify structural pivot highs/lows via ZigZag confirmation.
 
-        for i in range(swing_n, len(df) - swing_n):
-            ws = i - swing_n
-            we = i + swing_n + 1
-            if highs[i] >= np.max(highs[ws:we]):
-                raw.append(_SwingPoint(i, float(highs[i]), "high"))
-            if lows[i] <= np.min(lows[ws:we]):
-                raw.append(_SwingPoint(i, float(lows[i]), "low"))
-
-        raw.sort(key=lambda sp: (sp.index, sp.swing_type))
-
-        # Enforce alternation: consecutive same-type -> keep more extreme
-        result: list[_SwingPoint] = []
-        for sp in raw:
-            if not result or result[-1].swing_type != sp.swing_type:
-                result.append(sp)
+        A pivot high is CONFIRMED once price drops >= ATR threshold below it.
+        A pivot low is CONFIRMED once price rallies >= ATR threshold above it.
+        The threshold scales with `chart_timeframe`: 1H is tight (1.5%), 1W is
+        wide (6%) to capture macro Elliott Wave structure across different degrees.
+        """
+        highs = df["high"].values
+        lows = df["low"].values
+        n = len(df)
+        if n < 3:
+            return []
+        threshold = self._compute_atr(df, chart_timeframe)
+        confirmed: list[_SwingPoint] = []
+        direction: str = "up" if highs[-1] > highs[0] else "down"
+        extreme_price: float = highs[0] if direction == "up" else lows[0]
+        extreme_idx: int = 0
+        for i in range(1, n):
+            if direction == "up":
+                if highs[i] > extreme_price:
+                    extreme_price = float(highs[i])
+                    extreme_idx = i
+                elif lows[i] < extreme_price * (1.0 - threshold):
+                    confirmed.append(_SwingPoint(extreme_idx, extreme_price, "high"))
+                    direction = "down"
+                    extreme_price = float(lows[i])
+                    extreme_idx = i
             else:
-                prev = result[-1]
-                if sp.swing_type == "high" and sp.price > prev.price:
-                    result[-1] = sp
-                elif sp.swing_type == "low" and sp.price < prev.price:
-                    result[-1] = sp
-        return result
+                if lows[i] < extreme_price:
+                    extreme_price = float(lows[i])
+                    extreme_idx = i
+                elif highs[i] > extreme_price * (1.0 + threshold):
+                    confirmed.append(_SwingPoint(extreme_idx, extreme_price, "low"))
+                    direction = "up"
+                    extreme_price = float(highs[i])
+                    extreme_idx = i
+        if confirmed:
+            last_type = "high" if direction == "up" else "low"
+            if confirmed[-1].index != extreme_idx:
+                confirmed.append(_SwingPoint(extreme_idx, extreme_price, last_type))
+        return confirmed
 
     # -- candidate generation -----------------------------------------------
 
     def _build_candidates(
         self, swings: list[_SwingPoint],
-    ) -> list[tuple[_WaveSegment, ...]]:
+    ) -> list[tuple[tuple[_WaveSegment, ...], str]]:
+        """Build (waves, pattern_type) candidates. Corrective patterns are
+        only proposed counter-trend (EW theory: corrections go against the trend)."""
         if len(swings) < 2:
             return []
 
@@ -241,15 +352,24 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 s0.index, s1.index, s0.price, s1.price, d, abs(s1.price - s0.price),
             ))
 
-        candidates: list[tuple[_WaveSegment, ...]] = []
-        for i in range(len(segments) - 4):
-            candidates.append(tuple(segments[i:i + 5]))
-            if len(candidates) >= _MAX_CANDIDATES:
-                return candidates
-        for i in range(len(segments) - 2):
-            candidates.append(tuple(segments[i:i + 3]))
-            if len(candidates) >= _MAX_CANDIDATES:
-                return candidates
+        # Trend direction from overall swing sequence
+        trend_up = swings[-1].price > swings[0].price
+        # Corrective first wave goes AGAINST the trend
+        corrective_first_dir = "down" if trend_up else "up"
+
+        five_groups = [tuple(segments[i:i + 5]) for i in range(len(segments) - 4)][::-1]
+        three_groups = [tuple(segments[i:i + 3]) for i in range(len(segments) - 2)][::-1]
+
+        candidates: list[tuple[tuple[_WaveSegment, ...], str]] = []
+        # Impulse: no trend-direction restriction
+        for w5 in five_groups:
+            candidates.append((w5, "impulse"))
+        # Corrective: COUNTER-TREND only
+        for w3 in three_groups:
+            if w3[0].direction == corrective_first_dir:
+                candidates.append((w3, "corrective"))
+        if len(candidates) >= _MAX_CANDIDATES:
+            return candidates[:_MAX_CANDIDATES]
         return candidates
 
     # -- rule validation ----------------------------------------------------
@@ -449,12 +569,52 @@ class ElliottWaveAnalyzer(BaseMethodology):
         fib_levels: list[_FibLevel], wave_label: str,
         invalidation: float, alt_invalidation: float,
         primary_target: float | None,
+        merged: pd.DataFrame | None = None,
     ) -> dict[str, Any]:
         fib_map: dict[float, float] = {fl.ratio: fl.price for fl in fib_levels}
         fib_targets: dict[str, float] = {}
         for key, ratio in zip(_FIB_OUTPUT_KEYS, _FIB_OUTPUT_RATIOS):
             if ratio in fib_map:
                 fib_targets[key] = round(fib_map[ratio], 4)
+
+        # Structured fib levels for chart overlay
+        fib_levels_detailed = [
+            {
+                "ratio": fl.ratio,
+                "price": round(fl.price, 4),
+                "label": fl.label,
+                "aligned": fl.is_aligned,
+                "type": "extension" if fl.ratio >= 1.0 else "retracement",
+            }
+            for fl in fib_levels
+        ]
+
+        # Wave turning points for chart overlay zigzag
+        wave_points: list[dict[str, Any]] = []
+        if primary.waves and merged is not None and not merged.empty:
+            ptype = primary.pattern_type
+            if ptype == "impulse":
+                labels = ["0", "1", "2", "3", "4", "5"]
+            else:
+                labels = ["0", "A", "B", "C"]
+
+            def _safe_time(idx: int) -> str:
+                idx = max(0, min(idx, len(merged) - 1))
+                t = merged["date"].iloc[idx]
+                return t.isoformat() if hasattr(t, "isoformat") else str(t)
+
+            wave_points.append({
+                "time": _safe_time(primary.waves[0].start_index),
+                "price": round(primary.waves[0].start_price, 4),
+                "label": labels[0],
+            })
+            for i, w in enumerate(primary.waves):
+                lbl = labels[i + 1] if (i + 1) < len(labels) else str(i + 1)
+                wave_points.append({
+                    "time": _safe_time(w.end_index),
+                    "price": round(w.end_price, 4),
+                    "label": lbl,
+                })
 
         alt_label = ""
         if alternative is not None:
@@ -469,6 +629,9 @@ class ElliottWaveAnalyzer(BaseMethodology):
             "wave_start": round(wave_start, 4),
             "invalidation": invalidation,
             "fib_targets": fib_targets,
+            "fib_levels_detailed": fib_levels_detailed,
+            "wave_points": wave_points,
+            "pattern_type": primary.pattern_type,
             "primary_target": primary_target,
             "alternative_count": alt_label,
             "alternative_invalidation": alt_invalidation,
