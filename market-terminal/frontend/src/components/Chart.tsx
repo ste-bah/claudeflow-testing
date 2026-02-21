@@ -154,12 +154,16 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     }
   }, []);
 
-  const clearOverlay = useCallback(() => {
+  const clearEWOverlay = useCallback(() => {
     clearLabels();
     clearPriceLines();
     clearWaveLine();
+  }, [clearLabels, clearPriceLines, clearWaveLine]);
+
+  const clearOverlay = useCallback(() => {
+    clearEWOverlay();
     clearSmaLine();
-  }, [clearLabels, clearPriceLines, clearWaveLine, clearSmaLine]);
+  }, [clearEWOverlay, clearSmaLine]);
 
   // -- Mount-only: create chart ----------------------------------------------
 
@@ -283,7 +287,7 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
   // -- EW overlay effect -----------------------------------------------------
 
   useEffect(() => {
-    clearOverlay();
+    clearEWOverlay();
 
     if (!ewVisible || !hasEwData || !ewOverlay || !chartRef.current || !candleSeriesRef.current) {
       return;
