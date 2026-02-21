@@ -184,7 +184,8 @@ class FinnhubClient:
             response = await client.get(endpoint, params=params)
             response.raise_for_status()
             data = response.json()
-            if not data:
+            # Allow empty list/dict as valid successful responses
+            if data is None:
                 return None
             self._record_success()
             return self._normalize_response(data)

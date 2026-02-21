@@ -253,16 +253,16 @@ async def get_ticker(
             yf_period = "2y"
             yf_interval = "1h"
         elif period == Period.d1:
-            yf_period = "max"
+            yf_period = "10y"
             yf_interval = "1d"
         elif period == Period.w1:
-            yf_period = "max"
+            yf_period = "10y"
             yf_interval = "1wk"
         elif period == Period.m1:
-            yf_period = "max"
+            yf_period = "10y"
             yf_interval = "1mo"
         elif period == Period.m3:
-            yf_period = "max"
+            yf_period = "10y"
             yf_interval = "3mo"
         elif period in (Period.y6, Period.y1, Period.y5):
             # Aggregate from 3mo data
