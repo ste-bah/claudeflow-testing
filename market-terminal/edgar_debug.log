@@ -1,0 +1,200 @@
+2026-02-18 14:44:34,895 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1166588-000116658826000003-0001166588-26-000003.txt
+2026-02-18 14:44:34,898 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1166588/000116658826000003/0001166588-26-000003.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,033 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,037 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001326801.json, not retrieving from cache
+2026-02-18 14:44:35,037 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001326801.json')>
+2026-02-18 14:44:35,248 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001326801.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,460 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,460 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010326000701/0000950103-26-000701.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,479 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010326000701-0000950103-26-000701.txt
+2026-02-18 14:44:35,480 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010326000701/0000950103-26-000701.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,482 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001181218.json, not retrieving from cache
+2026-02-18 14:44:35,482 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001181218.json')>
+2026-02-18 14:44:35,493 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,493 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1726609/000108514625003384/0001085146-25-003384.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,494 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1726609-000108514625003384-0001085146-25-003384.txt
+2026-02-18 14:44:35,494 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1726609/000108514625003384/0001085146-25-003384.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,501 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,501 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1135730/000091957425001429/0000919574-25-001429.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,502 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1135730-000091957425001429-0000919574-25-001429.txt
+2026-02-18 14:44:35,502 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1135730/000091957425001429/0000919574-25-001429.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,515 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,515 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1421097/000091957425006914/0000919574-25-006914.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,516 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1421097-000091957425006914-0000919574-25-006914.txt
+2026-02-18 14:44:35,516 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1421097/000091957425006914/0000919574-25-006914.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,530 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,530 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1591505/000159150526000002/0001591505-26-000002.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,530 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1591505-000159150526000002-0001591505-26-000002.txt
+2026-02-18 14:44:35,531 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1591505/000159150526000002/0001591505-26-000002.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,538 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,538 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1691919/000169191925000030/0001691919-25-000030.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,539 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1691919-000169191925000030-0001691919-25-000030.txt
+2026-02-18 14:44:35,539 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1691919/000169191925000030/0001691919-25-000030.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,574 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/metric?symbol=META&metric=all "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,588 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,588 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1822262/000182226225000001/0001822262-25-000001.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,588 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1822262-000182226225000001-0001822262-25-000001.txt
+2026-02-18 14:44:35,590 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1822262/000182226225000001/0001822262-25-000001.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,679 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001181218.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,802 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/profile2?symbol=META "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,816 [INFO] app.api.routes.fundamentals: Fundamentals META: 2 quarters, edgar=True, finnhub=True
+INFO:     127.0.0.1:65470 - "GET /api/fundamentals/META HTTP/1.1" 200 OK
+2026-02-18 14:44:35,895 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,895 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010326000506/0000950103-26-000506.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,905 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010326000506-0000950103-26-000506.txt
+2026-02-18 14:44:35,906 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010326000506/0000950103-26-000506.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,909 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001564475.json, not retrieving from cache
+2026-02-18 14:44:35,909 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001564475.json')>
+2026-02-18 14:44:35,915 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,915 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1666335/000166633525000010/0001666335-25-000010.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,915 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1666335-000166633525000010-0001666335-25-000010.txt
+2026-02-18 14:44:35,916 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1666335/000166633525000010/0001666335-25-000010.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:35,932 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:35,932 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1911876/000191187625000007/0001911876-25-000007.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:35,932 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1911876-000191187625000007-0001911876-25-000007.txt
+2026-02-18 14:44:35,932 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1911876/000191187625000007/0001911876-25-000007.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,080 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,460 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:36,461 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1693838/000169383826000002/0001693838-26-000002.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:36,461 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1693838-000169383826000002-0001693838-26-000002.txt
+2026-02-18 14:44:36,461 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1693838/000169383826000002/0001693838-26-000002.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,494 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:36,494 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010326000239/0000950103-26-000239.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:36,495 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010326000239-0000950103-26-000239.txt
+2026-02-18 14:44:36,495 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010326000239/0000950103-26-000239.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,497 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001564475.json, not retrieving from cache
+2026-02-18 14:44:36,498 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001564475.json')>
+2026-02-18 14:44:36,502 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:36,503 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1599390/000159939026000001/0001599390-26-000001.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:36,503 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1599390-000159939026000001-0001599390-26-000001.txt
+2026-02-18 14:44:36,503 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1599390/000159939026000001/0001599390-26-000001.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,516 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:36,516 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1230239/000091957425006800/0000919574-25-006800.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:36,516 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1230239-000091957425006800-0000919574-25-006800.txt
+2026-02-18 14:44:36,516 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1230239/000091957425006800/0000919574-25-006800.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,531 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:36,531 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/2012065/000201206525000003/0002012065-25-000003.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:36,531 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-2012065-000201206525000003-0002012065-25-000003.txt
+2026-02-18 14:44:36,532 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/2012065/000201206525000003/0002012065-25-000003.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,616 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:36,616 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/2045252/000204525225000004/0002045252-25-000004.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:36,617 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-2045252-000204525225000004-0002045252-25-000004.txt
+2026-02-18 14:44:36,618 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/2045252/000204525225000004/0002045252-25-000004.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,632 [INFO] app.data.edgar_ownership: No 13F holdings found for META
+INFO:     127.0.0.1:65472 - "GET /api/ownership/META HTTP/1.1" 200 OK
+2026-02-18 14:44:36,748 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,754 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:36,754 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325016699/0000950103-25-016699.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:36,754 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325016699-0000950103-25-016699.txt
+2026-02-18 14:44:36,754 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325016699/0000950103-25-016699.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:36,756 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001780525.json, not retrieving from cache
+2026-02-18 14:44:36,756 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001780525.json')>
+2026-02-18 14:44:37,231 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001780525.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:37,236 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:37,236 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325016698/0000950103-25-016698.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:37,237 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325016698-0000950103-25-016698.txt
+2026-02-18 14:44:37,237 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325016698/0000950103-25-016698.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:37,239 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001564475.json, not retrieving from cache
+2026-02-18 14:44:37,239 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001564475.json')>
+2026-02-18 14:44:37,540 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:37,546 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:37,546 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325016524/0000950103-25-016524.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:37,547 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325016524-0000950103-25-016524.txt
+2026-02-18 14:44:37,547 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325016524/0000950103-25-016524.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:37,549 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001564475.json, not retrieving from cache
+2026-02-18 14:44:37,549 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001564475.json')>
+2026-02-18 14:44:37,741 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:37,746 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:37,746 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325016523/0000950103-25-016523.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:37,747 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325016523-0000950103-25-016523.txt
+2026-02-18 14:44:37,747 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325016523/0000950103-25-016523.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:37,748 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001780525.json, not retrieving from cache
+2026-02-18 14:44:37,749 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001780525.json')>
+2026-02-18 14:44:38,096 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001780525.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:38,101 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:38,101 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325016348/0000950103-25-016348.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:38,101 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325016348-0000950103-25-016348.txt
+2026-02-18 14:44:38,102 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325016348/0000950103-25-016348.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:38,103 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001780525.json, not retrieving from cache
+2026-02-18 14:44:38,103 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001780525.json')>
+2026-02-18 14:44:38,282 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001780525.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:38,288 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:38,288 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325016257/0000950103-25-016257.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:38,288 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325016257-0000950103-25-016257.txt
+2026-02-18 14:44:38,288 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325016257/0000950103-25-016257.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:38,290 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001564475.json, not retrieving from cache
+2026-02-18 14:44:38,290 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001564475.json')>
+2026-02-18 14:44:38,464 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:38,469 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:38,469 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325016256/0000950103-25-016256.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:38,470 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325016256-0000950103-25-016256.txt
+2026-02-18 14:44:38,470 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325016256/0000950103-25-016256.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:38,471 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001181218.json, not retrieving from cache
+2026-02-18 14:44:38,471 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001181218.json')>
+2026-02-18 14:44:38,640 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001181218.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:38,644 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:38,644 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325016043/0000950103-25-016043.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:38,645 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325016043-0000950103-25-016043.txt
+2026-02-18 14:44:38,645 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325016043/0000950103-25-016043.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:38,646 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001780525.json, not retrieving from cache
+2026-02-18 14:44:38,646 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001780525.json')>
+2026-02-18 14:44:39,300 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001780525.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:39,305 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:39,305 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325015976/0000950103-25-015976.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:39,305 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325015976-0000950103-25-015976.txt
+2026-02-18 14:44:39,306 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325015976/0000950103-25-015976.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:39,308 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001564475.json, not retrieving from cache
+2026-02-18 14:44:39,308 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001564475.json')>
+2026-02-18 14:44:39,526 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:39,532 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:39,532 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325015761/0000950103-25-015761.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:39,532 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325015761-0000950103-25-015761.txt
+2026-02-18 14:44:39,532 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325015761/0000950103-25-015761.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:39,535 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001780525.json, not retrieving from cache
+2026-02-18 14:44:39,535 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001780525.json')>
+2026-02-18 14:44:39,720 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001780525.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:39,725 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:39,725 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325015703/0000950103-25-015703.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:39,725 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325015703-0000950103-25-015703.txt
+2026-02-18 14:44:39,726 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325015703/0000950103-25-015703.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:39,728 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001564475.json, not retrieving from cache
+2026-02-18 14:44:39,728 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001564475.json')>
+2026-02-18 14:44:39,937 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:39,942 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:39,942 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325015482/0000950103-25-015482.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:39,942 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325015482-0000950103-25-015482.txt
+2026-02-18 14:44:39,943 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325015482/0000950103-25-015482.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:39,944 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001181218.json, not retrieving from cache
+2026-02-18 14:44:39,944 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001181218.json')>
+2026-02-18 14:44:40,125 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001181218.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:40,130 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:40,130 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325015373/0000950103-25-015373.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:40,131 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325015373-0000950103-25-015373.txt
+2026-02-18 14:44:40,131 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325015373/0000950103-25-015373.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:40,134 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001564475.json, not retrieving from cache
+2026-02-18 14:44:40,134 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001564475.json')>
+2026-02-18 14:44:40,330 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001564475.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:40,336 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:40,336 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325015372/0000950103-25-015372.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:40,337 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325015372-0000950103-25-015372.txt
+2026-02-18 14:44:40,337 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325015372/0000950103-25-015372.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:40,338 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001780525.json, not retrieving from cache
+2026-02-18 14:44:40,338 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001780525.json')>
+2026-02-18 14:44:40,509 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001780525.json "HTTP/1.1 200 OK"
+2026-02-18 14:44:40,515 [INFO] httpxthrottlecache.controller: matched .*www\.sec\.gov, using value www.sec.gov: {'/submissions.*': 30, '/include/ticker\\.txt.*': 30, '/files/company_tickers\\.json.*': 30, '.*index/.*': 1800, '/Archives/edgar/data': True}
+2026-02-18 14:44:40,515 [INFO] httpxthrottlecache.controller: /Archives/edgar/data/1326801/000095010325015185/0000950103-25-015185.txt matched /Archives/edgar/data, using value True
+2026-02-18 14:44:40,515 [INFO] httpxthrottlecache.filecache.transport: Cache policy allows unlimited cache, returning /Users/stevenbahia/.edgar/_tcache/www.sec.gov/Archives-edgar-data-1326801-000095010325015185-0000950103-25-015185.txt
+2026-02-18 14:44:40,516 [INFO] httpx: HTTP Request: GET https://www.sec.gov/Archives/edgar/data/1326801/000095010325015185/0000950103-25-015185.txt "HTTP/1.1 200 OK"
+2026-02-18 14:44:40,518 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001739092.json, not retrieving from cache
+2026-02-18 14:44:40,518 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001739092.json')>
+2026-02-18 14:44:40,713 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001739092.json "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:65473 - "GET /api/insider/META HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65480 - "POST /api/analyze/META HTTP/1.1" 200 OK
+2026-02-18 14:45:06,588 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0001326801.json, not retrieving from cache
+2026-02-18 14:45:06,589 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0001326801.json')>
+2026-02-18 14:45:08,114 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0001326801.json "HTTP/1.1 200 OK"
+2026-02-18 14:45:08,380 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/metric?symbol=META&metric=all "HTTP/1.1 200 OK"
+2026-02-18 14:45:08,574 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/profile2?symbol=META "HTTP/1.1 200 OK"
+2026-02-18 14:45:08,576 [INFO] app.api.routes.fundamentals: Fundamentals META: 2 quarters, edgar=True, finnhub=True
+INFO:     127.0.0.1:65500 - "GET /api/fundamentals/META HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65517 - "GET /api/analyze/META HTTP/1.1" 200 OK

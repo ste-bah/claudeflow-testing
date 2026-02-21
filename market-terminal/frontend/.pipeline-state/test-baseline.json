@@ -1,0 +1,24 @@
+{
+  "testsTotal": 1142,
+  "testsPassed": 1142,
+  "testsFailed": 0,
+  "passRate": 100.0,
+  "failingTests": [],
+  "timestamp": "2026-02-15T08:15:30Z",
+  "version": "1.0.0",
+  "commit": "HEAD",
+  "updatedBy": "regression-detector",
+  "testSuite": "vitest",
+  "testFiles": 30,
+  "taskContext": "TASK-UI-010-regression-detection",
+  "testsAdded": 147,
+  "previousBaseline": {
+    "testsTotal": 995,
+    "testsPassed": 995,
+    "testFiles": 27,
+    "timestamp": "2026-02-15T00:28:45Z",
+    "taskContext": "TASK-UI-009-command-bar-component"
+  },
+  "breakingChanges": [],
+  "notes": "Regression detection run for TASK-UI-010. All 1142 frontend tests passing (up from 995 baseline). 147 new tests added. Zero regressions detected. Backend stable at 4570 tests passing. Combined total: 5712 tests passing across both suites."
+}

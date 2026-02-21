@@ -19,7 +19,8 @@ export interface NewsArticleRaw {
   readonly published_at: string | null;
   readonly category: string | null;
   readonly related_tickers: string[];
-  readonly sentiment: null;
+  readonly sentiment: SentimentDirection | null;
+  readonly sentiment_score: number | null;
 }
 
 /** Full envelope response from GET /api/news/{symbol}. */
@@ -107,8 +108,8 @@ export function normalizeArticle(raw: NewsArticleRaw): NewsArticle | null {
     relatedTickers: Array.isArray(raw.related_tickers)
       ? raw.related_tickers
       : [],
-    sentiment: 'neutral',
-    sentimentScore: 0.5,
+    sentiment: (raw.sentiment as SentimentDirection) || 'neutral',
+    sentimentScore: typeof raw.sentiment_score === 'number' ? raw.sentiment_score : 0.5,
   };
 }
 

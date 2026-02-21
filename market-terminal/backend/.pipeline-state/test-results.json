@@ -1,0 +1,121 @@
+{
+  "verified": true,
+  "verificationMethod": "actual-execution",
+  "executedBy": "test-execution-verifier",
+  "timestamp": "2026-02-17T07:03:00Z",
+  "executionCommand": "python3 -m pytest tests/ --tb=no --color=no -q",
+  "workingDirectory": "/Volumes/Externalwork/projects/claudeflow-testing/market-terminal/backend",
+  "testRunner": "pytest 9.0.2",
+  "pythonVersion": "Python 3.11.9",
+  "platform": "darwin",
+  "fullSuiteResults": {
+    "testsTotal": 5388,
+    "testsPassed": 5377,
+    "testsFailed": 11,
+    "testsSkipped": 0,
+    "passPercentage": 99.8,
+    "executionTime": "17.25s"
+  },
+  "taskFinal002SpecifiedTests": {
+    "files": [
+      "tests/test_composite.py",
+      "tests/test_sentiment.py",
+      "tests/test_canslim.py",
+      "tests/test_elliott_wave.py",
+      "tests/test_ict_smart_money.py",
+      "tests/test_larry_williams.py",
+      "tests/test_wyckoff.py",
+      "tests/test_analysis_route.py",
+      "tests/test_scan_route.py",
+      "tests/test_scaffolding.py",
+      "tests/test_api_skeleton.py"
+    ],
+    "testsTotal": 2189,
+    "testsPassed": 2189,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "passPercentage": 100.0,
+    "executionTime": "5.82s",
+    "verdict": "PASS"
+  },
+  "failingTests": [
+    {
+      "name": "tests/integration/test_analysis_flow.py::test_analysis_post_happy_flow",
+      "message": "ValueError: not enough values to unpack (expected 3, got 2) - make_analysis_mocks() returns 2 values, test expects 3",
+      "category": "test-file-mismatch",
+      "newFile": true,
+      "inGitHead": false
+    },
+    {
+      "name": "tests/integration/test_analysis_flow.py::test_analysis_post_returns_cached",
+      "message": "ValueError: not enough values to unpack (expected 3, got 2)",
+      "category": "test-file-mismatch",
+      "newFile": true,
+      "inGitHead": false
+    },
+    {
+      "name": "tests/integration/test_analysis_flow.py::test_analysis_get_cached",
+      "message": "ValueError: not enough values to unpack (expected 3, got 2)",
+      "category": "test-file-mismatch",
+      "newFile": true,
+      "inGitHead": false
+    },
+    {
+      "name": "tests/integration/test_analysis_flow.py::test_analysis_get_not_found",
+      "message": "ValueError: not enough values to unpack (expected 3, got 2)",
+      "category": "test-file-mismatch",
+      "newFile": true,
+      "inGitHead": false
+    },
+    {
+      "name": "tests/integration/test_analysis_flow.py::test_analysis_post_triggers_background_tasks",
+      "message": "ValueError: not enough values to unpack (expected 3, got 2)",
+      "category": "test-file-mismatch",
+      "newFile": true,
+      "inGitHead": false
+    },
+    {
+      "name": "tests/test_integration_query_pipeline.py::TestResponseFormat::test_nl_fallback_response_has_all_fields",
+      "message": "AssertionError: source='god_agent' != 'natural_language' - Claude CLI cannot run nested inside another Claude Code session",
+      "category": "environment-specific",
+      "rootCause": "CLAUDECODE environment variable prevents nested Claude CLI invocation"
+    },
+    {
+      "name": "tests/test_integration_query_pipeline.py::TestResponseFormat::test_source_for_nl_fallback",
+      "message": "AssertionError: source='god_agent' != 'natural_language'",
+      "category": "environment-specific",
+      "rootCause": "CLAUDECODE environment variable prevents nested Claude CLI invocation"
+    },
+    {
+      "name": "tests/test_integration_query_pipeline.py::TestNaturalLanguageFallback::test_question_returns_nl_result",
+      "message": "AssertionError: source='god_agent' != 'natural_language'",
+      "category": "environment-specific",
+      "rootCause": "CLAUDECODE environment variable prevents nested Claude CLI invocation"
+    },
+    {
+      "name": "tests/test_integration_query_pipeline.py::TestNaturalLanguageFallback::test_nl_error_message_suggests_commands",
+      "message": "AssertionError: 'analyze'/'scan' not in 'Claude CLI exited with code 1'",
+      "category": "environment-specific",
+      "rootCause": "CLAUDECODE environment variable prevents nested Claude CLI invocation"
+    },
+    {
+      "name": "tests/test_query_integration.py::TestEndToEndNaturalLanguageFallback::test_nl_query_full_chain",
+      "message": "AssertionError: 'not yet supported' not in 'Claude CLI exited with code 1'",
+      "category": "environment-specific",
+      "rootCause": "CLAUDECODE environment variable prevents nested Claude CLI invocation"
+    },
+    {
+      "name": "tests/test_query_integration.py::TestEndToEndResponseStructure::test_error_response_structure",
+      "message": "AssertionError: source='god_agent' != 'natural_language'",
+      "category": "environment-specific",
+      "rootCause": "CLAUDECODE environment variable prevents nested Claude CLI invocation"
+    }
+  ],
+  "failureAnalysis": {
+    "testFileMismatch": 5,
+    "environmentSpecific": 6,
+    "description": "5 failures in tests/integration/test_analysis_flow.py (a new file added by a previous pipeline agent, not in git HEAD) due to mismatched mock API signature. 6 failures are environment-specific: tests expect Claude CLI natural_language fallback but Claude CLI cannot run nested inside another Claude Code session (CLAUDECODE env var set), so god_agent error path is returned instead."
+  },
+  "verdict": "CONDITIONAL_PASS",
+  "verdictDetails": "All 2,189 tests in the 11 TASK-FINAL-002 specified test files PASS (100%). The 11 overall failures are pre-existing issues: 5 in a new pipeline-added test file with incorrect mock API usage, and 6 environment-specific failures that only occur when running tests inside an active Claude Code session."
+}

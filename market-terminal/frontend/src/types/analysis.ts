@@ -152,6 +152,50 @@ export interface EWaveOverlayData {
   readonly patternType: string;
   readonly invalidation: number | null;
   readonly primaryTarget: number | null;
+  readonly waveDegrees: EWaveDegreeCount[];
+  readonly primaryDegree: string;
+}
+
+/** A single degree-level wave count summary for the multi-degree tree display. */
+export interface EWaveDegreeCount {
+  readonly degree: string;        // 'supercycle' | 'cycle' | 'primary' | 'intermediate' | 'minor'
+  readonly degreeAbbr: string;    // 'SC' | 'CY' | 'P' | 'I' | 'm'
+  readonly label: string;         // e.g. 'Wave 3 of impulse up'
+  readonly currentWave: number;   // 1–5 or 1–3
+  readonly patternType: string;   // 'impulse' | 'corrective'
+  readonly correctiveSubtype: string; // '' | 'zigzag' | 'flat'
+  readonly direction: string;     // 'bullish' | 'bearish' | 'neutral'
+  readonly invalidation: number;
+  readonly target: number | null;
+  readonly confidence: number;
+}
+
+/** Extract the hierarchical multi-degree wave tree from key_levels. */
+export function extractWaveDegrees(kl: Record<string, unknown>): EWaveDegreeCount[] {
+  const rawDegrees = kl['wave_counts_by_degree'];
+  const degreeOrder = ['supercycle', 'cycle', 'primary', 'intermediate', 'minor'];
+  const waveDegrees: EWaveDegreeCount[] = [];
+
+  if (rawDegrees && typeof rawDegrees === 'object') {
+    for (const deg of degreeOrder) {
+      const v = (rawDegrees as Record<string, unknown>)[deg];
+      if (!v || typeof v !== 'object') continue;
+      const vr = v as Record<string, unknown>;
+      waveDegrees.push({
+        degree: deg,
+        degreeAbbr: typeof vr['degree_abbr'] === 'string' ? vr['degree_abbr'] : deg,
+        label: typeof vr['label'] === 'string' ? vr['label'] : '',
+        currentWave: typeof vr['current_wave'] === 'number' ? vr['current_wave'] : 0,
+        patternType: typeof vr['pattern_type'] === 'string' ? vr['pattern_type'] : '',
+        correctiveSubtype: typeof vr['corrective_subtype'] === 'string' ? vr['corrective_subtype'] : '',
+        direction: typeof vr['direction'] === 'string' ? vr['direction'] : 'neutral',
+        invalidation: typeof vr['invalidation'] === 'number' ? vr['invalidation'] : 0,
+        target: typeof vr['target'] === 'number' ? vr['target'] : null,
+        confidence: typeof vr['confidence'] === 'number' ? vr['confidence'] : 0,
+      });
+    }
+  }
+  return waveDegrees;
 }
 
 /**
@@ -188,12 +232,16 @@ export function extractEWaveOverlay(data: AnalysisData): EWaveOverlayData | null
       }))
     : [];
 
+  const waveDegrees = extractWaveDegrees(kl);
+
   return {
     wavePoints,
     fibLevels,
     patternType: typeof kl['pattern_type'] === 'string' ? kl['pattern_type'] : '',
     invalidation: typeof kl['invalidation'] === 'number' ? kl['invalidation'] : null,
     primaryTarget: typeof kl['primary_target'] === 'number' ? kl['primary_target'] : null,
+    waveDegrees,
+    primaryDegree: typeof kl['primary_degree'] === 'string' ? kl['primary_degree'] : '',
   };
 }
 

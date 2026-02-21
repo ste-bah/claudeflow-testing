@@ -1,0 +1,139 @@
+INFO:     Will watch for changes in these directories: ['/Volumes/Externalwork/projects/claudeflow-testing/market-terminal/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8099 (Press CTRL+C to quit)
+INFO:     Started reloader process [52810] using WatchFiles
+INFO:     Started server process [52892]
+INFO:     Waiting for application startup.
+2026-02-18 20:51:13,513 [INFO] app.main: Market Terminal API starting up
+2026-02-18 20:51:13,513 [INFO] app.config: Finnhub API: CONFIGURED (d6an****)
+2026-02-18 20:51:13,513 [INFO] app.config: FRED API: CONFIGURED (ba42****)
+2026-02-18 20:51:13,513 [INFO] app.config: Alpha Vantage: CONFIGURED (JI80****)
+2026-02-18 20:51:13,513 [INFO] app.config: SEC EDGAR: CONFIGURED (User-Agent set)
+2026-02-18 20:51:13,513 [INFO] app.config: Database path: /Volumes/Externalwork/projects/claudeflow-testing/market-terminal/data/market_terminal.db (directory ready)
+2026-02-18 20:51:13,513 [INFO] app.config: 
+=== Market Terminal Configuration ===
+  Finnhub API:         CONFIGURED (d6an****)
+  FRED API:            CONFIGURED (ba42****)
+  Alpha Vantage:       CONFIGURED (JI80****)
+  SEC EDGAR:          CONFIGURED (User-Agent set)
+  yfinance:           AVAILABLE (no key needed)
+  CFTC COT:           AVAILABLE (public data)
+  Database:           data/market_terminal.db
+  Sentiment Mode:     FinBERT (full model)
+==========================================
+2026-02-18 20:51:13,516 [INFO] app.data.database: SQLite journal mode: wal
+2026-02-18 20:51:13,517 [INFO] app.data.database: Database initialized at /Volumes/Externalwork/projects/claudeflow-testing/market-terminal/data/market_terminal.db
+2026-02-18 20:51:13,517 [INFO] app.main: Database initialized successfully
+INFO:     Application startup complete.
+INFO:     127.0.0.1:61942 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61957 - "GET /api/watchlist HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:61962 - "GET /api/watchlist HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:61964 - "GET /api/watchlist/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61964 - "GET /api/watchlist/ HTTP/1.1" 200 OK
+2026-02-18 20:51:45,390 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/calendar/economic?from=2026-02-11&to=2026-03-20 "HTTP/1.1 403 Forbidden"
+2026-02-18 20:51:45,392 [WARNING] app.data.finnhub_client: Finnhub 403 forbidden on /calendar/economic -- check API key scope/plan
+2026-02-18 20:51:45,401 [INFO] app.data.fred_client: FRED client initialized (API key configured)
+2026-02-18 20:51:45,443 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/calendar/economic?from=2026-02-11&to=2026-03-20 "HTTP/1.1 403 Forbidden"
+2026-02-18 20:51:45,446 [WARNING] app.data.finnhub_client: Finnhub 403 forbidden on /calendar/economic -- check API key scope/plan
+INFO:     127.0.0.1:61961 - "GET /api/macro/calendar?from_date=2026-02-11&to_date=2026-03-20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61966 - "GET /api/macro/calendar?from_date=2026-02-11&to_date=2026-03-20 HTTP/1.1" 200 OK
+2026-02-18 20:51:48,029 [INFO] app.data.cache: CacheManager initialized
+2026-02-18 20:51:48,128 [INFO] app.data.yfinance_client: yfinance client initialized (SECONDARY source - unofficial API)
+2026-02-18 20:51:48,132 [INFO] app.api.routes.news: News MSFT: 247 articles, page 0-20 of 247, source=cache
+INFO:     127.0.0.1:62009 - "GET /api/news/MSFT?limit=20&offset=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62012 - "GET /api/ownership/MSFT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62013 - "GET /api/insider/MSFT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62005 - "GET /api/analyze/MSFT HTTP/1.1" 200 OK
+2026-02-18 20:51:48,323 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/profile2?symbol=MSFT "HTTP/1.1 200 OK"
+2026-02-18 20:51:48,369 [INFO] edgar.core: Identity of the Edgar REST client set to [MarketTerminal stevenbahia@gmail.com]
+2026-02-18 20:51:48,369 [INFO] app.data.edgar_client: EDGAR identity set: MarketTerminal stevenbahia@gmail.com
+2026-02-18 20:51:48,403 [INFO] httpxthrottlecache.filecache.transport: cache_dir=/Users/stevenbahia/.edgar/_tcache
+2026-02-18 20:51:48,403 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0000789019.json, not retrieving from cache
+2026-02-18 20:51:48,403 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0000789019.json')>
+2026-02-18 20:51:48,968 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0000789019.json "HTTP/1.1 200 OK"
+2026-02-18 20:51:48,980 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/metric?symbol=MSFT&metric=all "HTTP/1.1 200 OK"
+2026-02-18 20:51:49,000 [INFO] app.api.routes.ticker: Ticker MSFT: source=cache cache_hit=True age=751s
+INFO:     127.0.0.1:62004 - "GET /api/ticker/MSFT?period=1d&include_history=true HTTP/1.1" 200 OK
+2026-02-18 20:51:49,128 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/metric?symbol=MSFT&metric=all "HTTP/1.1 200 OK"
+2026-02-18 20:51:49,378 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/profile2?symbol=MSFT "HTTP/1.1 200 OK"
+2026-02-18 20:51:49,496 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/quote?symbol=MSFT "HTTP/1.1 200 OK"
+2026-02-18 20:51:49,498 [INFO] app.data.yfinance_client: yfinance: get_info(MSFT) - starting
+2026-02-18 20:51:50,307 [INFO] app.data.yfinance_client: yfinance: get_info(MSFT) - success (810ms)
+2026-02-18 20:51:50,307 [INFO] app.data.yfinance_client: yfinance: get_financials(MSFT) - starting
+2026-02-18 20:51:50,542 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/profile2?symbol=MSFT "HTTP/1.1 200 OK"
+2026-02-18 20:51:50,676 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/metric?symbol=MSFT&metric=all "HTTP/1.1 200 OK"
+2026-02-18 20:51:50,740 [INFO] app.data.yfinance_client: yfinance: get_historical(MSFT, 2y, 1h) - starting
+2026-02-18 20:51:51,164 [INFO] app.data.yfinance_client: yfinance: get_historical(MSFT) - success (424ms, 3483 bars)
+2026-02-18 20:51:51,209 [INFO] app.api.routes.ticker: Ticker MSFT: source=cache cache_hit=True age=753s
+INFO:     127.0.0.1:62023 - "GET /api/ticker/MSFT?period=1h&include_history=true HTTP/1.1" 200 OK
+2026-02-18 20:51:52,303 [INFO] app.data.yfinance_client: yfinance: get_financials(MSFT) - success (1995ms)
+2026-02-18 20:51:52,303 [INFO] app.data.fundamentals_service: YF heldPercentInstitutions: 0.75806
+2026-02-18 20:51:52,303 [INFO] app.data.fundamentals_service: Building Annual EPS with 5 quarters
+2026-02-18 20:51:52,303 [INFO] app.data.fundamentals_service: Block 0: EPS values: [5.16, 3.72, 3.65, 3.46]
+2026-02-18 20:51:52,303 [INFO] app.data.fundamentals_service: Skipping block starting at 4: not enough quarters
+2026-02-18 20:51:52,303 [INFO] app.data.fundamentals_service: Calculated Annual EPS: [15.99]
+INFO:     127.0.0.1:62010 - "GET /api/fundamentals/MSFT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62054 - "GET /api/watchlist HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:62057 - "GET /api/watchlist HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:62059 - "GET /api/watchlist/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62059 - "GET /api/watchlist/ HTTP/1.1" 200 OK
+2026-02-18 20:52:25,973 [INFO] httpxthrottlecache.filecache.transport: No cache policy for data.sec.gov:///submissions/CIK0000789019.json, not retrieving from cache
+2026-02-18 20:52:25,973 [INFO] httpxthrottlecache.ratelimiter: Making HTTP Request <Request('GET', 'https://data.sec.gov/submissions/CIK0000789019.json')>
+2026-02-18 20:52:26,382 [INFO] httpx: HTTP Request: GET https://data.sec.gov/submissions/CIK0000789019.json "HTTP/1.1 200 OK"
+2026-02-18 20:52:26,823 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/metric?symbol=MSFT&metric=all "HTTP/1.1 200 OK"
+2026-02-18 20:52:27,045 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/profile2?symbol=MSFT "HTTP/1.1 200 OK"
+2026-02-18 20:52:27,153 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/quote?symbol=MSFT "HTTP/1.1 200 OK"
+2026-02-18 20:52:27,155 [INFO] app.data.yfinance_client: yfinance: get_info(MSFT) - starting
+2026-02-18 20:52:27,843 [INFO] app.data.yfinance_client: yfinance: get_info(MSFT) - success (688ms)
+2026-02-18 20:52:27,843 [INFO] app.data.yfinance_client: yfinance: get_financials(MSFT) - starting
+2026-02-18 20:52:27,940 [INFO] app.data.yfinance_client: yfinance: get_financials(MSFT) - success (96ms)
+2026-02-18 20:52:27,940 [INFO] app.data.fundamentals_service: YF heldPercentInstitutions: 0.75806
+2026-02-18 20:52:27,940 [INFO] app.data.fundamentals_service: Building Annual EPS with 5 quarters
+2026-02-18 20:52:27,940 [INFO] app.data.fundamentals_service: Block 0: EPS values: [5.16, 3.72, 3.65, 3.46]
+2026-02-18 20:52:27,940 [INFO] app.data.fundamentals_service: Skipping block starting at 4: not enough quarters
+2026-02-18 20:52:27,940 [INFO] app.data.fundamentals_service: Calculated Annual EPS: [15.99]
+INFO:     127.0.0.1:62062 - "GET /api/fundamentals/MSFT HTTP/1.1" 200 OK
+2026-02-18 20:52:28,246 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/profile2?symbol=MSFT "HTTP/1.1 200 OK"
+2026-02-18 20:52:28,380 [INFO] httpx: HTTP Request: GET https://finnhub.io/api/v1/stock/metric?symbol=MSFT&metric=all "HTTP/1.1 200 OK"
+2026-02-18 20:52:28,492 [INFO] app.api.routes.ticker: Ticker MSFT: source=cache cache_hit=True age=791s
+INFO:     127.0.0.1:62069 - "GET /api/ticker/MSFT?period=8h&include_history=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62072 - "GET /api/watchlist HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:62076 - "GET /api/watchlist HTTP/1.1" 307 Temporary Redirect
+INFO:     127.0.0.1:62078 - "GET /api/watchlist/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62078 - "GET /api/watchlist/ HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'app/data/yfinance_client.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-02-18 20:53:59,822 [INFO] app.main: Market Terminal API shutting down
+2026-02-18 20:53:59,822 [INFO] app.data.cache: CacheManager closed (0 bg tasks cancelled)
+2026-02-18 20:53:59,823 [INFO] app.data.finnhub_client: Finnhub HTTP client closed
+2026-02-18 20:53:59,823 [INFO] app.data.yfinance_client: YFinanceClient closed
+2026-02-18 20:53:59,823 [INFO] app.data.edgar_client: EdgarClient closed
+2026-02-18 20:53:59,823 [INFO] app.data.edgar_ownership: EdgarOwnershipClient closed
+2026-02-18 20:53:59,823 [INFO] app.data.fred_client: FredClient closed
+2026-02-18 20:53:59,831 [INFO] app.data.database: Database connection closed
+2026-02-18 20:53:59,831 [INFO] app.main: Shutdown complete
+INFO:     Application shutdown complete.
+INFO:     Finished server process [52892]
+INFO:     Started server process [57690]
+INFO:     Waiting for application startup.
+2026-02-18 20:54:00,677 [INFO] app.main: Market Terminal API starting up
+2026-02-18 20:54:00,677 [INFO] app.config: Finnhub API: CONFIGURED (d6an****)
+2026-02-18 20:54:00,677 [INFO] app.config: FRED API: CONFIGURED (ba42****)
+2026-02-18 20:54:00,677 [INFO] app.config: Alpha Vantage: CONFIGURED (JI80****)
+2026-02-18 20:54:00,677 [INFO] app.config: SEC EDGAR: CONFIGURED (User-Agent set)
+2026-02-18 20:54:00,678 [INFO] app.config: Database path: /Volumes/Externalwork/projects/claudeflow-testing/market-terminal/data/market_terminal.db (directory ready)
+2026-02-18 20:54:00,678 [INFO] app.config: 
+=== Market Terminal Configuration ===
+  Finnhub API:         CONFIGURED (d6an****)
+  FRED API:            CONFIGURED (ba42****)
+  Alpha Vantage:       CONFIGURED (JI80****)
+  SEC EDGAR:          CONFIGURED (User-Agent set)
+  yfinance:           AVAILABLE (no key needed)
+  CFTC COT:           AVAILABLE (public data)
+  Database:           data/market_terminal.db
+  Sentiment Mode:     FinBERT (full model)
+==========================================
+2026-02-18 20:54:00,680 [INFO] app.data.database: SQLite journal mode: wal
+2026-02-18 20:54:00,681 [INFO] app.data.database: Database initialized at /Volumes/Externalwork/projects/claudeflow-testing/market-terminal/data/market_terminal.db
+2026-02-18 20:54:00,681 [INFO] app.main: Database initialized successfully
+INFO:     Application startup complete.

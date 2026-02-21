@@ -34,16 +34,13 @@ import pandas as pd
 from app.analysis.base import BaseMethodology, MethodologySignal
 
 # ---------------------------------------------------------------------------
-# Degree registry — (name, min_pct_swing, atr_multiplier)
-# Sorted from broadest to tightest.
-# ---------------------------------------------------------------------------
-
-_DEGREES: list[tuple[str, float, float]] = [
-    ("supercycle",    0.35, 4.0),
-    ("cycle",         0.20, 3.0),
-    ("primary",       0.10, 2.2),
-    ("intermediate",  0.05, 1.6),
-    ("minor",         0.025, 1.2),
+# Degree registry — (name, min_pct_swing, atr_multiplier, target_bars, max_bars)
+_DEGREES: list[tuple[str, float, float, int, int]] = [
+    ("supercycle",    0.35, 4.0, 500, 5000),
+    ("cycle",         0.20, 3.0, 300, 2000),
+    ("primary",       0.10, 2.2, 150, 800),
+    ("intermediate",  0.05, 1.6, 60,  300),
+    ("minor",         0.015, 1.2, 20,  120), # Tightened for better micro-analysis
 ]
 
 # Minimum bars of price data to sensibly run each degree
@@ -177,11 +174,13 @@ class ElliottWaveAnalyzer(BaseMethodology):
 
         # ---- Run analysis at each degree --------------------------------
         degree_results: list[_DegreeResult] = []
-        for degree, min_pct, atr_mult in _DEGREES:
-            min_bars = _DEGREE_MIN_BARS[degree]
+        for name, min_pct, atr_mult, target_bars, max_bars in _DEGREES:
+            min_bars = _DEGREE_MIN_BARS[name]
             if n_bars < min_bars:
                 continue
-            result = self._analyze_degree(degree, min_pct, atr_mult, merged, current_price)
+            result = self._analyze_degree(
+                name, min_pct, atr_mult, target_bars, max_bars, merged, current_price
+            )
             degree_results.append(result)
 
         if not degree_results or all(r.count is None for r in degree_results):
@@ -224,6 +223,8 @@ class ElliottWaveAnalyzer(BaseMethodology):
         degree: str,
         min_pct: float,
         atr_mult: float,
+        target_bars: int,
+        max_bars: int,
         merged: pd.DataFrame,
         current_price: float,
     ) -> _DegreeResult:
@@ -234,15 +235,48 @@ class ElliottWaveAnalyzer(BaseMethodology):
 
         candidates = self._build_candidates(segments)
         scored: list[_WaveCount] = []
+        last_bar_idx = len(merged) - 1
+
         for waves, ptype in candidates:
+            # 1. Neely Proportion Check
+            if not self._check_proportion(waves, ptype):
+                continue
+
+            # 2. Rule Validation
             ok, rp = self._validate_rules(waves, ptype)
             if not ok:
                 continue
+
+            # 3. Guideline Scoring
             gscore, subtype = self._score_guidelines(waves, ptype)
-            # Duration bonus: prefer patterns that cover more time
+
+            # 4. Duration/Recency Scoring (Degree-Aware)
             duration_bars = waves[-1].end_index - waves[0].start_index
-            duration_score = min(duration_bars / 500.0, 1.0)
-            scored.append(_WaveCount(waves, ptype, subtype, rp, gscore, float(rp) + gscore + duration_score))
+            
+            # Penalize patterns exceeding degree max_bars
+            if duration_bars > max_bars:
+                continue
+
+            # Duration bonus: prefer patterns near target_bars
+            # Linear ramp to 1.0 at target, then degrades if too long
+            if duration_bars <= target_bars:
+                duration_score = duration_bars / target_bars
+            else:
+                # Slow decay if exceeding target but under max
+                over = duration_bars - target_bars
+                duration_score = max(0.0, 1.0 - (over / (max_bars - target_bars)))
+
+            # Recency bonus: reward patterns that explain the very latest bars
+            # Especially for minor/intermediate degrees
+            recency_bonus = 0.0
+            gap = last_bar_idx - waves[-1].end_index
+            if gap <= 5: # Recent enough to be "current"
+                recency_bonus = 1.5 if degree in ["minor", "intermediate"] else 0.75
+            elif gap <= 15:
+                recency_bonus = 0.75 if degree in ["minor", "intermediate"] else 0.3
+
+            total_score = float(rp) + gscore + duration_score + recency_bonus
+            scored.append(_WaveCount(waves, ptype, subtype, rp, gscore, total_score))
 
         if not scored:
             return result
@@ -507,6 +541,33 @@ class ElliottWaveAnalyzer(BaseMethodology):
         time_alt = avg_t > 0 and abs(w2t - w4t) / avg_t > 0.25
         severity_alt = (w2r > 0.618) != (w4r > 0.618)
         return price_alt or time_alt or severity_alt
+
+    # ------------------------------------------------------------------
+    # Proportion check
+    # ------------------------------------------------------------------
+
+    def _check_proportion(self, waves: tuple[_WaveSegment, ...], ptype: str) -> bool:
+        """Neely's Rule of Proportion: waves must have comparable complexity/duration."""
+        if len(waves) < 3:
+            return True
+
+        # Duration comparison
+        durations = [w.end_index - w.start_index for w in waves]
+        max_d = max(durations)
+        min_d = max(min(durations), 1)
+        
+        # Rule of thumb: extreme disproportion (e.g. > 10x) invalidates the pattern at this degree
+        if max_d / min_d > 10.0:
+            return False
+
+        # Price comparison
+        lengths = [w.length for w in waves]
+        max_l = max(lengths)
+        min_l = max(min(lengths), _EPSILON)
+        if max_l / min_l > 20.0:
+            return False
+
+        return True
 
     # ------------------------------------------------------------------
     # Position assessment

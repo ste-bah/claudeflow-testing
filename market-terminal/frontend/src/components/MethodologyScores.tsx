@@ -21,6 +21,8 @@ import {
   METHODOLOGY_DISPLAY_NAMES,
   DIRECTION_CONFIG,
   TIMEFRAME_LABELS,
+  extractWaveDegrees,
+  EWaveDegreeCount,
 } from '../types/analysis';
 
 // ---------------------------------------------------------------------------
@@ -244,11 +246,13 @@ function ConfidenceBar({
 function KeyLevelsSection({
   levels,
   depth = 0,
+  excludeKeys = [],
 }: {
   readonly levels: Record<string, unknown>;
   readonly depth?: number;
+  readonly excludeKeys?: string[];
 }) {
-  const entries = Object.entries(levels);
+  const entries = Object.entries(levels).filter(([key]) => !excludeKeys.includes(key));
   if (entries.length === 0) return null;
 
   return (
@@ -256,7 +260,41 @@ function KeyLevelsSection({
       {entries.map(([key, value]) => (
         <div key={key} className="flex gap-1">
           <span className="text-text-muted shrink-0">{key}:</span>
-          {renderKeyLevelValue(value, depth)}
+          {renderKeyLevelValue(value, depth, excludeKeys)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Renders a single degree-level wave count in a hierarchical tree. */
+function EWaveDegreeTree({ degrees }: { readonly degrees: EWaveDegreeCount[] }) {
+  if (degrees.length === 0) return null;
+
+  return (
+    <div className="mt-2 border-l border-terminal-border ml-1 pl-2 flex flex-col gap-1.5">
+      {degrees.map((degree, idx) => (
+        <div
+          key={degree.degree}
+          className="flex flex-col gap-0.5"
+          style={{ marginLeft: `${idx * 4}px` }}
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="text-accent-blue font-bold text-[10px] bg-accent-blue/10 px-1 rounded uppercase">
+              {degree.degreeAbbr}
+            </span>
+            <span className="text-text-primary text-xs font-semibold">
+              {degree.label}
+            </span>
+            <DirectionArrow direction={degree.direction as any} />
+          </div>
+          <div className="flex gap-3 text-[10px] text-text-muted ml-6">
+            <span>Inval: <span className="text-text-secondary">{degree.invalidation.toFixed(2)}</span></span>
+            {degree.target && (
+              <span>Target: <span className="text-text-secondary">{degree.target.toFixed(2)}</span></span>
+            )}
+            <span>Conf: <span className="text-text-secondary">{(degree.confidence * 100).toFixed(0)}%</span></span>
+          </div>
         </div>
       ))}
     </div>
@@ -264,7 +302,7 @@ function KeyLevelsSection({
 }
 
 /** Renders a single key-level value according to its type. */
-function renderKeyLevelValue(value: unknown, depth: number): React.ReactNode {
+function renderKeyLevelValue(value: unknown, depth: number, excludeKeys: string[] = []): React.ReactNode {
   if (value === null || value === undefined) {
     return <span className="text-text-muted">--</span>;
   }
@@ -294,6 +332,7 @@ function renderKeyLevelValue(value: unknown, depth: number): React.ReactNode {
       <KeyLevelsSection
         levels={value as Record<string, unknown>}
         depth={depth + 1}
+        excludeKeys={excludeKeys}
       />
     );
   }
@@ -315,6 +354,24 @@ const SignalCard = React.memo(function SignalCard({ signal }: { readonly signal:
     METHODOLOGY_DISPLAY_NAMES[signal.methodology] ?? signal.methodology;
   const config = DIRECTION_CONFIG[signal.direction] ?? DIRECTION_CONFIG.neutral;
   const timeframeLabel = TIMEFRAME_LABELS[signal.timeframe] ?? signal.timeframe;
+
+  const isEWave = signal.methodology === 'elliott_wave';
+  const waveDegrees = isEWave ? extractWaveDegrees(signal.keyLevels) : [];
+
+  // Fields to hide from generic key levels section because they are handled specifically
+  const excludeKeys = isEWave ? [
+    'wave_counts_by_degree',
+    'wave_points',
+    'fib_levels',
+    'fib_targets',
+    'fib_levels_detailed',
+    'primary_degree',
+    'invalidation',
+    'primary_target',
+    'pattern_type',
+    'corrective_subtype',
+    'wave_label'
+  ] : [];
 
   return (
     <div className="bg-terminal-panel border border-terminal-border rounded p-2 resize-y overflow-auto h-auto min-h-[10rem] max-h-[500px]">
@@ -348,14 +405,22 @@ const SignalCard = React.memo(function SignalCard({ signal }: { readonly signal:
 
       {/* Reasoning */}
       {signal.reasoning && (
-        <p className="text-text-secondary text-xs mt-1">
+        <p className="text-text-secondary text-xs mt-1 leading-relaxed">
           {signal.reasoning}
         </p>
       )}
 
+      {/* Specialized Elliott Wave Tree */}
+      {isEWave && waveDegrees.length > 0 && (
+        <EWaveDegreeTree degrees={waveDegrees} />
+      )}
+
       {/* Key levels */}
       {Object.keys(signal.keyLevels).length > 0 && (
-        <KeyLevelsSection levels={signal.keyLevels} />
+        <KeyLevelsSection
+          levels={signal.keyLevels}
+          excludeKeys={excludeKeys}
+        />
       )}
     </div>
   );
