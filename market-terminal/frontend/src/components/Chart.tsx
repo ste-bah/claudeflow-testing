@@ -57,6 +57,7 @@ const COLORS = {
   fibAligned: '#a855f7',   // purple for confluence-aligned fibs
   invalidation: '#ef4444', // red invalidation line
   target: '#22d3ee',       // cyan primary target line
+  sma50: '#eab308',        // thick yellow SMA
 } as const;
 
 interface ChartSeriesData {
@@ -107,6 +108,7 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const smaSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const waveLineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const fibLinesRef = useRef<IPriceLine[]>([]);
   const labelNodesRef = useRef<HTMLDivElement[]>([]);
@@ -145,11 +147,19 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     }
   }, []);
 
+  const clearSmaLine = useCallback(() => {
+    if (chartRef.current && smaSeriesRef.current) {
+      try { chartRef.current.removeSeries(smaSeriesRef.current); } catch { /* ok */ }
+      smaSeriesRef.current = null;
+    }
+  }, []);
+
   const clearOverlay = useCallback(() => {
     clearLabels();
     clearPriceLines();
     clearWaveLine();
-  }, [clearLabels, clearPriceLines, clearWaveLine]);
+    clearSmaLine();
+  }, [clearLabels, clearPriceLines, clearWaveLine, clearSmaLine]);
 
   // -- Mount-only: create chart ----------------------------------------------
 
@@ -225,6 +235,30 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     const { candles, volumes } = mapBarsSinglePass(bars);
     candleSeriesRef.current.setData(candles);
     volumeSeriesRef.current.setData(volumes);
+
+    // -- SMA 50 Calculation --
+    if (chartRef.current && candles.length >= 50) {
+      if (!smaSeriesRef.current) {
+        smaSeriesRef.current = chartRef.current.addLineSeries({
+          color: COLORS.sma50,
+          lineWidth: 3,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: 'SMA 50',
+          crosshairMarkerVisible: false,
+        });
+      }
+
+      const smaData = [];
+      for (let i = 49; i < candles.length; i++) {
+        const window = candles.slice(i - 49, i + 1);
+        const avg = window.reduce((sum, c) => sum + c.close, 0) / 50;
+        smaData.push({ time: candles[i].time, value: avg });
+      }
+      smaSeriesRef.current.setData(smaData);
+    } else if (smaSeriesRef.current) {
+      smaSeriesRef.current.setData([]);
+    }
 
     const lastCandle = candles[candles.length - 1];
     if (lastCandle) {
