@@ -1,19 +1,31 @@
-"""Elliott Wave analysis module.
+"""Elliott Wave analysis module — Neely Method, Multi-Degree Implementation.
 
-Implements Ralph Nelson Elliott's wave principle including:
-- Swing point detection (local highs/lows with alternation enforcement)
-- Impulse wave validation (5-wave patterns with 3 cardinal rules)
-- Corrective wave validation (3-wave A-B-C patterns)
-- Fibonacci retracement and extension level calculation
-- Guideline scoring (Wave 2/3/4/5 proportional relationships)
-- Confidence scoring with volume confirmation and ambiguity penalty
+Simultaneously detects wave structure at five hierarchical degrees:
 
-Full implementation: TASK-ANALYSIS-003
+  Supercycle → Cycle → Primary → Intermediate → Minor
+
+Each degree uses an independently calibrated ATR threshold to build its own
+monowave sequence, then validates Neely's strict impulse and corrective rules
+independently at that degree. All degrees are returned in a tree so the UI can
+show: "Cycle: Wave 3 of impulse up → Primary: Wave A of zigzag corrective → ..."
+
+Neely Rules Enforced (per degree):
+  Impulse:
+    R1  Wave 2 cannot retrace > 99% of Wave 1.
+    R2  Wave 3 cannot be the shortest of W1, W3, W5 (by price).
+    R3  Wave 4 cannot overlap Wave 1 territory.
+    R4  Alternation: W2 and W4 must differ in Price, Time, or Severity.
+  Corrective:
+    Zigzag  B retraces < 61.8% of A; C extends beyond A's end.
+    Flat    B retraces ≥ 61.8% of A; C ≈ equal to A.
+
+Full implementation: TASK-NEELY-005
 """
 
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -22,38 +34,48 @@ import pandas as pd
 from app.analysis.base import BaseMethodology, MethodologySignal
 
 # ---------------------------------------------------------------------------
-# Constants
+# Degree registry — (name, min_pct_swing, atr_multiplier)
+# Sorted from broadest to tightest.
 # ---------------------------------------------------------------------------
 
-_DEFAULT_SWING_N: int = 5
-_MIN_SWINGS_REQUIRED: int = 4
-_MAX_CANDIDATES: int = 100
-_EPSILON: float = 1e-10
-_MAX_TICKER_LENGTH: int = 20
+_DEGREES: list[tuple[str, float, float]] = [
+    ("supercycle",    0.14, 3.5),
+    ("cycle",         0.09, 2.8),
+    ("primary",       0.05, 2.0),
+    ("intermediate",  0.025, 1.5),
+    ("minor",         0.012, 1.0),
+]
 
-# ZigZag pivot detection — defaults (1D)
-_ZIGZAG_ATR_MULTIPLIER: float = 1.5
-_ZIGZAG_MIN_PCT: float = 0.04   # 4% minimum swing on daily bars
-
-# Per chart-timeframe ZigZag parameters: (atr_multiplier, min_pct_swing)
-# Higher timeframes need wider pivots to capture macro wave structure;
-# lower timeframes need tighter pivots for short-term price action.
-_TIMEFRAME_ZIGZAG: dict[str, tuple[float, float]] = {
-    "1h":   (1.0, 0.015),   # Minute/Minuette degree — 1.5% min swing
-    "4h":   (1.2, 0.020),   # Minor degree — 2%
-    "8h":   (1.3, 0.025),
-    "12h":  (1.3, 0.025),
-    "1d":   (1.5, 0.040),   # Intermediate degree — 4% (default)
-    "1w":   (2.0, 0.060),   # Primary / Cycle degree — 6%
-    "1m":   (2.5, 0.080),   # Supercycle — 8%
-    "3m":   (2.5, 0.080),
-    "6m":   (2.0, 0.070),
-    "1y":   (2.0, 0.060),
-    "5y":   (2.5, 0.080),
+# Minimum bars of price data to sensibly run each degree
+_DEGREE_MIN_BARS: dict[str, int] = {
+    "supercycle":   400,
+    "cycle":        200,
+    "primary":      80,
+    "intermediate": 30,
+    "minor":        15,
 }
 
-# Target sanity clamp
-_MAX_TARGET_DEVIATION: float = 0.40  # never show target >40% from price
+# Labels for each degree in reasoning text
+_DEGREE_LABEL: dict[str, str] = {
+    "supercycle":   "SC",
+    "cycle":        "CY",
+    "primary":      "P",
+    "intermediate": "I",
+    "minor":        "m",
+}
+
+# ---------------------------------------------------------------------------
+# Core constants
+# ---------------------------------------------------------------------------
+
+_EPSILON: float = 1e-10
+_MAX_TICKER_LENGTH: int = 20
+_MAX_CANDIDATES: int = 100
+
+_W2_MAX_RETRACE: float = 0.990
+_W3_EXTENSION_THRESHOLD: float = 1.618
+_FLAT_B_MIN_RETRACE: float = 0.618
+_EQUALITY_TOLERANCE: float = 0.10
 
 _FIB_RETRACEMENTS: tuple[float, ...] = (0.236, 0.382, 0.500, 0.618, 0.786)
 _FIB_EXTENSIONS: tuple[float, ...] = (1.000, 1.272, 1.618, 2.000, 2.618)
@@ -61,74 +83,84 @@ _FIB_OUTPUT_KEYS: tuple[str, ...] = (
     "23.6%", "38.2%", "50.0%", "61.8%", "100.0%", "161.8%",
 )
 _FIB_OUTPUT_RATIOS: tuple[float, ...] = (0.236, 0.382, 0.500, 0.618, 1.000, 1.618)
-_FIB_CONFLUENCE_TOLERANCE: float = 0.01
+_FIB_CONFLUENCE_TOLERANCE: float = 0.012
+_MAX_TARGET_DEVIATION: float = 0.60
 
-_CONFIDENCE_BASE: float = 0.50
-_CONFIDENCE_PER_GUIDELINE: float = 0.05
-_CONFIDENCE_FIB_CONFLUENCE: float = 0.10
-_CONFIDENCE_VOLUME_CONFIRMS: float = 0.10
-_CONFIDENCE_WAVE_CLARITY: float = 0.10
-_CONFIDENCE_AMBIGUITY_PENALTY: float = 0.15
-_CONFIDENCE_FLOOR: float = 0.15
-_CONFIDENCE_CAP: float = 1.0
-_INSUFFICIENT_DATA_CONFIDENCE: float = 0.25
+_CONF_BASE: float = 0.40
+_CONF_FLOOR: float = 0.15
+_CONF_CAP: float = 1.00
+_CONF_NO_PATTERN: float = 0.15
+_CONFIDENCE_HIGH: float = 0.70
+_CONFIDENCE_MODERATE: float = 0.50
 
-_GUIDELINE_W2_RETRACE_LOW: float = 0.50
-_GUIDELINE_W2_RETRACE_HIGH: float = 0.618
-_GUIDELINE_W3_EXTENSION: float = 1.618
-_GUIDELINE_W4_RETRACE: float = 0.382
-_GUIDELINE_W5_EQUALITY_TOLERANCE: float = 0.10
-_VOLUME_LOOKBACK: int = 20
-_CONFIDENCE_HIGH_QUALIFIER: float = 0.7
-_CONFIDENCE_MODERATE_QUALIFIER: float = 0.5
 
 # ---------------------------------------------------------------------------
-# NamedTuples
+# NamedTuples / Dataclasses
 # ---------------------------------------------------------------------------
-
-
-class _SwingPoint(NamedTuple):
-    index: int
-    price: float
-    swing_type: str  # "high" | "low"
 
 
 class _WaveSegment(NamedTuple):
     start_index: int
-    end_index: int
+    end_index:   int
     start_price: float
-    end_price: float
-    direction: str  # "up" | "down"
-    length: float
+    end_price:   float
+    direction:   str    # "up" | "down"
+    length:      float  # absolute price distance
 
 
 class _WaveCount(NamedTuple):
-    waves: tuple[_WaveSegment, ...]
-    pattern_type: str  # "impulse" | "corrective"
-    rules_passed: int
-    guideline_score: float
-    total_score: float
+    waves:            tuple[_WaveSegment, ...]
+    pattern_type:     str    # "impulse" | "corrective"
+    corrective_sub:   str    # "" | "zigzag" | "flat"
+    rules_passed:     int
+    guideline_score:  float
+    total_score:      float
 
 
 class _FibLevel(NamedTuple):
-    ratio: float
-    price: float
-    label: str
+    ratio:      float
+    price:      float
+    label:      str
     is_aligned: bool
 
 
+@dataclass
+class _DegreeResult:
+    """Best wave count found at a given Elliott Wave degree."""
+    degree:        str
+    count:         _WaveCount | None = None
+    wave_label:    str = ""           # e.g. "Wave 3 of Cycle impulse up"
+    current_wave:  int = 0            # 1-5 for impulse, 1-3 for corrective
+    direction:     str = "neutral"
+    invalidation:  float = 0.0
+    target:        float | None = None
+    confidence:    float = 0.0
+    is_live:       bool = False       # True if pattern ends near current bar
+    end_offset:    int = 999          # Bars from chart end
+    wave_points:   list[dict[str, Any]] = field(default_factory=list)
+    fib_levels:    list[_FibLevel] = field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
-# ElliottWaveAnalyzer
+# ElliottWaveAnalyzer — Multi-Degree Neely Engine
 # ---------------------------------------------------------------------------
 
 
 class ElliottWaveAnalyzer(BaseMethodology):
-    """Elliott Wave pattern analysis."""
+    """Multi-degree Elliott Wave analysis using Glenn Neely's objective rules.
 
-    name: str = "elliott_wave"
-    display_name: str = "Elliott Wave"
+    Simultaneously detects wave structure at Supercycle, Cycle, Primary,
+    Intermediate, and Minor degrees across the full price history.
+    """
+
+    name:             str = "elliott_wave"
+    display_name:     str = "Elliott Wave"
     default_timeframe: str = "medium"
-    version: str = "1.0.0"
+    version:          str = "3.0.0"
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     async def analyze(
         self,
@@ -138,115 +170,118 @@ class ElliottWaveAnalyzer(BaseMethodology):
         fundamentals: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> MethodologySignal:
-        # Pull chart-level timeframe so we pick the right ZigZag sensitivity.
-        chart_timeframe: str = str(kwargs.get("chart_timeframe", "1d")).lower()
         self.validate_input(price_data, volume_data)
         merged = self._merge_data(price_data, volume_data)
         current_price = float(merged["close"].iloc[-1])
-        swings = self._detect_pivots_zigzag(merged, chart_timeframe)
+        n_bars = len(merged)
 
-        if len(swings) < _MIN_SWINGS_REQUIRED:
+        # ---- Run analysis at each degree --------------------------------
+        degree_results: list[_DegreeResult] = []
+        for degree, min_pct, atr_mult in _DEGREES:
+            min_bars = _DEGREE_MIN_BARS[degree]
+            if n_bars < min_bars:
+                continue
+            result = self._analyze_degree(degree, min_pct, atr_mult, merged, current_price)
+            degree_results.append(result)
+
+        if not degree_results or all(r.count is None for r in degree_results):
             return self.create_signal(
                 ticker=ticker, direction="neutral",
-                confidence=_INSUFFICIENT_DATA_CONFIDENCE,
+                confidence=_CONF_NO_PATTERN,
                 timeframe=self.default_timeframe,
-                reasoning="Insufficient swing points for Elliott Wave analysis.",
+                reasoning="No valid wave structures detected at any degree.",
                 key_levels={"current_price": current_price},
             )
 
-        # Only keep candidates that satisfy ALL cardinal EW rules.
-        # Partial matches (1/3, 2/3 rules) are discarded — a structure that
-        # violates Rule 3 (Wave 4 overlaps Wave 1) is NOT an impulse, period.
-        candidates = self._build_candidates(swings)
+        # ---- Choose primary degree for signal ---------------------------
+        # Use the most confident valid result, preferring intermediate/primary
+        # if available (most actionable), otherwise use whatever we have.
+        best = self._choose_primary_degree(degree_results)
+        primary_result = best
+
+        # ---- Build output -----------------------------------------------
+        confidence = self._aggregate_confidence(degree_results, primary_result)
+        key_levels = self._build_key_levels(
+            degree_results, primary_result, current_price, merged,
+        )
+        reasoning = self._build_reasoning(ticker, degree_results, primary_result, confidence)
+
+        return self.create_signal(
+            ticker=ticker,
+            direction=primary_result.direction,
+            confidence=confidence,
+            timeframe=self._timeframe_for_degree(primary_result.degree, primary_result.current_wave),
+            reasoning=reasoning,
+            key_levels=key_levels,
+        )
+
+    # ------------------------------------------------------------------
+    # Per-degree analysis
+    # ------------------------------------------------------------------
+
+    def _analyze_degree(
+        self,
+        degree: str,
+        min_pct: float,
+        atr_mult: float,
+        merged: pd.DataFrame,
+        current_price: float,
+    ) -> _DegreeResult:
+        result = _DegreeResult(degree=degree)
+        segments = self._construct_segments(merged, min_pct, atr_mult)
+        if len(segments) < 3:
+            return result
+
+        candidates = self._build_candidates(segments)
         scored: list[_WaveCount] = []
         for waves, ptype in candidates:
-            all_ok, rpassed = self._validate_rules(waves, ptype)
-            if not all_ok:
-                continue  # Hard reject — EW theory has no partial impulses
-            gscore = self._score_guidelines(waves, ptype)
-            scored.append(_WaveCount(waves, ptype, rpassed, gscore, 3.0 + gscore))
+            ok, rp = self._validate_rules(waves, ptype)
+            if not ok:
+                continue
+            gscore, subtype = self._score_guidelines(waves, ptype)
+            scored.append(_WaveCount(waves, ptype, subtype, rp, gscore, float(rp) + gscore))
 
         if not scored:
-            return self.create_signal(
-                ticker=ticker, direction="neutral",
-                confidence=_INSUFFICIENT_DATA_CONFIDENCE,
-                timeframe=self.default_timeframe,
-                reasoning="No valid Elliott Wave patterns detected.",
-                key_levels={"current_price": current_price},
-            )
+            return result
 
-        # Sort: prefer candidates whose pattern ends furthest right (most recent)
-        # and highest score within same end position.
         scored.sort(key=lambda c: (c.waves[-1].end_index, c.total_score), reverse=True)
 
-        # ── Invalidation filter ───────────────────────────────────────────────
-        # Drop any candidate whose invalidation level is ALREADY breached by
-        # the current price. E.g. a bullish impulse with invalidation at $20
-        # when price is $4 is meaningless — that wave count collapsed long ago.
-        def _already_invalidated(wc: _WaveCount) -> bool:
-            inval = self._determine_invalidation(wc, merged)
-            w0 = wc.waves[0]
-            if w0.direction == "up":      # bullish count: invalid if below inval
-                return current_price < inval * 0.995
-            else:                          # bearish count: invalid if above inval
-                return current_price > inval * 1.005
+        # Drop wave counts already invalidated by current price
+        valid: list[_WaveCount] = []
+        for c in scored:
+            inval = self._determine_invalidation(c, merged)
+            if c.waves[0].direction == "up" and current_price >= inval * 0.995:
+                valid.append(c)
+            elif c.waves[0].direction == "down" and current_price <= inval * 1.005:
+                valid.append(c)
 
-        valid_scored = [c for c in scored if not _already_invalidated(c)]
+        if not valid:
+            return result
 
-        # If everything is invalidated fall back gracefully to neutral signal
-        if not valid_scored:
-            return self.create_signal(
-                ticker=ticker, direction="neutral",
-                confidence=_INSUFFICIENT_DATA_CONFIDENCE,
-                timeframe=self.default_timeframe,
-                reasoning="All detected wave counts already invalidated by current price.",
-                key_levels={"current_price": current_price},
-            )
-
-        primary = valid_scored[0]
-        alternative = valid_scored[1] if len(valid_scored) > 1 else None
-
-        wave_label, direction, timeframe = self._assess_position(
-            primary, current_price, merged,
+        best = valid[0]
+        result.count = best
+        result.wave_label, result.direction, cwi = self._assess_position(best, merged)
+        result.current_wave = cwi + 1
+        result.invalidation = self._determine_invalidation(best, merged)
+        result.fib_levels = self._calculate_fibonacci_levels(best, current_price)
+        result.target = self._calculate_target(result.fib_levels, current_price, result.direction)
+        result.confidence = self._calculate_confidence_for_count(
+            best, valid[1] if len(valid) > 1 else None, result.fib_levels, merged,
         )
-        fib_levels = self._calculate_fibonacci_levels(primary, current_price)
-        invalidation = self._determine_invalidation(primary, merged)
-        alt_invalidation = (
-            self._determine_invalidation(alternative, merged)
-            if alternative is not None else invalidation
-        )
+        result.wave_points = self._build_wave_points(best, merged)
 
-        # Target: first extension that hasn't been hit, clamped to ±40% of price
-        primary_target: float | None = None
-        for fl in sorted(fib_levels, key=lambda f: abs(f.price - current_price)):
-            if fl.ratio not in _FIB_EXTENSIONS:
-                continue
-            if direction == "bullish" and fl.price > current_price * 0.99:
-                if fl.price <= current_price * (1 + _MAX_TARGET_DEVIATION):
-                    primary_target = fl.price
-                    break
-            elif direction == "bearish" and fl.price < current_price * 1.01:
-                if fl.price >= current_price * (1 - _MAX_TARGET_DEVIATION):
-                    primary_target = fl.price
-                    break
+        # Liveness check: Is this count current or historically "stale"?
+        # A pattern is "live" if its last wave ends within 4 bars of the current close.
+        last_wave_end = best.waves[-1].end_index
+        n_bars = len(merged)
+        result.end_offset = n_bars - 1 - last_wave_end
+        result.is_live = (result.end_offset <= 4)
 
-        confidence = self._calculate_confidence(
-            primary, alternative, fib_levels, merged,
-        )
-        key_levels = self._build_key_levels(
-            primary, alternative, fib_levels, wave_label,
-            invalidation, alt_invalidation, primary_target, merged,
-        )
-        reasoning = self._build_reasoning(
-            ticker, primary, alternative, wave_label,
-            confidence, invalidation, primary_target,
-        )
-        return self.create_signal(
-            ticker=ticker, direction=direction, confidence=confidence,
-            timeframe=timeframe, reasoning=reasoning, key_levels=key_levels,
-        )
+        return result
 
-    # -- data preparation --------------------------------------------------
+    # ------------------------------------------------------------------
+    # Pivot / Monowave construction
+    # ------------------------------------------------------------------
 
     def _merge_data(
         self, price_data: pd.DataFrame, volume_data: pd.DataFrame,
@@ -256,66 +291,54 @@ class ElliottWaveAnalyzer(BaseMethodology):
         merged = merged.sort_values("date", ascending=True).reset_index(drop=True)
         return merged[["date", "open", "high", "low", "close", "volume"]]
 
-    # -- pivot detection (ZigZag) -------------------------------------------
-
-    def _compute_atr(
-        self, df: pd.DataFrame, chart_timeframe: str = "1d", period: int = 50,
-    ) -> float:
-        """Median ATR percentage threshold for ZigZag, scaled to `chart_timeframe`."""
-        # Look up per-timeframe (atr_mult, min_pct) — fall back to 1d defaults.
-        atr_mult, min_pct = _TIMEFRAME_ZIGZAG.get(
-            chart_timeframe, (_ZIGZAG_ATR_MULTIPLIER, _ZIGZAG_MIN_PCT)
-        )
+    def _construct_segments(
+        self,
+        df: pd.DataFrame,
+        min_pct: float,
+        atr_mult: float,
+        pivot_period: int = 50,
+    ) -> list[_WaveSegment]:
+        """Build wave segments for a given degree using ATR-scaled ZigZag."""
         highs = df["high"].values
         lows = df["low"].values
         closes = df["close"].values
         n = len(df)
-        if n < 2:
-            return min_pct
-        lookback = min(n - 1, period)
+        if n < 3:
+            return []
+
+        # Compute ATR-based threshold
+        lookback = min(n - 1, pivot_period)
         true_ranges: list[float] = []
         for i in range(n - lookback, n):
             hl = highs[i] - lows[i]
             hc = abs(highs[i] - closes[i - 1])
             lc = abs(lows[i] - closes[i - 1])
             true_ranges.append(max(hl, hc, lc))
-        if not true_ranges:
-            return min_pct
-        true_ranges.sort()
-        median_tr = true_ranges[len(true_ranges) // 2]
-        current_close = float(closes[-1])
-        if current_close <= 0:
-            return min_pct
-        pct = (median_tr / current_close) * atr_mult
-        return max(min(pct, 0.25), min_pct)
+        if true_ranges:
+            true_ranges.sort()
+            median_tr = true_ranges[len(true_ranges) // 2]
+            current_close = float(closes[-1])
+            if current_close > 0:
+                atr_pct = (median_tr / current_close) * atr_mult
+                threshold = max(min(atr_pct, 0.40), min_pct)
+            else:
+                threshold = min_pct
+        else:
+            threshold = min_pct
 
-    def _detect_pivots_zigzag(
-        self, df: pd.DataFrame, chart_timeframe: str = "1d",
-    ) -> list[_SwingPoint]:
-        """Identify structural pivot highs/lows via ZigZag confirmation.
+        # ZigZag pivot detection
+        pivots: list[tuple[int, float, str]] = []
+        direction = "up" if highs[-1] > highs[0] else "down"
+        extreme_price = highs[0] if direction == "up" else lows[0]
+        extreme_idx = 0
 
-        A pivot high is CONFIRMED once price drops >= ATR threshold below it.
-        A pivot low is CONFIRMED once price rallies >= ATR threshold above it.
-        The threshold scales with `chart_timeframe`: 1H is tight (1.5%), 1W is
-        wide (6%) to capture macro Elliott Wave structure across different degrees.
-        """
-        highs = df["high"].values
-        lows = df["low"].values
-        n = len(df)
-        if n < 3:
-            return []
-        threshold = self._compute_atr(df, chart_timeframe)
-        confirmed: list[_SwingPoint] = []
-        direction: str = "up" if highs[-1] > highs[0] else "down"
-        extreme_price: float = highs[0] if direction == "up" else lows[0]
-        extreme_idx: int = 0
         for i in range(1, n):
             if direction == "up":
                 if highs[i] > extreme_price:
                     extreme_price = float(highs[i])
                     extreme_idx = i
                 elif lows[i] < extreme_price * (1.0 - threshold):
-                    confirmed.append(_SwingPoint(extreme_idx, extreme_price, "high"))
+                    pivots.append((extreme_idx, extreme_price, "high"))
                     direction = "down"
                     extreme_price = float(lows[i])
                     extreme_idx = i
@@ -324,124 +347,171 @@ class ElliottWaveAnalyzer(BaseMethodology):
                     extreme_price = float(lows[i])
                     extreme_idx = i
                 elif highs[i] > extreme_price * (1.0 + threshold):
-                    confirmed.append(_SwingPoint(extreme_idx, extreme_price, "low"))
+                    pivots.append((extreme_idx, extreme_price, "low"))
                     direction = "up"
                     extreme_price = float(highs[i])
                     extreme_idx = i
-        if confirmed:
+
+        if pivots:
             last_type = "high" if direction == "up" else "low"
-            if confirmed[-1].index != extreme_idx:
-                confirmed.append(_SwingPoint(extreme_idx, extreme_price, last_type))
-        return confirmed
+            if pivots[-1][0] != extreme_idx:
+                pivots.append((extreme_idx, extreme_price, last_type))
 
-    # -- candidate generation -----------------------------------------------
-
-    def _build_candidates(
-        self, swings: list[_SwingPoint],
-    ) -> list[tuple[tuple[_WaveSegment, ...], str]]:
-        """Build (waves, pattern_type) candidates. Corrective patterns are
-        only proposed counter-trend (EW theory: corrections go against the trend)."""
-        if len(swings) < 2:
+        if len(pivots) < 2:
             return []
 
         segments: list[_WaveSegment] = []
-        for i in range(len(swings) - 1):
-            s0, s1 = swings[i], swings[i + 1]
-            d = "up" if s1.price > s0.price else "down"
-            segments.append(_WaveSegment(
-                s0.index, s1.index, s0.price, s1.price, d, abs(s1.price - s0.price),
-            ))
+        for i in range(len(pivots) - 1):
+            idx0, price0, _ = pivots[i]
+            idx1, price1, _ = pivots[i + 1]
+            d = "up" if price1 > price0 else "down"
+            segments.append(_WaveSegment(idx0, idx1, price0, price1, d, abs(price1 - price0)))
+        return segments
 
-        # Trend direction from overall swing sequence
-        trend_up = swings[-1].price > swings[0].price
-        # Corrective first wave goes AGAINST the trend
+    # ------------------------------------------------------------------
+    # Candidate generation
+    # ------------------------------------------------------------------
+
+    def _build_candidates(
+        self, segments: list[_WaveSegment],
+    ) -> list[tuple[tuple[_WaveSegment, ...], str]]:
+        if len(segments) < 2:
+            return []
+        trend_up = segments[-1].end_price > segments[0].start_price
         corrective_first_dir = "down" if trend_up else "up"
 
-        five_groups = [tuple(segments[i:i + 5]) for i in range(len(segments) - 4)][::-1]
-        three_groups = [tuple(segments[i:i + 3]) for i in range(len(segments) - 2)][::-1]
+        five = [(tuple(segments[i:i + 5]), "impulse")
+                for i in range(len(segments) - 4)][::-1]
+        three = [(tuple(segments[i:i + 3]), "corrective")
+                 for i in range(len(segments) - 2)
+                 if segments[i].direction == corrective_first_dir][::-1]
+        return (five + three)[:_MAX_CANDIDATES]
 
-        candidates: list[tuple[tuple[_WaveSegment, ...], str]] = []
-        # Impulse: no trend-direction restriction
-        for w5 in five_groups:
-            candidates.append((w5, "impulse"))
-        # Corrective: COUNTER-TREND only
-        for w3 in three_groups:
-            if w3[0].direction == corrective_first_dir:
-                candidates.append((w3, "corrective"))
-        if len(candidates) >= _MAX_CANDIDATES:
-            return candidates[:_MAX_CANDIDATES]
-        return candidates
-
-    # -- rule validation ----------------------------------------------------
+    # ------------------------------------------------------------------
+    # Rule validation — strict Neely
+    # ------------------------------------------------------------------
 
     def _validate_rules(
-        self, waves: tuple[_WaveSegment, ...], pattern_type: str,
+        self, waves: tuple[_WaveSegment, ...], ptype: str,
     ) -> tuple[bool, int]:
-        if pattern_type == "impulse" and len(waves) == 5:
-            w1, w2, w3, w4, w5 = waves
-            passed = 0
-            # R1: Wave 2 retrace < 100% of Wave 1
-            if w1.direction == "up":
-                r1 = w2.end_price > w1.start_price
-            else:
-                r1 = w2.end_price < w1.start_price
-            passed += int(r1)
-            # R2: Wave 3 NOT shortest of 1, 3, 5
-            r2 = not (w3.length < w1.length and w3.length < w5.length)
-            passed += int(r2)
-            # R3: Wave 4 no overlap with Wave 1
-            if w1.direction == "up":
-                r3 = w4.end_price >= w1.end_price
-            else:
-                r3 = w4.end_price <= w1.end_price
-            passed += int(r3)
-            return (passed == 3, passed)
-
-        if pattern_type == "corrective" and len(waves) == 3:
-            wa, wb, wc = waves
-            passed = 0
-            if wa.direction == "up":
-                passed += int(wb.end_price > wa.start_price)
-            else:
-                passed += int(wb.end_price < wa.start_price)
-            passed += int(wa.direction == wc.direction)
-            passed += int(wc.length > 0)
-            return (passed == 3, passed)
-
+        if ptype == "impulse" and len(waves) == 5:
+            return self._validate_impulse(waves)
+        if ptype == "corrective" and len(waves) == 3:
+            return self._validate_corrective(waves)
         return (False, 0)
 
-    # -- guideline scoring --------------------------------------------------
+    def _validate_impulse(self, waves: tuple[_WaveSegment, ...]) -> tuple[bool, int]:
+        w1, w2, w3, w4, w5 = waves
+        up = w1.direction == "up"
+        # Direction alternation check
+        exp = ["up", "down", "up", "down", "up"] if up else ["down", "up", "down", "up", "down"]
+        if [w.direction for w in waves] != exp:
+            return (False, 0)
+
+        passed = 0
+        # R1: W2 < 99% retrace of W1
+        passed += int(w2.length / max(w1.length, _EPSILON) < _W2_MAX_RETRACE)
+        # R2: W3 not shortest
+        passed += int(not (w3.length < w1.length and w3.length < w5.length))
+        # R3: W4 no overlap W1
+        if up:
+            passed += int(w4.end_price >= w1.end_price)
+        else:
+            passed += int(w4.end_price <= w1.end_price)
+
+        return (passed == 3, passed)
+
+    def _validate_corrective(self, waves: tuple[_WaveSegment, ...]) -> tuple[bool, int]:
+        wa, wb, wc = waves
+        passed = 0
+        # B does not go beyond A's origin
+        if wa.direction == "up":
+            passed += int(wb.end_price > wa.start_price)
+        else:
+            passed += int(wb.end_price < wa.start_price)
+        # C same direction as A
+        passed += int(wc.direction == wa.direction)
+        # C has length
+        passed += int(wc.length > _EPSILON)
+        return (passed == 3, passed)
+
+    # ------------------------------------------------------------------
+    # Guideline scoring
+    # ------------------------------------------------------------------
 
     def _score_guidelines(
-        self, waves: tuple[_WaveSegment, ...], pattern_type: str,
-    ) -> float:
+        self, waves: tuple[_WaveSegment, ...], ptype: str,
+    ) -> tuple[float, str]:
         score = 0.0
-        if pattern_type == "impulse" and len(waves) == 5:
+        subtype = ""
+
+        if ptype == "impulse" and len(waves) == 5:
             w1, w2, w3, w4, w5 = waves
             w2r = w2.length / max(w1.length, _EPSILON)
-            if _GUIDELINE_W2_RETRACE_LOW <= w2r <= _GUIDELINE_W2_RETRACE_HIGH:
+            if 0.50 <= w2r <= 0.786:
                 score += 1.0
-            if w3.length / max(w1.length, _EPSILON) >= _GUIDELINE_W3_EXTENSION:
-                score += 1.0
+            w3r = w3.length / max(w1.length, _EPSILON)
+            if w3r >= _W3_EXTENSION_THRESHOLD:
+                score += 1.5
             w4r = w4.length / max(w3.length, _EPSILON)
-            if abs(w4r - _GUIDELINE_W4_RETRACE) <= _GUIDELINE_W5_EQUALITY_TOLERANCE:
+            if 0.28 <= w4r <= 0.50:
                 score += 1.0
-            if abs(w5.length / max(w1.length, _EPSILON) - 1.0) <= _GUIDELINE_W5_EQUALITY_TOLERANCE:
-                score += 1.0
-        elif pattern_type == "corrective" and len(waves) == 3:
+            if self._check_alternation(w1, w2, w3, w4):
+                score += 1.5
+            if w3r >= _W3_EXTENSION_THRESHOLD:
+                w5r = w5.length / max(w1.length, _EPSILON)
+                if abs(w5r - 1.0) <= _EQUALITY_TOLERANCE or abs(w5r - 0.618) <= _EQUALITY_TOLERANCE:
+                    score += 1.0
+
+        elif ptype == "corrective" and len(waves) == 3:
             wa, wb, wc = waves
             wbr = wb.length / max(wa.length, _EPSILON)
-            if _GUIDELINE_W2_RETRACE_LOW <= wbr <= _GUIDELINE_W2_RETRACE_HIGH:
+            if wbr < _FLAT_B_MIN_RETRACE:
+                subtype = "zigzag"
                 score += 1.0
-            if abs(wc.length / max(wa.length, _EPSILON) - 1.0) <= _GUIDELINE_W5_EQUALITY_TOLERANCE:
+                # C extends beyond A's end (C goes further than A end in same direction)
+                if wa.direction == "up":
+                    if wc.end_price < wa.end_price:
+                        score += 1.0
+                else:
+                    if wc.end_price > wa.end_price:
+                        score += 1.0
+                wcr = wc.length / max(wa.length, _EPSILON)
+                if 0.85 <= wcr <= 1.15:
+                    score += 0.5
+            else:
+                subtype = "flat"
                 score += 1.0
-        return score
+                wcr = wc.length / max(wa.length, _EPSILON)
+                if abs(wcr - 1.0) <= 0.20:
+                    score += 1.0
+                if 0.80 <= wbr <= 1.10:
+                    score += 0.5
 
-    # -- position assessment ------------------------------------------------
+        return (score, subtype)
+
+    def _check_alternation(
+        self,
+        w1: _WaveSegment, w2: _WaveSegment,
+        w3: _WaveSegment, w4: _WaveSegment,
+    ) -> bool:
+        w2r = w2.length / max(w1.length, _EPSILON)
+        w4r = w4.length / max(w3.length, _EPSILON)
+        price_alt = abs(w2r - w4r) > 0.10
+        w2t = w2.end_index - w2.start_index
+        w4t = w4.end_index - w4.start_index
+        avg_t = (w2t + w4t) / 2.0
+        time_alt = avg_t > 0 and abs(w2t - w4t) / avg_t > 0.25
+        severity_alt = (w2r > 0.618) != (w4r > 0.618)
+        return price_alt or time_alt or severity_alt
+
+    # ------------------------------------------------------------------
+    # Position assessment
+    # ------------------------------------------------------------------
 
     def _assess_position(
-        self, count: _WaveCount, current_price: float, merged: pd.DataFrame,
-    ) -> tuple[str, str, str]:
+        self, count: _WaveCount, merged: pd.DataFrame,
+    ) -> tuple[str, str, int]:  # (label, direction, current_wave_index_0based)
         waves = count.waves
         last_bar = len(merged) - 1
         cwi = len(waves) - 1
@@ -454,19 +524,21 @@ class ElliottWaveAnalyzer(BaseMethodology):
             wn = cwi + 1
             up = waves[0].direction == "up"
             direction = ("bullish" if up else "bearish") if wn % 2 == 1 else ("bearish" if up else "bullish")
-            wave_label = f"Wave {wn} of impulse {'up' if up else 'down'}"
-            timeframe = "short" if wn == 5 else ("long" if wn <= 2 else "medium")
-        elif count.pattern_type == "corrective" and len(waves) == 3:
-            wave_label = f"Wave {('A', 'B', 'C')[min(cwi, 2)]} of corrective"
-            direction = "bearish" if waves[0].direction == "down" else "bullish"
-            timeframe = "medium"
-        else:
-            wave_label = "Indeterminate wave position"
-            direction = "neutral"
-            timeframe = self.default_timeframe
-        return (wave_label, direction, timeframe)
+            label = f"Wave {wn} of impulse {'up' if up else 'down'}"
+            return (label, direction, cwi)
 
-    # -- fibonacci levels ---------------------------------------------------
+        if count.pattern_type == "corrective" and len(waves) == 3:
+            lm = {0: "A", 1: "B", 2: "C"}
+            sub = f" ({count.corrective_sub})" if count.corrective_sub else ""
+            direction = "bearish" if waves[0].direction == "down" else "bullish"
+            label = f"Wave {lm.get(cwi, 'C')} of corrective{sub}"
+            return (label, direction, cwi)
+
+        return ("Indeterminate", "neutral", cwi)
+
+    # ------------------------------------------------------------------
+    # Fibonacci and targets
+    # ------------------------------------------------------------------
 
     def _calculate_fibonacci_levels(
         self, count: _WaveCount, current_price: float,
@@ -478,36 +550,47 @@ class ElliottWaveAnalyzer(BaseMethodology):
         w1r = abs(w1.end_price - w1.start_price)
         if w1r < _EPSILON:
             return []
-
         levels: list[_FibLevel] = []
         for ratio in _FIB_RETRACEMENTS:
-            if w1.direction == "up":
-                price = w1.end_price - ratio * w1r
-            else:
-                price = w1.end_price + ratio * w1r
-            dist = abs(current_price - price) / max(current_price, _EPSILON)
-            levels.append(_FibLevel(ratio, price, f"{ratio*100:.1f}% retracement", dist <= _FIB_CONFLUENCE_TOLERANCE))
-
+            price = (w1.end_price - ratio * w1r) if w1.direction == "up" else (w1.end_price + ratio * w1r)
+            d = abs(current_price - price) / max(current_price, _EPSILON)
+            levels.append(_FibLevel(ratio, price, f"{ratio*100:.1f}% retracement", d <= _FIB_CONFLUENCE_TOLERANCE))
         base = waves[1].end_price if len(waves) >= 2 else w1.start_price
         for ratio in _FIB_EXTENSIONS:
             price = (base + ratio * w1r) if w1.direction == "up" else (base - ratio * w1r)
-            dist = abs(current_price - price) / max(current_price, _EPSILON)
-            levels.append(_FibLevel(ratio, price, f"{ratio*100:.1f}% extension", dist <= _FIB_CONFLUENCE_TOLERANCE))
+            d = abs(current_price - price) / max(current_price, _EPSILON)
+            levels.append(_FibLevel(ratio, price, f"{ratio*100:.1f}% extension", d <= _FIB_CONFLUENCE_TOLERANCE))
         return levels
 
-    # -- confidence ---------------------------------------------------------
+    def _calculate_target(
+        self, fib_levels: list[_FibLevel], current_price: float, direction: str,
+    ) -> float | None:
+        for fl in sorted(fib_levels, key=lambda f: abs(f.price - current_price)):
+            if fl.ratio not in _FIB_EXTENSIONS:
+                continue
+            if direction == "bullish" and fl.price > current_price * 0.99:
+                if fl.price <= current_price * (1 + _MAX_TARGET_DEVIATION):
+                    return fl.price
+            elif direction == "bearish" and fl.price < current_price * 1.01:
+                if fl.price >= current_price * (1 - _MAX_TARGET_DEVIATION):
+                    return fl.price
+        return None
 
-    def _calculate_confidence(
-        self, primary: _WaveCount, alternative: _WaveCount | None,
-        fib_levels: list[_FibLevel], merged: pd.DataFrame,
+    # ------------------------------------------------------------------
+    # Confidence
+    # ------------------------------------------------------------------
+
+    def _calculate_confidence_for_count(
+        self,
+        primary: _WaveCount,
+        alternative: _WaveCount | None,
+        fib_levels: list[_FibLevel],
+        merged: pd.DataFrame,
     ) -> float:
-        conf = _CONFIDENCE_BASE
-        conf += primary.guideline_score * _CONFIDENCE_PER_GUIDELINE
-
+        conf = _CONF_BASE
+        conf += min(primary.guideline_score * 0.04, 0.25)
         if any(fl.is_aligned for fl in fib_levels):
-            conf += _CONFIDENCE_FIB_CONFLUENCE
-
-        # Volume: odd waves (1,3,5) vs even waves (2,4)
+            conf += 0.06
         waves = primary.waves
         if len(waves) >= 3 and len(merged) > 0:
             odd_v: list[float] = []
@@ -519,37 +602,52 @@ class ElliottWaveAnalyzer(BaseMethodology):
                     mv = float(np.mean(vv[s:e]))
                     if not (math.isnan(mv) or math.isinf(mv)):
                         (odd_v if i % 2 == 0 else even_v).append(mv)
-            if odd_v and even_v:
-                if sum(odd_v) / len(odd_v) > sum(even_v) / len(even_v):
-                    conf += _CONFIDENCE_VOLUME_CONFIRMS
-
+            if odd_v and even_v and sum(odd_v) / len(odd_v) > sum(even_v) / len(even_v):
+                conf += 0.07
         if alternative is None:
-            conf += _CONFIDENCE_WAVE_CLARITY
+            conf += 0.08
         else:
             diff = primary.total_score - alternative.total_score
-            if diff > 1.0:
-                conf += _CONFIDENCE_WAVE_CLARITY
+            if diff > 1.5:
+                conf += 0.06
             elif diff < 0.5:
-                conf -= _CONFIDENCE_AMBIGUITY_PENALTY
-
+                conf -= 0.10
         if math.isnan(conf) or math.isinf(conf):
-            conf = _CONFIDENCE_BASE
-        return max(_CONFIDENCE_FLOOR, min(_CONFIDENCE_CAP, conf))
+            conf = _CONF_BASE
+        return max(_CONF_FLOOR, min(_CONF_CAP, conf))
 
-    # -- invalidation -------------------------------------------------------
+    def _aggregate_confidence(
+        self,
+        degree_results: list[_DegreeResult],
+        primary_result: _DegreeResult,
+    ) -> float:
+        """Blend primary degree confidence with direction agreement across degrees."""
+        base = primary_result.confidence
+        valid = [r for r in degree_results if r.count is not None]
+        if len(valid) <= 1:
+            return base
+        primary_dir = primary_result.direction
+        agreeing = sum(1 for r in valid if r.direction == primary_dir and r != primary_result)
+        total_others = len(valid) - 1
+        if total_others > 0:
+            agreement_ratio = agreeing / total_others
+            base += agreement_ratio * 0.08  # up to +0.08 for full cross-degree agreement
+        return max(_CONF_FLOOR, min(_CONF_CAP, base))
+
+    # ------------------------------------------------------------------
+    # Invalidation
+    # ------------------------------------------------------------------
 
     def _determine_invalidation(self, count: _WaveCount, merged: pd.DataFrame) -> float:
         waves = count.waves
         if not waves:
             return float(merged["close"].iloc[-1])
-
         last_bar = len(merged) - 1
         cwi = len(waves) - 1
         for i, w in enumerate(waves):
             if w.end_index >= last_bar:
                 cwi = i
                 break
-
         if count.pattern_type == "impulse" and len(waves) == 5:
             if cwi <= 1:
                 return waves[0].start_price
@@ -557,27 +655,110 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 return waves[1].end_price
             else:
                 return waves[3].end_price
-
-        if count.pattern_type == "corrective" and len(waves) >= 1:
-            return waves[0].start_price
         return waves[0].start_price
 
-    # -- key levels ---------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Output helpers
+    # ------------------------------------------------------------------
+
+    def _choose_primary_degree(self, results: list[_DegreeResult]) -> _DegreeResult:
+        """Pick the most actionable degree with a valid count.
+
+        Rules:
+        1. Prioritize 'live' results (ending within 4 bars of now).
+        2. Among live results, pick the one with the HIGHEST CONFIDENCE.
+        3. If multiple live results have near-identical confidence, prefer 
+           Intermediate > Primary > Minor > Cycle.
+        4. If no live results, fallback to stale results, again by confidence.
+        """
+        valid = [r for r in results if r.count is not None]
+        if not valid:
+            return results[-1]
+
+        live = [r for r in valid if r.is_live]
+        
+        if live:
+            # Sort by confidence descending, then by actionable priority
+            # Use negative index of degree in priority list as secondary sort key
+            priority = ["intermediate", "primary", "minor", "cycle", "supercycle"]
+            
+            def sort_key(r: _DegreeResult) -> tuple[float, int]:
+                try:
+                    p_idx = -priority.index(r.degree)
+                except ValueError:
+                    p_idx = -10
+                return (r.confidence, p_idx)
+
+            live.sort(key=sort_key, reverse=True)
+            return live[0]
+
+        # Stale fallback: pick highest confidence among primary/intermediate/minor
+        fallbacks = [r for r in valid if r.degree in ("intermediate", "primary", "minor")]
+        if fallbacks:
+            return max(fallbacks, key=lambda r: r.confidence)
+
+        return max(valid, key=lambda r: r.confidence)
+
+    def _timeframe_for_degree(self, degree: str, current_wave: int) -> str:
+        if degree in ("supercycle", "cycle"):
+            return "long"
+        if degree == "primary":
+            return "medium"
+        return "short"
+
+    def _build_wave_points(
+        self, count: _WaveCount, merged: pd.DataFrame,
+    ) -> list[dict[str, Any]]:
+        waves = count.waves
+        if not waves or merged.empty:
+            return []
+        if count.pattern_type == "impulse":
+            labels = ["0", "1", "2", "3", "4", "5"]
+        else:
+            labels = ["0", "A", "B", "C"]
+
+        def _safe_time(idx: int) -> str:
+            clamped = max(0, min(idx, len(merged) - 1))
+            try:
+                return str(merged.iloc[clamped]["date"])
+            except Exception:
+                return ""
+
+        pts = [{"label": labels[0], "price": round(waves[0].start_price, 4), "time": _safe_time(waves[0].start_index)}]
+        for i, w in enumerate(waves):
+            lbl = labels[i + 1] if (i + 1) < len(labels) else str(i + 1)
+            pts.append({"label": lbl, "price": round(w.end_price, 4), "time": _safe_time(w.end_index)})
+        return pts
 
     def _build_key_levels(
-        self, primary: _WaveCount, alternative: _WaveCount | None,
-        fib_levels: list[_FibLevel], wave_label: str,
-        invalidation: float, alt_invalidation: float,
-        primary_target: float | None,
-        merged: pd.DataFrame | None = None,
+        self,
+        degree_results: list[_DegreeResult],
+        primary: _DegreeResult,
+        current_price: float,
+        merged: pd.DataFrame,
     ) -> dict[str, Any]:
-        fib_map: dict[float, float] = {fl.ratio: fl.price for fl in fib_levels}
+        # Build degree summary tree
+        wave_counts_by_degree: dict[str, Any] = {}
+        for r in degree_results:
+            if r.count is not None:
+                wave_counts_by_degree[r.degree] = {
+                    "label": r.wave_label,
+                    "degree_abbr": _DEGREE_LABEL.get(r.degree, r.degree),
+                    "current_wave": r.current_wave,
+                    "pattern_type": r.count.pattern_type,
+                    "corrective_subtype": r.count.corrective_sub,
+                    "direction": r.direction,
+                    "invalidation": round(r.invalidation, 4),
+                    "target": round(r.target, 4) if r.target is not None else None,
+                    "confidence": round(r.confidence, 3),
+                }
+
+        fib_map: dict[float, float] = {fl.ratio: fl.price for fl in primary.fib_levels}
         fib_targets: dict[str, float] = {}
         for key, ratio in zip(_FIB_OUTPUT_KEYS, _FIB_OUTPUT_RATIOS):
             if ratio in fib_map:
                 fib_targets[key] = round(fib_map[ratio], 4)
 
-        # Structured fib levels for chart overlay
         fib_levels_detailed = [
             {
                 "ratio": fl.ratio,
@@ -586,87 +767,74 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 "aligned": fl.is_aligned,
                 "type": "extension" if fl.ratio >= 1.0 else "retracement",
             }
-            for fl in fib_levels
+            for fl in primary.fib_levels
         ]
 
-        # Wave turning points for chart overlay zigzag
-        wave_points: list[dict[str, Any]] = []
-        if primary.waves and merged is not None and not merged.empty:
-            ptype = primary.pattern_type
-            if ptype == "impulse":
-                labels = ["0", "1", "2", "3", "4", "5"]
-            else:
-                labels = ["0", "A", "B", "C"]
-
-            def _safe_time(idx: int) -> str:
-                idx = max(0, min(idx, len(merged) - 1))
-                t = merged["date"].iloc[idx]
-                return t.isoformat() if hasattr(t, "isoformat") else str(t)
-
-            wave_points.append({
-                "time": _safe_time(primary.waves[0].start_index),
-                "price": round(primary.waves[0].start_price, 4),
-                "label": labels[0],
-            })
-            for i, w in enumerate(primary.waves):
-                lbl = labels[i + 1] if (i + 1) < len(labels) else str(i + 1)
-                wave_points.append({
-                    "time": _safe_time(w.end_index),
-                    "price": round(w.end_price, 4),
-                    "label": lbl,
-                })
-
-        alt_label = ""
-        if alternative is not None:
-            alt_label = (
-                f"{alternative.pattern_type} "
-                f"({alternative.rules_passed} rules, "
-                f"score {alternative.total_score:.1f})"
-            )
-        wave_start = primary.waves[0].start_price if primary.waves else 0.0
         return {
-            "current_wave": wave_label,
-            "wave_start": round(wave_start, 4),
-            "invalidation": invalidation,
+            "wave_counts_by_degree": wave_counts_by_degree,
+            "primary_degree": primary.degree,
+            "wave_label": primary.wave_label,
+            "pattern_type": primary.count.pattern_type if primary.count else "",
+            "corrective_subtype": primary.count.corrective_sub if primary.count else "",
+            "invalidation": round(primary.invalidation, 4),
+            "primary_target": round(primary.target, 4) if primary.target is not None else None,
             "fib_targets": fib_targets,
-            "fib_levels_detailed": fib_levels_detailed,
-            "wave_points": wave_points,
-            "pattern_type": primary.pattern_type,
-            "primary_target": primary_target,
-            "alternative_count": alt_label,
-            "alternative_invalidation": alt_invalidation,
+            "fib_levels": fib_levels_detailed,
+            "wave_points": primary.wave_points,
+            "alternative_pattern": None,
         }
 
-    # -- reasoning ----------------------------------------------------------
-
     def _build_reasoning(
-        self, ticker: str, primary: _WaveCount, alternative: _WaveCount | None,
-        wave_label: str, confidence: float, invalidation: float,
-        primary_target: float | None,
+        self,
+        ticker: str,
+        degree_results: list[_DegreeResult],
+        primary: _DegreeResult,
+        confidence: float,
     ) -> str:
         safe_ticker = "".join(
             ch for ch in str(ticker) if ch.isalnum() or ch in (".", "-", "_", " ")
         )[:_MAX_TICKER_LENGTH]
 
-        parts: list[str] = [
-            f"{safe_ticker} is in {wave_label} "
-            f"({primary.pattern_type}, {primary.rules_passed}/3 rules passed).",
-        ]
-        if primary_target is not None:
-            parts.append(f"Primary target at {primary_target:.2f}.")
-        parts.append(f"Invalidation at {invalidation:.2f}.")
-        mg = 4.0 if primary.pattern_type == "impulse" else 2.0
-        parts.append(f"Guideline score: {primary.guideline_score:.1f}/{mg:.1f}.")
-        if alternative is not None:
-            parts.append(
-                f"Alternative: {alternative.pattern_type} "
-                f"(score {alternative.total_score:.1f})."
-            )
-        if confidence >= _CONFIDENCE_HIGH_QUALIFIER:
-            q = "high"
-        elif confidence >= _CONFIDENCE_MODERATE_QUALIFIER:
-            q = "moderate"
+        parts: list[str] = []
+
+        # Multi-degree summary — from broadest to tightest
+        valid = [r for r in degree_results if r.count is not None]
+        for r in valid:
+            abbr = _DEGREE_LABEL.get(r.degree, r.degree)
+            sub = f" ({r.count.corrective_sub})" if r.count and r.count.corrective_sub else ""
+            parts.append(f"[{abbr}] {r.wave_label}{sub}.")
+
+        if not parts:
+            parts.append(f"{safe_ticker}: No valid wave structures found.")
         else:
-            q = "low"
-        parts.append(f"Confidence: {q} ({confidence:.2f}).")
+            parts.insert(0, f"{safe_ticker} multi-degree structure:")
+
+        # Primary degree detail
+        if primary.count:
+            parts.append(
+                f"Primary analysis at {primary.degree} degree: "
+                f"{primary.wave_label}. "
+                f"Invalidation: {primary.invalidation:.2f}."
+            )
+            if primary.target is not None:
+                parts.append(f"Target: {primary.target:.2f}.")
+
+            # Neely alternation if impulse
+            if primary.count.pattern_type == "impulse" and len(primary.count.waves) == 5:
+                w1, w2, w3, w4, _ = primary.count.waves
+                w3r = w3.length / max(w1.length, _EPSILON)
+                if w3r >= _W3_EXTENSION_THRESHOLD:
+                    parts.append(f"Wave 3 extended ({w3r:.2f}x Wave 1).")
+                if self._check_alternation(w1, w2, w3, w4):
+                    parts.append("Neely alternation confirmed (W2/W4).")
+
+        # Confidence
+        if confidence >= _CONFIDENCE_HIGH:
+            qual = "high"
+        elif confidence >= _CONFIDENCE_MODERATE:
+            qual = "moderate"
+        else:
+            qual = "low"
+        parts.append(f"Confidence: {qual} ({confidence:.2f}).")
+
         return " ".join(parts)
