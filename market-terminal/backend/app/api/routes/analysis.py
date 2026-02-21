@@ -46,7 +46,7 @@ _TIMEFRAME_DATA_MAP: dict[str, tuple[str, str]] = {
     "4h":  ("6mo",  "1h"),   # aggregated from 1h bars
     "8h":  ("9mo",  "1h"),
     "12h": ("9mo",  "1h"),
-    "1d":  ("2y",   "1d"),
+    "1d":  ("15y",  "1d"),
     "1w":  ("10y",  "1wk"),
     "1m":  ("20y",  "1mo"),
     "3m":  ("20y",  "1mo"),
@@ -261,7 +261,7 @@ async def _fetch_data(
     fundamentals: dict[str, Any] | None = None
     try:
         fund_result = await cm.get_fundamentals(symbol, force_refresh=force_refresh)
-        if fund_result is not None and isinstance(fund_result.data, dict):
+        if fund_result and fund_result.data is not None and isinstance(fund_result.data, dict):
             fundamentals = fund_result.data
             sources.append(f"fundamentals:{fund_result.source}")
     except Exception:
@@ -272,7 +272,7 @@ async def _fetch_data(
     news_articles: list[dict[str, Any]] = []
     try:
         news_result = await cm.get_news(symbol)
-        if news_result is not None and isinstance(news_result.data, list):
+        if news_result and news_result.data is not None and isinstance(news_result.data, list):
             news_articles = news_result.data
             sources.append(f"news:{news_result.source}")
     except Exception:

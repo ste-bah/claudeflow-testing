@@ -238,11 +238,11 @@ async def get_ticker(
         "currency": (profile or {}).get("currency", "USD"),
         "asset_type": _infer_asset_type(symbol, profile),
         "price": _extract_price_block(quote, financials),
-        "data_source": price_result.source,
-        "data_timestamp": price_result.fetched_at,
-        "data_age_seconds": price_result.cache_age_seconds,
+        "data_source": price_result.source if price_result else "none",
+        "data_timestamp": price_result.fetched_at if price_result else "",
+        "data_age_seconds": price_result.cache_age_seconds if price_result else 0.0,
         "is_market_open": _is_market_open(),
-        "cache_hit": price_result.is_cached,
+        "cache_hit": price_result.is_cached if price_result else False,
     }
 
     # -- 4. Optional OHLCV history ------------------------------------------
@@ -281,7 +281,7 @@ async def get_ticker(
             logger.debug("Historical prices fetch failed for %s", symbol, exc_info=True)
             hist_result = None
 
-        if hist_result is not None and isinstance(hist_result.data, list):
+        if hist_result and hist_result.data is not None and isinstance(hist_result.data, list):
             bars = [
                 {
                     "date": bar.get("date"),
@@ -322,8 +322,10 @@ async def get_ticker(
 
     logger.info(
         "Ticker %s: source=%s cache_hit=%s age=%.0fs",
-        symbol, price_result.source, price_result.is_cached,
-        price_result.cache_age_seconds,
+        symbol, 
+        price_result.source if price_result else "none", 
+        price_result.is_cached if price_result else False,
+        price_result.cache_age_seconds if price_result else 0.0,
     )
     return response
 

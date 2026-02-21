@@ -39,11 +39,11 @@ from app.analysis.base import BaseMethodology, MethodologySignal
 # ---------------------------------------------------------------------------
 
 _DEGREES: list[tuple[str, float, float]] = [
-    ("supercycle",    0.14, 3.5),
-    ("cycle",         0.09, 2.8),
-    ("primary",       0.05, 2.0),
-    ("intermediate",  0.025, 1.5),
-    ("minor",         0.012, 1.0),
+    ("supercycle",    0.35, 4.0),
+    ("cycle",         0.20, 3.0),
+    ("primary",       0.10, 2.2),
+    ("intermediate",  0.05, 1.6),
+    ("minor",         0.025, 1.2),
 ]
 
 # Minimum bars of price data to sensibly run each degree
@@ -239,7 +239,10 @@ class ElliottWaveAnalyzer(BaseMethodology):
             if not ok:
                 continue
             gscore, subtype = self._score_guidelines(waves, ptype)
-            scored.append(_WaveCount(waves, ptype, subtype, rp, gscore, float(rp) + gscore))
+            # Duration bonus: prefer patterns that cover more time
+            duration_bars = waves[-1].end_index - waves[0].start_index
+            duration_score = min(duration_bars / 500.0, 1.0)
+            scored.append(_WaveCount(waves, ptype, subtype, rp, gscore, float(rp) + gscore + duration_score))
 
         if not scored:
             return result
@@ -320,7 +323,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
             current_close = float(closes[-1])
             if current_close > 0:
                 atr_pct = (median_tr / current_close) * atr_mult
-                threshold = max(min(atr_pct, 0.40), min_pct)
+                threshold = max(atr_pct, min_pct)
             else:
                 threshold = min_pct
         else:
