@@ -44,6 +44,7 @@ _DEGREES: list[tuple[str, float, float, int, int]] = [
     ("primary",       0.10, 2.2, 150, 800),
     ("intermediate",  0.05, 1.6, 60,  300),
     ("minor",         0.015, 1.2, 20,  120), # Tightened for better micro-analysis
+    ("minuet",        0.005, 0.8, 8,   40),
 ]
 
 # Minimum bars of price data to sensibly run each degree
@@ -53,6 +54,7 @@ _DEGREE_MIN_BARS: dict[str, int] = {
     "primary":      80,
     "intermediate": 30,
     "minor":        15,
+    "minuet":       8,
 }
 
 # Labels for each degree in reasoning text
@@ -62,6 +64,7 @@ _DEGREE_LABEL: dict[str, str] = {
     "primary":      "P",
     "intermediate": "I",
     "minor":        "m",
+    "minuet":       "μ",
 }
 
 # Timeframe → preferred degrees (most relevant first).
@@ -69,7 +72,7 @@ _DEGREE_LABEL: dict[str, str] = {
 # makes sense for the user's current chart resolution.
 _TIMEFRAME_PREFERRED_DEGREES: dict[str, list[str]] = {
     "1m":  ["minor", "minuet", "intermediate"],
-    "1w":  ["cycle", "primary", "supercycle"],
+    "1w":  ["cycle", "primary", "intermediate", "minor", "supercycle"],
     "1d":  ["supercycle", "cycle", "primary", "intermediate"],
     "4h":  ["intermediate", "minor", "primary"],
     "1h":  ["minor", "intermediate", "primary"],
@@ -86,6 +89,7 @@ _live_thresholds: dict[str, int] = {
     "primary":      100,
     "intermediate":  50,
     "minor":         25,
+    "minuet":        10,
 }
 
 # Per-degree span range (bars).  A candidate whose total bar-span falls outside
@@ -873,6 +877,11 @@ class ElliottWaveAnalyzer(BaseMethodology):
         for i, w in enumerate(waves):
             lbl = labels[i + 1] if (i + 1) < len(labels) else str(i + 1)
             pts.append({"label": lbl, "price": round(w.end_price, 4), "time": _safe_time(w.end_index)})
+        last_bar_idx = len(merged) - 1
+        if waves[-1].end_index < last_bar_idx:
+            current_close = float(merged.iloc[last_bar_idx]["close"])
+            pts.append({"label": "→", "price": round(current_close, 4),
+                        "time": _safe_time(last_bar_idx), "developing": True})
         return pts
 
     def _build_key_levels(
@@ -922,7 +931,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
         for r in degree_results:
             if r.degree == primary.degree:
                 continue
-            if not r.is_live or not r.wave_points:
+            if not r.wave_points:
                 continue
             degree_abbr = _DEGREE_LABEL.get(r.degree, r.degree)
             for pt in r.wave_points:
