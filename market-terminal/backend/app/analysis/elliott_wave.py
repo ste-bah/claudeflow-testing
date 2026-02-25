@@ -24,9 +24,12 @@ Full implementation: TASK-NEELY-005
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 import pandas as pd
@@ -59,6 +62,42 @@ _DEGREE_LABEL: dict[str, str] = {
     "primary":      "P",
     "intermediate": "I",
     "minor":        "m",
+}
+
+# Timeframe → preferred degrees (most relevant first).
+# Used by _choose_primary_degree() to bias selection toward the degree that
+# makes sense for the user's current chart resolution.
+_TIMEFRAME_PREFERRED_DEGREES: dict[str, list[str]] = {
+    "1m":  ["minor", "minuet", "intermediate"],
+    "1w":  ["cycle", "primary", "supercycle"],
+    "1d":  ["primary", "intermediate", "cycle"],
+    "4h":  ["intermediate", "minor", "primary"],
+    "1h":  ["minor", "intermediate", "primary"],
+    "15m": ["minor", "intermediate"],
+    "5m":  ["minor"],
+}
+
+# Per-degree "live" bar thresholds — how many bars back a wave-end may sit and
+# still be considered "active" (not stale) for scoring purposes.
+# Larger degrees span many more bars so their recency window must be wider.
+_live_thresholds: dict[str, int] = {
+    "supercycle":   200,
+    "cycle":        150,
+    "primary":      100,
+    "intermediate":  50,
+    "minor":         25,
+}
+
+# Per-degree span range (bars).  A candidate whose total bar-span falls outside
+# [min_bars, max_bars] is silently skipped — preventing supercycle from winning
+# on a 7-bar window and minuet from claiming a 1000-bar structure.
+_DEGREE_SPAN_BARS: dict[str, tuple[int, int]] = {
+    "supercycle":   (500,  99999),
+    "cycle":        (150,  3000),
+    "primary":      (50,   800),
+    "intermediate": (15,   200),
+    "minor":        (5,    60),
+    "minuet":       (2,    20),
 }
 
 # ---------------------------------------------------------------------------
@@ -172,9 +211,17 @@ class ElliottWaveAnalyzer(BaseMethodology):
         current_price = float(merged["close"].iloc[-1])
         n_bars = len(merged)
 
+        # ---- Restrict degrees to those appropriate for this timeframe ----
+        chart_timeframe: str = str(kwargs.get("chart_timeframe", "1d"))
+        allowed_degrees: set[str] = set(
+            _TIMEFRAME_PREFERRED_DEGREES.get(chart_timeframe, [d[0] for d in _DEGREES])
+        )
+
         # ---- Run analysis at each degree --------------------------------
         degree_results: list[_DegreeResult] = []
         for name, min_pct, atr_mult, target_bars, max_bars in _DEGREES:
+            if name not in allowed_degrees:
+                continue
             min_bars = _DEGREE_MIN_BARS[name]
             if n_bars < min_bars:
                 continue
@@ -193,9 +240,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
             )
 
         # ---- Choose primary degree for signal ---------------------------
-        # Use the most confident valid result, preferring intermediate/primary
-        # if available (most actionable), otherwise use whatever we have.
-        best = self._choose_primary_degree(degree_results)
+        best = self._choose_primary_degree(degree_results, chart_timeframe)
         primary_result = best
 
         # ---- Build output -----------------------------------------------
@@ -234,6 +279,16 @@ class ElliottWaveAnalyzer(BaseMethodology):
             return result
 
         candidates = self._build_candidates(segments)
+
+        # --- span gate: only score candidates appropriate for this degree ---
+        min_span, max_span = _DEGREE_SPAN_BARS.get(degree, (2, 99999))
+        candidates = [
+            (waves, ptype) for (waves, ptype) in candidates
+            if min_span <= (waves[-1].end_index - waves[0].start_index) <= max_span
+        ]
+        if not candidates:
+            return result
+
         scored: list[_WaveCount] = []
         last_bar_idx = len(merged) - 1
 
@@ -252,7 +307,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
 
             # 4. Duration/Recency Scoring (Degree-Aware)
             duration_bars = waves[-1].end_index - waves[0].start_index
-            
+
             # Penalize patterns exceeding degree max_bars
             if duration_bars > max_bars:
                 continue
@@ -281,7 +336,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
         if not scored:
             return result
 
-        scored.sort(key=lambda c: (c.waves[-1].end_index, c.total_score), reverse=True)
+        scored.sort(key=lambda c: c.total_score, reverse=True)
 
         # Drop wave counts already invalidated by current price
         valid: list[_WaveCount] = []
@@ -292,13 +347,15 @@ class ElliottWaveAnalyzer(BaseMethodology):
             elif c.waves[0].direction == "down" and current_price <= inval * 1.005:
                 valid.append(c)
 
+        logger.warning("[EW-DIAG] %s | scored=%d valid=%d", degree, len(scored), len(valid))
         if not valid:
             return result
 
         best = valid[0]
         result.count = best
         result.wave_label, result.direction, cwi = self._assess_position(best, merged)
-        result.current_wave = cwi + 1
+        wave_max = 5 if (best.pattern_type == "impulse") else 3
+        result.current_wave = min(cwi + 1, wave_max)
         result.invalidation = self._determine_invalidation(best, merged)
         result.fib_levels = self._calculate_fibonacci_levels(best, current_price)
         result.target = self._calculate_target(result.fib_levels, current_price, result.direction)
@@ -308,11 +365,13 @@ class ElliottWaveAnalyzer(BaseMethodology):
         result.wave_points = self._build_wave_points(best, merged)
 
         # Liveness check: Is this count current or historically "stale"?
-        # A pattern is "live" if its last wave ends within 4 bars of the current close.
+        # Threshold is degree-aware: supercycle waves ending 150 bars ago are still
+        # live; minuet waves are stale after just 25 bars.
         last_wave_end = best.waves[-1].end_index
         n_bars = len(merged)
         result.end_offset = n_bars - 1 - last_wave_end
-        result.is_live = (result.end_offset <= 4)
+        live_threshold = _live_thresholds.get(degree, 25)
+        result.is_live = (result.end_offset <= live_threshold)
 
         return result
 
@@ -455,8 +514,17 @@ class ElliottWaveAnalyzer(BaseMethodology):
             passed += int(w4.end_price >= w1.end_price)
         else:
             passed += int(w4.end_price <= w1.end_price)
+        # R5: W5 endpoint must be the absolute extreme of the entire 5-wave sequence
+        all_prices = [
+            w1.start_price, w1.end_price, w2.end_price,
+            w3.end_price, w4.end_price, w5.end_price,
+        ]
+        if up:
+            passed += int(w5.end_price >= max(all_prices) - _EPSILON)
+        else:
+            passed += int(w5.end_price <= min(all_prices) + _EPSILON)
 
-        return (passed == 3, passed)
+        return (passed >= 3, passed)  # >= 3 allows developing waves where W5 hasn't reached extreme yet
 
     def _validate_corrective(self, waves: tuple[_WaveSegment, ...]) -> tuple[bool, int]:
         wa, wb, wc = waves
@@ -540,7 +608,9 @@ class ElliottWaveAnalyzer(BaseMethodology):
         avg_t = (w2t + w4t) / 2.0
         time_alt = avg_t > 0 and abs(w2t - w4t) / avg_t > 0.25
         severity_alt = (w2r > 0.618) != (w4r > 0.618)
-        return price_alt or time_alt or severity_alt
+        # Neely Method: valid alternation requires ≥2 of the 3 variables to differ
+        alt_count = int(price_alt) + int(time_alt) + int(severity_alt)
+        return alt_count >= 2
 
     # ------------------------------------------------------------------
     # Proportion check
@@ -556,8 +626,10 @@ class ElliottWaveAnalyzer(BaseMethodology):
         max_d = max(durations)
         min_d = max(min(durations), 1)
         
-        # Rule of thumb: extreme disproportion (e.g. > 10x) invalidates the pattern at this degree
-        if max_d / min_d > 10.0:
+        # Rule of thumb: extreme disproportion (e.g. > 25x) invalidates the pattern at this degree.
+        # Weekly/monthly higher-degree waves naturally have unequal durations (e.g. a 5-week
+        # crash vs. an 80-week rally), so a tight 10x threshold falsely rejects valid structures.
+        if max_d / min_d > 25.0:
             return False
 
         # Price comparison
@@ -725,14 +797,17 @@ class ElliottWaveAnalyzer(BaseMethodology):
     # Output helpers
     # ------------------------------------------------------------------
 
-    def _choose_primary_degree(self, results: list[_DegreeResult]) -> _DegreeResult:
+    def _choose_primary_degree(
+        self, results: list[_DegreeResult], chart_timeframe: str = "1d",
+    ) -> _DegreeResult:
         """Pick the most actionable degree with a valid count.
 
         Rules:
-        1. Prioritize 'live' results (ending within 4 bars of now).
-        2. Among live results, pick the one with the HIGHEST CONFIDENCE.
-        3. If multiple live results have near-identical confidence, prefer 
-           Intermediate > Primary > Minor > Cycle.
+        1. Prioritize 'live' results (ending within _live_thresholds[degree] bars of now).
+        2. If any live result is in the timeframe-preferred list for chart_timeframe,
+           restrict candidates to those preferred degrees (timeframe bias).
+        3. Among (filtered) live results, pick the one with the HIGHEST CONFIDENCE,
+           breaking ties by preferred-degree order.
         4. If no live results, fallback to stale results, again by confidence.
         """
         valid = [r for r in results if r.count is not None]
@@ -740,21 +815,27 @@ class ElliottWaveAnalyzer(BaseMethodology):
             return results[-1]
 
         live = [r for r in valid if r.is_live]
-        
+
         if live:
-            # Sort by confidence descending, then by actionable priority
-            # Use negative index of degree in priority list as secondary sort key
-            priority = ["intermediate", "primary", "minor", "cycle", "supercycle"]
-            
+            # Apply timeframe bias: if any live result is in the preferred list,
+            # restrict to preferred degrees only before sorting.
+            preferred = _TIMEFRAME_PREFERRED_DEGREES.get(chart_timeframe, [])
+            preferred_live = [r for r in live if r.degree in preferred]
+            candidates = preferred_live if preferred_live else live
+
+            # Sort by confidence descending, then by preferred-degree order (or fallback priority)
+            fallback_priority = ["intermediate", "primary", "minor", "cycle", "supercycle"]
+            order = preferred if preferred else fallback_priority
+
             def sort_key(r: _DegreeResult) -> tuple[float, int]:
                 try:
-                    p_idx = -priority.index(r.degree)
+                    p_idx = -order.index(r.degree)
                 except ValueError:
                     p_idx = -10
                 return (r.confidence, p_idx)
 
-            live.sort(key=sort_key, reverse=True)
-            return live[0]
+            candidates.sort(key=sort_key, reverse=True)
+            return candidates[0]
 
         # Stale fallback: pick highest confidence among primary/intermediate/minor
         fallbacks = [r for r in valid if r.degree in ("intermediate", "primary", "minor")]
@@ -834,6 +915,19 @@ class ElliottWaveAnalyzer(BaseMethodology):
             for fl in primary.fib_levels
         ]
 
+        # Collect sub-degree wave points for multi-degree rendering.
+        # Include any live, non-primary degree that has wave_points, tagging
+        # each point with its degree so the frontend can render separate line series.
+        nested_wave_points: list[dict[str, Any]] = []
+        for r in degree_results:
+            if r.degree == primary.degree:
+                continue
+            if not r.is_live or not r.wave_points:
+                continue
+            degree_abbr = _DEGREE_LABEL.get(r.degree, r.degree)
+            for pt in r.wave_points:
+                nested_wave_points.append({**pt, "degree": r.degree, "degreeAbbr": degree_abbr})
+
         return {
             "wave_counts_by_degree": wave_counts_by_degree,
             "primary_degree": primary.degree,
@@ -845,6 +939,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
             "fib_targets": fib_targets,
             "fib_levels": fib_levels_detailed,
             "wave_points": primary.wave_points,
+            "nested_wave_points": nested_wave_points,
             "alternative_pattern": None,
         }
 

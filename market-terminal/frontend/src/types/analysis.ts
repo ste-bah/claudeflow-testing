@@ -136,6 +136,12 @@ export interface EWavePoint {
   readonly label: string;  // '0','1','2','3','4','5' or 'A','B','C'
 }
 
+/** An EW wave point tagged with the degree it belongs to (for multi-degree rendering). */
+export interface EWaveNestedPoint extends EWavePoint {
+  readonly degree: string;      // 'supercycle' | 'cycle' | 'primary' | 'intermediate' | 'minor'
+  readonly degreeAbbr: string;  // 'SC' | 'CY' | 'P' | 'I' | 'm'
+}
+
 /** A single Fibonacci level from the Elliott Wave analysis. */
 export interface EFibLevel {
   readonly ratio: number;
@@ -154,6 +160,7 @@ export interface EWaveOverlayData {
   readonly primaryTarget: number | null;
   readonly waveDegrees: EWaveDegreeCount[];
   readonly primaryDegree: string;
+  readonly nestedWavePoints: EWaveNestedPoint[];
 }
 
 /** A single degree-level wave count summary for the multi-degree tree display. */
@@ -234,6 +241,20 @@ export function extractEWaveOverlay(data: AnalysisData): EWaveOverlayData | null
 
   const waveDegrees = extractWaveDegrees(kl);
 
+  const rawNested = kl['nested_wave_points'];
+  const nestedWavePoints: EWaveNestedPoint[] = Array.isArray(rawNested)
+    ? rawNested
+      .filter((p): p is Record<string, unknown> => typeof p === 'object' && p !== null)
+      .map((p) => ({
+        time: typeof p['time'] === 'string' ? p['time'] : '',
+        price: typeof p['price'] === 'number' ? p['price'] : 0,
+        label: typeof p['label'] === 'string' ? p['label'] : '',
+        degree: typeof p['degree'] === 'string' ? p['degree'] : '',
+        degreeAbbr: typeof p['degreeAbbr'] === 'string' ? p['degreeAbbr'] : '',
+      }))
+      .filter((p) => p.time !== '' && p.price !== 0)
+    : [];
+
   return {
     wavePoints,
     fibLevels,
@@ -242,6 +263,7 @@ export function extractEWaveOverlay(data: AnalysisData): EWaveOverlayData | null
     primaryTarget: typeof kl['primary_target'] === 'number' ? kl['primary_target'] : null,
     waveDegrees,
     primaryDegree: typeof kl['primary_degree'] === 'string' ? kl['primary_degree'] : '',
+    nestedWavePoints,
   };
 }
 

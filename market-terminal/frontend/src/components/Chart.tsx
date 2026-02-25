@@ -32,7 +32,7 @@ import {
 } from '../types/ticker';
 import { useWebSocketContext } from '../contexts/WebSocketContext';
 import { WS_CHANNELS } from '../types/websocket';
-import type { EWaveOverlayData, EWavePoint } from '../types/analysis';
+import type { EWaveOverlayData, EWavePoint, EWaveNestedPoint } from '../types/analysis';
 
 interface ChartProps {
   readonly symbol: string;
@@ -58,6 +58,16 @@ const COLORS = {
   invalidation: '#ef4444', // red invalidation line
   target: '#22d3ee',       // cyan primary target line
   sma50: '#eab308',        // thick yellow SMA
+} as const;
+
+/** Per-degree visual style for multi-degree EW overlay rendering. */
+const DEGREE_STYLES: Record<string, { color: string; lineWidth: 1 | 2 | 3 | 4 }> = {
+  supercycle:   { color: '#ff4444', lineWidth: 4 },
+  cycle:        { color: '#ff8800', lineWidth: 3 },
+  primary:      { color: '#f59e0b', lineWidth: 2 },  // amber — matches existing ewLine
+  intermediate: { color: '#22c55e', lineWidth: 2 },  // green
+  minor:        { color: '#60a5fa', lineWidth: 1 },  // blue
+  minuet:       { color: '#a78bfa', lineWidth: 1 },  // purple
 } as const;
 
 interface ChartSeriesData {
@@ -109,7 +119,7 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const smaSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const waveLineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const waveLineSeriesRef = useRef<ISeriesApi<'Line'>[]>([]);
   const fibLinesRef = useRef<IPriceLine[]>([]);
   const labelNodesRef = useRef<HTMLDivElement[]>([]);
   const labelContainerRef = useRef<HTMLDivElement>(null);
@@ -141,9 +151,11 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
   }, []);
 
   const clearWaveLine = useCallback(() => {
-    if (chartRef.current && waveLineSeriesRef.current) {
-      try { chartRef.current.removeSeries(waveLineSeriesRef.current); } catch { /* ok */ }
-      waveLineSeriesRef.current = null;
+    if (chartRef.current) {
+      for (const s of waveLineSeriesRef.current) {
+        try { chartRef.current.removeSeries(s); } catch { /* ok */ }
+      }
+      waveLineSeriesRef.current = [];
     }
   }, []);
 
@@ -313,14 +325,58 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
       a.time < b.time ? -1 : a.time > b.time ? 1 : 0,
     );
 
+    // Accumulate all degree series here; assign to ref at end
+    const newWaveSeries: ISeriesApi<'Line'>[] = [];
+
+    // Primary degree line — use degree-specific style when available
+    const primaryStyle = DEGREE_STYLES[ewOverlay.primaryDegree] ?? { color: COLORS.ewLine, lineWidth: 2 as const };
     if (uniqueLine.length >= 2) {
       const lineSeries = chart.addLineSeries({
-        color: COLORS.ewLine, lineWidth: 2, lineStyle: 0,
+        color: primaryStyle.color, lineWidth: primaryStyle.lineWidth, lineStyle: 0,
         priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
       });
       lineSeries.setData(uniqueLine);
-      waveLineSeriesRef.current = lineSeries;
+      newWaveSeries.push(lineSeries);
     }
+
+    // Sub-degree lines — one LineSeries per degree found in nestedWavePoints
+    if (ewOverlay.nestedWavePoints && ewOverlay.nestedWavePoints.length > 0) {
+      const byDegree = new Map<string, EWaveNestedPoint[]>();
+      for (const pt of ewOverlay.nestedWavePoints) {
+        if (!pt.degree) continue;
+        const arr = byDegree.get(pt.degree) ?? [];
+        arr.push(pt);
+        byDegree.set(pt.degree, arr);
+      }
+
+      for (const [degree, points] of byDegree) {
+        const degStyle = DEGREE_STYLES[degree] ?? { color: '#888888', lineWidth: 1 as const };
+        const degLineData = points
+          .map((p) => {
+            const t = isoToTime(p.time);
+            return t !== null ? { time: t, value: p.price } : null;
+          })
+          .filter((d): d is { time: Time; value: number } => d !== null)
+          .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+
+        const degDeduped = new Map<Time, { time: Time; value: number }>();
+        for (const pt of degLineData) degDeduped.set(pt.time, pt);
+        const degUnique = Array.from(degDeduped.values()).sort((a, b) =>
+          a.time < b.time ? -1 : a.time > b.time ? 1 : 0,
+        );
+
+        if (degUnique.length >= 2) {
+          const degSeries = chart.addLineSeries({
+            color: degStyle.color, lineWidth: degStyle.lineWidth, lineStyle: 0,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          });
+          degSeries.setData(degUnique);
+          newWaveSeries.push(degSeries);
+        }
+      }
+    }
+
+    waveLineSeriesRef.current = newWaveSeries;
 
     // 2. Fibonacci price lines
     const newFibLines: IPriceLine[] = [];
