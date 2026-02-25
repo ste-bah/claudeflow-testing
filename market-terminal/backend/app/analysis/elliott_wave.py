@@ -70,7 +70,7 @@ _DEGREE_LABEL: dict[str, str] = {
 _TIMEFRAME_PREFERRED_DEGREES: dict[str, list[str]] = {
     "1m":  ["minor", "minuet", "intermediate"],
     "1w":  ["cycle", "primary", "supercycle"],
-    "1d":  ["primary", "intermediate", "cycle"],
+    "1d":  ["supercycle", "cycle", "primary", "intermediate"],
     "4h":  ["intermediate", "minor", "primary"],
     "1h":  ["minor", "intermediate", "primary"],
     "15m": ["minor", "intermediate"],
@@ -92,12 +92,12 @@ _live_thresholds: dict[str, int] = {
 # [min_bars, max_bars] is silently skipped — preventing supercycle from winning
 # on a 7-bar window and minuet from claiming a 1000-bar structure.
 _DEGREE_SPAN_BARS: dict[str, tuple[int, int]] = {
-    "supercycle":   (500,  99999),
-    "cycle":        (150,  3000),
-    "primary":      (50,   800),
-    "intermediate": (15,   200),
-    "minor":        (5,    60),
-    "minuet":       (2,    20),
+    "supercycle":   (400,  99999),
+    "cycle":        (150,  99999),
+    "primary":      (40,   99999),
+    "intermediate": (10,   99999),
+    "minor":        (3,    99999),
+    "minuet":       (2,    99999),
 }
 
 # ---------------------------------------------------------------------------
