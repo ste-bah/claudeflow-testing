@@ -69,7 +69,7 @@ _DEGREE_LABEL: dict[str, str] = {
 # makes sense for the user's current chart resolution.
 _TIMEFRAME_PREFERRED_DEGREES: dict[str, list[str]] = {
     "1m":  ["minor", "minuet", "intermediate"],
-    "1w":  ["cycle", "primary", "supercycle"],
+    "1w":  ["cycle", "primary", "intermediate"],
     "1d":  ["primary", "intermediate", "cycle"],
     "4h":  ["intermediate", "minor", "primary"],
     "1h":  ["minor", "intermediate", "primary"],
@@ -93,11 +93,11 @@ _live_thresholds: dict[str, int] = {
 # on a 7-bar window and minuet from claiming a 1000-bar structure.
 _DEGREE_SPAN_BARS: dict[str, tuple[int, int]] = {
     "supercycle":   (500,  99999),
-    "cycle":        (150,  3000),
-    "primary":      (50,   800),
-    "intermediate": (15,   200),
-    "minor":        (5,    60),
-    "minuet":       (2,    20),
+    "cycle":        (200,  3000),
+    "primary":      (60,   200),   # upper = cycle lower → non-overlapping
+    "intermediate": (15,   60),    # upper = primary lower → non-overlapping
+    "minor":        (5,    15),    # upper = intermediate lower → non-overlapping
+    "minuet":       (2,    5),     # upper = minor lower → non-overlapping
 }
 
 # ---------------------------------------------------------------------------
@@ -171,10 +171,11 @@ class _DegreeResult:
     invalidation:  float = 0.0
     target:        float | None = None
     confidence:    float = 0.0
-    is_live:       bool = False       # True if pattern ends near current bar
-    end_offset:    int = 999          # Bars from chart end
-    wave_points:   list[dict[str, Any]] = field(default_factory=list)
-    fib_levels:    list[_FibLevel] = field(default_factory=list)
+    is_live:          bool = False       # True if pattern ends near current bar
+    end_offset:       int = 999          # Bars from chart end
+    pattern_complete: bool = False       # True if entire pattern ended before current bar
+    wave_points:      list[dict[str, Any]] = field(default_factory=list)
+    fib_levels:       list[_FibLevel] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +211,33 @@ class ElliottWaveAnalyzer(BaseMethodology):
         merged = self._merge_data(price_data, volume_data)
         current_price = float(merged["close"].iloc[-1])
         n_bars = len(merged)
+
+        # ---- Data quality gate (broken / flat symbols) -------------------
+        if n_bars < 10:
+            return self.create_signal(
+                ticker=ticker, direction="neutral",
+                confidence=_CONF_NO_PATTERN,
+                timeframe=self.default_timeframe,
+                reasoning="Insufficient data: fewer than 10 bars available.",
+                key_levels={"current_price": current_price},
+            )
+        close_range = float(merged["close"].max() - merged["close"].min())
+        if close_range <= 0.0:
+            return self.create_signal(
+                ticker=ticker, direction="neutral",
+                confidence=_CONF_NO_PATTERN,
+                timeframe=self.default_timeframe,
+                reasoning="Insufficient data: flat price series (zero price range).",
+                key_levels={"current_price": current_price},
+            )
+        if merged["close"].nunique() < 3:
+            return self.create_signal(
+                ticker=ticker, direction="neutral",
+                confidence=_CONF_NO_PATTERN,
+                timeframe=self.default_timeframe,
+                reasoning="Insufficient data: fewer than 3 unique close prices.",
+                key_levels={"current_price": current_price},
+            )
 
         # ---- Restrict degrees to those appropriate for this timeframe ----
         chart_timeframe: str = str(kwargs.get("chart_timeframe", "1d"))
@@ -321,14 +349,14 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 over = duration_bars - target_bars
                 duration_score = max(0.0, 1.0 - (over / (max_bars - target_bars)))
 
-            # Recency bonus: reward patterns that explain the very latest bars
-            # Especially for minor/intermediate degrees
+            # Recency bonus: tiebreaker only — must not dominate structural scoring
+            # rp max≈4, gscore max≈5.5 — keep bonus << 0.3 so it never overrides quality
             recency_bonus = 0.0
             gap = last_bar_idx - waves[-1].end_index
-            if gap <= 5: # Recent enough to be "current"
-                recency_bonus = 1.5 if degree in ["minor", "intermediate"] else 0.75
+            if gap <= 5:
+                recency_bonus = 0.2 if degree in ["minor", "intermediate"] else 0.1
             elif gap <= 15:
-                recency_bonus = 0.75 if degree in ["minor", "intermediate"] else 0.3
+                recency_bonus = 0.1 if degree in ["minor", "intermediate"] else 0.05
 
             total_score = float(rp) + gscore + duration_score + recency_bonus
             scored.append(_WaveCount(waves, ptype, subtype, rp, gscore, total_score))
@@ -347,13 +375,12 @@ class ElliottWaveAnalyzer(BaseMethodology):
             elif c.waves[0].direction == "down" and current_price <= inval * 1.005:
                 valid.append(c)
 
-        logger.warning("[EW-DIAG] %s | scored=%d valid=%d", degree, len(scored), len(valid))
         if not valid:
             return result
 
         best = valid[0]
         result.count = best
-        result.wave_label, result.direction, cwi = self._assess_position(best, merged)
+        result.wave_label, result.direction, cwi, result.pattern_complete = self._assess_position(best, merged)
         wave_max = 5 if (best.pattern_type == "impulse") else 3
         result.current_wave = min(cwi + 1, wave_max)
         result.invalidation = self._determine_invalidation(best, merged)
@@ -481,7 +508,10 @@ class ElliottWaveAnalyzer(BaseMethodology):
         three = [(tuple(segments[i:i + 3]), "corrective")
                  for i in range(len(segments) - 2)
                  if segments[i].direction == corrective_first_dir][::-1]
-        return (five + three)[:_MAX_CANDIDATES]
+        # Interleave to guarantee correctives always reach the scoring stage.
+        # Without this, 70+ impulse candidates consume the full [:100] limit on
+        # large-cap daily charts, leaving correctives permanently unscored.
+        return (five[:50] + three[:50])[:_MAX_CANDIDATES]
 
     # ------------------------------------------------------------------
     # Rule validation — strict Neely
@@ -509,11 +539,15 @@ class ElliottWaveAnalyzer(BaseMethodology):
         passed += int(w2.length / max(w1.length, _EPSILON) < _W2_MAX_RETRACE)
         # R2: W3 not shortest
         passed += int(not (w3.length < w1.length and w3.length < w5.length))
-        # R3: W4 no overlap W1
+        # R3: W4 no overlap W1 — HARD FAIL per Frost & Prechter (only exception:
+        # diagonal triangles, which are not modelled here).
         if up:
-            passed += int(w4.end_price >= w1.end_price)
+            r3_ok = (w4.end_price >= w1.end_price)
         else:
-            passed += int(w4.end_price <= w1.end_price)
+            r3_ok = (w4.end_price <= w1.end_price)
+        if not r3_ok:
+            return (False, passed)   # W4-W1 overlap is fatal — reject immediately
+        passed += 1   # R3 passed
         # R5: W5 endpoint must be the absolute extreme of the entire 5-wave sequence
         all_prices = [
             w1.start_price, w1.end_price, w2.end_price,
@@ -647,7 +681,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
 
     def _assess_position(
         self, count: _WaveCount, merged: pd.DataFrame,
-    ) -> tuple[str, str, int]:  # (label, direction, current_wave_index_0based)
+    ) -> tuple[str, str, int, bool]:  # (label, direction, current_wave_index_0based, pattern_complete)
         waves = count.waves
         last_bar = len(merged) - 1
         cwi = len(waves) - 1
@@ -656,21 +690,32 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 cwi = i
                 break
 
+        # Detect whether the entire pattern ended before the current bar
+        pattern_complete = all(w.end_index < last_bar for w in waves)
+
         if count.pattern_type == "impulse" and len(waves) == 5:
-            wn = cwi + 1
             up = waves[0].direction == "up"
+            if pattern_complete:
+                # All 5 waves finished historically — label as completed, expect reversal
+                label = f"Completed impulse {'up' if up else 'down'} \u2014 expect correction"
+                direction = "down" if up else "up"
+                return (label, direction, len(waves) - 1, True)
+            wn = cwi + 1
             direction = ("bullish" if up else "bearish") if wn % 2 == 1 else ("bearish" if up else "bullish")
             label = f"Wave {wn} of impulse {'up' if up else 'down'}"
-            return (label, direction, cwi)
+            return (label, direction, cwi, False)
 
         if count.pattern_type == "corrective" and len(waves) == 3:
             lm = {0: "A", 1: "B", 2: "C"}
             sub = f" ({count.corrective_sub})" if count.corrective_sub else ""
             direction = "bearish" if waves[0].direction == "down" else "bullish"
+            if pattern_complete:
+                label = f"Completed corrective{sub} \u2014 expect reversal"
+                return (label, direction, len(waves) - 1, True)
             label = f"Wave {lm.get(cwi, 'C')} of corrective{sub}"
-            return (label, direction, cwi)
+            return (label, direction, cwi, False)
 
-        return ("Indeterminate", "neutral", cwi)
+        return ("Indeterminate", "neutral", cwi, False)
 
     # ------------------------------------------------------------------
     # Fibonacci and targets
@@ -896,6 +941,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
                     "invalidation": round(r.invalidation, 4),
                     "target": round(r.target, 4) if r.target is not None else None,
                     "confidence": round(r.confidence, 3),
+                    "pattern_complete": r.pattern_complete,
                 }
 
         fib_map: dict[float, float] = {fl.ratio: fl.price for fl in primary.fib_levels}
