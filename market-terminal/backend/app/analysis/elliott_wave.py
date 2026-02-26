@@ -70,14 +70,18 @@ _DEGREE_LABEL: dict[str, str] = {
 # Timeframe → preferred degrees (most relevant first).
 # Used by _choose_primary_degree() to bias selection toward the degree that
 # makes sense for the user's current chart resolution.
+# All 6 degrees enabled on all timeframes — _DEGREE_MIN_BARS naturally
+# prevents running degrees without sufficient data.
+_ALL_DEGREE_NAMES: list[str] = [d[0] for d in _DEGREES]
+
 _TIMEFRAME_PREFERRED_DEGREES: dict[str, list[str]] = {
-    "1m":  ["minor", "minuet", "intermediate"],
-    "1w":  ["cycle", "primary", "intermediate", "minor", "supercycle"],
-    "1d":  ["supercycle", "cycle", "primary", "intermediate"],
-    "4h":  ["intermediate", "minor", "primary"],
-    "1h":  ["minor", "intermediate", "primary"],
-    "15m": ["minor", "intermediate"],
-    "5m":  ["minor"],
+    "1m":  _ALL_DEGREE_NAMES,
+    "5m":  _ALL_DEGREE_NAMES,
+    "15m": _ALL_DEGREE_NAMES,
+    "1h":  _ALL_DEGREE_NAMES,
+    "4h":  _ALL_DEGREE_NAMES,
+    "1d":  _ALL_DEGREE_NAMES,
+    "1w":  _ALL_DEGREE_NAMES,
 }
 
 # Per-degree "live" bar thresholds — how many bars back a wave-end may sit and
@@ -96,12 +100,26 @@ _live_thresholds: dict[str, int] = {
 # [min_bars, max_bars] is silently skipped — preventing supercycle from winning
 # on a 7-bar window and minuet from claiming a 1000-bar structure.
 _DEGREE_SPAN_BARS: dict[str, tuple[int, int]] = {
-    "supercycle":   (400,  99999),
-    "cycle":        (150,  99999),
-    "primary":      (40,   99999),
-    "intermediate": (10,   99999),
-    "minor":        (3,    99999),
-    "minuet":       (2,    99999),
+    "supercycle":   (300,  5000),
+    "cycle":        (80,   3500),
+    "primary":      (25,   1000),
+    "intermediate": (8,    400),
+    "minor":        (2,    160),
+    "minuet":       (1,    50),
+}
+
+# Per-degree maximum proportion ratio for _check_proportion().
+# Higher degrees (supercycle/cycle) tolerate larger disproportion because
+# macro Wave 3 extensions routinely span 30-40x a truncated Wave 4/5.
+# Lower degrees must stay tighter — a 30x ratio at minor scale is almost
+# certainly a misidentified structure.
+_DEGREE_PROPORTION_LIMITS: dict[str, float] = {
+    "supercycle":   40.0,
+    "cycle":        30.0,
+    "primary":      22.0,
+    "intermediate": 18.0,
+    "minor":        18.0,
+    "minuet":       18.0,
 }
 
 # ---------------------------------------------------------------------------
@@ -234,6 +252,9 @@ class ElliottWaveAnalyzer(BaseMethodology):
             )
             degree_results.append(result)
 
+        # Post-analysis: enforce degree hierarchy (larger degree must span more bars)
+        degree_results = self._validate_degree_hierarchy(degree_results)
+
         if not degree_results or all(r.count is None for r in degree_results):
             return self.create_signal(
                 ticker=ticker, direction="neutral",
@@ -297,8 +318,9 @@ class ElliottWaveAnalyzer(BaseMethodology):
         last_bar_idx = len(merged) - 1
 
         for waves, ptype in candidates:
-            # 1. Neely Proportion Check
-            if not self._check_proportion(waves, ptype):
+            # 1. Neely Proportion Check (degree-dependent limit)
+            _prop_limit = _DEGREE_PROPORTION_LIMITS.get(degree, 18.0)
+            if not self._check_proportion(waves, ptype, max_ratio=_prop_limit):
                 continue
 
             # 2. Rule Validation
@@ -312,11 +334,8 @@ class ElliottWaveAnalyzer(BaseMethodology):
             # 4. Duration/Recency Scoring (Degree-Aware)
             duration_bars = waves[-1].end_index - waves[0].start_index
 
-            # Penalize patterns exceeding degree max_bars
-            if duration_bars > max_bars:
-                continue
-
             # Duration bonus: prefer patterns near target_bars
+            # (No hard max_bars gate — span gate + multiplicative scoring handle this)
             # Linear ramp to 1.0 at target, then degrades if too long
             if duration_bars <= target_bars:
                 duration_score = duration_bars / target_bars
@@ -326,15 +345,16 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 duration_score = max(0.0, 1.0 - (over / (max_bars - target_bars)))
 
             # Recency bonus: reward patterns that explain the very latest bars
-            # Especially for minor/intermediate degrees
+            # Uniform for all degrees — degree separation handled by duration_score
             recency_bonus = 0.0
             gap = last_bar_idx - waves[-1].end_index
-            if gap <= 5: # Recent enough to be "current"
-                recency_bonus = 1.5 if degree in ["minor", "intermediate"] else 0.75
+            if gap <= 5:
+                recency_bonus = 0.75
             elif gap <= 15:
-                recency_bonus = 0.75 if degree in ["minor", "intermediate"] else 0.3
+                recency_bonus = 0.3
 
-            total_score = float(rp) + gscore + duration_score + recency_bonus
+            duration_mult = 0.3 + duration_score * 1.7
+            total_score = (float(rp) + gscore + recency_bonus) * duration_mult
             scored.append(_WaveCount(waves, ptype, subtype, rp, gscore, total_score))
 
         if not scored:
@@ -620,7 +640,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
     # Proportion check
     # ------------------------------------------------------------------
 
-    def _check_proportion(self, waves: tuple[_WaveSegment, ...], ptype: str) -> bool:
+    def _check_proportion(self, waves: tuple[_WaveSegment, ...], ptype: str, max_ratio: float = 18.0) -> bool:
         """Neely's Rule of Proportion: waves must have comparable complexity/duration."""
         if len(waves) < 3:
             return True
@@ -629,18 +649,17 @@ class ElliottWaveAnalyzer(BaseMethodology):
         durations = [w.end_index - w.start_index for w in waves]
         max_d = max(durations)
         min_d = max(min(durations), 1)
-        
-        # Rule of thumb: extreme disproportion (e.g. > 25x) invalidates the pattern at this degree.
-        # Weekly/monthly higher-degree waves naturally have unequal durations (e.g. a 5-week
-        # crash vs. an 80-week rally), so a tight 10x threshold falsely rejects valid structures.
-        if max_d / min_d > 25.0:
+
+        # Degree-dependent: higher degrees tolerate larger disproportion
+        # because macro Wave 3 extensions routinely span 30-40x truncated Wave 4/5.
+        if max_d / min_d > max_ratio:
             return False
 
         # Price comparison
         lengths = [w.length for w in waves]
         max_l = max(lengths)
         min_l = max(min(lengths), _EPSILON)
-        if max_l / min_l > 20.0:
+        if max_l / min_l > max_ratio:
             return False
 
         return True
@@ -796,6 +815,63 @@ class ElliottWaveAnalyzer(BaseMethodology):
             else:
                 return waves[3].end_price
         return waves[0].start_price
+
+    # ------------------------------------------------------------------
+    # Degree hierarchy validation
+    # ------------------------------------------------------------------
+
+    def _validate_degree_hierarchy(self, results: list[_DegreeResult]) -> list[_DegreeResult]:
+        """Remove results that violate degree hierarchy (span-only check).
+
+        Walks degrees top-down (supercycle → minuet) checking ONE constraint:
+        Bar spans: a lower degree must not span MORE THAN 2× the nearest
+        validated higher degree.  The 2× tolerance is necessary because
+        different zigzag thresholds produce different pivot sets — a higher
+        degree may find a short corrective while the next lower degree
+        finds a longer impulse covering a wider window.
+
+        Invalidation-level checks were REMOVED because each degree runs an
+        independent zigzag → candidate → scoring pipeline that identifies
+        genuinely different wave structures.  A lower degree can validly find
+        an impulse starting from a deeper correction point, producing a lower
+        invalidation than a higher degree — this is correct Elliott Wave
+        behaviour, not a hierarchy violation.  Enforcing invalidation
+        monotonicity caused catastrophic cascade drops (WULF: 6/6 upstream
+        → 1/6 output; MSFT: 5/6 → 2/6; GLD: 4/6 → 2/6).
+        """
+        order = ["supercycle", "cycle", "primary", "intermediate", "minor", "minuet"]
+
+        _SPAN_TOLERANCE = 2.0  # lower degree may span up to 2× higher degree
+
+        degree_info: dict[str, tuple[int, float, str]] = {}
+        for r in results:
+            if r.count is not None:
+                span = r.count.waves[-1].end_index - r.count.waves[0].start_index
+                degree_info[r.degree] = (span, r.invalidation, r.direction)
+
+        valid_degrees: set[str] = set()
+        prev_span = float("inf")
+
+        for deg in order:
+            if deg not in degree_info:
+                continue
+            span, inv, direction = degree_info[deg]
+
+            # Span check: lower degree must not drastically exceed higher degree
+            span_limit = prev_span * _SPAN_TOLERANCE
+            if span > span_limit:
+                continue
+
+            valid_degrees.add(deg)
+            prev_span = span
+
+        cleaned: list[_DegreeResult] = []
+        for r in results:
+            if r.count is None or r.degree in valid_degrees:
+                cleaned.append(r)
+            else:
+                cleaned.append(_DegreeResult(degree=r.degree))
+        return cleaned
 
     # ------------------------------------------------------------------
     # Output helpers

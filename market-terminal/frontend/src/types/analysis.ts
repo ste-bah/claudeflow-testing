@@ -180,7 +180,7 @@ export interface EWaveDegreeCount {
 /** Extract the hierarchical multi-degree wave tree from key_levels. */
 export function extractWaveDegrees(kl: Record<string, unknown>): EWaveDegreeCount[] {
   const rawDegrees = kl['wave_counts_by_degree'];
-  const degreeOrder = ['supercycle', 'cycle', 'primary', 'intermediate', 'minor'];
+  const degreeOrder = ['supercycle', 'cycle', 'primary', 'intermediate', 'minor', 'minuet'];
   const waveDegrees: EWaveDegreeCount[] = [];
 
   if (rawDegrees && typeof rawDegrees === 'object') {
