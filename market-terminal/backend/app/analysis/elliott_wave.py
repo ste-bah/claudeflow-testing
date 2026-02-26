@@ -351,7 +351,6 @@ class ElliottWaveAnalyzer(BaseMethodology):
             elif c.waves[0].direction == "down" and current_price <= inval * 1.005:
                 valid.append(c)
 
-        logger.warning("[EW-DIAG] %s | scored=%d valid=%d", degree, len(scored), len(valid))
         if not valid:
             return result
 
@@ -414,6 +413,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
             hc = abs(highs[i] - closes[i - 1])
             lc = abs(lows[i] - closes[i - 1])
             true_ranges.append(max(hl, hc, lc))
+        atr_pct = 0.0
         if true_ranges:
             true_ranges.sort()
             median_tr = true_ranges[len(true_ranges) // 2]
