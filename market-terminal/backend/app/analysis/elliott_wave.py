@@ -39,11 +39,11 @@ from app.analysis.base import BaseMethodology, MethodologySignal
 # ---------------------------------------------------------------------------
 # Degree registry — (name, min_pct_swing, atr_multiplier, target_bars, max_bars)
 _DEGREES: list[tuple[str, float, float, int, int]] = [
-    ("supercycle",    0.35, 4.0, 500, 5000),
-    ("cycle",         0.20, 3.0, 300, 2000),
-    ("primary",       0.10, 2.2, 150, 800),
-    ("intermediate",  0.05, 1.6, 60,  300),
-    ("minor",         0.015, 1.2, 20,  120), # Tightened for better micro-analysis
+    ("supercycle",    0.18, 4.0, 500, 5000),   # 18% — catches COVID crash (~30%), 2022 (~32%), 2018 (~38%)
+    ("cycle",         0.10, 3.0, 300, 2000),    # 10% — catches meaningful cycle-level corrections
+    ("primary",       0.05, 2.2, 150, 800),     # 5% — primary-level swings
+    ("intermediate",  0.03, 1.6, 60,  300),     # 3% — intermediate swings
+    ("minor",         0.015, 1.2, 20,  120),
     ("minuet",        0.005, 0.8, 8,   40),
 ]
 
@@ -100,10 +100,10 @@ _live_thresholds: dict[str, int] = {
 # [min_bars, max_bars] is silently skipped — preventing supercycle from winning
 # on a 7-bar window and minuet from claiming a 1000-bar structure.
 _DEGREE_SPAN_BARS: dict[str, tuple[int, int]] = {
-    "supercycle":   (300,  5000),
-    "cycle":        (80,   3500),
-    "primary":      (25,   1000),
-    "intermediate": (8,    400),
+    "supercycle":   (500,  5000),
+    "cycle":        (100,  3500),
+    "primary":      (30,   1000),
+    "intermediate": (10,   400),
     "minor":        (2,    160),
     "minuet":       (1,    50),
 }
@@ -120,6 +120,19 @@ _DEGREE_PROPORTION_LIMITS: dict[str, float] = {
     "intermediate": 18.0,
     "minor":        18.0,
     "minuet":       18.0,
+}
+
+# Minimum bars per segment after coalescing.  When the zigzag at a low
+# min_pct threshold produces many tiny segments, coalescing merges pivots
+# that are too close together so _build_candidates() receives degree-
+# appropriate segments instead of sub-degree noise.
+_DEGREE_MIN_SEGMENT_BARS: dict[str, int] = {
+    "supercycle":   40,   # ~2 months daily
+    "cycle":        20,   # ~1 month daily
+    "primary":       8,   # ~1.5 weeks daily
+    "intermediate":  3,   # ~3 days daily
+    "minor":         0,   # no filter
+    "minuet":        0,   # no filter
 }
 
 # ---------------------------------------------------------------------------
@@ -300,6 +313,12 @@ class ElliottWaveAnalyzer(BaseMethodology):
     ) -> _DegreeResult:
         result = _DegreeResult(degree=degree)
         segments = self._construct_segments(merged, min_pct, atr_mult)
+
+        # Coalesce sub-degree noise so _build_candidates receives
+        # segments appropriate for this degree's time scale.
+        min_seg_bars = _DEGREE_MIN_SEGMENT_BARS.get(degree, 0)
+        segments = self._coalesce_segments(segments, min_seg_bars)
+
         if len(segments) < 3:
             return result
 
@@ -344,14 +363,10 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 over = duration_bars - target_bars
                 duration_score = max(0.0, 1.0 - (over / (max_bars - target_bars)))
 
-            # Recency bonus: reward patterns that explain the very latest bars
-            # Uniform for all degrees — degree separation handled by duration_score
+            # Recency bonus removed — it systematically biased toward recent tiny
+            # structures over large historical ones.  Degree separation is handled
+            # entirely by duration_mult (span-appropriate scoring).
             recency_bonus = 0.0
-            gap = last_bar_idx - waves[-1].end_index
-            if gap <= 5:
-                recency_bonus = 0.75
-            elif gap <= 15:
-                recency_bonus = 0.3
 
             duration_mult = 0.3 + duration_score * 1.7
             total_score = (float(rp) + gscore + recency_bonus) * duration_mult
@@ -487,6 +502,74 @@ class ElliottWaveAnalyzer(BaseMethodology):
             d = "up" if price1 > price0 else "down"
             segments.append(_WaveSegment(idx0, idx1, price0, price1, d, abs(price1 - price0)))
         return segments
+
+    # ------------------------------------------------------------------
+    # Segment coalescing — remove sub-degree noise
+    # ------------------------------------------------------------------
+
+    def _coalesce_segments(
+        self,
+        segments: list[_WaveSegment],
+        min_seg_bars: int,
+    ) -> list[_WaveSegment]:
+        """Remove zigzag pivots that create segments shorter than *min_seg_bars*.
+
+        The algorithm extracts pivot points from the segment list, then
+        iteratively removes the pair of consecutive pivots that produce the
+        shortest segment.  Removing a consecutive pair (one high, one low)
+        preserves direction alternation.  Iteration stops when every
+        remaining segment meets the minimum or fewer than 2 pivots remain.
+        """
+        if min_seg_bars <= 0 or len(segments) < 3:
+            return segments
+
+        # Extract pivot points: [(index, price), ...]
+        pivots: list[tuple[int, float]] = [
+            (segments[0].start_index, segments[0].start_price)
+        ]
+        for seg in segments:
+            pivots.append((seg.end_index, seg.end_price))
+
+        # Iteratively remove the pair producing the shortest segment
+        changed = True
+        while changed and len(pivots) >= 4:
+            changed = False
+            shortest_span = float("inf")
+            shortest_idx = -1
+            for i in range(len(pivots) - 1):
+                span = pivots[i + 1][0] - pivots[i][0]
+                if span < shortest_span:
+                    shortest_span = span
+                    shortest_idx = i
+
+            if shortest_span >= min_seg_bars:
+                break  # all segments are long enough
+
+            # Remove the pair that includes the short segment
+            if shortest_idx == 0:
+                # Short segment at the start — drop first two pivots
+                pivots = pivots[2:]
+            elif shortest_idx >= len(pivots) - 2:
+                # Short segment at the end — drop last two pivots
+                pivots = pivots[:-2]
+            else:
+                # Middle — remove the two pivots bounding the short segment
+                pivots = pivots[:shortest_idx] + pivots[shortest_idx + 2:]
+            changed = True
+
+        if len(pivots) < 2:
+            return []
+
+        # Rebuild segments from remaining pivots
+        result: list[_WaveSegment] = []
+        for i in range(len(pivots) - 1):
+            idx0, price0 = pivots[i]
+            idx1, price1 = pivots[i + 1]
+            d = "up" if price1 > price0 else "down"
+            result.append(
+                _WaveSegment(idx0, idx1, price0, price1, d, abs(price1 - price0))
+            )
+        return result
 
     # ------------------------------------------------------------------
     # Candidate generation
@@ -917,8 +1000,8 @@ class ElliottWaveAnalyzer(BaseMethodology):
             candidates.sort(key=sort_key, reverse=True)
             return candidates[0]
 
-        # Stale fallback: pick highest confidence among primary/intermediate/minor
-        fallbacks = [r for r in valid if r.degree in ("intermediate", "primary", "minor")]
+        # Stale fallback: pick highest confidence among ALL degrees
+        fallbacks = [r for r in valid]
         if fallbacks:
             return max(fallbacks, key=lambda r: r.confidence)
 
