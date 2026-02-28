@@ -100,7 +100,7 @@ _live_thresholds: dict[str, int] = {
 # [min_bars, max_bars] is silently skipped — preventing supercycle from winning
 # on a 7-bar window and minuet from claiming a 1000-bar structure.
 _DEGREE_SPAN_BARS: dict[str, tuple[int, int]] = {
-    "supercycle":   (500,  5000),
+    "supercycle":   (120,  5000),   # lowered from 500 — tickers with <500 bars were blocked
     "cycle":        (100,  3500),
     "primary":      (30,   1000),
     "intermediate": (10,   400),
@@ -110,14 +110,15 @@ _DEGREE_SPAN_BARS: dict[str, tuple[int, int]] = {
 
 # Per-degree maximum proportion ratio for _check_proportion().
 # Higher degrees (supercycle/cycle) tolerate larger disproportion because
-# macro Wave 3 extensions routinely span 30-40x a truncated Wave 4/5.
+# macro Wave 3 extensions routinely span 80-100x a brief correction.
+# E.g. MSFT 2010-2020 bull run (~2500 bars) vs COVID crash (~30 bars).
 # Lower degrees must stay tighter — a 30x ratio at minor scale is almost
 # certainly a misidentified structure.
 _DEGREE_PROPORTION_LIMITS: dict[str, float] = {
-    "supercycle":   40.0,
-    "cycle":        30.0,
-    "primary":      22.0,
-    "intermediate": 18.0,
+    "supercycle":  120.0,
+    "cycle":        80.0,
+    "primary":      40.0,
+    "intermediate": 25.0,
     "minor":        18.0,
     "minuet":       18.0,
 }
@@ -127,8 +128,8 @@ _DEGREE_PROPORTION_LIMITS: dict[str, float] = {
 # that are too close together so _build_candidates() receives degree-
 # appropriate segments instead of sub-degree noise.
 _DEGREE_MIN_SEGMENT_BARS: dict[str, int] = {
-    "supercycle":   40,   # ~2 months daily
-    "cycle":        20,   # ~1 month daily
+    "supercycle":   10,   # lowered from 20 — aggressive coalescing killed too many segments for shorter tickers
+    "cycle":        10,   # ~2 weeks daily
     "primary":       8,   # ~1.5 weeks daily
     "intermediate":  3,   # ~3 days daily
     "minor":         0,   # no filter
@@ -336,7 +337,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
         scored: list[_WaveCount] = []
         last_bar_idx = len(merged) - 1
 
-        for waves, ptype in candidates:
+        for ci, (waves, ptype) in enumerate(candidates):
             # 1. Neely Proportion Check (degree-dependent limit)
             _prop_limit = _DEGREE_PROPORTION_LIMITS.get(degree, 18.0)
             if not self._check_proportion(waves, ptype, max_ratio=_prop_limit):
@@ -455,6 +456,7 @@ class ElliottWaveAnalyzer(BaseMethodology):
             current_close = float(closes[-1])
             if current_close > 0:
                 atr_pct = (median_tr / current_close) * atr_mult
+                atr_pct = min(atr_pct, min_pct * 2.0)  # cap ATR to 2x min_pct
                 threshold = max(atr_pct, min_pct)
             else:
                 threshold = min_pct
@@ -724,24 +726,40 @@ class ElliottWaveAnalyzer(BaseMethodology):
     # ------------------------------------------------------------------
 
     def _check_proportion(self, waves: tuple[_WaveSegment, ...], ptype: str, max_ratio: float = 18.0) -> bool:
-        """Neely's Rule of Proportion: waves must have comparable complexity/duration."""
+        """Neely's Rule of Proportion: waves must have comparable complexity/duration.
+
+        For 5-wave impulse patterns the single longest wave (the extended wave,
+        typically Wave 3) is excluded from the *minimum* side of the ratio so
+        that a massive Wave 3 extension doesn't auto-fail the check.  The ratio
+        is computed as  max(remaining) / min(remaining)  which tests whether
+        the *non-extended* waves are proportional to each other — the actual
+        Neely intent.
+        """
         if len(waves) < 3:
             return True
 
-        # Duration comparison
-        durations = [w.end_index - w.start_index for w in waves]
-        max_d = max(durations)
-        min_d = max(min(durations), 1)
+        durations = sorted(w.end_index - w.start_index for w in waves)
+        lengths = sorted(w.length for w in waves)
 
-        # Degree-dependent: higher degrees tolerate larger disproportion
-        # because macro Wave 3 extensions routinely span 30-40x truncated Wave 4/5.
+        if ptype == "impulse" and len(waves) == 5:
+            # Drop the single longest wave for ratio calculation.
+            # This lets Wave-3 extensions (which routinely span 5-50x other
+            # waves) pass while still rejecting truly disproportionate junk.
+            dur_check = durations[:-1]   # 4 shortest durations
+            len_check = lengths[:-1]     # 4 shortest lengths
+        else:
+            dur_check = durations
+            len_check = lengths
+
+        # Duration ratio (non-extended waves)
+        max_d = dur_check[-1]
+        min_d = max(dur_check[0], 1)
         if max_d / min_d > max_ratio:
             return False
 
-        # Price comparison
-        lengths = [w.length for w in waves]
-        max_l = max(lengths)
-        min_l = max(min(lengths), _EPSILON)
+        # Price-length ratio (non-extended waves)
+        max_l = len_check[-1]
+        min_l = max(len_check[0], 0.5)
         if max_l / min_l > max_ratio:
             return False
 

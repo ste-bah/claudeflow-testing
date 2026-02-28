@@ -409,7 +409,7 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
 
     fibLinesRef.current = newFibLines;
 
-    // 5. Wave label badges
+    // 5. Wave label badges — ALL degrees (primary + nested)
     const container = containerRef.current;
     const labelContainer = labelContainerRef.current;
     if (!container || !labelContainer) return;
@@ -417,7 +417,53 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     const newNodes: HTMLDivElement[] = [];
     const timeScale = chart.timeScale();
 
+    // Degree-specific font sizes (higher degree = bigger label)
+    const DEGREE_FONT: Record<string, number> = {
+      supercycle: 14, cycle: 12, primary: 11,
+      intermediate: 10, minor: 9, minuet: 8,
+    };
+    // Degree abbreviations for label prefixes
+    const DEGREE_ABBR: Record<string, string> = {
+      supercycle: 'SC', cycle: 'CY', primary: 'P',
+      intermediate: 'I', minor: 'm', minuet: 'μ',
+    };
+    // Z-index by degree (supercycle on top)
+    const DEGREE_Z: Record<string, number> = {
+      supercycle: 60, cycle: 50, primary: 40,
+      intermediate: 30, minor: 20, minuet: 10,
+    };
+    // Y-offset per degree so labels at same price don't overlap
+    const DEGREE_Y_OFFSET: Record<string, number> = {
+      supercycle: -28, cycle: -22, primary: -16,
+      intermediate: -10, minor: -4, minuet: 2,
+    };
+
+    // Combine primary wavePoints (tagged with primaryDegree) and nestedWavePoints
+    const allLabelPoints: Array<{
+      time: string; price: number; label: string;
+      degree: string; degreeAbbr: string;
+    }> = [];
+
+    const pd = ewOverlay.primaryDegree || 'primary';
+    const pdAbbr = DEGREE_ABBR[pd] || pd.substring(0, 2).toUpperCase();
     for (const pt of ewOverlay.wavePoints) {
+      allLabelPoints.push({
+        time: pt.time, price: pt.price, label: pt.label,
+        degree: pd, degreeAbbr: pdAbbr,
+      });
+    }
+    if (ewOverlay.nestedWavePoints) {
+      for (const npt of ewOverlay.nestedWavePoints) {
+        if (!npt.degree) continue;
+        allLabelPoints.push({
+          time: npt.time, price: npt.price, label: npt.label,
+          degree: npt.degree,
+          degreeAbbr: npt.degreeAbbr || DEGREE_ABBR[npt.degree] || npt.degree.substring(0, 2).toUpperCase(),
+        });
+      }
+    }
+
+    for (const pt of allLabelPoints) {
       const t = isoToTime(pt.time);
       if (t === null) continue;
       if (isIntraday && typeof t !== 'number') continue;
@@ -430,26 +476,31 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
       try { y = candleSeries.priceToCoordinate(pt.price); } catch { continue; }
       if (y === null) continue;
 
-      const badge = document.createElement('div');
+      const degStyle = DEGREE_STYLES[pt.degree] ?? { color: '#888888', lineWidth: 1 };
+      const fontSize = DEGREE_FONT[pt.degree] ?? 10;
+      const zIndex = DEGREE_Z[pt.degree] ?? 10;
+      const yOff = DEGREE_Y_OFFSET[pt.degree] ?? -16;
       const isOrigin = pt.label === '0';
+
+      const badge = document.createElement('div');
       badge.style.cssText = `
         position: absolute;
         left: ${x - 10}px;
-        top: ${y - 20}px;
-        background: ${isOrigin ? '#6b7280' : COLORS.ewLine};
+        top: ${y + yOff}px;
+        background: ${isOrigin ? '#6b7280' : degStyle.color};
         color: #0a0e17;
         font-family: monospace;
-        font-size: 10px;
+        font-size: ${fontSize}px;
         font-weight: bold;
         padding: 1px 4px;
         border-radius: 3px;
         pointer-events: none;
-        z-index: 10;
+        z-index: ${zIndex};
         white-space: nowrap;
         transform: translateX(-50%);
         opacity: 0.92;
       `;
-      badge.textContent = pt.label;
+      badge.textContent = `${pt.degreeAbbr}${pt.label}`;
       labelContainer.appendChild(badge);
       newNodes.push(badge);
     }
