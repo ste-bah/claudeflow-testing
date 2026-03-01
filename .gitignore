@@ -39,3 +39,57 @@ node_modules
 .env
 .env.local
 .env.*.local
+
+# God Agent runtime (DB files, sessions, pipeline artifacts)
+.god-agent/learning.db
+.god-agent/learning.db-shm
+.god-agent/learning.db-wal
+.god-agent/memory.db
+.god-agent/coding-sessions/
+.god-agent/pipeline-output/
+.god-agent/checkpoints/
+.god-agent/progress/
+.god-agent/rlm-context/
+
+# Claude runtime state
+.claude/runtime/
+.claude/hooks/feedback-queue.processed.*.json
+.claude/worktrees/
+
+# Vector DB backups
+vector_db_1536.bak*/
+
+# Test artifacts
+.test-gnn-e2e-*/
+.test-storage-e2e/
+.coverage
+.trunk/
+.pipeline-state/
+
+# Logs
+logs/
+*.log
+tmp/
+data/
+
+# Market terminal debug scripts and logs
+market-terminal/backend/aapl_*.log
+market-terminal/backend/debug_*.py
+market-terminal/backend/diagnose_*.py
+market-terminal/backend/clear_all_cache.py
+market-terminal/backend/debug_output.txt
+market-terminal/backend/hl_response.json
+market-terminal/backend/*_final*.log
+market-terminal/backend/*_debug*.log
+market-terminal/backend/*_audit*.log
+market-terminal/backend/supercycle_final.log
+market-terminal/backend/data/*.db-shm
+market-terminal/backend/data/*.db-wal
+market-terminal/.run/
+market-terminal/server_debug.log
+
+# PDF files (large)
+*.pdf
+
+# Python cache
+embedding-api/__pycache__/
