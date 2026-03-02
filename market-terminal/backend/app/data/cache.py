@@ -272,6 +272,18 @@ class CacheManager:
         source: str,
         **kwargs: Any,
     ) -> Any | None:
+        # Historical OHLCV data: period is "hist_{yf_period}_{yf_interval}".
+        # Always use yfinance.get_historical regardless of source — the fallback
+        # chain would otherwise call get_quote() here, writing a single-bar dict
+        # over a list of OHLCV bars and corrupting the cache.
+        if data_type == "price" and period.startswith("hist_"):
+            from app.data.yfinance_client import get_yfinance_client
+            yf_period = kwargs.get("period", "1y")
+            yf_interval = kwargs.get("interval", "1d")
+            return await get_yfinance_client().get_historical(
+                symbol=symbol, period=yf_period, interval=yf_interval,
+            )
+
         if data_type == "price" and source == "finnhub":
             from app.data.finnhub_client import get_finnhub_client
             return await get_finnhub_client().get_quote(symbol)

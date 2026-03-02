@@ -95,7 +95,7 @@ function mapBarsSinglePass(bars: readonly OHLCVBar[]): ChartSeriesData {
   return { candles, volumes };
 }
 
-/** Convert an ISO date/datetime string to a Lightweight Charts Time value. */
+/** Convert an ISO date/datetime string to a Lightweight Charts UTCTimestamp. */
 function isoToTime(iso: string): Time | null {
   try {
     if (!iso) return null;

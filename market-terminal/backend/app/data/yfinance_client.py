@@ -278,7 +278,7 @@ class YFinanceClient:
         yf = self._yf
 
         def _sync():
-            return yf.download(symbol, period=period, interval=interval, progress=False)
+            return yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=True)
 
         df = await self._run_sync(_sync)
         if df is None or (hasattr(df, "empty") and df.empty):

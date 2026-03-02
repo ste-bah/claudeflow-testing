@@ -174,7 +174,8 @@ describe('useTickerChart', () => {
 
   it('should serve cached data on second call with same symbol and timeframe', async () => {
     const bars = [makeBar()];
-    mockGetTickerHistory.mockResolvedValueOnce(makeResponse(bars));
+    // mockResolvedValue (not Once) because SWR always revalidates in background.
+    mockGetTickerHistory.mockResolvedValue(makeResponse(bars));
 
     const { result, unmount } = renderHook(() => useTickerChart('AAPL', '3m'));
 
@@ -186,14 +187,17 @@ describe('useTickerChart', () => {
 
     unmount();
 
-    // Re-render with same args -- should use cache, no new API call
+    // Re-render with same args -- cache hit renders immediately, background
+    // revalidation fires but skips state update when serverDataTimestamp unchanged.
     const { result: result2 } = renderHook(() => useTickerChart('AAPL', '3m'));
 
     // Cache hit is synchronous, so loading should never be true
     expect(result2.current.loading).toBe(false);
     expect(result2.current.bars).toEqual(bars);
     expect(result2.current.error).toBeNull();
-    expect(mockGetTickerHistory).toHaveBeenCalledTimes(1); // still only 1
+
+    // SWR always revalidates, so the mock is called a second time (background).
+    await waitFor(() => expect(mockGetTickerHistory).toHaveBeenCalledTimes(2));
   });
 
   // ---- 6. Cache miss on different timeframe ----
@@ -316,7 +320,7 @@ describe('useTickerChart', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(mockGetTickerHistory).toHaveBeenCalledWith('AAPL', '3m');
+    expect(mockGetTickerHistory).toHaveBeenCalledWith('AAPL', '1d');
   });
 
   // ---- Symbol case normalization in cache key ----
@@ -336,10 +340,11 @@ describe('useTickerChart', () => {
 
     // Fetch with uppercase -- cache key should match (AAPL:3m)
     const { result: result2 } = renderHook(() => useTickerChart('AAPL', '3m'));
-    // Cache uses symbol.toUpperCase() so this should be a cache hit
+    // Cache uses symbol.toUpperCase() so this is a cache hit (renders immediately).
     expect(result2.current.bars).toEqual(bars);
     expect(result2.current.loading).toBe(false);
-    expect(mockGetTickerHistory).toHaveBeenCalledTimes(1);
+    // SWR always revalidates in background, so a second API call is made.
+    await waitFor(() => expect(mockGetTickerHistory).toHaveBeenCalledTimes(2));
   });
 
   // ---- Different symbols use different cache entries ----

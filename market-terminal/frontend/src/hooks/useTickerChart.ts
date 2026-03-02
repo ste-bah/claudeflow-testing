@@ -11,6 +11,9 @@ import { getTickerHistory } from '../api/client';
 interface CacheEntry {
   readonly bars: OHLCVBar[];
   readonly timestamp: number;
+  /** ISO timestamp from the server's data_timestamp field — used to detect
+   *  server-side refreshes so the cache self-invalidates without a page reload. */
+  readonly serverDataTimestamp: string | null;
 }
 
 /** Module-level cache keyed by "SYMBOL:TIMEFRAME". */
@@ -87,32 +90,45 @@ export function useTickerChart(
     const cacheKey = `${symbol.toUpperCase()}:${timeframe}`;
     const cached = cache.get(cacheKey);
     const now = Date.now();
+    const cacheStale = !cached || now - cached.timestamp >= CACHE_TTL_MS;
 
-    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    // Serve cached bars immediately so the chart renders without a loading flash.
+    if (cached) {
       setBars(cached.bars);
       setError(null);
       setLoading(false);
-      return;
     }
 
+    // Always revalidate in the background.  This ensures that a backend restart
+    // (or any server-side data refresh) surfaces in the UI within one render
+    // cycle — no browser reload required.  If within TTL and the server's
+    // data_timestamp hasn't changed, we skip the state update to avoid a
+    // spurious re-render.
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    if (!cached) setLoading(true);
 
     getTickerHistory(symbol, timeframe)
       .then((result) => {
         if (cancelled) return;
 
+        const serverTs = result.data_timestamp ?? null;
+        // Skip update when cache is fresh AND server data hasn't changed.
+        if (!cacheStale && cached && serverTs && serverTs === cached.serverDataTimestamp) {
+          return;
+        }
+
         const validBars = Array.isArray(result.ohlcv)
           ? result.ohlcv.filter(isValidBar)
           : [];
 
-        cache.set(cacheKey, { bars: validBars, timestamp: Date.now() });
+        cache.set(cacheKey, { bars: validBars, timestamp: Date.now(), serverDataTimestamp: serverTs });
         setBars(validBars);
+        setError(null);
       })
       .catch(() => {
         if (cancelled) return;
-        setError('Failed to load chart data. Please try again.');
+        // Only show error if we have nothing cached to display.
+        if (!cached) setError('Failed to load chart data. Please try again.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
