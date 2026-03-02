@@ -439,6 +439,21 @@ class EdgarOwnershipClient:
                     "filing_date": f_date_str,
                 })
 
+        # Finnhub fallback for foreign filers / empty Form 4 results
+        if not flat_txns:
+            try:
+                from app.data.finnhub_client import get_finnhub_client
+                finnhub = get_finnhub_client()
+                finnhub_txns = await finnhub.get_insider_transactions(sym, limit=100)
+                if finnhub_txns:
+                    flat_txns = finnhub_txns
+                    logger.info(
+                        "Using Finnhub insider transactions fallback for %s (%d txns)",
+                        sym, len(flat_txns),
+                    )
+            except Exception as exc:
+                logger.warning("Finnhub insider fallback failed for %s: %s", sym, exc)
+
         await store_insiders(sym, flat_txns)
         result = build_insider_response(sym, flat_txns)
         return tag(result, cached=False)  # type: ignore[return-value]

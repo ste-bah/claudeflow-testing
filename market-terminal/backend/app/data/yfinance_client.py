@@ -379,6 +379,14 @@ class YFinanceClient:
             "avg_volume": info.get("averageDailyVolume10Day"),
             "shares_outstanding": info.get("sharesOutstanding"),
             "heldPercentInstitutions": info.get("heldPercentInstitutions"),
+            # Financial metrics — populated for foreign filers missing EDGAR data
+            "total_revenue": info.get("totalRevenue"),
+            "gross_margins": info.get("grossMargins"),
+            "operating_margins": info.get("operatingMargins"),
+            "net_margins": info.get("netMargins"),
+            "return_on_equity_yf": info.get("returnOnEquity"),
+            "debt_to_equity": info.get("debtToEquity"),
+            "free_cashflow": info.get("freeCashflow"),
             "_reliability": "low - unofficial API, verify against SEC filings",
         }
         self._record_success()

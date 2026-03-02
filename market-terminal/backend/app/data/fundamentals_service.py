@@ -551,18 +551,18 @@ async def get_fundamentals_data(symbol: str) -> dict[str, Any]:
             pe = round(price / eps, 2)
             
         ttm = {
-            "revenue": None,
+            "revenue": yf_data.get("total_revenue") if yf_data else None,
             "net_income": None,
             "eps_diluted": eps,
-            "gross_margin": None,
-            "operating_margin": None,
-            "net_margin": None,
+            "gross_margin": yf_data.get("gross_margins") if yf_data else None,
+            "operating_margin": yf_data.get("operating_margins") if yf_data else None,
+            "net_margin": yf_data.get("net_margins") if yf_data else None,
             "pe_ratio": pe,
             "market_cap": mcap,
             "shares_outstanding": None,
-            "free_cash_flow": None,
-            "debt_to_equity": None,
-            "return_on_equity": None,
+            "free_cash_flow": yf_data.get("free_cashflow") if yf_data else None,
+            "debt_to_equity": yf_data.get("debt_to_equity") if yf_data else None,
+            "return_on_equity": yf_data.get("return_on_equity_yf") if yf_data else None,
             "dividend_yield": _convert_dividend_yield(market_data.get("dividend_yield") if market_data else None),
             "institutional_ownership": None,
         }

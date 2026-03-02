@@ -432,6 +432,63 @@ class FinnhubClient:
                 item["_fetched_at"] = now_iso
         return limited
 
+    # -- public API: insider transactions -----------------------------------
+
+    async def get_insider_transactions(
+        self, symbol: str, limit: int = 100
+    ) -> list[dict[str, Any]] | None:
+        """Fetch insider transactions for *symbol* from Finnhub.
+
+        Returns a list of flat transaction dicts matching the format used by
+        ``edgar_ownership.py``, or ``None`` on failure.
+        """
+        raw = await self._request(
+            "/stock/insider-transactions",
+            params={"symbol": symbol.upper()},
+        )
+        if raw is None or not isinstance(raw, dict):
+            return None
+        data = raw.get("data", [])
+        if not isinstance(data, list):
+            return None
+
+        results: list[dict[str, Any]] = []
+        for item in data[:limit]:
+            if not isinstance(item, dict):
+                continue
+            change = item.get("change", 0) or 0
+            # Skip entries with no share change (e.g. award records with 0 delta)
+            if change == 0:
+                continue
+            transaction_price = item.get("transaction_price")
+            code = item.get("transaction_code", "")
+            if code == "P":
+                txn_type = "buy"
+            elif code == "S":
+                txn_type = "sell"
+            else:
+                txn_type = code.lower() if code else "unknown"
+            shares = abs(change)
+            total_value: float | None = None
+            if (
+                transaction_price is not None
+                and isinstance(transaction_price, (int, float))
+                and isinstance(shares, (int, float))
+            ):
+                total_value = shares * transaction_price
+            results.append({
+                "insider_name": item.get("name"),
+                "insider_title": None,
+                "transaction_type": txn_type,
+                "shares": shares,
+                "price_per_share": transaction_price,
+                "total_value": total_value,
+                "shares_owned_after": item.get("share"),
+                "transaction_date": item.get("transaction_date") or item.get("filing_date"),
+                "filing_date": item.get("filing_date"),
+            })
+        return results or None
+
 
 # ---------------------------------------------------------------------------
 # Module-level singleton
