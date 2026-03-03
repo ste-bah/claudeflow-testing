@@ -31,9 +31,10 @@ router = APIRouter(prefix="/api/news", tags=["news"])
 _SYMBOL_RE = re.compile(r"^[A-Za-z0-9.\-]{1,10}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _MAX_SUMMARY_LEN = 500
-# Timeout for the cache/Finnhub fetch. If Finnhub is slow on cold cache,
-# we return empty and the background task warms the cache for the retry.
-_NEWS_FETCH_TIMEOUT: float = 12.0
+# Timeout for the cache/Finnhub fetch.  Raised to 25s so most cold-start
+# fetches complete in a single request; if still exceeded we return empty
+# and schedule a background warm-up.
+_NEWS_FETCH_TIMEOUT: float = 25.0
 
 
 class Category(str, Enum):
@@ -179,9 +180,11 @@ async def get_news(
 
     # Fetch news through cache (finnhub fallback chain).
     # We cap at _NEWS_FETCH_TIMEOUT seconds — Finnhub can be slow on cold cache miss.
-    # On timeout we return empty immediately and schedule a background warm-up;
-    # the frontend's auto-retry (5 s) will pick up the warmed cache.
+    # On timeout we return empty immediately and schedule a background warm-up.
+    # warming_up=True is returned to the frontend so it can fast-poll until
+    # articles arrive, rather than showing a permanent "no articles" state.
     news_result = None
+    warming_up = False
     try:
         news_result = await asyncio.wait_for(
             cache.get_news(symbol, force_refresh=force_refresh),
@@ -192,6 +195,7 @@ async def get_news(
             "News fetch timed out for %s (%.0fs) — scheduling background warm-up",
             symbol, _NEWS_FETCH_TIMEOUT,
         )
+        warming_up = True
         # Fire-and-forget background warm-up so the *next* request hits the cache.
         async def _bg_warmup(sym: str) -> None:
             try:
@@ -267,4 +271,5 @@ async def get_news(
         "offset": offset,
         "data_source": data_source,
         "data_timestamp": data_timestamp,
+        "warming_up": warming_up,
     }

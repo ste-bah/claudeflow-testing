@@ -97,6 +97,26 @@ export function useNewsFeed(symbol: string): UseNewsFeedResult {
       (response) => {
         if (cancelled()) return;
 
+        // Backend is still doing its background warm-up — articles not ready.
+        // Don't cache the empty result; keep loading and retry in 5s.
+        if (response.warming_up) {
+          retryTimerRef.current = setTimeout(() => {
+            if (!cancelled()) {
+              retryTimerRef.current = null;
+              fetchNormaliseCachePage1(fetchSymbol, cacheKey, cancelled)
+                .catch(() => {
+                  if (!cancelled()) {
+                    setError('Failed to load news. Please try again later.');
+                  }
+                })
+                .finally(() => {
+                  if (!cancelled()) setLoading(false);
+                });
+            }
+          }, NEWS_RETRY_DELAY_MS);
+          return;
+        }
+
         const normalised = sortArticlesByDate(
           Array.isArray(response.articles)
             ? response.articles

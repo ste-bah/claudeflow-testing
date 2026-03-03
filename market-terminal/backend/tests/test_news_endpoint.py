@@ -230,7 +230,7 @@ class TestResponseStructure:
         article = resp.json()["articles"][0]
         expected_keys = {"id", "headline", "summary", "source", "url",
                          "image_url", "published_at", "category",
-                         "related_tickers", "sentiment"}
+                         "related_tickers", "sentiment", "sentiment_score"}
         assert expected_keys == set(article.keys())
 
     def test_article_headline_matches(self):
@@ -258,9 +258,11 @@ class TestResponseStructure:
             resp = _get("AAPL")
         assert resp.json()["articles"][0]["category"] == "market"
 
-    def test_sentiment_is_null(self):
-        """No sentiment pipeline yet; sentiment should always be null."""
-        with _patch_news(articles=[_sample_article()]):
+    def test_sentiment_is_null_when_analyzer_fails(self):
+        """Sentiment stays null when the sentiment analyzer raises during scoring."""
+        with _patch_news(articles=[_sample_article()]), \
+             patch("app.api.routes.news.SentimentAnalyzer") as mock_cls:
+            mock_cls.return_value._score_all_articles = AsyncMock(side_effect=Exception("no model"))
             resp = _get("AAPL")
         assert resp.json()["articles"][0]["sentiment"] is None
 

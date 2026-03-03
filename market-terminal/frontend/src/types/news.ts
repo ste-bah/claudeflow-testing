@@ -32,6 +32,8 @@ export interface NewsApiResponse {
   readonly offset: number;
   readonly data_source: string;
   readonly data_timestamp: string;
+  /** True when the backend timed out fetching cold data and a background warm-up is running. */
+  readonly warming_up?: boolean;
 }
 
 // ---------------------------------------------------------------------------
