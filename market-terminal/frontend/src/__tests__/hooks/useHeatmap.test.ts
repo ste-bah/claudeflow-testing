@@ -30,6 +30,7 @@ function makeHeatmapData(overrides: Partial<HeatmapData> = {}): HeatmapData {
     nextRefreshIn: 60,
     totalCount: 0,
     filteredCount: 0,
+    pricesReady: true,
     ...overrides,
   };
 }

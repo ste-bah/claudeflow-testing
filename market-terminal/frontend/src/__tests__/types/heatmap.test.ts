@@ -31,6 +31,7 @@ function makeRawResponse(overrides: Partial<HeatmapResponseRaw> = {}): HeatmapRe
     next_refresh_in: 58,
     total_count: 523,
     filtered_count: 45,
+    prices_ready: true,
     ...overrides,
   };
 }

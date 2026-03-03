@@ -59,6 +59,7 @@ function makeMockData(overrides?: Partial<HeatmapData>): HeatmapData {
     nextRefreshIn: 55,
     totalCount: 523,
     filteredCount: 3,
+    pricesReady: true,
     ...overrides,
   };
 }

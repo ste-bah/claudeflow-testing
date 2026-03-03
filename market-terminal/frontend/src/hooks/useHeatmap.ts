@@ -11,7 +11,8 @@ import { getHeatmap } from '../api/heatmap';
 // ---------------------------------------------------------------------------
 
 const HEATMAP_CACHE_TTL_MS = 60_000;   // 60 seconds
-const POLL_INTERVAL_MS = 60_000;        // poll every 60s
+const POLL_INTERVAL_MS = 60_000;        // normal poll interval
+const FAST_POLL_MS = 5_000;             // fast-poll when backend prices not yet loaded
 
 interface CacheEntry {
   readonly data: HeatmapData;
@@ -57,8 +58,15 @@ export function useHeatmap(
   useEffect(() => {
     const cacheKey = `${index}:${sector}`;
     let cancelled = false;
+    let fastPollId: ReturnType<typeof setTimeout> | null = null;
 
     async function fetchData(): Promise<void> {
+      // Clear any pending fast-poll before issuing a new fetch.
+      if (fastPollId !== null) {
+        clearTimeout(fastPollId);
+        fastPollId = null;
+      }
+
       const cached = cache.get(cacheKey);
 
       // Serve cached data immediately so there is no loading flash.
@@ -80,6 +88,14 @@ export function useHeatmap(
         cache.set(cacheKey, { data: result, timestamp: Date.now() });
         setData(result);
         setError(null);
+
+        // If the backend hasn't finished its background price fetch yet,
+        // schedule a fast re-poll so prices appear within ~5s of loading.
+        if (!result.pricesReady) {
+          fastPollId = setTimeout(() => {
+            if (!cancelled) fetchData();
+          }, FAST_POLL_MS);
+        }
       } catch {
         if (cancelled) return;
         // Only surface an error when there is no cached data to fall back to.
@@ -102,6 +118,7 @@ export function useHeatmap(
     return () => {
       cancelled = true;
       clearInterval(intervalId);
+      if (fastPollId !== null) clearTimeout(fastPollId);
     };
   }, [index, sector]);
 

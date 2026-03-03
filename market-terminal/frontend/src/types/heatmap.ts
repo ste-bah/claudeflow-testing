@@ -23,6 +23,7 @@ export interface HeatmapResponseRaw {
   readonly next_refresh_in: number;
   readonly total_count: number;
   readonly filtered_count: number;
+  readonly prices_ready: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,7 @@ export interface HeatmapData {
   readonly nextRefreshIn: number;
   readonly totalCount: number;
   readonly filteredCount: number;
+  readonly pricesReady: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +107,7 @@ export function normalizeHeatmapResponse(raw: HeatmapResponseRaw): HeatmapData {
     nextRefreshIn: raw.next_refresh_in,
     totalCount: raw.total_count,
     filteredCount: raw.filtered_count,
+    pricesReady: raw.prices_ready,
   };
 }
 

@@ -413,4 +413,5 @@ async def get_heatmap_data(
         "next_refresh_in": next_refresh_in,
         "total_count": len(_universe_cache),
         "filtered_count": len(stocks),
+        "prices_ready": _price_fetched_at > 0.0,
     }
