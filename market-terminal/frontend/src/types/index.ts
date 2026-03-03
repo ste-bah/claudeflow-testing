@@ -294,3 +294,13 @@ export type {
   ProcessInfo,
 } from './startup';
 export { DEFAULT_STARTUP_PROGRESS, STARTUP_PHASE_PROGRESS } from './startup';
+
+export type {
+  HeatmapStock,
+  HeatmapData,
+  HeatmapResponseRaw,
+  HeatmapStockRaw,
+  IndexFilter,
+  SectorFilter,
+} from './heatmap';
+export { SECTORS, normalizeHeatmapStock, normalizeHeatmapResponse, getHeatmapColor } from './heatmap';

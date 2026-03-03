@@ -90,6 +90,11 @@ def _extract_value(df: Any, col: str, matchers: list[str]) -> float | None:
             if dim is not None and dim is not False and dim != "":
                 continue
             sc = str(row.get("standard_concept", "") or "")
+            # When standard_concept is NaN, fall back to the raw concept field
+            # (format: "us-gaap_EarningsPerShareDiluted" → "EarningsPerShareDiluted")
+            if sc == "nan" or not sc:
+                raw_concept = str(row.get("concept", "") or "")
+                sc = raw_concept.split("_", 1)[-1] if "_" in raw_concept else raw_concept
             label = str(row.get("label", "") or "")
             for m in matchers:
                 if sc == m or m.lower() in label.lower():

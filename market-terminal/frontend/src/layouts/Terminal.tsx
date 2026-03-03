@@ -17,6 +17,7 @@ import { OptionsChainComponent } from '../components/OptionsChain';
 import InstitutionalOwnership from '../components/InstitutionalOwnership';
 import InsiderActivity from '../components/InsiderActivity';
 import AnalysisProgress from '../components/AnalysisProgress';
+import HeatmapView from '../components/HeatmapView';
 
 /** Map WebSocket status to colour + label. */
 function getStatusIndicator(status: WsConnectionStatus): { colorClass: string; label: string } {
@@ -52,6 +53,9 @@ export default function Terminal() {
   const { status } = useWebSocketContext();
   const statusIndicator = getStatusIndicator(status);
 
+  // Track which top-level view is active: the normal panel layout or the heatmap.
+  const [activeView, setActiveView] = useState<'terminal' | 'heatmap'>('terminal');
+
   // Track the chart's active timeframe so we can re-run analysis for the
   // right data window when the user switches TFs.
   const [chartTimeframe, setChartTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
@@ -81,92 +85,142 @@ export default function Terminal() {
         <AnalysisProgress symbol={activeTicker} />
       </div>
 
-      <div className="flex-1 min-h-0 p-2">
-        <PanelGroup direction="vertical" autoSaveId="terminal-vertical">
-          {/* Row 1: Watchlist | Chart | Methodology Scores */}
-          <Panel defaultSize={50} minSize={25}>
-            <PanelGroup direction="horizontal" autoSaveId="terminal-middle">
-              <Panel defaultSize={20} minSize={10} maxSize={35}>
-                <div className="h-full overflow-auto">
-                  <Watchlist />
-                </div>
-              </Panel>
-              <ResizeHandle direction="vertical" />
-              <Panel defaultSize={50} minSize={25}>
-                <div className="h-full overflow-auto">
-                  <Chart
-                    symbol={activeTicker}
-                    ewOverlay={ewOverlay}
-                    onTimeframeChange={setChartTimeframe}
-                  />
-                </div>
-              </Panel>
-              <ResizeHandle direction="vertical" />
-              <Panel defaultSize={30} minSize={15}>
-                <div className="h-full overflow-auto">
-                  <MethodologyScores symbol={activeTicker} />
-                </div>
-              </Panel>
-            </PanelGroup>
-          </Panel>
-
-          <ResizeHandle direction="horizontal" />
-
-          {/* Row 2: Options Chain */}
-          <Panel defaultSize={22} minSize={12}>
-            <div className="h-full overflow-auto">
-              <OptionsChainComponent symbol={activeTicker} />
-            </div>
-          </Panel>
-
-          <ResizeHandle direction="horizontal" />
-
-          {/* Row 3: NewsFeed | Fundamentals */}
-          <Panel defaultSize={20} minSize={12}>
-            <PanelGroup direction="horizontal" autoSaveId="terminal-bottom">
-              <Panel defaultSize={40} minSize={20}>
-                <div className="h-full overflow-auto">
-                  <NewsFeed symbol={activeTicker} />
-                </div>
-              </Panel>
-              <ResizeHandle direction="vertical" />
-              <Panel defaultSize={60} minSize={25}>
-                <div className="h-full overflow-auto">
-                  <Fundamentals symbol={activeTicker} />
-                </div>
-              </Panel>
-            </PanelGroup>
-          </Panel>
-
-          <ResizeHandle direction="horizontal" />
-
-          {/* Row 3: Institutional Ownership | Insider Activity */}
-          <Panel defaultSize={18} minSize={10}>
-            <PanelGroup direction="horizontal" autoSaveId="terminal-ownership">
-              <Panel defaultSize={50} minSize={20}>
-                <div className="h-full overflow-auto">
-                  <InstitutionalOwnership symbol={activeTicker} />
-                </div>
-              </Panel>
-              <ResizeHandle direction="vertical" />
-              <Panel defaultSize={50} minSize={20}>
-                <div className="h-full overflow-auto">
-                  <InsiderActivity symbol={activeTicker} />
-                </div>
-              </Panel>
-            </PanelGroup>
-          </Panel>
-
-          <ResizeHandle direction="horizontal" />
-
-          {/* Row 4: Macro Calendar */}
-          <Panel defaultSize={10} minSize={5} maxSize={25}>
-            <div className="h-full overflow-auto">
-              <MacroCalendar symbol={activeTicker} />
-            </div>
-          </Panel>
-        </PanelGroup>
+      {/* Tab bar: switch between Market Overview and Heatmap */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '2px',
+          padding: '4px 8px',
+          backgroundColor: '#0a0e1a',
+          borderBottom: '1px solid #1a2a3a',
+        }}
+      >
+        <button
+          onClick={() => setActiveView('terminal')}
+          style={{
+            padding: '4px 12px',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            cursor: 'pointer',
+            border: 'none',
+            borderRadius: '3px',
+            backgroundColor: activeView === 'terminal' ? '#1a3a5c' : '#0f1a2e',
+            color: activeView === 'terminal' ? '#7ec8e3' : '#666',
+            fontWeight: activeView === 'terminal' ? 'bold' : 'normal',
+          }}
+        >
+          Market Overview
+        </button>
+        <button
+          onClick={() => setActiveView('heatmap')}
+          style={{
+            padding: '4px 12px',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            cursor: 'pointer',
+            border: 'none',
+            borderRadius: '3px',
+            backgroundColor: activeView === 'heatmap' ? '#1a3a5c' : '#0f1a2e',
+            color: activeView === 'heatmap' ? '#7ec8e3' : '#666',
+            fontWeight: activeView === 'heatmap' ? 'bold' : 'normal',
+          }}
+        >
+          Heatmap
+        </button>
       </div>
+
+      {activeView === 'terminal' ? (
+        <div className="flex-1 min-h-0 p-2">
+          <PanelGroup direction="vertical" autoSaveId="terminal-vertical">
+            {/* Row 1: Watchlist | Chart | Methodology Scores */}
+            <Panel defaultSize={50} minSize={25}>
+              <PanelGroup direction="horizontal" autoSaveId="terminal-middle">
+                <Panel defaultSize={20} minSize={10} maxSize={35}>
+                  <div className="h-full overflow-auto">
+                    <Watchlist />
+                  </div>
+                </Panel>
+                <ResizeHandle direction="vertical" />
+                <Panel defaultSize={50} minSize={25}>
+                  <div className="h-full overflow-auto">
+                    <Chart
+                      symbol={activeTicker}
+                      ewOverlay={ewOverlay}
+                      onTimeframeChange={setChartTimeframe}
+                    />
+                  </div>
+                </Panel>
+                <ResizeHandle direction="vertical" />
+                <Panel defaultSize={30} minSize={15}>
+                  <div className="h-full overflow-auto">
+                    <MethodologyScores symbol={activeTicker} />
+                  </div>
+                </Panel>
+              </PanelGroup>
+            </Panel>
+
+            <ResizeHandle direction="horizontal" />
+
+            {/* Row 2: Options Chain */}
+            <Panel defaultSize={22} minSize={12}>
+              <div className="h-full overflow-auto">
+                <OptionsChainComponent symbol={activeTicker} />
+              </div>
+            </Panel>
+
+            <ResizeHandle direction="horizontal" />
+
+            {/* Row 3: NewsFeed | Fundamentals */}
+            <Panel defaultSize={20} minSize={12}>
+              <PanelGroup direction="horizontal" autoSaveId="terminal-bottom">
+                <Panel defaultSize={40} minSize={20}>
+                  <div className="h-full overflow-auto">
+                    <NewsFeed symbol={activeTicker} />
+                  </div>
+                </Panel>
+                <ResizeHandle direction="vertical" />
+                <Panel defaultSize={60} minSize={25}>
+                  <div className="h-full overflow-auto">
+                    <Fundamentals symbol={activeTicker} />
+                  </div>
+                </Panel>
+              </PanelGroup>
+            </Panel>
+
+            <ResizeHandle direction="horizontal" />
+
+            {/* Row 3: Institutional Ownership | Insider Activity */}
+            <Panel defaultSize={18} minSize={10}>
+              <PanelGroup direction="horizontal" autoSaveId="terminal-ownership">
+                <Panel defaultSize={50} minSize={20}>
+                  <div className="h-full overflow-auto">
+                    <InstitutionalOwnership symbol={activeTicker} />
+                  </div>
+                </Panel>
+                <ResizeHandle direction="vertical" />
+                <Panel defaultSize={50} minSize={20}>
+                  <div className="h-full overflow-auto">
+                    <InsiderActivity symbol={activeTicker} />
+                  </div>
+                </Panel>
+              </PanelGroup>
+            </Panel>
+
+            <ResizeHandle direction="horizontal" />
+
+            {/* Row 4: Macro Calendar */}
+            <Panel defaultSize={10} minSize={5} maxSize={25}>
+              <div className="h-full overflow-auto">
+                <MacroCalendar symbol={activeTicker} />
+              </div>
+            </Panel>
+          </PanelGroup>
+        </div>
+      ) : (
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <HeatmapView />
+        </div>
+      )}
     </div>
   );
 }

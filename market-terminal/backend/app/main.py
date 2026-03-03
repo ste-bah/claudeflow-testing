@@ -68,6 +68,7 @@ _scan_router = _import_router("app.api.routes.scan", "scan")
 _websocket_router = _import_router("app.api.routes.websocket", "websocket")
 _options_router = _import_router("app.api.routes.options", "options")
 _economic_calendar_router = _import_router("app.api.routes.economic_calendar", "economic-calendar")
+_heatmap_router = _import_router("app.api.routes.heatmap", "heatmap")
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +223,7 @@ for _router in (
     _websocket_router,
     _options_router,
     _economic_calendar_router,
+    _heatmap_router,
 ):
     if _router is not None:
         app.include_router(_router)

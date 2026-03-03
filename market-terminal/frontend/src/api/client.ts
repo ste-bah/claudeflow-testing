@@ -14,7 +14,7 @@ import type { MacroCalendarApiResponse, MacroReactionApiResponse } from '../type
 import type { ScanApiResponse } from '../types/command';
 import { isApiError, type ApiError, type ApiErrorCode } from './errors';
 
-const client = axios.create({
+export const client = axios.create({
   baseURL: '/api',
   timeout: 30_000,
   headers: { 'Content-Type': 'application/json' },

@@ -369,6 +369,10 @@ class FinnhubClient:
             "52_week_low": "week_52_low",
             "beta": "beta",
             "10_day_average_trading_volume": "avg_volume_10d",
+            # Derived financial ratios (TTM / quarterly)
+            "roe_ttm": "roe_pct",
+            "total_debt/total_equity_quarterly": "debt_to_equity",
+            "cash_flow_per_share_ttm": "cash_flow_per_share",
         }
         now_iso = datetime.now(timezone.utc).isoformat()
         result: dict[str, Any] = {"symbol": symbol.upper()}
