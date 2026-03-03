@@ -329,10 +329,46 @@ class YFinanceClient:
                     vol = None
             rec["volume"] = int(vol) if vol is not None and pd.notna(vol) else None
             records.append(rec)
+
+        # Deduplicate by date string — sort_index+drop_duplicates above operates on
+        # the full pandas Timestamp, so multiple intraday timestamps that share the same
+        # strftime date (or isoformat string for intraday) can still produce duplicates
+        # in extreme edge-cases (e.g. multi-ticker MultiIndex leakage, DST overlaps).
+        seen_dates: set[str] = set()
+        deduped: list[dict[str, Any]] = []
+        for rec in records:
+            if rec["date"] not in seen_dates:
+                seen_dates.add(rec["date"])
+                deduped.append(rec)
+        if len(deduped) < len(records):
+            logger.warning(
+                "yfinance: get_historical(%s) - dropped %d duplicate date rows",
+                symbol, len(records) - len(deduped),
+            )
+        records = deduped
+
         if not self._validate_historical(records):
             logger.warning("yfinance: get_historical(%s) - validation failed", symbol)
             self._record_failure()
             return None
+
+        # Reject suspiciously small results that indicate rate-limiting or a
+        # transient Yahoo Finance error (e.g. yfinance returning only the last
+        # 5 trading days instead of 10 years).  Newly-listed stocks have at
+        # least ~20 bars even when very recently IPO'd, so a threshold of 15
+        # is conservative enough to block bad data without rejecting real ones.
+        # Exception: very short requested periods ("1d", "5d") can legitimately
+        # return <= 15 bars.
+        short_period = period in ("1d", "5d")
+        if not short_period and len(records) < 15:
+            logger.warning(
+                "yfinance: get_historical(%s) - suspiciously few bars (%d) for "
+                "period=%s interval=%s, treating as transient failure",
+                symbol, len(records), period, interval,
+            )
+            self._record_failure()
+            return None
+
         self._record_success()
         elapsed_ms = (time.monotonic() - start) * 1000
         logger.info(

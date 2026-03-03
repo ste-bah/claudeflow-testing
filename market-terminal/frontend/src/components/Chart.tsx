@@ -86,8 +86,15 @@ function mapBarsSinglePass(bars: readonly OHLCVBar[]): ChartSeriesData {
     return date as Time;
   };
 
+  // Deduplicate by parsed time value to prevent Lightweight Charts assertion
+  // "data must be asc ordered by time" when cache returns duplicate timestamps
+  // (e.g. corrupt weekly cache where the same date appears N times).
+  const seen = new Set<string | number>();
   for (const bar of bars) {
     const time = parseTime(bar.date);
+    const key = time as string | number;
+    if (seen.has(key)) continue;
+    seen.add(key);
     candles.push({ time, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
     volumes.push({ time, value: bar.volume, color: bar.close >= bar.open ? COLORS.volumeUp : COLORS.volumeDown });
   }
