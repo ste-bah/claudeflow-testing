@@ -40,6 +40,9 @@ _DIRECTION_SCORES: dict[str, float] = {
 _MISSING_METHODOLOGY_PENALTY: float = 0.9
 _MIN_SIGNALS: int = 2
 _DEFAULT_CACHE_TTL_MINUTES: int = 60
+# Shorter TTL when the cached result was computed with no news articles,
+# so the analysis re-runs quickly once news becomes available.
+_EMPTY_NEWS_CACHE_TTL_MINUTES: int = 5
 _STRONG_BULLISH_THRESHOLD: float = 0.5
 _BULLISH_THRESHOLD: float = 0.15
 _BEARISH_THRESHOLD: float = -0.15
@@ -415,17 +418,23 @@ class CompositeAggregator:
     async def get_cached_result(
         self, ticker: str, max_age_minutes: int = _DEFAULT_CACHE_TTL_MINUTES,
     ) -> CompositeSignal | None:
-        """Retrieve most recent cached composite for *ticker* if fresh."""
+        """Retrieve most recent cached composite for *ticker* if fresh.
+
+        Uses a shorter TTL when the cached result was computed with no news
+        articles (sentiment article_count == 0), so the analysis re-runs
+        quickly once news becomes available rather than serving a stale
+        "no articles" result for the full 60-minute window.
+        """
         db = await self._get_db()
         safe_ticker = _sanitize_ticker(ticker)
-        sql = ("SELECT composite_json, created_at FROM analysis_cache "
+        sql = ("SELECT composite_json, signals_json, created_at FROM analysis_cache "
                "WHERE ticker = ? ORDER BY created_at DESC LIMIT 1")
         if self._db_path is None:
             row = await db.fetch_one(sql, (safe_ticker,))
         else:
             cursor = await db.execute(sql, (safe_ticker,))
             raw = await cursor.fetchone()
-            row = ({"composite_json": raw[0], "created_at": raw[1]}
+            row = ({"composite_json": raw[0], "signals_json": raw[1], "created_at": raw[2]}
                    if raw else None)
         if row is None:
             return None
@@ -436,7 +445,18 @@ class CompositeAggregator:
         now = datetime.now(tz=timezone.utc)
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.utc)
-        if (now - created_at).total_seconds() > max_age_minutes * 60:
+        # Use a shorter TTL if the cached sentiment signal had no articles.
+        effective_ttl = max_age_minutes
+        try:
+            signals = json.loads(row.get("signals_json") or "[]")
+            for sig in signals:
+                if sig.get("methodology") == "sentiment":
+                    if sig.get("key_levels", {}).get("article_count", 1) == 0:
+                        effective_ttl = _EMPTY_NEWS_CACHE_TTL_MINUTES
+                    break
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            pass
+        if (now - created_at).total_seconds() > effective_ttl * 60:
             return None
         try:
             return CompositeSignal.from_dict(json.loads(row["composite_json"]))
