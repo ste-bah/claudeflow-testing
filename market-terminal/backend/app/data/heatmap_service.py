@@ -295,7 +295,7 @@ def _fetch_prices_sync(symbols: list[str]) -> dict[str, dict[str, float]]:
         return {}
 
     prices: dict[str, dict[str, float]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = {executor.submit(_fetch_symbol_price_data, sym): sym for sym in symbols}
         for future in concurrent.futures.as_completed(futures):
             sym, data = future.result()
@@ -376,30 +376,15 @@ async def get_heatmap_data(
 
     filtered_symbols = [s["symbol"] for s in filtered_universe]
 
-    # --- Price cache (stale-while-revalidate) ---
+    # --- Price cache (always background — never block the request coroutine) ---
     # Re-read now: universe refresh above may have taken significant time.
     now = time.time()
     price_stale = not _price_cache or (now - _price_fetched_at) > _PRICE_TTL
-    if price_stale:
+    if price_stale and not _price_lock.locked():
         all_symbols = list(_universe_cache.keys())
-        if _price_cache:
-            # Stale but not empty: serve existing data immediately; refresh in background.
-            # _price_lock.locked() prevents spawning duplicate concurrent refresh tasks.
-            if not _price_lock.locked():
-                task = asyncio.create_task(_refresh_prices_bg(all_symbols))
-                _background_tasks.add(task)
-                task.add_done_callback(_background_tasks.discard)
-        else:
-            # Cold start — no data at all: must wait for the initial fetch.
-            async with _price_lock:
-                now = time.time()
-                if not _price_cache or (now - _price_fetched_at) > _PRICE_TTL:
-                    logger.debug("Cold-start price fetch for %d symbols", len(all_symbols))
-                    loop = asyncio.get_running_loop()
-                    _price_cache = await loop.run_in_executor(
-                        None, _fetch_prices_sync, all_symbols
-                    )
-                    _price_fetched_at = time.time()
+        task = asyncio.create_task(_refresh_prices_bg(all_symbols))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
 
     # --- Merge and build response ---
     stocks: list[dict[str, Any]] = []
