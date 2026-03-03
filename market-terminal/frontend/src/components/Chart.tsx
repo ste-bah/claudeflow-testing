@@ -118,9 +118,6 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
-  /** Kept in sync with current bars so autoscaleInfoProvider can reference
-   *  them without a stale closure (the ref object itself is stable). */
-  const barsForAutoscaleRef = useRef<OHLCVBar[]>([]);
   const smaSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const waveLineSeriesRef = useRef<ISeriesApi<'Line'>[]>([]);
   const fibLinesRef = useRef<IPriceLine[]>([]);
@@ -213,26 +210,6 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
       upColor: COLORS.up, downColor: COLORS.down,
       borderUpColor: COLORS.up, borderDownColor: COLORS.down,
       wickUpColor: COLORS.up, wickDownColor: COLORS.down,
-      // Prevent EW price lines (createPriceLine) from forcing the Y-axis to
-      // expand beyond the visible candle range.  The closure captures the
-      // stable `chart` local and the stable ref object `barsForAutoscaleRef`;
-      // `.current` is read at call-time so it always sees the latest bars.
-      autoscaleInfoProvider: () => {
-        const visRange = chart.timeScale().getVisibleLogicalRange();
-        const all = barsForAutoscaleRef.current;
-        if (!visRange || all.length === 0) return null;
-        const from = Math.max(0, Math.floor(visRange.from));
-        const to = Math.min(all.length - 1, Math.ceil(visRange.to));
-        if (from > to) return null;
-        let minValue = Infinity, maxValue = -Infinity;
-        for (let i = from; i <= to; i++) {
-          if (all[i].low < minValue) minValue = all[i].low;
-          if (all[i].high > maxValue) maxValue = all[i].high;
-        }
-        return isFinite(minValue) && isFinite(maxValue)
-          ? { priceRange: { minValue, maxValue } }
-          : null;
-      },
     });
     candleSeriesRef.current = candleSeries;
 
@@ -272,7 +249,6 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     }
 
     const { candles, volumes } = mapBarsSinglePass(bars);
-    barsForAutoscaleRef.current = bars;
     candleSeriesRef.current.setData(candles);
     volumeSeriesRef.current.setData(volumes);
 
@@ -339,19 +315,16 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     // priceMax = $298 gives a 1.6× ceiling of $478, which lets a $220
     // extension target through even when the user is viewing the $60-$111
     // recent section.  Using the visible logical range gives the correct
-    // ceiling for whatever portion of the chart is currently in view.
-    // (EW price lines are also prevented from expanding the Y-axis by the
-    // candleSeries autoscaleInfoProvider set in the mount effect.)
-    const visLogRange = chart.timeScale().getVisibleLogicalRange();
-    let filterBars: OHLCVBar[] = bars;
-    if (visLogRange !== null && bars.length > 0) {
-      const from = Math.max(0, Math.floor(visLogRange.from));
-      const to = Math.min(bars.length - 1, Math.ceil(visLogRange.to));
-      if (from <= to) filterBars = bars.slice(from, to + 1);
-    }
-    const priceMin = filterBars.reduce((m, b) => Math.min(m, b.low), Infinity);
-    const priceMax = filterBars.reduce((m, b) => Math.max(m, b.high), -Infinity);
-    const lineFilterMin = isFinite(priceMin) ? priceMin * 0.70 : 0;
+    // Anchor to the most recent 20 bars so all-time extremes (e.g. CRCL ATH
+    // $298 from months ago) don't let far-future EW targets through when the
+    // current price is $60-$111.  Using visible-range caused re-entrancy
+    // issues inside Lightweight Charts (only 5 bars rendered, timeframe
+    // switching broken).  Last-20 is stable and recalculates on timeframe
+    // switch because `bars` is in the effect deps.
+    const recentBars = bars.slice(-20);
+    const priceMin = recentBars.reduce((m, b) => Math.min(m, b.low), Infinity);
+    const priceMax = recentBars.reduce((m, b) => Math.max(m, b.high), -Infinity);
+    const lineFilterMin = isFinite(priceMin) ? priceMin * 0.60 : 0;
     const lineFilterMax = isFinite(priceMax) ? priceMax * 1.60 : Infinity;
 
     // 1. Wave zigzag line
