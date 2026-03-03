@@ -309,6 +309,16 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     const candleSeries = candleSeriesRef.current;
     const isIntraday = ['1h', '4h', '8h', '12h'].includes(timeframe);
 
+    // Compute visible price range from actual candle data.
+    // EW extensions / targets can sit far above current price (e.g. $220 when
+    // price is $111), which forces the Y-axis to expand and squashes the candles
+    // into a thin unreadable band.  Only draw price lines / wave-point series
+    // data within [priceMin × 0.70, priceMax × 1.60] of the candle range.
+    const priceMin = bars.reduce((m, b) => Math.min(m, b.low), Infinity);
+    const priceMax = bars.reduce((m, b) => Math.max(m, b.high), -Infinity);
+    const lineFilterMin = isFinite(priceMin) ? priceMin * 0.70 : 0;
+    const lineFilterMax = isFinite(priceMax) ? priceMax * 1.60 : Infinity;
+
     // 1. Wave zigzag line
     const lineData = ewOverlay.wavePoints
       .map((p: EWavePoint) => {
@@ -328,14 +338,16 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     // Accumulate all degree series here; assign to ref at end
     const newWaveSeries: ISeriesApi<'Line'>[] = [];
 
-    // Primary degree line — use degree-specific style when available
+    // Primary degree line — use degree-specific style when available.
+    // Clip to the visible candle range so far-out wave origins don't compress the chart.
     const primaryStyle = DEGREE_STYLES[ewOverlay.primaryDegree] ?? { color: COLORS.ewLine, lineWidth: 2 as const };
-    if (uniqueLine.length >= 2) {
+    const visibleLine = uniqueLine.filter(p => p.value >= lineFilterMin && p.value <= lineFilterMax);
+    if (visibleLine.length >= 2) {
       const lineSeries = chart.addLineSeries({
         color: primaryStyle.color, lineWidth: primaryStyle.lineWidth, lineStyle: 0,
         priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
       });
-      lineSeries.setData(uniqueLine);
+      lineSeries.setData(visibleLine);
       newWaveSeries.push(lineSeries);
     }
 
@@ -365,12 +377,13 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
           a.time < b.time ? -1 : a.time > b.time ? 1 : 0,
         );
 
-        if (degUnique.length >= 2) {
+        const visibleDegUnique = degUnique.filter(p => p.value >= lineFilterMin && p.value <= lineFilterMax);
+        if (visibleDegUnique.length >= 2) {
           const degSeries = chart.addLineSeries({
             color: degStyle.color, lineWidth: degStyle.lineWidth, lineStyle: 0,
             priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
           });
-          degSeries.setData(degUnique);
+          degSeries.setData(visibleDegUnique);
           newWaveSeries.push(degSeries);
         }
       }
@@ -378,10 +391,11 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
 
     waveLineSeriesRef.current = newWaveSeries;
 
-    // 2. Fibonacci price lines
+    // 2. Fibonacci price lines — skip levels outside the visible candle range
     const newFibLines: IPriceLine[] = [];
     for (const fib of ewOverlay.fibLevels) {
       if (!fib.price || fib.price <= 0) continue;
+      if (fib.price < lineFilterMin || fib.price > lineFilterMax) continue;
       const color = fib.aligned
         ? COLORS.fibAligned
         : fib.type === 'extension' ? COLORS.fibExtend : COLORS.fibRetrace;
@@ -392,7 +406,10 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     }
 
     // 3. Invalidation line
-    if (ewOverlay.invalidation !== null && ewOverlay.invalidation > 0) {
+    if (
+      ewOverlay.invalidation !== null && ewOverlay.invalidation > 0 &&
+      ewOverlay.invalidation >= lineFilterMin && ewOverlay.invalidation <= lineFilterMax
+    ) {
       newFibLines.push(candleSeries.createPriceLine({
         price: ewOverlay.invalidation, color: COLORS.invalidation,
         lineWidth: 1, lineStyle: 3, axisLabelVisible: true, title: 'Invalidation',
@@ -400,7 +417,10 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     }
 
     // 4. Primary target line
-    if (ewOverlay.primaryTarget !== null && ewOverlay.primaryTarget > 0) {
+    if (
+      ewOverlay.primaryTarget !== null && ewOverlay.primaryTarget > 0 &&
+      ewOverlay.primaryTarget >= lineFilterMin && ewOverlay.primaryTarget <= lineFilterMax
+    ) {
       newFibLines.push(candleSeries.createPriceLine({
         price: ewOverlay.primaryTarget, color: COLORS.target,
         lineWidth: 2, lineStyle: 2, axisLabelVisible: true, title: '⊙ Target',
@@ -506,7 +526,7 @@ export default function Chart({ symbol, ewOverlay, onTimeframeChange }: ChartPro
     }
 
     labelNodesRef.current = newNodes;
-  }, [ewOverlay, ewVisible, timeframe, hasEwData, clearOverlay]);
+  }, [ewOverlay, ewVisible, timeframe, hasEwData, clearOverlay, bars]);
 
   // -- WebSocket live price --------------------------------------------------
 
