@@ -144,23 +144,74 @@ async def _enrich_entry(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_WATCHLIST_ENRICHED_SQL = """
+WITH latest_price AS (
+    SELECT a.symbol, a.close, a.open
+    FROM price_cache a
+    INNER JOIN (
+        SELECT symbol, MAX(date) AS max_date
+        FROM price_cache
+        GROUP BY symbol
+    ) m ON a.symbol = m.symbol AND a.date = m.max_date
+    GROUP BY a.symbol
+),
+latest_signal AS (
+    SELECT a.symbol, a.direction, a.confidence
+    FROM analysis_results a
+    INNER JOIN (
+        SELECT symbol, MAX(analyzed_at) AS max_at
+        FROM analysis_results
+        GROUP BY symbol
+    ) m ON a.symbol = m.symbol AND a.analyzed_at = m.max_at
+    GROUP BY a.symbol
+)
+SELECT
+    w.symbol,
+    w.group_name,
+    w.sort_order,
+    w.added_at,
+    w.updated_at,
+    p.close      AS last_close,
+    p.open       AS last_open,
+    s.direction  AS signal_direction,
+    s.confidence AS signal_confidence
+FROM watchlist w
+LEFT JOIN latest_price  p ON p.symbol = w.symbol
+LEFT JOIN latest_signal s ON s.symbol = w.symbol
+ORDER BY w.sort_order ASC
+"""
+
+
+def _row_to_ticker(row: dict[str, Any]) -> dict[str, Any]:
+    """Map a single JOIN result row to the API ticker response shape."""
+    last_price: float | None = row.get("last_close")
+    price_change_pct: float | None = None
+    open_val = row.get("last_open")
+    if last_price is not None and open_val is not None and open_val != 0:
+        price_change_pct = round((last_price - open_val) / open_val * 100, 3)
+    return {
+        "symbol": row["symbol"],
+        "group": row.get("group_name", "default"),
+        "added_at": row.get("added_at"),
+        "position": row.get("sort_order", 0),
+        "last_price": last_price,
+        "price_change_percent": price_change_pct,
+        "last_composite_signal": row.get("signal_direction"),
+        "last_composite_confidence": row.get("signal_confidence"),
+        "last_updated": row.get("updated_at"),
+    }
+
+
 # ---------------------------------------------------------------------------
 # GET /api/watchlist/
 # ---------------------------------------------------------------------------
 @router.get("/")
 async def get_watchlist() -> dict[str, Any]:
-    """Return the full watchlist with cached market data."""
+    """Return the full watchlist with cached market data (single JOIN query)."""
     db = await get_database()
-
-    rows = await db.fetch_all(
-        "SELECT symbol, group_name, sort_order, added_at, updated_at "
-        "FROM watchlist ORDER BY sort_order ASC",
-    )
-
-    tickers = [await _enrich_entry(r) for r in rows]
-
+    rows = await db.fetch_all(_WATCHLIST_ENRICHED_SQL)
+    tickers = [_row_to_ticker(r) for r in rows]
     groups = sorted({r.get("group_name", "default") for r in rows})
-
     return {
         "tickers": tickers,
         "count": len(tickers),

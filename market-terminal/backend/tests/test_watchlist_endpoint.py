@@ -120,6 +120,30 @@ def _enrichment_pair(price_row=None, signal_row=None):
     return [price_row, signal_row]
 
 
+def _make_enriched_row(
+    symbol: str = "AAPL",
+    group_name: str = "default",
+    sort_order: int = 0,
+    added_at: str = "2026-01-15T10:30:00",
+    updated_at: str = "2026-02-07T15:45:00",
+    last_close: float | None = None,
+    last_open: float | None = None,
+    signal_direction: str | None = None,
+    signal_confidence: float | None = None,
+) -> dict:
+    return {
+        "symbol": symbol,
+        "group_name": group_name,
+        "sort_order": sort_order,
+        "added_at": added_at,
+        "updated_at": updated_at,
+        "last_close": last_close,
+        "last_open": last_open,
+        "signal_direction": signal_direction,
+        "signal_confidence": signal_confidence,
+    }
+
+
 # ===================================================================
 # GET /api/watchlist/ -- EMPTY
 # ===================================================================
@@ -167,10 +191,18 @@ class TestGetWatchlistWithData:
 
     def _single_ticker_db(self, price=None, signal=None):
         """DB mock for one-ticker watchlist."""
-        row = _make_watchlist_row()
+        last_close = price.get("close") if price else None
+        last_open = price.get("open") if price else None
+        signal_direction = signal.get("direction") if signal else None
+        signal_confidence = signal.get("confidence") if signal else None
+        row = _make_enriched_row(
+            last_close=last_close,
+            last_open=last_open,
+            signal_direction=signal_direction,
+            signal_confidence=signal_confidence,
+        )
         return MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, signal],
         )
 
     def test_single_ticker_returned(self):
@@ -186,10 +218,9 @@ class TestGetWatchlistWithData:
         assert body["tickers"][0]["symbol"] == "AAPL"
 
     def test_ticker_group_from_row(self):
-        row = _make_watchlist_row(group_name="tech")
+        row = _make_enriched_row(group_name="tech")
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[None, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -235,12 +266,11 @@ class TestGetWatchlistWithData:
 
     def test_groups_extracted_from_rows(self):
         rows = [
-            _make_watchlist_row(symbol="AAPL", group_name="tech", sort_order=0),
-            _make_watchlist_row(symbol="XOM", group_name="energy", sort_order=1),
+            _make_enriched_row(symbol="AAPL", group_name="tech", sort_order=0),
+            _make_enriched_row(symbol="XOM", group_name="energy", sort_order=1),
         ]
         db = MockDatabase(
             fetch_all_results=[rows],
-            fetch_one_results=[None, None, None, None],  # 2 enrichment pairs
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -248,13 +278,12 @@ class TestGetWatchlistWithData:
 
     def test_multiple_groups_distinct(self):
         rows = [
-            _make_watchlist_row(symbol="AAPL", group_name="tech", sort_order=0),
-            _make_watchlist_row(symbol="MSFT", group_name="tech", sort_order=1),
-            _make_watchlist_row(symbol="XOM", group_name="energy", sort_order=2),
+            _make_enriched_row(symbol="AAPL", group_name="tech", sort_order=0),
+            _make_enriched_row(symbol="MSFT", group_name="tech", sort_order=1),
+            _make_enriched_row(symbol="XOM", group_name="energy", sort_order=2),
         ]
         db = MockDatabase(
             fetch_all_results=[rows],
-            fetch_one_results=[None] * 6,
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -262,12 +291,11 @@ class TestGetWatchlistWithData:
 
     def test_count_matches_tickers_length(self):
         rows = [
-            _make_watchlist_row(symbol="AAPL", sort_order=0),
-            _make_watchlist_row(symbol="MSFT", sort_order=1),
+            _make_enriched_row(symbol="AAPL", sort_order=0),
+            _make_enriched_row(symbol="MSFT", sort_order=1),
         ]
         db = MockDatabase(
             fetch_all_results=[rows],
-            fetch_one_results=[None] * 4,
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -275,13 +303,12 @@ class TestGetWatchlistWithData:
 
     def test_tickers_sorted_by_sort_order(self):
         rows = [
-            _make_watchlist_row(symbol="MSFT", sort_order=0),
-            _make_watchlist_row(symbol="AAPL", sort_order=1),
-            _make_watchlist_row(symbol="GOOG", sort_order=2),
+            _make_enriched_row(symbol="MSFT", sort_order=0),
+            _make_enriched_row(symbol="AAPL", sort_order=1),
+            _make_enriched_row(symbol="GOOG", sort_order=2),
         ]
         db = MockDatabase(
             fetch_all_results=[rows],
-            fetch_one_results=[None] * 6,
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -289,10 +316,9 @@ class TestGetWatchlistWithData:
         assert symbols == ["MSFT", "AAPL", "GOOG"]
 
     def test_position_field_from_sort_order(self):
-        row = _make_watchlist_row(sort_order=7)
+        row = _make_enriched_row(sort_order=7)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[None, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -720,18 +746,15 @@ class TestReorderWatchlist:
 
         fetch_all call 1: current watchlist (for match check)
         Then the reorder returns get_watchlist() which does:
-          fetch_all call 2: full watchlist rows (for response)
-          + enrichment fetch_one pairs per ticker
+          fetch_all call 2: full enriched JOIN rows (for response)
         """
         current_rows = [{"symbol": s} for s in current_symbols]
         full_rows = [
-            _make_watchlist_row(symbol=s, sort_order=i)
+            _make_enriched_row(symbol=s, sort_order=i)
             for i, s in enumerate(current_symbols)
         ]
-        enrichment = price_signal_pairs or [None, None] * len(current_symbols)
         return MockDatabase(
             fetch_all_results=[current_rows, full_rows],
-            fetch_one_results=enrichment,
         )
 
     def test_successful_reorder_returns_200(self):
@@ -868,14 +891,12 @@ class TestReorderWatchlist:
 
     def test_reorder_preserves_enrichment(self):
         rows = [
-            _make_watchlist_row(symbol="AAPL", sort_order=0),
-            _make_watchlist_row(symbol="MSFT", sort_order=1),
+            _make_enriched_row(symbol="AAPL", sort_order=0, last_close=300.0, last_open=295.0),
+            _make_enriched_row(symbol="MSFT", sort_order=1),
         ]
         current_rows = [{"symbol": "AAPL"}, {"symbol": "MSFT"}]
-        price = _make_price_row(close=300.0, open_val=295.0)
         db = MockDatabase(
             fetch_all_results=[current_rows, rows],
-            fetch_one_results=[price, None, None, None],
         )
         with _patch_db(db):
             body = client.put(
@@ -893,13 +914,12 @@ class TestReorderWatchlist:
 
     def test_reorder_groups_in_response(self):
         rows = [
-            _make_watchlist_row(symbol="AAPL", group_name="tech", sort_order=0),
-            _make_watchlist_row(symbol="XOM", group_name="energy", sort_order=1),
+            _make_enriched_row(symbol="AAPL", group_name="tech", sort_order=0),
+            _make_enriched_row(symbol="XOM", group_name="energy", sort_order=1),
         ]
         current_rows = [{"symbol": "AAPL"}, {"symbol": "XOM"}]
         db = MockDatabase(
             fetch_all_results=[current_rows, rows],
-            fetch_one_results=[None, None, None, None],
         )
         with _patch_db(db):
             body = client.put(
@@ -1122,12 +1142,11 @@ class TestSymbolNormalization:
     def test_reorder_mixed_case_normalised(self):
         current_rows = [{"symbol": "AAPL"}, {"symbol": "MSFT"}]
         full_rows = [
-            _make_watchlist_row(symbol="AAPL", sort_order=0),
-            _make_watchlist_row(symbol="MSFT", sort_order=1),
+            _make_enriched_row(symbol="AAPL", sort_order=0),
+            _make_enriched_row(symbol="MSFT", sort_order=1),
         ]
         db = MockDatabase(
             fetch_all_results=[current_rows, full_rows],
-            fetch_one_results=[None, None, None, None],
         )
         with _patch_db(db):
             resp = client.put(
@@ -1191,8 +1210,7 @@ class TestConcurrentOperations:
 
         # List: shows the ticker
         list_db = MockDatabase(
-            fetch_all_results=[[_make_watchlist_row(symbol="AAPL")]],
-            fetch_one_results=[None, None],
+            fetch_all_results=[[_make_enriched_row(symbol="AAPL")]],
         )
         with _patch_db(list_db):
             body = client.get("/api/watchlist/").json()
@@ -1298,13 +1316,12 @@ class TestConcurrentOperations:
 
     def test_reorder_then_list_matches(self):
         rows = [
-            _make_watchlist_row(symbol="MSFT", sort_order=0),
-            _make_watchlist_row(symbol="AAPL", sort_order=1),
+            _make_enriched_row(symbol="MSFT", sort_order=0),
+            _make_enriched_row(symbol="AAPL", sort_order=1),
         ]
         current_rows = [{"symbol": "AAPL"}, {"symbol": "MSFT"}]
         db = MockDatabase(
             fetch_all_results=[current_rows, rows],
-            fetch_one_results=[None, None, None, None],
         )
         with _patch_db(db):
             body = client.put(
@@ -1328,8 +1345,7 @@ class TestConcurrentOperations:
 
         # List shows new group
         list_db = MockDatabase(
-            fetch_all_results=[[_make_watchlist_row(symbol="AAPL", group_name="new-group")]],
-            fetch_one_results=[None, None],
+            fetch_all_results=[[_make_enriched_row(symbol="AAPL", group_name="new-group")]],
         )
         with _patch_db(list_db):
             body = client.get("/api/watchlist/").json()
@@ -1460,11 +1476,9 @@ class TestEdgeCases:
 
     def test_price_change_pct_open_zero(self):
         """Division by zero: open=0 should yield None for price_change_percent."""
-        price = _make_price_row(close=100.0, open_val=0)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=100.0, last_open=0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1472,11 +1486,9 @@ class TestEdgeCases:
 
     def test_price_change_pct_open_none(self):
         """open=None should yield None for price_change_percent."""
-        price = {"close": 100.0, "open": None}
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=100.0, last_open=None)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1484,11 +1496,9 @@ class TestEdgeCases:
 
     def test_price_change_pct_close_none(self):
         """close=None should yield None for last_price and price_change_percent."""
-        price = {"close": None, "open": 100.0}
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=None, last_open=100.0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1498,11 +1508,9 @@ class TestEdgeCases:
 
     def test_price_change_pct_zero_close_zero_open(self):
         """Both close=0 and open=0: open=0 triggers division guard."""
-        price = _make_price_row(close=0, open_val=0)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=0, last_open=0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1511,11 +1519,9 @@ class TestEdgeCases:
 
     def test_price_zero_close_nonzero_open(self):
         """close=0 but open is nonzero: price_change_percent should compute as -100."""
-        price = _make_price_row(close=0.0, open_val=100.0)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=0.0, last_open=100.0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1528,11 +1534,10 @@ class TestEdgeCases:
             fetch_all_results=[
                 [{"symbol": "AAPL"}, {"symbol": "MSFT"}],
                 [
-                    _make_watchlist_row(symbol="AAPL", sort_order=0),
-                    _make_watchlist_row(symbol="MSFT", sort_order=1),
+                    _make_enriched_row(symbol="AAPL", sort_order=0),
+                    _make_enriched_row(symbol="MSFT", sort_order=1),
                 ],
             ],
-            fetch_one_results=[None, None, None, None],
         )
         with _patch_db(db):
             resp = client.put(
@@ -1544,11 +1549,9 @@ class TestEdgeCases:
     def test_price_change_pct_positive_rounding(self):
         """Verify rounding to 3 decimal places."""
         # (185.42 - 184.25) / 184.25 * 100 = 0.634877...
-        price = _make_price_row(close=185.42, open_val=184.25)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=185.42, last_open=184.25)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1559,11 +1562,9 @@ class TestEdgeCases:
 
     def test_enrichment_with_zero_close_is_not_none(self):
         """close=0 is falsy but should still be returned as last_price (using is not None)."""
-        price = _make_price_row(close=0.0, open_val=50.0)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=0.0, last_open=50.0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1574,11 +1575,9 @@ class TestEdgeCases:
 
     def test_enrichment_with_zero_confidence(self):
         """confidence=0.0 is falsy but should still be returned."""
-        signal = _make_signal_row(direction="neutral", confidence=0.0)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(signal_direction="neutral", signal_confidence=0.0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[None, signal],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1627,10 +1626,9 @@ class TestResponseShape:
         assert set(body.keys()) == self._GET_TOP_KEYS
 
     def test_get_ticker_keys(self):
-        row = _make_watchlist_row()
+        row = _make_enriched_row()
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[None, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1759,11 +1757,10 @@ class TestEnrichmentEdgeCases:
 
     def test_price_row_missing_close_key(self):
         """Price row without 'close' key should yield None."""
-        price = {"open": 100.0}  # no 'close' key
-        row = _make_watchlist_row()
+        # last_close absent in enriched row means last_close=None (default)
+        row = _make_enriched_row(last_close=None, last_open=100.0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1771,11 +1768,10 @@ class TestEnrichmentEdgeCases:
 
     def test_price_row_missing_open_key(self):
         """Price row without 'open' key should still return close."""
-        price = {"close": 150.0}  # no 'open' key
-        row = _make_watchlist_row()
+        # last_open absent in enriched row means last_open=None (default)
+        row = _make_enriched_row(last_close=150.0, last_open=None)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1784,11 +1780,10 @@ class TestEnrichmentEdgeCases:
 
     def test_signal_row_missing_direction(self):
         """Signal row without 'direction' key should yield None."""
-        signal = {"confidence": 0.8}
-        row = _make_watchlist_row()
+        # signal_direction absent in enriched row means signal_direction=None (default)
+        row = _make_enriched_row(signal_direction=None, signal_confidence=0.8)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[None, signal],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1796,11 +1791,10 @@ class TestEnrichmentEdgeCases:
 
     def test_signal_row_missing_confidence(self):
         """Signal row without 'confidence' key should yield None."""
-        signal = {"direction": "bullish"}
-        row = _make_watchlist_row()
+        # signal_confidence absent in enriched row means signal_confidence=None (default)
+        row = _make_enriched_row(signal_direction="bullish", signal_confidence=None)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[None, signal],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1808,11 +1802,9 @@ class TestEnrichmentEdgeCases:
 
     def test_negative_price_change(self):
         """Price drop should yield negative percentage."""
-        price = _make_price_row(close=90.0, open_val=100.0)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=90.0, last_open=100.0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1820,11 +1812,9 @@ class TestEnrichmentEdgeCases:
 
     def test_no_price_change(self):
         """Same open and close should yield 0.0 percent."""
-        price = _make_price_row(close=100.0, open_val=100.0)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=100.0, last_open=100.0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1832,11 +1822,9 @@ class TestEnrichmentEdgeCases:
 
     def test_large_price_change(self):
         """Very large swing should compute correctly."""
-        price = _make_price_row(close=500.0, open_val=100.0)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(last_close=500.0, last_open=100.0)
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, None],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1844,12 +1832,14 @@ class TestEnrichmentEdgeCases:
 
     def test_enrichment_both_present(self):
         """Both price and signal present simultaneously."""
-        price = _make_price_row(close=200.0, open_val=190.0)
-        signal = _make_signal_row(direction="bullish", confidence=0.95)
-        row = _make_watchlist_row()
+        row = _make_enriched_row(
+            last_close=200.0,
+            last_open=190.0,
+            signal_direction="bullish",
+            signal_confidence=0.95,
+        )
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[price, signal],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1865,17 +1855,11 @@ class TestEnrichmentEdgeCases:
     def test_enrichment_multiple_tickers_independent(self):
         """Each ticker gets its own enrichment data independently."""
         rows = [
-            _make_watchlist_row(symbol="AAPL", sort_order=0),
-            _make_watchlist_row(symbol="MSFT", sort_order=1),
+            _make_enriched_row(symbol="AAPL", sort_order=0, last_close=150.0, last_open=145.0),
+            _make_enriched_row(symbol="MSFT", sort_order=1, signal_direction="bearish", signal_confidence=0.65),
         ]
-        price_aapl = _make_price_row(close=150.0, open_val=145.0)
-        signal_msft = _make_signal_row(direction="bearish", confidence=0.65)
         db = MockDatabase(
             fetch_all_results=[rows],
-            fetch_one_results=[
-                price_aapl, None,    # AAPL: price yes, signal no
-                None, signal_msft,   # MSFT: price no, signal yes
-            ],
         )
         with _patch_db(db):
             body = client.get("/api/watchlist/").json()
@@ -1897,13 +1881,12 @@ class TestReorderEdgeCases:
     def test_reorder_three_items_all_shuffled(self):
         current_rows = [{"symbol": "A"}, {"symbol": "B"}, {"symbol": "C"}]
         full_rows = [
-            _make_watchlist_row(symbol="C", sort_order=0),
-            _make_watchlist_row(symbol="A", sort_order=1),
-            _make_watchlist_row(symbol="B", sort_order=2),
+            _make_enriched_row(symbol="C", sort_order=0),
+            _make_enriched_row(symbol="A", sort_order=1),
+            _make_enriched_row(symbol="B", sort_order=2),
         ]
         db = MockDatabase(
             fetch_all_results=[current_rows, full_rows],
-            fetch_one_results=[None, None, None, None, None, None],
         )
         with _patch_db(db):
             resp = client.put(
@@ -1915,12 +1898,11 @@ class TestReorderEdgeCases:
     def test_reorder_swapped_pair(self):
         current_rows = [{"symbol": "X"}, {"symbol": "Y"}]
         full_rows = [
-            _make_watchlist_row(symbol="Y", sort_order=0),
-            _make_watchlist_row(symbol="X", sort_order=1),
+            _make_enriched_row(symbol="Y", sort_order=0),
+            _make_enriched_row(symbol="X", sort_order=1),
         ]
         db = MockDatabase(
             fetch_all_results=[current_rows, full_rows],
-            fetch_one_results=[None, None, None, None],
         )
         with _patch_db(db):
             body = client.put(
@@ -2218,32 +2200,28 @@ class TestSqlTracking:
         assert "watchlist" in fetch_all_calls[0][1].lower()
 
     def test_get_issues_price_cache_select_per_ticker(self):
-        row = _make_watchlist_row()
+        """GET now uses a single JOIN query; price_cache appears in the fetch_all SQL."""
+        row = _make_enriched_row()
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[None, None],
         )
         with _patch_db(db):
             client.get("/api/watchlist/")
-        price_calls = [
-            c for c in db.executed
-            if c[0] == "fetch_one" and "price_cache" in c[1].lower()
-        ]
-        assert len(price_calls) == 1
+        fetch_all_calls = [c for c in db.executed if c[0] == "fetch_all"]
+        assert len(fetch_all_calls) == 1
+        assert "price_cache" in fetch_all_calls[0][1].lower()
 
     def test_get_issues_analysis_results_select_per_ticker(self):
-        row = _make_watchlist_row()
+        """GET now uses a single JOIN query; analysis_results appears in the fetch_all SQL."""
+        row = _make_enriched_row()
         db = MockDatabase(
             fetch_all_results=[[row]],
-            fetch_one_results=[None, None],
         )
         with _patch_db(db):
             client.get("/api/watchlist/")
-        signal_calls = [
-            c for c in db.executed
-            if c[0] == "fetch_one" and "analysis_results" in c[1].lower()
-        ]
-        assert len(signal_calls) == 1
+        fetch_all_calls = [c for c in db.executed if c[0] == "fetch_all"]
+        assert len(fetch_all_calls) == 1
+        assert "analysis_results" in fetch_all_calls[0][1].lower()
 
     def test_post_issues_count_check(self):
         db = MockDatabase(

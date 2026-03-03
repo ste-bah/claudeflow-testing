@@ -8,6 +8,7 @@ Full implementation: TASK-DATA-001
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sqlite3
 from pathlib import Path
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Module-level singleton
 # ---------------------------------------------------------------------------
 _manager: DatabaseManager | None = None
+_init_lock: asyncio.Lock = asyncio.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -203,12 +205,17 @@ _MIGRATIONS: dict[int, Any] = {
 # Module-level convenience functions
 # ---------------------------------------------------------------------------
 async def get_database() -> DatabaseManager:
-    """Return the singleton DatabaseManager, initializing on first call."""
+    """Return the singleton DatabaseManager, initializing on first call.
+
+    Uses a module-level asyncio.Lock to prevent concurrent coroutines from
+    calling initialize() simultaneously (check-then-act race condition).
+    """
     global _manager
-    if _manager is None:
-        _manager = DatabaseManager()
-    if not _manager.is_connected:
-        await _manager.initialize()
+    async with _init_lock:
+        if _manager is None:
+            _manager = DatabaseManager()
+        if not _manager.is_connected:
+            await _manager.initialize()
     return _manager
 
 
