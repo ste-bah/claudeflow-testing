@@ -256,51 +256,76 @@ def _build_universe() -> dict[str, dict[str, Any]]:
 # Price fetching helpers
 # ---------------------------------------------------------------------------
 
-def _fetch_symbol_price_data(sym: str) -> "tuple[str, dict[str, float] | None]":
-    """Fetch current price and daily change% for one symbol via yfinance fast_info.
-
-    When markets are open, uses last_price vs previous_close for change%.
-    When markets are closed (last_price is None), falls back to previous_close
-    so cells show real prices rather than $0.00.
-    Returns (sym, None) on any failure.
-    """
-    try:
-        import yfinance as yf
-        fi = yf.Ticker(sym).fast_info
-        last = fi.last_price
-        prev = fi.previous_close
-
-        # Pick the best available price
-        price = last if last is not None else prev
-        if price is not None:
-            price_f = float(price)
-            change_pct = 0.0
-            # Only compute change when we have both live price and a prior close
-            if last is not None and prev is not None and float(prev) != 0.0:
-                change_pct = round((float(last) - float(prev)) / float(prev) * 100, 2)
-            return sym, {"price": round(price_f, 2), "change_pct": change_pct}
-    except Exception:
-        pass
-    return sym, None
+_PRICE_CHUNK_SIZE = 175  # Yahoo Finance handles ~175 tickers per request reliably
 
 
 def _fetch_prices_sync(symbols: list[str]) -> dict[str, dict[str, float]]:
-    """Fetch current price and change% for all symbols using fast_info in parallel.
+    """Fetch current price and change% for all symbols using chunked yf.download().
 
-    Uses the same per-symbol fast_info strategy as _fetch_symbol_market_cap, which
-    is proven reliable.  yf.download() batch requests are avoided here because
-    Yahoo Finance silently drops tickers from large batches causing missing data.
+    Batches symbols into chunks of ~175 to avoid Yahoo Finance rate limiting.
+    Per-symbol fast_info with ThreadPoolExecutor fires 500+ concurrent requests
+    and is silently rate-limited; batch download uses ~3 HTTP calls total for
+    the full S&P 500 + NASDAQ-100 universe.
+
+    Uses period="5d" so the last two trading-day closes are always available
+    even on weekends/holidays.
     """
     if not symbols:
         return {}
 
+    import yfinance as yf
+
     prices: dict[str, dict[str, float]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-        futures = {executor.submit(_fetch_symbol_price_data, sym): sym for sym in symbols}
-        for future in concurrent.futures.as_completed(futures):
-            sym, data = future.result()
-            if data is not None:
-                prices[sym] = data
+    chunks = [symbols[i:i + _PRICE_CHUNK_SIZE] for i in range(0, len(symbols), _PRICE_CHUNK_SIZE)]
+
+    for chunk in chunks:
+        try:
+            df = yf.download(
+                chunk,
+                period="5d",
+                interval="1d",
+                auto_adjust=True,
+                progress=False,
+                threads=False,
+            )
+            if df.empty:
+                continue
+
+            # Single-ticker download: flat column names (Close, Open, ...)
+            # Multi-ticker download: MultiIndex columns (field, ticker)
+            if len(chunk) == 1:
+                sym = chunk[0]
+                if "Close" not in df.columns:
+                    continue
+                series = df["Close"].dropna()
+                if len(series) < 1:
+                    continue
+                price = float(series.iloc[-1])
+                change_pct = 0.0
+                if len(series) >= 2:
+                    prev = float(series.iloc[-2])
+                    if prev != 0.0:
+                        change_pct = round((price - prev) / prev * 100, 2)
+                prices[sym] = {"price": round(price, 2), "change_pct": change_pct}
+            else:
+                if "Close" not in df.columns.get_level_values(0):
+                    continue
+                close_df = df["Close"]
+                for sym in chunk:
+                    if sym not in close_df.columns:
+                        continue
+                    series = close_df[sym].dropna()
+                    if len(series) < 1:
+                        continue
+                    price = float(series.iloc[-1])
+                    change_pct = 0.0
+                    if len(series) >= 2:
+                        prev = float(series.iloc[-2])
+                        if prev != 0.0:
+                            change_pct = round((price - prev) / prev * 100, 2)
+                    prices[sym] = {"price": round(price, 2), "change_pct": change_pct}
+        except Exception as exc:
+            logger.warning("Price fetch chunk failed (%d symbols): %s", len(chunk), exc)
 
     logger.info("Prices fetched: %d / %d symbols", len(prices), len(symbols))
     return prices
@@ -324,9 +349,12 @@ async def _refresh_prices_bg(all_symbols: list[str]) -> None:
         logger.debug("Background price refresh for %d symbols", len(all_symbols))
         loop = asyncio.get_running_loop()
         new_cache = await loop.run_in_executor(None, _fetch_prices_sync, all_symbols)
-        _price_cache = new_cache
-        _price_fetched_at = time.time()
-        logger.info("Background price refresh complete: %d symbols", len(new_cache))
+        if new_cache:
+            _price_cache = new_cache
+            _price_fetched_at = time.time()
+            logger.info("Background price refresh complete: %d symbols", len(new_cache))
+        else:
+            logger.warning("Price refresh returned 0 prices — skipping timestamp update, will retry")
 
 
 # ---------------------------------------------------------------------------

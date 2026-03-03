@@ -22,6 +22,8 @@ interface HeatmapCellProps {
   readonly x: number;
   /** Pixel y position (top offset within the treemap container). */
   readonly y: number;
+  /** False while the backend price cache is warming up; shows placeholder text. */
+  readonly pricesReady?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,9 +76,10 @@ const HeatmapCell = React.memo(function HeatmapCell({
   height,
   x,
   y,
+  pricesReady = true,
 }: HeatmapCellProps) {
   const bgColor = getHeatmapColor(stock.changePct);
-  const changePctStr = formatChangePct(stock.changePct);
+  const changePctStr = pricesReady ? formatChangePct(stock.changePct) : '---';
   const title = buildTitle(stock);
   const tier = getContentTier(width, height);
 
@@ -153,7 +156,7 @@ const HeatmapCell = React.memo(function HeatmapCell({
   }
 
   // tier === 'large': show symbol + price + change%
-  const priceStr = stock.price !== null ? `$${stock.price.toFixed(2)}` : null;
+  const priceStr = !pricesReady ? '---' : (stock.price !== null ? `$${stock.price.toFixed(2)}` : null);
   return (
     <div style={cellStyle} title={title} data-testid="heatmap-cell">
       <span style={{ fontSize: '17px', fontWeight: 'bold', lineHeight: 1.2, textShadow: shadow }}>

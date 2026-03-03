@@ -21,6 +21,7 @@ import { squarify } from '../utils/treemap';
 
 const SECTOR_GAP = 3;         // px gap between sector blocks
 const LABEL_HEIGHT = 15;       // px reserved at top of each sector block for the name
+const MIN_CELL_AREA = 600;    // px² — cells smaller than this are hidden (+ N badge)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,6 +63,7 @@ interface LabelLayout {
   x: number;
   y: number;
   maxWidth: number;
+  hiddenCount: number;
 }
 
 function computeLayout(
@@ -74,9 +76,10 @@ function computeLayout(
   }
 
   // Level 1: sector treemap across the full container
+  // √market_cap compresses the 3000× Apple/small-cap range to ~56× for readable cells
   const sectorItems = Array.from(groups.entries()).map(([id, stocks]) => ({
     id,
-    value: stocks.reduce((s, st) => s + Math.max(st.marketCap, 1), 0),
+    value: stocks.reduce((s, st) => s + Math.sqrt(Math.max(st.marketCap, 1e9)), 0),
   }));
 
   const sectorRects = squarify(sectorItems, W / H);
@@ -93,7 +96,8 @@ function computeLayout(
 
     if (sw <= 0 || sh <= 0) continue;
 
-    labels.push({ text: sr.id, x: sx + 3, y: sy + 1, maxWidth: sw - 6 });
+    const labelEntry: LabelLayout = { text: sr.id, x: sx + 3, y: sy + 1, maxWidth: sw - 6, hiddenCount: 0 };
+    labels.push(labelEntry);
 
     // Stock area is below the label line
     const aw = sw;
@@ -108,22 +112,30 @@ function computeLayout(
     const bySymbol = new Map(sectorStocks.map(s => [s.symbol, s]));
     const stockItems = sectorStocks.map(s => ({
       id: s.symbol,
-      value: Math.max(s.marketCap, 1),
+      value: Math.sqrt(Math.max(s.marketCap, 1e9)),
     }));
 
     const stockRects = squarify(stockItems, aw / ah);
 
+    let hiddenCount = 0;
     for (const stockR of stockRects) {
+      const cw = (stockR.width / 100) * aw;
+      const ch = (stockR.height / 100) * ah;
+      if (cw * ch < MIN_CELL_AREA) {
+        hiddenCount++;
+        continue;
+      }
       const stock = bySymbol.get(stockR.id);
       if (!stock) continue;
       cells.push({
         stock,
         x: ax + (stockR.x / 100) * aw,
         y: ay + (stockR.y / 100) * ah,
-        w: (stockR.width / 100) * aw,
-        h: (stockR.height / 100) * ah,
+        w: cw,
+        h: ch,
       });
     }
+    labelEntry.hiddenCount = hiddenCount;
   }
 
   return { cells, labels };
@@ -321,12 +333,19 @@ export default function HeatmapView() {
                   lineHeight: '13px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                   pointerEvents: 'none',
                   zIndex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px',
                 }}
               >
-                {label.text}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                  {label.text}
+                </span>
+                {label.hiddenCount > 0 && (
+                  <span style={{ color: '#4b5563', flexShrink: 0 }}>+{label.hiddenCount}</span>
+                )}
               </div>
             ))}
 
@@ -339,6 +358,7 @@ export default function HeatmapView() {
                 y={cell.y}
                 width={cell.w}
                 height={cell.h}
+                pricesReady={data?.pricesReady ?? false}
               />
             ))}
           </>
