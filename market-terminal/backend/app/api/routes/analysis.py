@@ -243,6 +243,24 @@ async def _fetch_data(
         hist_result = await cm.get_historical_prices(
             symbol, period=tf_period, interval=tf_interval,
         )
+        # Fallback: if the preferred long-period fetch fails (e.g. rate-limited
+        # while the primary period isn't cached yet), try a shorter period that
+        # shares a cache entry with the ticker chart route.
+        _FALLBACK_PERIODS: dict[tuple[str, str], tuple[str, str]] = {
+            ("15y", "1d"):  ("10y", "1d"),
+            ("20y", "1wk"): ("10y", "1wk"),
+            ("20y", "1mo"): ("10y", "1mo"),
+        }
+        if (hist_result is None or not isinstance(hist_result.data, list)) and \
+                (tf_period, tf_interval) in _FALLBACK_PERIODS:
+            fb_period, fb_interval = _FALLBACK_PERIODS[(tf_period, tf_interval)]
+            logger.debug(
+                "analysis: %s %s/%s unavailable, falling back to %s/%s",
+                symbol, tf_period, tf_interval, fb_period, fb_interval,
+            )
+            hist_result = await cm.get_historical_prices(
+                symbol, period=fb_period, interval=fb_interval,
+            )
         if hist_result is not None and isinstance(hist_result.data, list):
             price_df, volume_df = _build_dataframes(hist_result.data)
             if not price_df.empty:
