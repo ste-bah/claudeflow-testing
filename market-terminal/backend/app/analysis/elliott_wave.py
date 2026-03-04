@@ -390,6 +390,14 @@ class ElliottWaveAnalyzer(BaseMethodology):
         if not valid:
             return result
 
+        # Prefer live (in-progress) counts over completed ones.
+        # Compact completed patterns outscore live patterns on duration_mult alone,
+        # so we must explicitly lift live candidates to the front before picking best.
+        def _has_live_wave(c: _WaveCount) -> bool:
+            return any(w.end_index >= last_bar_idx for w in c.waves)
+
+        valid.sort(key=lambda c: (0 if _has_live_wave(c) else 1, -c.total_score))
+
         best = valid[0]
         result.count = best
         result.wave_label, result.direction, cwi = self._assess_position(best, merged)
@@ -552,8 +560,10 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 # Short segment at the start — drop first two pivots
                 pivots = pivots[2:]
             elif shortest_idx >= len(pivots) - 2:
-                # Short segment at the end — drop last two pivots
-                pivots = pivots[:-2]
+                # Short segment at the end — merge into previous segment by
+                # removing the intermediate turn point.  Preserve the most
+                # recent endpoint so the current price is always represented.
+                pivots = pivots[:-2] + [pivots[-1]]
             else:
                 # Middle — remove the two pivots bounding the short segment
                 pivots = pivots[:shortest_idx] + pivots[shortest_idx + 2:]
@@ -793,14 +803,17 @@ class ElliottWaveAnalyzer(BaseMethodology):
                 final_price = waves[-1].end_price
                 current_price = float(merged["close"].iloc[-1])
                 if up:
-                    # Price extended above W5 endpoint → pattern superseded by larger upwave
+                    # Price extended above W5 endpoint → pattern superseded.
+                    # Cannot determine current position relative to a stale upward
+                    # impulse whose endpoint has been exceeded — return Indeterminate
+                    # rather than falsely propagating "Wave 5 in progress".
                     if current_price > final_price * 1.01:
-                        return ("Post-W5 (bullish continuation)", "bullish", cwi)
+                        return ("Indeterminate", "neutral", cwi)
                     reversal = (final_price - current_price) / max(final_price, _EPSILON)
                 else:
-                    # Price extended below W5 endpoint → pattern superseded by larger downwave
+                    # Price extended below W5 endpoint → pattern superseded.
                     if current_price < final_price * 0.99:
-                        return ("Post-W5 (bearish continuation)", "bearish", cwi)
+                        return ("Indeterminate", "neutral", cwi)
                     reversal = (current_price - final_price) / max(abs(final_price), _EPSILON)
                 if reversal > 0.15:
                     corrective_dir = "bearish" if up else "bullish"
