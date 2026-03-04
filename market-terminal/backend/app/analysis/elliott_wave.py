@@ -775,14 +775,39 @@ class ElliottWaveAnalyzer(BaseMethodology):
         waves = count.waves
         last_bar = len(merged) - 1
         cwi = len(waves) - 1
+        pattern_complete = True  # assume complete until proven otherwise
         for i, w in enumerate(waves):
             if w.end_index >= last_bar:
                 cwi = i
+                pattern_complete = False
                 break
 
         if count.pattern_type == "impulse" and len(waves) == 5:
-            wn = cwi + 1
             up = waves[0].direction == "up"
+
+            # Detect completed impulse: last bar is past all wave endpoints AND
+            # price has significantly reversed from the final wave's endpoint.
+            # This prevents stale "Wave 5 up" labels when the pattern peaked many
+            # bars ago and the current price has since moved strongly in reverse.
+            if pattern_complete:
+                final_price = waves[-1].end_price
+                current_price = float(merged["close"].iloc[-1])
+                if up:
+                    # Price extended above W5 endpoint → pattern superseded by larger upwave
+                    if current_price > final_price * 1.01:
+                        return ("Post-W5 (bullish continuation)", "bullish", cwi)
+                    reversal = (final_price - current_price) / max(final_price, _EPSILON)
+                else:
+                    # Price extended below W5 endpoint → pattern superseded by larger downwave
+                    if current_price < final_price * 0.99:
+                        return ("Post-W5 (bearish continuation)", "bearish", cwi)
+                    reversal = (current_price - final_price) / max(abs(final_price), _EPSILON)
+                if reversal > 0.15:
+                    corrective_dir = "bearish" if up else "bullish"
+                    label = f"Post-W5 correction ({'down' if up else 'up'} impulse complete)"
+                    return (label, corrective_dir, cwi)
+
+            wn = cwi + 1
             direction = ("bullish" if up else "bearish") if wn % 2 == 1 else ("bearish" if up else "bullish")
             label = f"Wave {wn} of impulse {'up' if up else 'down'}"
             return (label, direction, cwi)
