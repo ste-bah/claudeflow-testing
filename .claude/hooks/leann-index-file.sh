@@ -22,10 +22,30 @@ case "$FILE_PATH" in
     ;;
 esac
 
-# Skip test files, node_modules, dist
-if [[ "$FILE_PATH" == *"node_modules"* ]] || [[ "$FILE_PATH" == *"/dist/"* ]] || [[ "$FILE_PATH" == *"/.git/"* ]]; then
-  exit 0
-fi
+# Skip non-project paths (venvs, third-party, build artifacts)
+REJECT_PATTERNS=(
+  "node_modules"
+  "site-packages"
+  "__pycache__"
+  "__pypackages__"
+  "/.venv/"
+  "/venv/"
+  "/.tv/"
+  "/dist/"
+  "/build/"
+  "/target/"
+  "/.git/"
+  "/.claude/worktrees/"
+  "/coverage/"
+  ".egg-info"
+  ".min.js"
+  ".bundle.js"
+)
+for pattern in "${REJECT_PATTERNS[@]}"; do
+  if [[ "$FILE_PATH" == *"$pattern"* ]]; then
+    exit 0
+  fi
+done
 
 # Check file exists
 if [ ! -f "$FILE_PATH" ]; then

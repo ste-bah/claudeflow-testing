@@ -1,7 +1,8 @@
 #!/bin/bash
-# coding-pipeline-post.sh v2
+# coding-pipeline-post.sh v3
 # Triggered AFTER /god-code execution
 # ENFORCES feedback submission before allowing completion
+# LEANN indexing runs independently of feedback gate
 
 set -euo pipefail
 
@@ -32,7 +33,30 @@ AGENT_COUNT=$(echo "$PIPELINE_STATE" | jq -r '.agentCount // 0' 2>/dev/null)
 echo "[INFO] Pipeline ID: $PIPELINE_ID"
 echo "[INFO] Agent Count: $AGENT_COUNT / 47"
 
-# Step 2: GATE - Verify minimum agents were spawned
+# Step 2: LEANN index queue check
+# Shell hooks cannot call MCP tools directly. LEANN indexing MUST be done by Claude
+# calling mcp__leann-search__process_queue before pipeline completes.
+LEANN_QUEUE=".claude/runtime/leann-index-queue.json"
+if [[ -f "$LEANN_QUEUE" ]]; then
+  QUEUE_COUNT=$(jq '.files | length' "$LEANN_QUEUE" 2>/dev/null || echo "0")
+  if [[ "$QUEUE_COUNT" -gt 0 ]]; then
+    echo ""
+    echo "!! LEANN PROTOCOL VIOLATION: $QUEUE_COUNT files NOT indexed !!"
+    echo ""
+    echo "   Pipeline wrote files but orchestrator did NOT call"
+    echo "   mcp__leann-search__process_queue before completing."
+    echo ""
+    echo "   These files will NOT be searchable by future pipelines."
+    echo "   FIX: Call mcp__leann-search__process_queue now (repeat until queueRemaining=0)"
+    echo ""
+  else
+    echo "[OK] LEANN index queue is empty — all files indexed"
+  fi
+else
+  echo "[INFO] No LEANN queue file found"
+fi
+
+# Step 3: GATE - Verify minimum agents were spawned
 MIN_AGENTS=19  # Phase 4 start
 if [[ "$AGENT_COUNT" -lt "$MIN_AGENTS" ]]; then
   echo ""
@@ -45,7 +69,7 @@ if [[ "$AGENT_COUNT" -lt "$MIN_AGENTS" ]]; then
   exit 1
 fi
 
-# Step 3: GATE - Verify feedback was submitted
+# Step 4: GATE - Verify feedback was submitted
 echo "[INFO] Checking feedback submission..."
 FEEDBACK_STATUS=$(npx claude-flow@alpha memory retrieve -k "coding/pipeline/feedback-status" 2>/dev/null || echo '{}')
 FEEDBACK_VERIFIED=$(echo "$FEEDBACK_STATUS" | jq -r '.verified // false' 2>/dev/null || echo "false")
@@ -67,54 +91,6 @@ if [[ "$FEEDBACK_VERIFIED" != "true" ]]; then
 fi
 
 echo "[OK] Feedback verified for trajectory: $FEEDBACK_TRAJECTORY"
-
-# Step 4: ENFORCE - Process LEANN index queue automatically
-echo "[INFO] Checking and processing LEANN index queue..."
-LEANN_QUEUE=".claude/runtime/leann-index-queue.json"
-if [[ -f "$LEANN_QUEUE" ]]; then
-  QUEUE_COUNT=$(jq '.files | length' "$LEANN_QUEUE" 2>/dev/null || echo "0")
-  if [[ "$QUEUE_COUNT" -gt 0 ]]; then
-    echo "[INFO] $QUEUE_COUNT files pending LEANN indexing - processing now..."
-
-    # Run batch indexer with timeout
-    if [[ -x ".claude/hooks/leann-batch-index.sh" ]]; then
-      # Capture output but don't fail pipeline on indexing errors
-      set +e
-      LEANN_OUTPUT=$(timeout 300 .claude/hooks/leann-batch-index.sh 2>&1)
-      LEANN_EXIT=$?
-      set -e
-
-      echo "$LEANN_OUTPUT" | while read -r line; do
-        echo "       $line"
-      done
-
-      if [[ $LEANN_EXIT -eq 124 ]]; then
-        echo "[WARN] LEANN batch indexing timed out after 300 seconds"
-        echo "       Some files may not be searchable in future pipeline runs"
-      elif [[ $LEANN_EXIT -ne 0 ]]; then
-        echo "[WARN] LEANN batch indexing exited with code $LEANN_EXIT"
-        echo "       Some files may not be indexed properly"
-      fi
-
-      # Verify queue was processed
-      REMAINING=$(jq '.files | length' "$LEANN_QUEUE" 2>/dev/null || echo "0")
-      if [[ "$REMAINING" -gt 0 ]]; then
-        echo "[WARN] $REMAINING files still pending after batch processing"
-        echo "       The embedder service may be unavailable"
-      else
-        echo "[OK] All $QUEUE_COUNT files indexed successfully"
-      fi
-    else
-      echo "[WARN] LEANN batch indexer not found or not executable at:"
-      echo "       .claude/hooks/leann-batch-index.sh"
-      echo "       Files will not be searchable in future pipeline runs"
-    fi
-  else
-    echo "[OK] LEANN index queue is empty"
-  fi
-else
-  echo "[INFO] No LEANN queue file found - skipping indexing"
-fi
 
 # Step 5: All gates passed - mark complete
 echo ""

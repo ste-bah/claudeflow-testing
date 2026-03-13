@@ -229,10 +229,6 @@
           },
           {
             "type": "command",
-            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/leann-process-queue.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; echo \"[LEANN] Processing index queue...\"; timeout 120 npx tsx \"$ROOT/scripts/hooks/leann-process-queue.ts\" 2>/dev/null || echo \"[LEANN] Queue processing skipped or timed out\"'"
-          },
-          {
-            "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/clean-settings.sh\" ] && \"$ROOT/.claude/hooks/clean-settings.sh\" || true'"
           }
         ]
@@ -256,6 +252,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-session-start.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-session-start.ts\" 2>/dev/null || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && QUEUE=\".claude/runtime/leann-index-queue.json\" && [ -f \"$QUEUE\" ] && COUNT=$(jq \".files | length\" \"$QUEUE\" 2>/dev/null || echo 0) && [ \"$COUNT\" -gt 0 ] && echo \"[LEANN] $COUNT queued files need indexing. Call mcp__leann-search__process_queue to index them.\" || true'"
           }
         ]
       }

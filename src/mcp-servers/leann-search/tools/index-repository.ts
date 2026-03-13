@@ -8,6 +8,7 @@
  */
 
 import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import type { ToolExecutionContext } from './semantic-code-search.js';
@@ -160,13 +161,81 @@ const DEFAULT_EXCLUDE_PATTERNS = [
   '**/__pycache__/**',
   '**/target/**',
   '**/.venv/**',
+  '**/venv/**',
+  '**/.tv/**',
+  '**/site-packages/**',
+  '**/__pypackages__/**',
   '**/vendor/**',
   '**/*.min.js',
   '**/*.bundle.js',
   '**/coverage/**',
   '**/.next/**',
   '**/.nuxt/**',
+  '**/.claude/worktrees/**',
+  '**/*.pyc',
+  '**/*.pyo',
+  '**/*.egg-info/**',
 ];
+
+// ============================================================================
+// .leannignore Support
+// ============================================================================
+
+/** Walk up from startDir to find the nearest .git directory. */
+function findGitRoot(startDir: string): string {
+  let dir = startDir;
+  while (dir !== path.parse(dir).root) {
+    if (existsSync(path.join(dir, '.git'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return startDir;
+}
+
+/**
+ * Load .leannignore from git root and return extra exclude patterns.
+ * File format: one glob pattern per line, # comments, blank lines ignored.
+ */
+async function loadLeannIgnore(startDir: string): Promise<string[]> {
+  const root = findGitRoot(startDir);
+  try {
+    const content = await fs.readFile(path.join(root, '.leannignore'), 'utf-8');
+    return content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith('#'));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fast substring-based path rejection. Returns true if the path contains
+ * any of these known non-project directory segments.
+ */
+export function isExcludedPath(filePath: string): boolean {
+  const REJECT_SEGMENTS = [
+    '/node_modules/',
+    '/site-packages/',
+    '/__pycache__/',
+    '/__pypackages__/',
+    '/.venv/',
+    '/venv/',
+    '/.tv/',
+    '/dist/',
+    '/build/',
+    '/target/',
+    '/.git/',
+    '/.claude/worktrees/',
+    '/coverage/',
+    '.egg-info/',
+    '.min.js',
+    '.bundle.js',
+  ];
+  for (const seg of REJECT_SEGMENTS) {
+    if (filePath.includes(seg)) return true;
+  }
+  return false;
+}
 
 // ============================================================================
 // Helper Functions
@@ -491,7 +560,11 @@ export async function indexRepository(
   // Set defaults
   const repositoryName = input.repositoryName || path.basename(input.repositoryPath);
   const filePatterns = input.filePatterns || DEFAULT_FILE_PATTERNS;
-  const excludePatterns = input.excludePatterns || DEFAULT_EXCLUDE_PATTERNS;
+  const leannIgnorePatterns = await loadLeannIgnore(input.repositoryPath);
+  const excludePatterns = [
+    ...(input.excludePatterns || DEFAULT_EXCLUDE_PATTERNS),
+    ...leannIgnorePatterns,
+  ];
   const maxFileSize = input.maxFileSize || 1024 * 1024; // 1MB
   const maxChunkSize = input.maxChunkSize || 2000;
 

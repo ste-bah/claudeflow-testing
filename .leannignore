@@ -1,0 +1,47 @@
+# .leannignore — Patterns for files/dirs excluded from LEANN semantic indexing
+# Format: one glob pattern per line, # for comments
+
+# Virtual environments & third-party packages
+**/.venv/**
+**/venv/**
+**/.tv/**
+**/site-packages/**
+**/__pypackages__/**
+**/.egg-info/**
+
+# Build artifacts & dependencies
+**/node_modules/**
+**/dist/**
+**/build/**
+**/target/**
+**/coverage/**
+**/.next/**
+**/.nuxt/**
+
+# Caches & generated files
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/*.min.js
+**/*.bundle.js
+
+# Version control & tooling
+**/.git/**
+**/.claude/worktrees/**
+**/vendor/**
+
+# Binary & data files
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.pid
+**/*.log
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.ico
+**/*.woff
+**/*.woff2
+**/*.ttf
+**/*.eot

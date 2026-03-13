@@ -109,6 +109,21 @@ npx tsx src/god-agent/cli/pipeline-thin-cli.ts next <sessionId> 2>&1 | python3 s
 ```
 This will regenerate the enriched prompt (with LEANN/patterns/etc) and save it to `PROMPT_FILE`.
 
+### Step 4: Drain LEANN Index Queue
+
+After the pipeline completes (STATUS: complete), drain any queued files into the semantic search index:
+
+```bash
+# Check if queue has files
+QUEUE_COUNT=$(jq '.files | length' .claude/runtime/leann-index-queue.json 2>/dev/null || echo "0")
+```
+
+If QUEUE_COUNT > 0, call `mcp__leann-search__process_queue` with `maxFiles: 50, timeoutMs: 300000`. Repeat until `queueRemaining: 0` (max 10 attempts).
+
+**Failure guard:** If `chunksIndexed` is 0 for 3 consecutive calls, warn the user that the embedder may be down and skip this step.
+
+**This step is MANDATORY.** Files written by implementation agents (Phase 4+) will not be searchable by future pipeline runs until indexed.
+
 ---
 
 ## BATCH MODE
@@ -213,4 +228,9 @@ STATUS: complete
 PIPELINE COMPLETE: {"completed": 50, "total": 50, "percentage": 100}
 PROMPT_FILE:
 PROMPT_LEN: 0
+
+# Step 4: Drain LEANN index queue
+> QUEUE_COUNT=$(jq '.files | length' .claude/runtime/leann-index-queue.json 2>/dev/null || echo "0")
+> # If QUEUE_COUNT > 0, call mcp__leann-search__process_queue with maxFiles: 50, timeoutMs: 300000
+> # Repeat until queueRemaining: 0
 ```
