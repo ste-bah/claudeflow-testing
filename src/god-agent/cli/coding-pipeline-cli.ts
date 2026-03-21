@@ -237,6 +237,9 @@ async function formatAgentResponse(batchResponse: {
   totalAgents: number;
 }) {
   if (batchResponse.status === 'complete') {
+    // NOTE: pipeline_completed event is emitted by complete() after markBatchComplete,
+    // NOT here — formatAgentResponse is called from multiple paths and would double-fire.
+
     // ── Batch-learn: final drain of remaining feedback ──────────────
     try {
       const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
@@ -261,6 +264,7 @@ async function formatAgentResponse(batchResponse: {
         total: batchResponse.totalAgents,
         percentage: 100,
       },
+      postActions: ['Call mcp__leann-search__process_queue to index files created during this pipeline run.'],
     };
   }
 
@@ -274,6 +278,7 @@ async function formatAgentResponse(batchResponse: {
         total: batchResponse.totalAgents,
         percentage: 100,
       },
+      postActions: ['Call mcp__leann-search__process_queue to index files created during this pipeline run.'],
     };
   }
 
@@ -306,6 +311,12 @@ export async function init(
   task: string,
   _bundle?: OrchestratorBundle,
 ): Promise<Record<string, unknown>> {
+  // Pre-initialize ObservabilityBus so socket connects during orchestrator setup
+  try {
+    const { ObservabilityBus } = await import('../core/observability/bus.js');
+    ObservabilityBus.getInstance();
+  } catch { /* non-fatal */ }
+
   const sessionId = uuidv4();
 
   console.error('[init] Creating agent...');
@@ -354,6 +365,27 @@ export async function init(
   // Initialize session (orchestrator persists to disk)
   console.error('[init] Initializing session...');
   const batchResponse = await orchestrator.initSession(sessionId, pipelineConfig);
+
+  // ── Observability: pipeline_started event ──────────────────────────────
+  try {
+    const { ObservabilityBus } = await import('../core/observability/bus.js');
+    ObservabilityBus.getInstance().emit({
+      component: 'pipeline',
+      operation: 'pipeline_started',
+      status: 'running',
+      metadata: {
+        pipelineId: sessionId,
+        taskFile: task,
+        totalAgents: batchResponse.totalAgents || 48,
+        pipelineType: 'god-code',
+      },
+    });
+    console.error(`[OBS] Emitted pipeline_started event for session ${sessionId}`);
+
+    // NOTE: Do NOT emit agent_started for the first agent here.
+    // The first agent gets its agent_started event when next() is called,
+    // just like every other agent. Emitting here caused duplicate entries.
+  } catch { /* observability bus unavailable — non-fatal */ }
 
   // Create session-scoped output directory for compaction recovery
   const fsInit = (await import('fs')).promises;
@@ -416,6 +448,12 @@ export async function next(
   sessionId: string,
   _bundle?: OrchestratorBundle,
 ): Promise<Record<string, unknown>> {
+  // Pre-initialize ObservabilityBus so socket connects during orchestrator setup
+  try {
+    const { ObservabilityBus } = await import('../core/observability/bus.js');
+    ObservabilityBus.getInstance();
+  } catch { /* non-fatal */ }
+
   console.error('[next] Loading session...');
   const { orchestrator, agentRegistry, patternMatcher } = _bundle ?? await createSequentialOrchestrator();
   const { existsSync, readFileSync } = await import('fs');
@@ -785,6 +823,28 @@ export async function next(
     }
 
     batchResponse.batch[0].prompt = prompt;
+
+    // ── Observability: agent_started event ──────────────────────────────
+    try {
+      const { ObservabilityBus } = await import('../core/observability/bus.js');
+      const executionId = `${sessionId}_${agentKey}_${Date.now()}`;
+      ObservabilityBus.getInstance().emit({
+        component: 'agent',
+        operation: 'agent_started',
+        status: 'running',
+        metadata: {
+          executionId,
+          pipelineId: sessionId,
+          agentKey,
+          agentName: agentKey,
+          agentCategory: `phase-${phase}`,
+          taskPreview: prompt.substring(0, 500),
+          promptText: prompt,
+          phase,
+        },
+      });
+      console.error(`[OBS] Emitted agent_started event for ${agentKey}`);
+    } catch { /* observability bus unavailable — non-fatal */ }
   }
 
   return formatAgentResponse(batchResponse);
@@ -992,6 +1052,27 @@ export async function complete(
   }];
   await orchestrator.markBatchComplete(sessionId, results);
 
+  // ── Observability: check if pipeline is now complete and emit exactly once ──
+  try {
+    const postCompleteSession = JSON.parse(
+      await fsP.readFile(`.god-agent/coding-sessions/${sessionId}.json`, 'utf-8'),
+    );
+    if (postCompleteSession.status === 'complete') {
+      const { ObservabilityBus } = await import('../core/observability/bus.js');
+      ObservabilityBus.getInstance().emit({
+        component: 'pipeline',
+        operation: 'pipeline_completed',
+        status: 'success',
+        metadata: {
+          pipelineId: sessionId,
+          totalAgents: postCompleteSession.completedAgents?.length || 0,
+          pipelineType: 'god-code',
+        },
+      });
+      console.error(`[OBS] Emitted pipeline_completed event for session ${sessionId}`);
+    }
+  } catch { /* observability bus unavailable — non-fatal */ }
+
   // 7. Persist XP to session file (locked to prevent dual-write race with markBatchComplete)
   const sessionFilePath = `.god-agent/coding-sessions/${sessionId}.json`;
   let sessionXpTotal = 0;
@@ -1136,14 +1217,19 @@ export async function complete(
     } catch { /* default to Standard */ }
 
     const { ObservabilityBus } = await import('../core/observability/bus.js');
+    const executionId = `${sessionId}_${agentKey}_${Date.now()}`;
     ObservabilityBus.getInstance().emit({
-      component: 'pipeline',
+      component: 'agent',
       operation: 'agent_completed',
       status: 'success',
       durationMs: 0,
       metadata: {
+        executionId,
         pipelineId: sessionId,
         agentKey,
+        agentName: agentKey,
+        outputPreview: output.substring(0, 500),
+        qualityScore: assessment.score,
         quality: assessment.score,
         tier: assessment.tier,
         phase,
@@ -1230,6 +1316,12 @@ export async function completeAndNext(
   sessionId: string, agentKey: string,
   options?: { file?: string },
 ): Promise<void> {
+  // Pre-initialize ObservabilityBus so socket connects during orchestrator setup
+  try {
+    const { ObservabilityBus } = await import('../core/observability/bus.js');
+    ObservabilityBus.getInstance();
+  } catch { /* non-fatal */ }
+
   console.error(`[complete-and-next] Combined operation for ${agentKey}...`);
   const bundle = await createSequentialOrchestrator();
 

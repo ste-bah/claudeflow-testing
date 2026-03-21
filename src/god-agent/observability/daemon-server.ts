@@ -288,6 +288,18 @@ export class DaemonServer implements IDaemonServer {
       this.socketServer = null;
     }
 
+    // Close AgentExecutionTracker (SQLite)
+    if (this.components?.agentTracker) {
+      try {
+        const tracker = this.components.agentTracker as unknown as { close?: () => void };
+        if (typeof tracker.close === 'function') {
+          tracker.close();
+        }
+      } catch (error) {
+        this.log(`[Daemon] Error closing AgentExecutionTracker: ${error}`);
+      }
+    }
+
     // Close EventStore
     if (this.components?.eventStore) {
       try {

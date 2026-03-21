@@ -143,6 +143,8 @@ export interface IAgentExecution {
   qualityScore?: number;
   /** Memory entries stored by this agent */
   memoryStored?: IMemoryEntry[];
+  /** Full agent prompt text (optional, untruncated) */
+  promptText?: string;
   /** Error message if failed */
   error?: string;
 }

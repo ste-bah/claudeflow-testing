@@ -28,6 +28,205 @@ const GOD_AGENT_DIR = path.join(process.cwd(), '.god-agent');
 const LEARNING_DB_PATH = path.join(GOD_AGENT_DIR, 'learning.db');
 const DESC_DB_PATH = path.join(GOD_AGENT_DIR, 'desc.db');
 const AGENTS_DIR = path.join(process.cwd(), '.claude', 'agents');
+const EVENTS_DB_PATH = path.join(GOD_AGENT_DIR, 'events.db');
+const VECTOR_DB_DIR = path.join(process.cwd(), 'vector_db_leann');
+const VECTOR_DB_STORES_DIR = path.join(process.cwd(), 'vector_db_leann.stores');
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/** Module-level cache for path size walks (60s TTL) */
+let dirSizeCache: Map<string, { result: { sizeBytes: number; fileCount: number }; timestamp: number }> = new Map();
+const DIR_SIZE_CACHE_TTL_MS = 60_000;
+
+function getCachedPathSize(targetPath: string): { sizeBytes: number; fileCount: number } {
+  const cached = dirSizeCache.get(targetPath);
+  const now = Date.now();
+  if (cached && (now - cached.timestamp) < DIR_SIZE_CACHE_TTL_MS) {
+    return cached.result;
+  }
+  const result = getPathSize(targetPath);
+  dirSizeCache.set(targetPath, { result, timestamp: now });
+  return result;
+}
+
+/**
+ * Calculate total size and file count of a file or directory.
+ * Handles both files (returns single file stats) and directories (recursive walk).
+ * Returns {sizeBytes: 0, fileCount: 0} if path doesn't exist or on error.
+ */
+function getPathSize(targetPath: string): { sizeBytes: number; fileCount: number } {
+  try {
+    const stat = fs.statSync(targetPath);
+    if (stat.isFile()) {
+      return { sizeBytes: stat.size, fileCount: 1 };
+    }
+    if (stat.isDirectory()) {
+      let totalSize = 0;
+      let fileCount = 0;
+      const walkDir = (dir: string) => {
+        try {
+          const entries = fs.readdirSync(dir);
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry);
+            try {
+              // Use lstatSync to avoid following symlinks (prevents loops)
+              const entryStat = fs.lstatSync(fullPath);
+              if (entryStat.isFile()) {
+                totalSize += entryStat.size;
+                fileCount++;
+              } else if (entryStat.isDirectory() && !entryStat.isSymbolicLink()) {
+                walkDir(fullPath);
+              }
+            } catch { /* skip inaccessible entries */ }
+          }
+        } catch { /* skip inaccessible directories */ }
+      };
+      walkDir(targetPath);
+      return { sizeBytes: totalSize, fileCount };
+    }
+    return { sizeBytes: 0, fileCount: 0 };
+  } catch {
+    return { sizeBytes: 0, fileCount: 0 };
+  }
+}
+
+/**
+ * Get file size info for a single file path.
+ * Returns 0 / "0.00" if file doesn't exist.
+ */
+function getFileSizeInfo(filePath: string): { path: string; sizeBytes: number; sizeMB: string } {
+  try {
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      return {
+        path: filePath,
+        sizeBytes: stat.size,
+        sizeMB: (stat.size / (1024 * 1024)).toFixed(2),
+      };
+    }
+  } catch {
+    // Fall through to default
+  }
+  return { path: filePath, sizeBytes: 0, sizeMB: '0.00' };
+}
+
+/**
+ * Get database file size including WAL and SHM companions.
+ * In WAL mode, events.db-wal and events.db-shm can be significant.
+ */
+function getDbSizeInfo(dbPath: string): { path: string; sizeBytes: number; sizeMB: string } {
+  let totalBytes = 0;
+  const suffixes = ['', '-wal', '-shm'];
+  for (const suffix of suffixes) {
+    try {
+      const stat = fs.statSync(dbPath + suffix);
+      totalBytes += stat.size;
+    } catch {
+      // File doesn't exist — normal
+    }
+  }
+  return {
+    path: dbPath,
+    sizeBytes: totalBytes,
+    sizeMB: (totalBytes / (1024 * 1024)).toFixed(2),
+  };
+}
+
+const VECTOR_DB_STORES_FILE = path.join(process.cwd(), 'vector_db_leann.stores');
+
+// Cache for LEANN stats (computed from stores file)
+let leannStatsCache: { data: Record<string, unknown>; timestamp: number } | null = null;
+const LEANN_STATS_CACHE_TTL = 120_000; // 2 minutes
+
+/**
+ * Read LEANN stats directly from the vector_db_leann.stores JSON file.
+ * Parses the metadata entries to compute index statistics.
+ * Results are cached for 2 minutes to avoid re-parsing the ~22MB file on every request.
+ */
+function getLeannStats(): Record<string, unknown> {
+  // Return cached if fresh
+  if (leannStatsCache && (Date.now() - leannStatsCache.timestamp) < LEANN_STATS_CACHE_TTL) {
+    return leannStatsCache.data;
+  }
+
+  try {
+    if (!fs.existsSync(VECTOR_DB_STORES_FILE)) {
+      return {};
+    }
+
+    // Parse the stores file (we only need 'metadata', not 'code' embeddings)
+    const raw = fs.readFileSync(VECTOR_DB_STORES_FILE, 'utf8');
+    const stores = JSON.parse(raw);
+    const metadata = stores.metadata || {};
+    const entries = Object.values(metadata) as Array<Record<string, unknown>>;
+
+    // Compute stats from metadata entries
+    const filesSet = new Set<string>();
+    const reposSet = new Set<string>();
+    const languageCounts: Record<string, number> = {};
+    const symbolCounts: Record<string, number> = {};
+    let firstIndexedAt: number | undefined;
+    let lastIndexedAt: number | undefined;
+
+    for (const entry of entries) {
+      if (entry.filePath) filesSet.add(entry.filePath as string);
+      if (entry.repository) reposSet.add(entry.repository as string);
+      if (entry.language) {
+        const lang = entry.language as string;
+        languageCounts[lang] = (languageCounts[lang] || 0) + 1;
+      }
+      if (entry.symbolType) {
+        const sym = entry.symbolType as string;
+        symbolCounts[sym] = (symbolCounts[sym] || 0) + 1;
+      }
+      if (entry.indexedAt) {
+        const ts = entry.indexedAt as number;
+        if (!firstIndexedAt || ts < firstIndexedAt) firstIndexedAt = ts;
+        if (!lastIndexedAt || ts > lastIndexedAt) lastIndexedAt = ts;
+      }
+    }
+
+    const totalEntries = entries.length;
+
+    // Build language breakdown array (sorted by count desc)
+    const languageBreakdown = Object.entries(languageCounts)
+      .map(([category, count]) => ({
+        category,
+        count,
+        percentage: totalEntries > 0 ? Number(((count / totalEntries) * 100).toFixed(2)) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // Build symbol breakdown array
+    const symbolBreakdown = Object.entries(symbolCounts)
+      .map(([category, count]) => ({
+        category,
+        count,
+        percentage: totalEntries > 0 ? Number(((count / totalEntries) * 100).toFixed(2)) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const result: Record<string, unknown> = {
+      totalIndexed: totalEntries,
+      uniqueFiles: filesSet.size,
+      uniqueRepositories: reposSet.size,
+      firstIndexedAt,
+      lastIndexedAt,
+      languageBreakdown,
+      symbolBreakdown,
+      message: `Index contains ${totalEntries} code chunks from ${filesSet.size} files across ${reposSet.size} repositories`,
+    };
+
+    // Cache the result
+    leannStatsCache = { data: result, timestamp: Date.now() };
+    return result;
+  } catch (err) {
+    console.warn('[leann-stats] Failed to read stores file:', err);
+    return {};
+  }
+}
 
 // =============================================================================
 // Interfaces
@@ -540,16 +739,10 @@ export class ExpressServer implements IExpressServer {
    */
   private async getPipelines(req: Request, res: Response): Promise<void> {
     try {
-      // First check runtime tracker
+      // Collect runtime pipelines from tracker
       const runtimePipelines = this.pipelineTracker.getActive();
 
-      if (runtimePipelines.length > 0) {
-        res.setHeader('Content-Type', 'application/json');
-        res.json({ pipelines: runtimePipelines, count: runtimePipelines.length });
-        return;
-      }
-
-      // Fall back to EventStore for historical pipeline data
+      // Also reconstruct pipelines from EventStore (includes CLI-emitted events)
       const pipelineEvents = await this.eventStore.query({
         component: 'pipeline',
         limit: 200,
@@ -566,16 +759,18 @@ export class ExpressServer implements IExpressServer {
           // Initialize pipeline from first event
           pipelineMap.set(pipelineId, {
             id: pipelineId,
-            name: event.metadata?.name || event.metadata?.pipelineName || 'Unknown Pipeline',
+            pipelineId: pipelineId,
+            name: event.metadata?.name || event.metadata?.pipelineName || event.metadata?.pipelineType as string || 'Unknown Pipeline',
             status: 'running',
-            totalSteps: event.metadata?.totalSteps || 0,
+            totalSteps: event.metadata?.totalSteps || event.metadata?.totalAgents as number || 0,
             completedSteps: 0,
             currentStep: null,
             steps: event.metadata?.steps || [],
             stages: [],
             startTime: event.timestamp,
             duration: 0,
-            taskType: event.metadata?.taskType || 'unknown',
+            taskType: event.metadata?.taskType || event.metadata?.pipelineType as string || 'unknown',
+            type: event.metadata?.taskType || event.metadata?.pipelineType as string || 'unknown',
           });
         }
 
@@ -583,10 +778,10 @@ export class ExpressServer implements IExpressServer {
 
         // Process different event types
         if (operation === 'pipeline_started') {
-          pipeline.name = event.metadata?.name || pipeline.name;
-          pipeline.totalSteps = event.metadata?.totalSteps || pipeline.totalSteps;
+          pipeline.name = event.metadata?.name || event.metadata?.pipelineType as string || pipeline.name;
+          pipeline.totalSteps = event.metadata?.totalSteps || event.metadata?.totalAgents as number || pipeline.totalSteps;
           pipeline.steps = event.metadata?.steps || pipeline.steps;
-          pipeline.taskType = event.metadata?.taskType || pipeline.taskType;
+          pipeline.taskType = event.metadata?.taskType || event.metadata?.pipelineType as string || pipeline.taskType;
         } else if (operation === 'step_started') {
           pipeline.currentStep = event.metadata?.stepName;
           // Track step in stages array
@@ -624,6 +819,70 @@ export class ExpressServer implements IExpressServer {
         }
       }
 
+      // Also query agent events to enrich pipeline data with execution details
+      const agentEvents = await this.eventStore.query({
+        component: 'agent',
+        limit: 500,
+      });
+
+      // Sort ASC so agent_started is processed before agent_completed for same agent
+      agentEvents.sort((a, b) => a.timestamp - b.timestamp);
+
+      for (const event of agentEvents) {
+        const pipelineId = String(event.metadata?.pipelineId || '');
+        if (!pipelineId || !pipelineMap.has(pipelineId)) continue; // Only enrich known pipelines
+
+        const pipeline = pipelineMap.get(pipelineId)!;
+        const operation = event.operation || event.action;
+
+        if (operation === 'agent_started') {
+          pipeline.currentStep = event.metadata?.agentKey as string;
+          const stepInfo = {
+            name: event.metadata?.agentKey as string || 'unknown',
+            status: 'running',
+            agentType: event.metadata?.agentCategory as string,
+            phase: event.metadata?.phase,
+            startTime: event.timestamp,
+            prompt: event.metadata?.promptText as string || event.metadata?.taskPreview as string || '',
+            executionId: event.metadata?.executionId as string,
+          };
+          const existingStep = pipeline.stages.find((s: any) =>
+            s.name === stepInfo.name && s.status === 'running'
+          );
+          if (!existingStep) {
+            pipeline.stages.push(stepInfo);
+          }
+        } else if (operation === 'agent_completed') {
+          const agentKey = event.metadata?.agentKey as string;
+          const step = pipeline.stages.find((s: any) =>
+            s.name === agentKey && s.status === 'running'
+          );
+          if (step) {
+            step.status = 'completed';
+            step.endTime = event.timestamp;
+            step.qualityScore = (event.metadata?.quality ?? event.metadata?.qualityScore) as number;
+            step.durationMs = step.startTime ? event.timestamp - step.startTime : 0;
+            step.output = event.metadata?.outputPreview as string || '';
+          } else {
+            // Agent completed without a matching agent_started — create a completed entry
+            pipeline.stages.push({
+              name: agentKey || 'unknown',
+              status: 'completed',
+              phase: event.metadata?.phase,
+              endTime: event.timestamp,
+              qualityScore: (event.metadata?.quality ?? event.metadata?.qualityScore) as number,
+              output: event.metadata?.outputPreview as string || '',
+            });
+          }
+          // Update completedSteps: count unique completed agent names
+          // Use Math.max to never reduce a count set by step_completed events
+          const completedNames = new Set(
+            pipeline.stages.filter((s: any) => s.status === 'completed').map((s: any) => s.name)
+          );
+          pipeline.completedSteps = Math.max(pipeline.completedSteps, completedNames.size);
+        }
+      }
+
       // Calculate progress for running pipelines
       for (const pipeline of pipelineMap.values()) {
         if (pipeline.totalSteps > 0) {
@@ -631,9 +890,17 @@ export class ExpressServer implements IExpressServer {
         }
       }
 
+      // Merge runtime pipelines with event-derived pipelines (deduplicate by id)
+      for (const rp of runtimePipelines) {
+        const rpId = (rp as any).pipelineId || (rp as any).id;
+        if (rpId && !pipelineMap.has(rpId)) {
+          pipelineMap.set(rpId, rp);
+        }
+      }
+
       const pipelines = Array.from(pipelineMap.values())
-        .sort((a, b) => b.startTime - a.startTime)
-        .slice(0, 10);
+        .sort((a, b) => (b.startTime || 0) - (a.startTime || 0))
+        .slice(0, 20);
 
       res.setHeader('Content-Type', 'application/json');
       res.json({ pipelines, count: pipelines.length });
@@ -1177,6 +1444,11 @@ export class ExpressServer implements IExpressServer {
       // Get REAL metrics from databases (not fake event-derived data)
       const realMetrics = this.getRealDatabaseMetrics();
 
+      // Cache path size lookups (called once, reused for databases.vectorDb and leann sections)
+      const vectorDbStats = getCachedPathSize(VECTOR_DB_DIR);
+      const vectorDbStoresStats = getCachedPathSize(VECTOR_DB_STORES_DIR);
+      const leannData = getLeannStats();
+
       res.setHeader('Content-Type', 'application/json');
       res.json({
         ucm: {
@@ -1240,6 +1512,41 @@ export class ExpressServer implements IExpressServer {
             failureCount: realMetrics.patterns.totalFailure,
           },
         },
+        // Database file sizes (including WAL/SHM companions)
+        databases: {
+          eventsDb: getDbSizeInfo(EVENTS_DB_PATH),
+          learningDb: getDbSizeInfo(LEARNING_DB_PATH),
+          descDb: getDbSizeInfo(DESC_DB_PATH),
+          vectorDb: (() => {
+            return {
+              path: VECTOR_DB_DIR,
+              sizeBytes: vectorDbStats.sizeBytes,
+              sizeMB: (vectorDbStats.sizeBytes / (1024 * 1024)).toFixed(2),
+            };
+          })(),
+        },
+        // LEANN index stats (reuses cached path size lookups + reads stores file directly)
+        leann: (() => {
+          const totalSizeBytes = vectorDbStats.sizeBytes + vectorDbStoresStats.sizeBytes;
+          return {
+            indexDir: VECTOR_DB_DIR,
+            totalSizeBytes,
+            totalSizeMB: (totalSizeBytes / (1024 * 1024)).toFixed(2),
+            fileCount: vectorDbStats.fileCount,
+            storesDir: fs.existsSync(VECTOR_DB_STORES_DIR) ? VECTOR_DB_STORES_DIR : null,
+            storesFileCount: vectorDbStoresStats.fileCount,
+            // Stats computed directly from vector_db_leann.stores file
+            totalIndexed: leannData.totalIndexed || 0,
+            uniqueFiles: leannData.uniqueFiles || 0,
+            uniqueRepositories: leannData.uniqueRepositories || 0,
+            memoryUsage: 'N/A',  // Only available via MCP tool
+            memoryBytes: 0,
+            languageBreakdown: leannData.languageBreakdown || [],
+            symbolBreakdown: leannData.symbolBreakdown || [],
+            leannDetails: {},
+            cacheStale: false,  // Always fresh — read directly from stores file
+          };
+        })(),
       });
     } catch (error) {
       console.error('Error getting system metrics:', error);

@@ -149,6 +149,7 @@ export class TaskExecutor {
         agentName: agent.frontmatter.name || agent.key,
         agentCategory: agent.category,
         taskPreview: task.substring(0, 100),
+        promptText: task,
       },
     });
 

@@ -422,6 +422,7 @@ export class PhDPipelineOrchestrator {
         agentCategory: phaseName,
         pipelineId: this.state!.pipelineId,
         taskPreview: `Executing ${agent.name} for PhD research pipeline`,
+        promptText: problemStatement,
       },
     });
 
