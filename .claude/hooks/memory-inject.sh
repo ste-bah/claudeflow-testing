@@ -7,7 +7,7 @@
 
 # Output personality profile (identity/behavioral rules)
 if [ -f "$HOME/.claude/personality.md" ]; then
-  head -c 2000 "$HOME/.claude/personality.md"
+  head -c 3000 "$HOME/.claude/personality.md"
   echo ""
 else
   echo "[memory] No personality.md found at ~/.claude/personality.md"
@@ -38,6 +38,16 @@ if [ -f "$PATCHED_FILE" ] && [ -f "$BACKUP_FILE" ]; then
   BACKUP_HASH=$(md5 -q "$BACKUP_FILE" 2>/dev/null || md5sum "$BACKUP_FILE" 2>/dev/null | cut -d' ' -f1)
   if [ "$CURRENT_HASH" != "$BACKUP_HASH" ]; then
     echo "[memory] WARNING: FalkorDBLite patches may have been overwritten. Run: cp ~/.memorygraph/patched-falkordb-shared.py ~/.memorygraph-venv/lib/python3.12/site-packages/memorygraph/backends/_falkordb_shared.py"
+  fi
+fi
+
+# Check for previous session summary (remind to store it properly)
+if [ -n "$ROOT" ] && [ -f "$ROOT/.persistent-memory/last-session-summary.txt" ]; then
+  FILE_MTIME=$(stat -f %m "$ROOT/.persistent-memory/last-session-summary.txt" 2>/dev/null || stat -c %Y "$ROOT/.persistent-memory/last-session-summary.txt" 2>/dev/null || echo "0")
+  NOW_EPOCH=$(date +%s)
+  FILE_AGE_HOURS=$(( (NOW_EPOCH - FILE_MTIME) / 3600 ))
+  if [ "$FILE_AGE_HOURS" -lt 24 ] 2>/dev/null; then
+    echo "[memory] Previous session ended. Key outcomes should be stored. Run /session-summary or store relevant memories before starting new work."
   fi
 fi
 
