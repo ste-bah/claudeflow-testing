@@ -234,6 +234,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/clean-settings.sh\" ] && \"$ROOT/.claude/hooks/clean-settings.sh\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/memory-session-end.sh\" ] && \"$ROOT/.claude/hooks/memory-session-end.sh\" || true'"
           }
         ]
       }
@@ -260,13 +264,17 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && QUEUE=\".claude/runtime/leann-index-queue.json\" && [ -f \"$QUEUE\" ] && COUNT=$(jq \".files | length\" \"$QUEUE\" 2>/dev/null || echo 0) && [ \"$COUNT\" -gt 0 ] && echo \"[LEANN] $COUNT queued files need indexing. Call mcp__leann-search__process_queue to index them.\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/memory-inject.sh\" ] && \"$ROOT/.claude/hooks/memory-inject.sh\" || true'"
           }
         ]
       }
     ]
   },
   "includeCoAuthoredBy": true,
-  "enabledMcpjsonServers": ["claude-flow@alpha", "ruv-swarm", "serena"],
+  "enabledMcpjsonServers": ["claude-flow@alpha", "ruv-swarm", "serena", "memorygraph", "lancedb-memory"],
   "statusLine": {
     "type": "command",
     "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/statusline-command.sh\" ] && \"$ROOT/.claude/statusline-command.sh\" || echo \"\"'"

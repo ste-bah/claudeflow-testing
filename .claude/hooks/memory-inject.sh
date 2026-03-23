@@ -1,0 +1,58 @@
+#!/bin/bash
+# =============================================================================
+# Memory System: SessionStart Injection Hook (TASK-MEM-003)
+# Reads pre-computed files and outputs to stdout for context injection.
+# MUST complete in <500ms. MUST NOT query databases or make network calls.
+# =============================================================================
+
+# Output personality profile (identity/behavioral rules)
+if [ -f "$HOME/.claude/personality.md" ]; then
+  head -c 2000 "$HOME/.claude/personality.md"
+  echo ""
+else
+  echo "[memory] No personality.md found at ~/.claude/personality.md"
+fi
+
+# Output understanding profile (user context)
+if [ -f "$HOME/.claude/understanding.md" ]; then
+  head -c 3000 "$HOME/.claude/understanding.md"
+  echo ""
+else
+  echo "[memory] No understanding.md found at ~/.claude/understanding.md"
+fi
+
+# Output memory briefing (top-K memories, auto-generated)
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+if [ -n "$ROOT" ] && [ -f "$ROOT/.persistent-memory/briefing.md" ]; then
+  head -c 2450 "$ROOT/.persistent-memory/briefing.md"
+  echo ""
+else
+  echo "[memory] No briefing file found. Run /memory-garden to generate one."
+fi
+
+# Check FalkorDBLite patch integrity
+PATCHED_FILE="$HOME/.memorygraph-venv/lib/python3.12/site-packages/memorygraph/backends/_falkordb_shared.py"
+BACKUP_FILE="$HOME/.memorygraph/patched-falkordb-shared.py"
+if [ -f "$PATCHED_FILE" ] && [ -f "$BACKUP_FILE" ]; then
+  CURRENT_HASH=$(md5 -q "$PATCHED_FILE" 2>/dev/null || md5sum "$PATCHED_FILE" 2>/dev/null | cut -d' ' -f1)
+  BACKUP_HASH=$(md5 -q "$BACKUP_FILE" 2>/dev/null || md5sum "$BACKUP_FILE" 2>/dev/null | cut -d' ' -f1)
+  if [ "$CURRENT_HASH" != "$BACKUP_HASH" ]; then
+    echo "[memory] WARNING: FalkorDBLite patches may have been overwritten. Run: cp ~/.memorygraph/patched-falkordb-shared.py ~/.memorygraph-venv/lib/python3.12/site-packages/memorygraph/backends/_falkordb_shared.py"
+  fi
+fi
+
+# Check consolidation-pending flag (remind if older than 24 hours)
+if [ -n "$ROOT" ] && [ -f "$ROOT/.persistent-memory/consolidation-pending" ]; then
+  FLAG_TIME=$(cat "$ROOT/.persistent-memory/consolidation-pending" 2>/dev/null)
+  if [ -n "$FLAG_TIME" ]; then
+    # Check age on macOS
+    FLAG_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$FLAG_TIME" +%s 2>/dev/null || echo "0")
+    NOW_EPOCH=$(date +%s)
+    AGE_HOURS=$(( (NOW_EPOCH - FLAG_EPOCH) / 3600 ))
+    if [ "$AGE_HOURS" -gt 24 ] 2>/dev/null; then
+      echo "[memory] Consolidation pending for ${AGE_HOURS}h. Consider running /memory-garden."
+    fi
+  fi
+fi
+
+exit 0
