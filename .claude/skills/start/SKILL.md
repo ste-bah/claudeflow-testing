@@ -45,7 +45,11 @@ Memory: [N] memories, [M] relationships, avg importance [X.XX]
 
 Read `.persistent-memory/consolidation-cursor.json` if it exists and note when last consolidation ran.
 
-### 4. Suggest next steps
+### 4. Check RocketChat
+
+Run `/check-messages` to see if any messages arrived while offline. If the RocketChat MCP is not connected, skip silently.
+
+### 5. Suggest next steps
 
 Based on what you found, suggest 1-3 things to work on:
 - Unfinished items from last session summary
@@ -53,7 +57,7 @@ Based on what you found, suggest 1-3 things to work on:
 - Consolidation if overdue (>24h)
 - Or just ask what the user wants to do
 
-### 5. Ask
+### 6. Ask
 
 End with: "What would you like to work on?"
 
