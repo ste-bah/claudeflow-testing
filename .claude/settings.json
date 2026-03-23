@@ -79,7 +79,27 @@
       "mcp__serena__insert_after_symbol",
       "mcp__serena__insert_before_symbol",
       "mcp__serena__replace_symbol_body",
-      "mcp__serena__write_memory"
+      "mcp__serena__write_memory",
+      "mcp__memorygraph__store_memory",
+      "mcp__memorygraph__search_memories",
+      "mcp__memorygraph__recall_memories",
+      "mcp__memorygraph__get_memory",
+      "mcp__memorygraph__update_memory",
+      "mcp__memorygraph__delete_memory",
+      "mcp__memorygraph__create_relationship",
+      "mcp__memorygraph__get_related_memories",
+      "mcp__memorygraph__contextual_search",
+      "mcp__memorygraph__get_memory_statistics",
+      "mcp__memorygraph__search_relationships_by_context",
+      "mcp__lancedb-memory__embed_and_store",
+      "mcp__lancedb-memory__store_embedding",
+      "mcp__lancedb-memory__search_similar",
+      "mcp__lancedb-memory__retrieve_context",
+      "mcp__lancedb-memory__delete_embedding",
+      "mcp__lancedb-memory__dual_store",
+      "mcp__lancedb-memory__reconcile",
+      "mcp__lancedb-memory__drain_queue",
+      "mcp__lancedb-memory__stats"
     ],
     "deny": [
       "Bash(rm -rf /)"
@@ -159,6 +179,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -f \"$ROOT/scripts/hooks/ucm-post-task-archive.ts\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; npx tsx \"$ROOT/scripts/hooks/ucm-post-task-archive.ts\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'echo \"[memory] Subagent complete. If key decisions or patterns were produced, store to MemoryGraph.\"'"
           }
         ]
       },
