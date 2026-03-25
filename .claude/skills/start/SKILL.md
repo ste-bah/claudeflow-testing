@@ -45,11 +45,39 @@ Memory: [N] memories, [M] relationships, avg importance [X.XX]
 
 Read `.persistent-memory/consolidation-cursor.json` if it exists and note when last consolidation ran.
 
-### 4. Check RocketChat
+### 4. Cross-Project Patterns
+
+Search MemoryGraph for abstract patterns and anti-patterns that may apply to the current work.
+
+1. Detect project language(s) by reading `.persistent-memory/project-structure.json` (if it exists). Extract the `languages` or `frameworks` fields for context.
+2. Compare the current project name against the last session summary (from step 1). If the project changed, note: "**Project switch detected** — showing cross-project patterns"
+3. Search for abstract patterns:
+   ```
+   mcp__memorygraph__search_memories(query="pattern:abstract", limit=10)
+   ```
+4. Search for anti-patterns:
+   ```
+   mcp__memorygraph__search_memories(query="anti-pattern", limit=10)
+   ```
+
+Show results as:
+
+**Applicable Patterns:**
+- <pattern title>: <first 100 chars of content>
+- ...
+
+**Watch Out For:**
+- <anti-pattern title>: <first 100 chars of content>
+- If project languages were detected, add language-specific notes (e.g. "Python: watch for bool-is-int subclass issues")
+- ...
+
+Only show this section if patterns or anti-patterns exist. Do not show empty headings. If neither search returns results, skip the entire section silently.
+
+### 5. Check RocketChat
 
 Run `/check-messages` to see if any messages arrived while offline. If the RocketChat MCP is not connected, skip silently.
 
-### 5. Suggest next steps
+### 6. Suggest next steps
 
 Based on what you found, suggest 1-3 things to work on:
 - Unfinished items from last session summary
@@ -57,7 +85,7 @@ Based on what you found, suggest 1-3 things to work on:
 - Consolidation if overdue (>24h)
 - Or just ask what the user wants to do
 
-### 6. Ask
+### 7. Ask
 
 End with: "What would you like to work on?"
 

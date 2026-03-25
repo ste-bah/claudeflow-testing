@@ -99,7 +99,55 @@
       "mcp__lancedb-memory__dual_store",
       "mcp__lancedb-memory__reconcile",
       "mcp__lancedb-memory__drain_queue",
-      "mcp__lancedb-memory__stats"
+      "mcp__lancedb-memory__stats",
+      "mcp__rocketchat__send_message",
+      "mcp__rocketchat__read_messages",
+      "mcp__rocketchat__dm_send",
+      "mcp__rocketchat__dm_read",
+      "mcp__rocketchat__list_channels",
+      "mcp__rocketchat__search_messages",
+      "mcp__rocketchat__get_channel_info",
+      "mcp__rocketchat__upload_file",
+      "mcp__rocketchat__download_file",
+      "WebSearch",
+      "WebFetch",
+      "mcp__markdownify-mcp__pdf-to-markdown",
+      "mcp__markdownify-mcp__image-to-markdown",
+      "mcp__markdownify-mcp__webpage-to-markdown",
+      "mcp__markdownify-mcp__docx-to-markdown",
+      "mcp__markdownify-mcp__xlsx-to-markdown",
+      "mcp__markdownify-mcp__pptx-to-markdown",
+      "mcp__markdownify-mcp__audio-to-markdown",
+      "mcp__markdownify-mcp__youtube-to-markdown",
+      "mcp__markdownify-mcp__bing-search-to-markdown",
+      "mcp__markdownify-mcp__get-markdown-file",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "mcp__plugin_playwright_playwright__browser_press_key",
+      "mcp__plugin_playwright_playwright__browser_navigate_back",
+      "mcp__plugin_playwright_playwright__browser_tabs",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_hover",
+      "mcp__plugin_playwright_playwright__browser_select_option",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "mcp__plugin_playwright_playwright__browser_file_upload",
+      "mcp__plugin_playwright_playwright__browser_handle_dialog",
+      "mcp__plugin_playwright_playwright__browser_drag",
+      "mcp__plugin_playwright_playwright__browser_install",
+      "mcp__video-analyzer__analyze_video",
+      "mcp__video-analyzer__summarize_video",
+      "mcp__video-analyzer__extract_knowledge",
+      "mcp__video-analyzer__search_video",
+      "mcp__video-analyzer__extract_transcript"
     ],
     "deny": [
       "Bash(rm -rf /)"
@@ -215,7 +263,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'INPUT=$(cat); CUSTOM=$(echo \"$INPUT\" | jq -r \".custom_instructions // \\\"\\\"\"); echo \"🔄 PreCompact Guidance:\"; echo \"📋 IMPORTANT: Review CLAUDE.md in project root for:\"; echo \"   • 54 available agents and concurrent usage patterns\"; echo \"   • Swarm coordination strategies (hierarchical, mesh, adaptive)\"; echo \"   • SPARC methodology workflows with batchtools optimization\"; echo \"   • Critical concurrent execution rules (GOLDEN RULE: 1 MESSAGE = ALL OPERATIONS)\"; if [ -n \"$CUSTOM\" ]; then echo \"🎯 Custom compact instructions: $CUSTOM\"; fi; echo \"✅ Ready for compact operation\"'"
+            "command": "/bin/bash -c 'echo \"SURVIVE COMPACTION: (1) Memory=MemoryGraph MCP ONLY, never MEMORY.md files. (2) You are Archon — read ~/.claude/personality.md. (3) After compaction: recall_memories tag=feedback, summarize state, ask user what to do. (4) Never bypass the 48-agent /god-code pipeline. (5) Review CLAUDE.md for agents, ClaudeFlow sequential execution, SPARC methodology.\"'"
           }
         ]
       },
@@ -224,7 +272,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'echo \"🔄 Auto-Compact Guidance (Context Window Full):\"; echo \"📋 CRITICAL: Before compacting, ensure you understand:\"; echo \"   • All 54 agents available in .claude/agents/ directory\"; echo \"   • Concurrent execution patterns from CLAUDE.md\"; echo \"   • Batchtools optimization for 300% performance gains\"; echo \"   • Swarm coordination strategies for complex tasks\"; echo \"⚡ Apply GOLDEN RULE: Always batch operations in single messages\"; echo \"✅ Auto-compact proceeding with full agent context\"'"
+            "command": "/bin/bash -c 'echo \"SURVIVE COMPACTION: (1) Memory=MemoryGraph MCP ONLY, never MEMORY.md files. (2) You are Archon — read ~/.claude/personality.md. (3) After compaction: recall_memories tag=feedback, summarize state, ask user what to do. (4) Never bypass the 48-agent /god-code pipeline. (5) Review CLAUDE.md for agents, ClaudeFlow sequential execution, SPARC methodology.\"'"
           }
         ]
       }
@@ -292,13 +340,23 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/memory-inject.sh\" ] && \"$ROOT/.claude/hooks/memory-inject.sh\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/memorygraph-recall.sh\" ] && \"$ROOT/.claude/hooks/memorygraph-recall.sh\" || true'"
           }
         ]
       }
     ]
   },
   "includeCoAuthoredBy": true,
-  "enabledMcpjsonServers": ["claude-flow@alpha", "ruv-swarm", "serena", "memorygraph", "lancedb-memory"],
+  "enabledMcpjsonServers": [
+    "claude-flow@alpha",
+    "ruv-swarm",
+    "serena",
+    "memorygraph",
+    "lancedb-memory"
+  ],
   "statusLine": {
     "type": "command",
     "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/statusline-command.sh\" ] && \"$ROOT/.claude/statusline-command.sh\" || echo \"\"'"

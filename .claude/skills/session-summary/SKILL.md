@@ -32,13 +32,51 @@ Call `mcp__memorygraph__store_memory` with:
 - **tags**: `["session-summary", "[primary project name]", "[YYYY-MM-DD]"]`
 - **importance**: 0.7
 
-### 4. Create relationships (best-effort)
+### 4. Store Session Metrics
+
+Collect objective Layer 1 metrics for this session (auto-collected, no self-report):
+
+1. **corrections**: Search MemoryGraph for memories tagged `correction` or `fix` with today's date. Count them.
+   ```
+   mcp__memorygraph__search_memories(query="correction fix", tags=["correction", "fix"])
+   ```
+   Filter results to today's date. The count is `corrections`.
+
+2. **cost_today**: Read `.persistent-memory/autonomous-runs.jsonl` if it exists. Sum the `cost_usd` field for all entries with today's date. If the file does not exist, use `0.0`.
+
+3. **pattern_compliance**: Review this session — did you follow the plan-then-review-then-implement-then-review (Sherlock) pattern? Binary `1` or `0`.
+
+4. **tool_calls**: Estimate the total number of tool calls made during this session (rough count from conversation length).
+
+5. **tasks_completed**: Count the number of tasks explicitly marked complete during this session.
+
+Store as a SEPARATE memory (not merged into the narrative summary):
+```
+mcp__memorygraph__store_memory(
+  type="general",
+  title="Metrics: YYYY-MM-DD — <brief session description>",
+  content=JSON.stringify({
+    "date": "YYYY-MM-DD",
+    "corrections": <count>,
+    "cost_today": <sum>,
+    "pattern_compliance": <1 or 0>,
+    "tool_calls": <estimate>,
+    "tasks_completed": <count>
+  }),
+  tags=["metrics", "session-metrics"],
+  importance=0.4
+)
+```
+
+Do NOT tag as `pinned` — metrics can be archived after 30 days.
+
+### 5. Create relationships (best-effort)
 
 If you can identify specific memories that were recalled or stored during this session (by their titles or IDs visible in the conversation), create RELATED_TO relationships between the session summary and those memories.
 
 If you can't identify specific memories, skip this step. Do not guess.
 
-### 5. Report
+### 6. Report
 
 Print a one-line confirmation:
 ```

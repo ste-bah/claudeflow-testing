@@ -5,6 +5,10 @@
 # MUST complete in <500ms. MUST NOT query databases or make network calls.
 # =============================================================================
 
+# CRITICAL: Memory system directive (must appear before anything else)
+echo "MEMORY RULE: Store ALL memories via MemoryGraph MCP (mcp__memorygraph__store_memory). NEVER write to MEMORY.md or file-based auto-memory. Use dual_store for important memories. If MemoryGraph MCP fails, report the failure — do NOT fall back to file-based memory."
+echo ""
+
 # Output personality profile (identity/behavioral rules)
 if [ -f "$HOME/.claude/personality.md" ]; then
   head -c 3000 "$HOME/.claude/personality.md"
@@ -63,6 +67,22 @@ if [ -n "$ROOT" ] && [ -f "$ROOT/.persistent-memory/consolidation-pending" ]; th
       echo "[memory] Consolidation pending for ${AGE_HOURS}h. Consider running /memory-garden."
     fi
   fi
+fi
+
+# Inject project structure summary (TASK-STRUCT-003 / REQ-STRUCT-005 + REQ-STRUCT-006)
+STRUCTURE_CACHE="$ROOT/.persistent-memory/project-structure.json"
+if [ -n "$ROOT" ] && [ -f "$STRUCTURE_CACHE" ]; then
+  # Staleness detection: compare indexedSha with current HEAD
+  INDEXED_SHA=$(jq -r '.indexedSha // "none"' "$STRUCTURE_CACHE" 2>/dev/null)
+  CURRENT_SHA=$(cd "$ROOT" && git rev-parse --short=12 HEAD 2>/dev/null || echo "unknown")
+  STALE_MARKER=""
+  if [ "$INDEXED_SHA" != "$CURRENT_SHA" ]; then
+    STALE_MARKER=" (STALE — run: python3 scripts/archon/structure/extract.py . --compact .persistent-memory/project-structure.json)"
+  fi
+  echo ""
+  echo "# Project Structure${STALE_MARKER}"
+  cat "$STRUCTURE_CACHE"
+  echo ""
 fi
 
 exit 0
