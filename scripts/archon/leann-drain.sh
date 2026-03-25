@@ -45,11 +45,12 @@ trap 'rm -rf "$LOCK_DIR"' EXIT
 
 log "Queue: ${COUNT} files — draining batch of 20"
 
-cd /tmp
+# Run from project root (not /tmp) because LEANN MCP uses relative paths
+cd "$PROJECT_ROOT"
 RESULT=$(claude -p "Call mcp__leann-search__process_queue with maxFiles 20. Report files processed and remaining." \
     --output-format json \
     --model haiku \
-    --max-budget-usd 0.05 \
+    --max-budget-usd 0.20 \
     --max-turns 3 \
     --no-session-persistence \
     --allowedTools "mcp__leann-search__process_queue" \
