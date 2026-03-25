@@ -285,19 +285,20 @@ export class LEANNBackend implements IHNSWBackend {
       return [];
     }
 
-    // For small datasets (<= 100 vectors), brute force is fast and guarantees exact results
-    if (this.vectors.size <= 100) {
+    // For datasets <= 5000 vectors, brute force is fast (<1ms) and guarantees exact results.
+    // The hub cache optimization only earns its keep at 10K+ vectors.
+    // FIX: raised from 100 to 5000 to ensure newly inserted vectors are always searchable.
+    if (this.vectors.size <= 5000) {
       return this.bruteForceSearch(query, k, includeVectors);
     }
 
-    // Level 1: Search hub cache first
+    // Level 1: Search hub cache first (optimization for large datasets)
     const hubResults = this.searchHubCache(query, k);
 
-    // If we have enough results from hub cache, return them
-    if (hubResults.length >= k && this.hubCache.size >= this.maxHubCacheSize) {
-      this.cacheHits++;
-      return this.formatResults(hubResults.slice(0, k), includeVectors);
-    }
+    // Always fall through to full graph search — the hub cache is an optimization,
+    // not a correctness gate. Skipping the full graph caused newly inserted vectors
+    // with low degree to be permanently invisible to search.
+    // FIX: removed early-return that skipped full graph when hub cache had k results.
 
     // Level 2: Full graph search
     this.cacheMisses++;
