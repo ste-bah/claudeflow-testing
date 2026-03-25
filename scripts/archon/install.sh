@@ -20,9 +20,10 @@ chmod 700 "${HOME}/.archon/logs" "${HOME}/.archon/budget"
 # Deploy scripts to home directory (macOS volume access restriction)
 cp "${SCRIPT_DIR}/rc-prefilter.sh" "$DEPLOY_DIR/"
 cp "${SCRIPT_DIR}/archon-runner.sh" "$DEPLOY_DIR/"
+cp "${SCRIPT_DIR}/leann-drain.sh" "$DEPLOY_DIR/" 2>/dev/null || true
 cp "${SCRIPT_DIR}/lib/logging.sh" "$DEPLOY_DIR/lib/"
 cp "${SCRIPT_DIR}/system-prompt.md" "$DEPLOY_DIR/"
-chmod +x "$DEPLOY_DIR/rc-prefilter.sh" "$DEPLOY_DIR/archon-runner.sh"
+chmod +x "$DEPLOY_DIR/rc-prefilter.sh" "$DEPLOY_DIR/archon-runner.sh" "$DEPLOY_DIR/leann-drain.sh" 2>/dev/null
 
 # Fix PROJECT_ROOT for deployed scripts
 sed -i '' 's|PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"|PROJECT_ROOT="${ARCHON_PROJECT_ROOT:-$(cd "$SCRIPT_DIR/../.." \&\& pwd)}"|' "$DEPLOY_DIR/archon-runner.sh" 2>/dev/null || true
@@ -35,6 +36,7 @@ AGENTS=(
     "com.archon.learn:Learning (4-hour)"
     "com.archon.consolidate:Memory consolidation (daily 3am)"
     "com.archon.outreach:Outreach alerts (daily 9am)"
+    "com.archon.leann-drain:LEANN index drain (15-min)"
 )
 
 for entry in "${AGENTS[@]}"; do
