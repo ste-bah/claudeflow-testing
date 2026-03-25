@@ -18,6 +18,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Observability Dashboard](#observability-dashboard)
 - [Memory Visualization Tool](#memory-visualization-tool)
 - [Learning System](#learning-system)
+- [Archon Autonomous Agent](#archon-autonomous-agent)
 - [Quick Start](#quick-start)
 - [Available Commands](#available-commands)
 - [Architecture](#architecture)
@@ -1543,6 +1544,69 @@ npx tsx src/god-agent/universal/cli.ts status
 | Vector Store | `.agentdb/` | Knowledge embeddings, patterns |
 | Style Profiles | `.god-agent/styles/` | Learned writing styles |
 | UCM Episodes | `.ucm/` | Context episodes, tier metadata |
+
+## Archon Autonomous Agent
+
+Archon is a persistent AI agent identity with autonomous operation, persistent memory, and cross-session learning.
+
+### Capabilities
+
+| Capability | Description |
+|-----------|-------------|
+| **Autonomous Operation** | RocketChat polling (2-min), learning (4-hr), memory consolidation (daily), proactive outreach (daily 9am) |
+| **Persistent Memory** | MemoryGraph (FalkorDB Lite) for graph-based memory + LanceDB for semantic vector search |
+| **Tiered Archival** | Active memories in FalkorDB, decayed memories archived to SQLite cold storage (never deleted) |
+| **Structural Awareness** | Python AST + TypeScript regex extractors, import resolvers, dependency graphs, convention detection |
+| **Deep Learning** | Extract-Compare-Decide (dedup), multi-query decomposition, knowledge gap targeting, access-frequency boosting |
+| **Cross-Project Transfer** | Dual-level patterns (concrete + abstract), 7 seeded anti-patterns, auto-surfaced on project switch |
+| **Self-Assessment** | 5 objective metrics, longitudinal trends, blind spot registry, evaluation rubric |
+| **Code Memory** | 4-layer file understanding (architecture, logic, edge cases, decisions) with commit SHA staleness |
+| **Visual Memory** | Structured JSON descriptions of screenshots/diagrams with credential detection |
+| **Proactive Outreach** | User-defined alert rules + 3 hardcoded defaults, actionability test, severity routing |
+| **Diagram Generation** | Mermaid CLI (flowchart, sequence, class, ER, state, gantt) with auto-store to memory |
+
+### Skills
+
+```
+/start              Session opener with memory recall and project state
+/learn              Self-directed research with Extract-Compare-Decide
+/recall             Search active memory (--deep for archive, --restore to recover)
+/understand         4-layer code understanding with staleness detection
+/remember-visual    Store screenshot/diagram descriptions
+/diagram            Generate Mermaid diagrams to PNG/SVG
+/self-assess        Performance trends and blind spots
+/set-alert          Define proactive outreach rules
+/autonomous-status  View autonomous operation health
+/map-codebase       Re-extract project structure
+/session-summary    Persist session outcomes to memory
+/memory-garden      Memory consolidation and maintenance
+/check-messages     Poll RocketChat for new messages
+```
+
+### Autonomous Agents (launchd)
+
+| Agent | Interval | What |
+|-------|----------|------|
+| rc-prefilter | 2 min | $0 RocketChat polling, invokes `claude -p` only when messages exist |
+| learn | 4 hours | Self-directed web research, stores to MemoryGraph |
+| consolidate | Daily 3am | 4 stages: archival, maintenance, evaluation, known-unknown detection |
+| outreach | Daily 9am | Evaluate alert rules, send notifications via RocketChat |
+
+### Setup
+
+```bash
+# Automated (part of setup-god-agent.sh):
+bash scripts/packaging/setup-god-agent.sh
+
+# Manual launchd install:
+bash scripts/archon/install.sh
+
+# Configure RocketChat credentials:
+vim ~/.archon-env
+
+# Check status:
+bash scripts/archon/status.sh
+```
 
 ## Quick Start
 

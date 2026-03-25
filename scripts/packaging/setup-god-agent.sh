@@ -1,6 +1,6 @@
 #!/bin/bash
 #===============================================================================
-# God Agent + Serena MCP Complete Setup Script
+# God Agent + Serena MCP + Archon Complete Setup Script
 #
 # This script sets up a fresh installation of the God Agent system with:
 # - Claude Code CLI (Anthropic's official CLI)
@@ -9,16 +9,21 @@
 # - Python 3.11+ virtual environment
 # - Serena MCP server (using uv package manager)
 # - Embedding API server
+# - MemoryGraph (FalkorDB Lite) for graph-based persistent memory
+# - LanceDB vector memory server
+# - Mermaid CLI for diagram generation
+# - Archon autonomous runner (RocketChat polling, learning, consolidation)
 # - All required dependencies
 # - Proper .mcp.json configuration
 #
 # Usage: ./setup-god-agent.sh [OPTIONS]
-#   --skip-nvm       Skip NVM/Node.js installation
-#   --skip-python    Skip Python environment setup
-#   --skip-serena    Skip Serena MCP setup
-#   --skip-embedding Skip Embedding API setup
-#   --minimal        Only install core components
-#   --help           Show this help
+#   --skip-nvm           Skip NVM/Node.js installation
+#   --skip-python        Skip Python environment setup
+#   --skip-serena        Skip Serena MCP setup
+#   --skip-embedding     Skip Embedding API setup
+#   --skip-market-terminal  Skip Market Terminal setup
+#   --minimal            Only install core components
+#   --help               Show this help
 #===============================================================================
 
 set -e  # Exit on error
@@ -40,6 +45,7 @@ SKIP_NVM=false
 SKIP_PYTHON=false
 SKIP_SERENA=false
 SKIP_EMBEDDING=false
+SKIP_MARKET_TERMINAL=false
 MINIMAL=false
 
 while [[ $# -gt 0 ]]; do
@@ -58,6 +64,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-embedding)
             SKIP_EMBEDDING=true
+            shift
+            ;;
+        --skip-market-terminal)
+            SKIP_MARKET_TERMINAL=true
             shift
             ;;
         --minimal)
@@ -86,7 +96,7 @@ echo ""
 #===============================================================================
 # STEP 1: Check System Prerequisites
 #===============================================================================
-echo -e "${YELLOW}[1/12] Checking system prerequisites...${NC}"
+echo -e "${YELLOW}[1/13] Checking system prerequisites...${NC}"
 
 # Check for curl or wget
 if command -v curl &> /dev/null; then
@@ -110,7 +120,7 @@ echo -e "${GREEN}  Prerequisites OK${NC}"
 # STEP 2: NVM + Node.js Installation
 #===============================================================================
 if [ "$SKIP_NVM" = false ]; then
-    echo -e "${YELLOW}[2/12] Setting up NVM and Node.js ${NODE_VERSION}...${NC}"
+    echo -e "${YELLOW}[2/13] Setting up NVM and Node.js ${NODE_VERSION}...${NC}"
 
     # Check if NVM is already installed
     export NVM_DIR="$HOME/.nvm"
@@ -135,7 +145,7 @@ if [ "$SKIP_NVM" = false ]; then
     echo -e "${GREEN}  Node.js $(node --version) installed${NC}"
     echo -e "${GREEN}  NPM $(npm --version) installed${NC}"
 else
-    echo -e "${YELLOW}[2/12] Skipping NVM/Node.js installation${NC}"
+    echo -e "${YELLOW}[2/13] Skipping NVM/Node.js installation${NC}"
 
     # Still need to load NVM if it exists
     export NVM_DIR="$HOME/.nvm"
@@ -145,7 +155,7 @@ fi
 #===============================================================================
 # STEP 3: Install Claude Code CLI
 #===============================================================================
-echo -e "${YELLOW}[3/12] Installing Claude Code CLI...${NC}"
+echo -e "${YELLOW}[3/13] Installing Claude Code CLI...${NC}"
 
 # Check if Claude Code is already installed
 if command -v claude &> /dev/null; then
@@ -167,7 +177,7 @@ fi
 #===============================================================================
 # STEP 4: Install claude-flow and ruv-swarm globally
 #===============================================================================
-echo -e "${YELLOW}[4/12] Installing claude-flow and ruv-swarm globally...${NC}"
+echo -e "${YELLOW}[4/13] Installing claude-flow and ruv-swarm globally...${NC}"
 
 # Install claude-flow@alpha globally
 echo "  Installing claude-flow@alpha..."
@@ -188,7 +198,7 @@ fi
 # STEP 5: Python Environment Setup
 #===============================================================================
 if [ "$SKIP_PYTHON" = false ]; then
-    echo -e "${YELLOW}[5/12] Setting up Python environment...${NC}"
+    echo -e "${YELLOW}[5/13] Setting up Python environment...${NC}"
 
     # Check Python version
     PYTHON_CMD=""
@@ -234,14 +244,14 @@ if [ "$SKIP_PYTHON" = false ]; then
 
     echo -e "${GREEN}  Python environment ready: $(python --version)${NC}"
 else
-    echo -e "${YELLOW}[5/12] Skipping Python environment setup${NC}"
+    echo -e "${YELLOW}[5/13] Skipping Python environment setup${NC}"
 fi
 
 #===============================================================================
 # STEP 6: Embedding API Dependencies
 #===============================================================================
 if [ "$SKIP_EMBEDDING" = false ]; then
-    echo -e "${YELLOW}[6/12] Setting up Embedding API dependencies...${NC}"
+    echo -e "${YELLOW}[6/13] Setting up Embedding API dependencies...${NC}"
 
     EMBED_DIR="$PROJECT_DIR/embedding-api"
     if [ -d "$EMBED_DIR" ]; then
@@ -268,14 +278,14 @@ if [ "$SKIP_EMBEDDING" = false ]; then
         echo -e "${YELLOW}  No embedding-api directory found, skipping${NC}"
     fi
 else
-    echo -e "${YELLOW}[6/12] Skipping Embedding API setup${NC}"
+    echo -e "${YELLOW}[6/13] Skipping Embedding API setup${NC}"
 fi
 
 #===============================================================================
 # STEP 7: Serena MCP Server Setup
 #===============================================================================
 if [ "$SKIP_SERENA" = false ]; then
-    echo -e "${YELLOW}[7/12] Setting up Serena MCP server...${NC}"
+    echo -e "${YELLOW}[7/13] Setting up Serena MCP server...${NC}"
 
     SERENA_DIR="$PROJECT_DIR/serena"
 
@@ -319,13 +329,77 @@ if [ "$SKIP_SERENA" = false ]; then
 
     cd "$PROJECT_DIR"
 else
-    echo -e "${YELLOW}[7/12] Skipping Serena MCP setup${NC}"
+    echo -e "${YELLOW}[7/13] Skipping Serena MCP setup${NC}"
 fi
 
 #===============================================================================
-# STEP 8: Node.js Dependencies
+# STEP 8: Market Terminal Setup
 #===============================================================================
-echo -e "${YELLOW}[8/12] Installing Node.js dependencies...${NC}"
+if [ "$SKIP_MARKET_TERMINAL" = false ] && [ "$MINIMAL" = false ]; then
+    echo -e "${YELLOW}[8/13] Setting up Market Terminal...${NC}"
+
+    MT_BACKEND="$PROJECT_DIR/market-terminal/backend"
+    MT_FRONTEND="$PROJECT_DIR/market-terminal/frontend"
+
+    if [ ! -d "$MT_BACKEND" ]; then
+        echo -e "${YELLOW}  No market-terminal/backend directory found, skipping${NC}"
+    else
+        # --- Backend Python venv ---
+        MT_VENV="$MT_BACKEND/.tv"
+        if [ ! -d "$MT_VENV" ]; then
+            echo "  Creating backend virtual environment at .tv/..."
+            # Use same Python found in step 5; fall back to python3
+            PY_CMD="${PYTHON_CMD:-python3}"
+            $PY_CMD -m venv "$MT_VENV"
+        else
+            echo "  Backend virtual environment already exists"
+        fi
+
+        echo "  Installing backend dependencies (this may take a while — includes torch/transformers)..."
+        "$MT_VENV/bin/pip" install --upgrade pip --quiet
+        "$MT_VENV/bin/pip" install -r "$MT_BACKEND/requirements.txt" --quiet
+        echo -e "${GREEN}  Backend dependencies installed${NC}"
+
+        # --- .env from .env.example ---
+        if [ ! -f "$MT_BACKEND/.env" ]; then
+            if [ -f "$MT_BACKEND/.env.example" ]; then
+                cp "$MT_BACKEND/.env.example" "$MT_BACKEND/.env"
+                echo -e "${GREEN}  Created market-terminal/backend/.env from .env.example${NC}"
+                echo -e "${YELLOW}  ACTION REQUIRED: Add your API keys to market-terminal/backend/.env${NC}"
+                echo "    Required: FINNHUB_API_KEY, FRED_API_KEY"
+                echo "    Optional: ALPHA_VANTAGE_API_KEY, MASSIVE_API_KEY"
+            fi
+        else
+            echo "  .env already exists"
+        fi
+
+        # --- Backend data directory (SQLite) ---
+        mkdir -p "$MT_BACKEND/../data"
+        echo -e "${GREEN}  Database directory ready${NC}"
+    fi
+
+    # --- Frontend npm install ---
+    if [ ! -d "$MT_FRONTEND" ]; then
+        echo -e "${YELLOW}  No market-terminal/frontend directory found, skipping frontend setup${NC}"
+    else
+        echo "  Installing frontend dependencies..."
+        cd "$MT_FRONTEND"
+        npm install --silent
+        cd "$PROJECT_DIR"
+        echo -e "${GREEN}  Frontend dependencies installed${NC}"
+    fi
+
+    # --- PID file directory ---
+    mkdir -p "$PROJECT_DIR/market-terminal/.run"
+    echo -e "${GREEN}  Market Terminal setup complete${NC}"
+else
+    echo -e "${YELLOW}[8/13] Skipping Market Terminal setup${NC}"
+fi
+
+#===============================================================================
+# STEP 9: Node.js Dependencies
+#===============================================================================
+echo -e "${YELLOW}[9/13] Installing Node.js dependencies...${NC}"
 
 cd "$PROJECT_DIR"
 
@@ -352,9 +426,9 @@ else
 fi
 
 #===============================================================================
-# STEP 9: Configure .mcp.json
+# STEP 10: Configure .mcp.json
 #===============================================================================
-echo -e "${YELLOW}[9/12] Configuring MCP servers...${NC}"
+echo -e "${YELLOW}[10/13] Configuring MCP servers...${NC}"
 
 MCP_JSON="$PROJECT_DIR/.mcp.json"
 SERENA_VENV="$PROJECT_DIR/serena/.venv"
@@ -409,9 +483,9 @@ EOF
 echo -e "${GREEN}  .mcp.json configured${NC}"
 
 #===============================================================================
-# STEP 10: Configure .serena/project.yml
+# STEP 11: Configure .serena/project.yml
 #===============================================================================
-echo -e "${YELLOW}[10/12] Configuring Serena project settings...${NC}"
+echo -e "${YELLOW}[11/13] Configuring Serena project settings...${NC}"
 
 SERENA_CONFIG_DIR="$PROJECT_DIR/.serena"
 mkdir -p "$SERENA_CONFIG_DIR"
@@ -442,9 +516,9 @@ fi
 echo -e "${GREEN}  Serena project configured${NC}"
 
 #===============================================================================
-# STEP 11: Create Runtime Directories
+# STEP 12: Create Runtime Directories
 #===============================================================================
-echo -e "${YELLOW}[11/12] Creating runtime directories...${NC}"
+echo -e "${YELLOW}[12/13] Creating runtime directories...${NC}"
 
 # Ensure all runtime directories exist
 mkdir -p "$PROJECT_DIR/tmp"
@@ -464,9 +538,101 @@ mkdir -p "$PROJECT_DIR/config"
 echo -e "${GREEN}  Runtime directories created${NC}"
 
 #===============================================================================
-# STEP 12: Create Shell Profile Additions
+# STEP 14: MemoryGraph (FalkorDB Lite) Setup
 #===============================================================================
-echo -e "${YELLOW}[12/12] Creating shell profile additions...${NC}"
+echo -e "${YELLOW}[14/18] Setting up MemoryGraph (FalkorDB Lite)...${NC}"
+
+# Create dedicated Python 3.12 venv for MemoryGraph
+MEMORYGRAPH_VENV="$HOME/.memorygraph-venv"
+if [ ! -d "$MEMORYGRAPH_VENV" ]; then
+    echo "  Creating MemoryGraph venv..."
+    python3.12 -m venv "$MEMORYGRAPH_VENV" 2>/dev/null || python3 -m venv "$MEMORYGRAPH_VENV"
+
+    # Install from our fork (includes FalkorDB patches)
+    echo "  Installing memorygraphMCP from fork..."
+    "$MEMORYGRAPH_VENV/bin/pip" install -e "$PROJECT_DIR/../memory-graph" 2>/dev/null || \
+    "$MEMORYGRAPH_VENV/bin/pip" install memorygraphMCP
+
+    # Create wrapper script
+    cat > "$MEMORYGRAPH_VENV/run.sh" << 'MGEOF'
+#!/bin/bash
+exec /path/to/venv/bin/memorygraph "$@"
+MGEOF
+    sed -i '' "s|/path/to/venv|$MEMORYGRAPH_VENV|" "$MEMORYGRAPH_VENV/run.sh"
+    chmod +x "$MEMORYGRAPH_VENV/run.sh"
+
+    # Create data directory
+    mkdir -p "$HOME/.memorygraph"
+    chmod 700 "$HOME/.memorygraph"
+fi
+echo -e "${GREEN}  MemoryGraph ready at $MEMORYGRAPH_VENV${NC}"
+
+#===============================================================================
+# STEP 15: LanceDB Vector Memory Setup
+#===============================================================================
+echo -e "${YELLOW}[15/18] Setting up LanceDB vector memory...${NC}"
+# LanceDB runs as a TypeScript MCP server, no separate install needed
+# Just verify the server file exists
+if [ -f "$PROJECT_DIR/src/mcp-servers/lancedb-memory/server.ts" ]; then
+    echo -e "${GREEN}  LanceDB server found${NC}"
+else
+    echo -e "${YELLOW}  Warning: LanceDB server not found at src/mcp-servers/lancedb-memory/server.ts${NC}"
+fi
+
+#===============================================================================
+# STEP 16: Mermaid CLI (Diagram Generation)
+#===============================================================================
+echo -e "${YELLOW}[16/18] Installing Mermaid CLI (diagram generation)...${NC}"
+if ! command -v mmdc &> /dev/null; then
+    npm install -g @mermaid-js/mermaid-cli
+    echo -e "${GREEN}  Mermaid CLI installed (mmdc $(mmdc --version 2>/dev/null))${NC}"
+else
+    echo -e "${GREEN}  Mermaid CLI already installed ($(mmdc --version 2>/dev/null))${NC}"
+fi
+
+#===============================================================================
+# STEP 17: Archon Autonomous Runner
+#===============================================================================
+echo -e "${YELLOW}[17/18] Setting up Archon autonomous runner...${NC}"
+
+# Create directories
+mkdir -p "$HOME/.archon/scripts/lib" "$HOME/.archon/logs" "$HOME/.archon/budget"
+chmod 700 "$HOME/.archon/logs" "$HOME/.archon/budget"
+
+# Deploy scripts
+if [ -d "$PROJECT_DIR/scripts/archon" ]; then
+    cp "$PROJECT_DIR/scripts/archon/rc-prefilter.sh" "$HOME/.archon/scripts/" 2>/dev/null
+    cp "$PROJECT_DIR/scripts/archon/archon-runner.sh" "$HOME/.archon/scripts/" 2>/dev/null
+    cp "$PROJECT_DIR/scripts/archon/lib/logging.sh" "$HOME/.archon/scripts/lib/" 2>/dev/null
+    cp "$PROJECT_DIR/scripts/archon/system-prompt.md" "$HOME/.archon/scripts/" 2>/dev/null
+    chmod +x "$HOME/.archon/scripts/rc-prefilter.sh" "$HOME/.archon/scripts/archon-runner.sh" 2>/dev/null
+
+    echo -e "${GREEN}  Archon runner deployed to ~/.archon/scripts/${NC}"
+else
+    echo -e "${YELLOW}  Warning: scripts/archon/ not found, skipping Archon deployment${NC}"
+fi
+
+# Create credentials template (user must fill in)
+if [ ! -f "$HOME/.archon-env" ]; then
+    cat > "$HOME/.archon-env" << 'ENVEOF'
+# Archon Autonomous Operation Credentials
+# SECURITY: chmod 600. Never commit to git.
+RC_URL="http://your-rocketchat-host:port"
+RC_USER_ID=""
+RC_TOKEN=""
+RC_TOKEN_ID=""
+ENVEOF
+    chmod 600 "$HOME/.archon-env"
+    echo -e "${YELLOW}  Created ~/.archon-env template — fill in RocketChat credentials${NC}"
+fi
+
+echo -e "${YELLOW}  To install launchd agents: bash $PROJECT_DIR/scripts/archon/install.sh${NC}"
+echo -e "${YELLOW}  To configure: edit ~/.archon-env with your RocketChat credentials${NC}"
+
+#===============================================================================
+# STEP 18: Create Shell Profile Additions
+#===============================================================================
+echo -e "${YELLOW}[18/18] Creating shell profile additions...${NC}"
 
 PROFILE_ADDITIONS="$PROJECT_DIR/scripts/packaging/profile-additions.sh"
 mkdir -p "$(dirname "$PROFILE_ADDITIONS")"
@@ -512,6 +678,11 @@ echo "  - claude-flow:    $(npm list -g claude-flow 2>/dev/null | grep claude-fl
 echo "  - ruv-swarm:      $(npm list -g ruv-swarm 2>/dev/null | grep ruv-swarm || echo 'installed')"
 echo "  - Serena:         $PROJECT_DIR/serena/.venv/bin/serena"
 echo "  - Embedding API:  $PROJECT_DIR/embedding-api/api-embed.sh"
+echo "  - Market Terminal: $PROJECT_DIR/market-terminal (backend + frontend)"
+echo "  - MemoryGraph:    $HOME/.memorygraph-venv (FalkorDB Lite)"
+echo "  - LanceDB:        $PROJECT_DIR/src/mcp-servers/lancedb-memory/server.ts"
+echo "  - Mermaid CLI:    $(mmdc --version 2>/dev/null || echo 'installed')"
+echo "  - Archon:         $HOME/.archon/scripts/"
 echo ""
 echo -e "${YELLOW}IMPORTANT: Add the following to your ~/.profile or ~/.bashrc:${NC}"
 echo ""
@@ -522,6 +693,18 @@ echo ""
 echo "To start the Embedding API:"
 echo "  cd $PROJECT_DIR"
 echo "  ./embedding-api/api-embed.sh start"
+echo ""
+echo "To start Market Terminal:"
+echo "  cd $PROJECT_DIR/market-terminal/backend"
+echo "  source .tv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+echo ""
+echo "  cd $PROJECT_DIR/market-terminal/frontend"
+echo "  npm run dev"
+echo ""
+echo "To set up Archon autonomous operation:"
+echo "  1. Edit ~/.archon-env with your RocketChat credentials"
+echo "  2. bash $PROJECT_DIR/scripts/archon/install.sh"
+echo "  3. bash $PROJECT_DIR/scripts/archon/status.sh"
 echo ""
 echo "To verify setup:"
 echo "  cd $PROJECT_DIR"
