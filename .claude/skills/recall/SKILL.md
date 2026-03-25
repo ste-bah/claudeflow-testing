@@ -14,7 +14,15 @@ The user provides a query after `/recall`, e.g.:
 /recall authentication timeout handling
 /recall XSS prevention patterns
 /recall src/api/routes/watchlist.py
+/recall --code caching with TTL
+/recall --deep archival system
+/recall --restore a0000001-0000-4000-8000-000000000001
 ```
+
+Flags:
+- `--code` — also search LEANN code index for matching code snippets
+- `--deep` — also search SQLite archive for archived memories
+- `--restore <id>` — restore an archived memory to active store
 
 If no query is provided, ask: "What topic should I search for?"
 
@@ -47,6 +55,21 @@ This finds memories by vector similarity. Best for finding related content even 
 
 If LanceDB MCP is not connected, skip this search and note: "(LanceDB not available — keyword search only)"
 
+### Search 4: LEANN Code Search (only with --code flag)
+
+**Only run this search if the user passed `--code`.**
+
+Call `mcp__leann-search__search_code` with:
+- `query`: the user's query
+- `limit`: 10
+- `minScore`: 0.80 (high threshold to avoid noise)
+- `includeCode`: true
+- `mode`: "semantic"
+
+This finds code snippets by semantic similarity to the query. Best for finding implementations, patterns, and functions matching a description.
+
+If LEANN MCP is not connected or returns no results, skip silently.
+
 ## Present Results
 
 Present results in two labeled sections. Do NOT attempt to merge or deduplicate across stores — they return different data structures.
@@ -65,6 +88,19 @@ Present results in two labeled sections. Do NOT attempt to merge or deduplicate 
    [content snippet]
 
 2. ...
+
+## Code Search Results (only with --code)
+If --code was passed and LEANN returned results:
+1. **[symbolName]** (score: X.XX, type: Y)
+   File: [filePath]:L[startLine]
+   ```
+   [code snippet]
+   ```
+
+2. ...
+```
+
+If --code returned no results above 0.80 threshold, show: "(No high-confidence code matches found)"
 
 ## No Results
 If both searches return nothing: "No relevant memories found for '[query]'."

@@ -42,6 +42,10 @@ Analyze the file and produce these four layers:
 **Layer 1 — Architecture**
 Where does this file fit in the project? What does it import? What depends on it? What is its role (route, model, service, test, utility, hook, component, config)?
 
+To enrich this layer, search LEANN for related code:
+`mcp__leann-search__search_code(query="<key function/class names from this file>", limit=5, minScore=0.80, includeCode=true)`
+Note any files that import from or are similar to this file — these are its neighbors in the codebase graph.
+
 **Layer 2 — Business Logic**
 What does the code DO? Key algorithms, data transformations, state management. Describe the main operations in plain language. Include function signatures and their purposes.
 
