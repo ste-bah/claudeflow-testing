@@ -57,19 +57,33 @@ npx tsx src/god-agent/cli/sdk-pipeline-runner.ts --dry-run "Implement feature X"
 **Tests**: 60 passing across 8 files in `tests/sdk-migration/`
 **PRD**: `docs/agent-sdk-migration/PRD-SDK-001-agent-sdk-migration.md` (v5.3, 12 adversarial reviews, score 9.1/10)
 
-### LEANN Search Improvements
+### LEANN Persistence and Daemon Architecture
 
-Three fixes and one feature for the LEANN semantic code search system:
+Critical data loss fix and architectural overhaul for the LEANN semantic code search system. Previously, each Claude Code session spawned its own LEANN MCP process — multiple processes sharing one disk file caused last-writer-wins data loss (80K-chunk index was lost overnight).
 
 | Change | Description |
 |--------|-------------|
-| **Hub Cache Bug Fix** | Fixed early-return bug where newly inserted vectors were missed by search — hub cache was serving stale results before new vectors were indexed |
-| **Index Queue Auto-Drain** | Added launchd-based 15-minute auto-drain via `leann-process-queue.ts` (Haiku model, 20 files/batch) |
-| **Project Root Fix** | LEANN drain now runs from project root (MCP server uses relative paths for `vector_db_leann`) |
-| **/recall --code Integration** | LEANN code search integrated with `/recall` skill and `/understand` for semantic codebase queries |
-| **MCP Server Enhancements** | `process_queue` tool added to LEANN MCP server for batch indexing of queued files |
+| **Binary Index Format** | Replaced JSON serialization with compact binary format (magic header, Float32 vectors, CSR graph adjacency, MD5 checksum). 5.4x smaller files, prevents OOM at 80K+ vectors |
+| **Atomic Save** | Write to `.tmp`, `fsync()`, `rename()` — crash-safe on external drives. Backup to `.bak` before each overwrite |
+| **Save Guard** | Meta sidecar (`.meta`) tracks vector count on disk. Refuses to overwrite a larger index with a smaller one |
+| **Load Verification** | After loading, compares vector count against meta sidecar. Disables auto-save if deserialization fails |
+| **Single Daemon** | One `daemon.ts` process owns the HNSW index, serves all sessions via Unix socket (`.run/leann.sock`) |
+| **Proxy Relay** | `proxy.ts` is a thin stdio-to-socket pipe. Auto-starts daemon if not running. Spawn lock prevents races |
+| **Direct Client** | `scripts/archon/leann-client.ts` calls daemon tools via socket — zero API cost. Used by launchd drain |
+| **Indexing Mutex** | Concurrent indexing operations from multiple sessions are serialized to prevent HNSW corruption |
 
-**Modified**: `leann-backend.ts` (+338 lines), `server.ts` (+242 lines), `leann-process-queue.ts` (refactored), `leann-types.ts`
+**Architecture**: `.mcp.json` -> `proxy.ts` (stdio) -> Unix socket -> `daemon.ts` (shared LEANNBackend) -> binary index on disk
+
+**Modified**: `leann-backend.ts`, `leann-types.ts`, `server.ts`, `daemon.ts` (new), `proxy.ts` (new), `leann-client.ts` (new), `.mcp.json`
+
+### Earlier LEANN Fixes
+
+| Change | Description |
+|--------|-------------|
+| **Hub Cache Bug Fix** | Fixed early-return bug where newly inserted vectors were missed by search |
+| **Index Queue Auto-Drain** | launchd-based 15-minute auto-drain via direct socket client (zero API cost) |
+| **/recall --code Integration** | LEANN code search integrated with `/recall` skill and `/understand` |
+| **MCP Server Enhancements** | `process_queue` tool added for batch indexing of queued files |
 
 ---
 
@@ -594,31 +608,34 @@ LEANN (Lightweight Efficient Approximate Nearest Neighbor) provides high-perform
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    LEANN SEMANTIC SEARCH                             │
 ├─────────────────────────────────────────────────────────────────────┤
-│  Query Input                                                         │
-│       ↓                                                              │
+│  Claude Code Session(s)                                              │
+│       ↓ stdio                                                        │
 │  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ proxy.ts (per-session, thin relay)                            │   │
+│  │  • Auto-starts daemon if not running                          │   │
+│  │  • Spawn lock prevents race conditions                        │   │
+│  │  • Pipes stdin/stdout to Unix socket                          │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│       ↓ Unix socket (.run/leann.sock)                                │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ daemon.ts (single process, shared across all sessions)        │   │
+│  │  • Per-connection MCP Server instances                        │   │
+│  │  • Indexing mutex (serializes write ops)                      │   │
+│  │  • Auto-save every 60s (binary format, fsync + rename)        │   │
+│  │  • Save guard (refuses to overwrite larger index)             │   │
+│  ├──────────────────────────────────────────────────────────────┤   │
+│  │ LEANNBackend (one instance, shared)                           │   │
+│  │  • HNSW graph with hub cache (top 10% nodes)                  │   │
+│  │  • Binary persistence: magic header, Float32 vectors,         │   │
+│  │    CSR adjacency, MD5 checksum (5.4x smaller than JSON)       │   │
+│  │  • Legacy JSON auto-migration on first load                   │   │
+│  ├──────────────────────────────────────────────────────────────┤   │
 │  │ DualCodeEmbeddingProvider                                     │   │
-│  │  • 40% NLP weight (natural language understanding)            │   │
-│  │  • 60% Code weight (syntax and structure)                     │   │
-│  │  • Hybrid fusion for optimal code search                      │   │
+│  │  • 40% NLP + 60% Code weight fusion                           │   │
 │  │  • 1000-entry embedding cache                                 │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │       ↓                                                              │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ LEANNBackend                                                  │   │
-│  │  • Hub Cache: Top-degree vectors for fast retrieval           │   │
-│  │  • Strict dimension validation (prevents corruption)          │   │
-│  │  • Atomic hub updates (build-new-then-swap)                   │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│       ↓                                                              │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ LEANNAdapter                                                  │   │
-│  │  • On-demand embedding recomputation (97% storage savings)    │   │
-│  │  • LRU eviction (10,000 max entries)                          │   │
-│  │  • Content store for original text preservation               │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│       ↓                                                              │
-│  Search Results → RLM Context Injection → Agent Response            │
+│  Binary index: vector_db_leann (+ .meta sidecar + .bak backup)      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -626,10 +643,13 @@ LEANN (Lightweight Efficient Approximate Nearest Neighbor) provides high-perform
 
 | Component | Path | Description |
 |-----------|------|-------------|
-| LEANN Backend | `src/god-agent/core/vector-db/leann-backend.ts` | Core vector storage with hub caching |
+| Daemon | `src/mcp-servers/leann-search/daemon.ts` | Single-process server on Unix socket, owns the HNSW index |
+| Proxy | `src/mcp-servers/leann-search/proxy.ts` | Stdio-to-socket relay, auto-starts daemon |
+| Direct Client | `scripts/archon/leann-client.ts` | Zero-cost CLI for daemon tool calls (used by launchd drain) |
+| LEANN Backend | `src/god-agent/core/vector-db/leann-backend.ts` | Core vector storage with binary persistence and hub caching |
+| MCP Server | `src/mcp-servers/leann-search/server.ts` | Tool handlers, save guard, meta sidecar, load verification |
 | LEANN Adapter | `src/god-agent/core/search/adapters/leann-adapter.ts` | On-demand recomputation adapter |
 | DualCodeEmbedding | `src/god-agent/core/search/dual-code-embedding.ts` | Hybrid NLP/Code embedding provider |
-| Universal Agent | `src/god-agent/universal/universal-agent.ts` | LEANN wiring and failure tracking |
 
 ### How It Works
 
@@ -649,15 +669,20 @@ The system uses a weighted fusion of NLP and Code embeddings:
 }
 ```
 
-#### 2. On-Demand Recomputation
+#### 2. Binary Persistence
 
-Instead of storing vectors (which can be large), LEANN stores the original text:
+The HNSW index is stored in a compact binary format (v2):
 
 ```
-Traditional: Store 1536 × 4 bytes = 6KB per entry
-LEANN: Store ~200 bytes average text → Recompute on search
+Traditional JSON: 80K vectors x 1536D = ~2.4GB (causes OOM)
+Binary format:    80K vectors x 1536D = ~470MB (Float32 arrays)
 
-Storage Savings: ~97%
+Format: LEANN\0 magic | version | endianness marker | header
+        | string table | Float32 vectors | CSR graph | hub IDs
+        | stats | config | metric | MD5 checksum
+
+Safety: atomic write (tmp -> fsync -> rename), .bak backup,
+        save guard (meta sidecar prevents overwriting larger index)
 ```
 
 #### 3. Hub Cache for Fast Retrieval
