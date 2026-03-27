@@ -636,6 +636,8 @@ LEANN (Lightweight Efficient Approximate Nearest Neighbor) provides high-perform
 │  └──────────────────────────────────────────────────────────────┘   │
 │       ↓                                                              │
 │  Binary index: vector_db_leann (+ .meta sidecar + .bak backup)      │
+│                                                                      │
+│  Search Results → RLM Context Injection → Agent Response             │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
