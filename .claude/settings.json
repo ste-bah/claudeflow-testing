@@ -5,7 +5,9 @@
     "CLAUDE_FLOW_HOOKS_ENABLED": "true",
     "CLAUDE_FLOW_TELEMETRY_ENABLED": "true",
     "CLAUDE_FLOW_REMOTE_EXECUTION": "true",
-    "CLAUDE_FLOW_CHECKPOINTS_ENABLED": "true"
+    "CLAUDE_FLOW_CHECKPOINTS_ENABLED": "true",
+    "NODE_OPTIONS": "--max-old-space-size=1536",
+    "PIPELINE_ENGINE": "cli"
   },
   "permissions": {
     "allow": [
@@ -172,6 +174,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/agent-prompt-enforcer.sh\" ] && \"$ROOT/.claude/hooks/agent-prompt-enforcer.sh\" || echo \"{\\\"decision\\\": \\\"allow\\\"}\"'"
+          },
+          {
+            "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null); if [ -n \"$ROOT\" ] && [ -f \"$ROOT/.claude/runtime/.god-code-active\" ]; then if [ -f \"$ROOT/.claude/hooks/god-code-enforcement-v2.sh\" ]; then source \"$ROOT/.claude/hooks/god-code-enforcement-v2.sh\" && increment_agent_count; else COUNT=$(cat \"$ROOT/.claude/runtime/.god-code-active\" 2>/dev/null || echo 0); echo $((COUNT + 1)) > \"$ROOT/.claude/runtime/.god-code-active\"; echo \"📊 Pipeline Task #$((COUNT + 1)) spawned\"; fi; fi; [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/pre-task.sh\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; \"$ROOT/.claude/hooks/pre-task.sh\" || true'"
           },
           {
@@ -183,6 +189,14 @@
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/project-root-enforcer.sh\" ] && cat | \"$ROOT/.claude/hooks/project-root-enforcer.sh\" || echo \"{\\\"decision\\\": \\\"allow\\\"}\"'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/vitest-rate-limiter.sh\" ] && cat | \"$ROOT/.claude/hooks/vitest-rate-limiter.sh\" || echo \"{\\\"decision\\\": \\\"allow\\\"}\"'"
+          },
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/block-heredoc.sh\" ] && \"$ROOT/.claude/hooks/block-heredoc.sh\" || echo \"{\\\"decision\\\": \\\"allow\\\"}\"'"
@@ -253,6 +267,19 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; FILE=$(cat | jq -r \".tool_input.file_path // .tool_input.path // empty\"); [ -n \"$FILE\" ] && [ -x \"$ROOT/.claude/hooks/leann-index-file.sh\" ] && \"$ROOT/.claude/hooks/leann-index-file.sh\" \"$FILE\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/code-modify-tracker.sh\" ] && cat | \"$ROOT/.claude/hooks/code-modify-tracker.sh\" || true'"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/prompt-read-tracker.sh\" ] && cat | \"$ROOT/.claude/hooks/prompt-read-tracker.sh\" || true'"
           }
         ]
       }
@@ -263,7 +290,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'echo \"SURVIVE COMPACTION: (1) Memory=MemoryGraph MCP ONLY, never MEMORY.md files. (2) You are Archon — read ~/.claude/personality.md. (3) After compaction: recall_memories tag=feedback, summarize state, ask user what to do. (4) Never bypass the 48-agent /god-code pipeline. (5) Review CLAUDE.md for agents, ClaudeFlow sequential execution, SPARC methodology.\"'"
+            "command": "/bin/bash -c 'echo \"SURVIVE COMPACTION: (1) Memory=MemoryGraph MCP ONLY, never MEMORY.md files. (2) You are Archon — read ~/.claude/personality.md. (3) After compaction: recall_memories tag=feedback, summarize state, ask user what to do. (4) Never bypass the 48-agent /god-code pipeline. (5) Review CLAUDE.md for agents, ClaudeFlow sequential execution, SPARC methodology. (6) HONESTY OVERRIDE: When you fuck up, say you fucked up. No softening, no false balance, no leading with positives. Truth over politeness. Never sign off on READMEs without verifying every claim against actual code. Adversarial review must independently read code, not trust prior agent outputs.\"'"
           }
         ]
       },
@@ -272,7 +299,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -c 'echo \"SURVIVE COMPACTION: (1) Memory=MemoryGraph MCP ONLY, never MEMORY.md files. (2) You are Archon — read ~/.claude/personality.md. (3) After compaction: recall_memories tag=feedback, summarize state, ask user what to do. (4) Never bypass the 48-agent /god-code pipeline. (5) Review CLAUDE.md for agents, ClaudeFlow sequential execution, SPARC methodology.\"'"
+            "command": "/bin/bash -c 'echo \"SURVIVE COMPACTION: (1) Memory=MemoryGraph MCP ONLY, never MEMORY.md files. (2) You are Archon — read ~/.claude/personality.md. (3) After compaction: recall_memories tag=feedback, summarize state, ask user what to do. (4) Never bypass the 48-agent /god-code pipeline. (5) Review CLAUDE.md for agents, ClaudeFlow sequential execution, SPARC methodology. (6) HONESTY OVERRIDE: When you fuck up, say you fucked up. No softening, no false balance, no leading with positives. Truth over politeness. Never sign off on READMEs without verifying every claim against actual code. Adversarial review must independently read code, not trust prior agent outputs.\"'"
           }
         ]
       }
@@ -314,6 +341,46 @@
         ]
       }
     ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && mkdir -p \"$ROOT/.claude/runtime\" && echo \"[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Context compaction completed\" >> \"$ROOT/.claude/runtime/compact-events.log\" || true'"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && mkdir -p \"$ROOT/.claude/runtime\" && echo \"[$(date -u +%Y-%m-%dT%H:%M:%SZ)] StopFailure — turn ended due to API error\" >> \"$ROOT/.claude/runtime/stop-failures.log\" || true'"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && mkdir -p \"$ROOT/.claude/runtime\" && echo \"[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Subagent completed\" >> \"$ROOT/.claude/runtime/agent-completions.log\" || true'"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && mkdir -p \"$ROOT/.claude/runtime\" && echo \"[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Task completed\" >> \"$ROOT/.claude/runtime/task-completions.log\" || true'"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -347,6 +414,15 @@
           }
         ]
       }
+    ]
+  },
+  "worktree": {
+    "sparsePaths": [
+      "packages/translator/",
+      "packages/shared/",
+      "packages/registry/",
+      "packages/ingestion/",
+      "packages/validator/"
     ]
   },
   "includeCoAuthoredBy": true,

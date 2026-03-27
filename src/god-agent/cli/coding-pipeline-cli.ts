@@ -119,7 +119,7 @@ Focus on mathematical correctness and algorithmic efficiency.`,
 // PHASE 9: Per-Phase Quality Gate Thresholds (PRD Section 9.1)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PHASE_QUALITY_THRESHOLDS: Record<number, { metric: string; threshold: number }> = {
+export const PHASE_QUALITY_THRESHOLDS: Record<number, { metric: string; threshold: number }> = {
   1: { metric: 'decomposition', threshold: 0.90 },
   2: { metric: 'candidates', threshold: 0.60 },
   3: { metric: 'consistency', threshold: 0.95 },
@@ -134,7 +134,7 @@ const PHASE_QUALITY_THRESHOLDS: Record<number, { metric: string; threshold: numb
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Create orchestrator with parallel execution DISABLED (sequential batches of 1) */
-async function createSequentialOrchestrator() {
+export async function createSequentialOrchestrator() {
   // Reduce embedding API health check from 30s to 2s for CLI mode
   process.env.EMBEDDING_HEALTH_TIMEOUT = '2000';
   const godAgent = new UniversalAgent({ verbose: false });
@@ -151,7 +151,7 @@ async function createSequentialOrchestrator() {
 }
 
 /** Shared orchestrator bundle for combined commands (avoids duplicate cold starts) */
-type OrchestratorBundle = Awaited<ReturnType<typeof createSequentialOrchestrator>>;
+export type OrchestratorBundle = Awaited<ReturnType<typeof createSequentialOrchestrator>>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODEL ASSIGNMENT: Explicit model per agent to prevent cost-optimization downgrades
@@ -322,20 +322,9 @@ export async function init(
   console.error('[init] Creating agent...');
   const { godAgent, orchestrator } = _bundle ?? await createSequentialOrchestrator();
 
-  // Store hook context to force pipeline mode
-  console.error('[init] Storing hook context...');
-  try {
-    await godAgent['memoryClient']?.storeKnowledge({
-      content: JSON.stringify({ task, sessionId, timestamp: new Date().toISOString() }),
-      category: 'pipeline-trigger',
-      domain: 'coding/context',
-      tags: ['pipeline', 'god-code', 'hook'],
-    });
-  } catch {
-    console.error('[init] Warning: Failed to store hook context, continuing');
-  }
-
   // ── Batch-learn: process feedback backlog from prior runs ────────────
+  // MUST run before anything else (PRD REQ-PAR-002, TASK-SDK-001 acceptance criteria)
+  // so SONA patterns are fresh for the first agent's prompt augmentation.
   try {
     const { createProductionSonaEngine } = await import('../core/learning/sona-engine.js');
     const engine = createProductionSonaEngine();
@@ -349,6 +338,19 @@ export async function init(
     }
   } catch (err) {
     console.error(`[BATCH-LEARN] Startup processing failed (non-fatal): ${(err as Error).message}`);
+  }
+
+  // Store hook context to force pipeline mode
+  console.error('[init] Storing hook context...');
+  try {
+    await godAgent['memoryClient']?.storeKnowledge({
+      content: JSON.stringify({ task, sessionId, timestamp: new Date().toISOString() }),
+      category: 'pipeline-trigger',
+      domain: 'coding/context',
+      tags: ['pipeline', 'god-code', 'hook'],
+    });
+  } catch {
+    console.error('[init] Warning: Failed to store hook context, continuing');
   }
 
   // Build pipeline configuration
@@ -813,8 +815,34 @@ export async function next(
         const truncatedRlm = rlmContent.substring(0, keepLen);
         prompt = prompt.substring(0, rlmStart) + truncatedRlm + '\n... [RLM context truncated for size]\n' + prompt.substring(rlmEnd);
       }
-      // Fallback: if still over limit after RLM truncation (or no RLM section),
-      // hard-truncate the entire prompt from the end
+      // Step 2: Truncate DESC section if still over limit
+      // PRD Appendix B layer 11: truncate RLM first, then DESC, then SONA
+      if (prompt.length > MAX_PROMPT_CHARS) {
+        const descMarker = '# Relevant Prior Solutions (vetted)';
+        const descStart = prompt.indexOf(descMarker);
+        if (descStart >= 0) {
+          // Find the end of the DESC section (next --- separator after it)
+          const descEnd = prompt.indexOf('\n---\n', descStart + descMarker.length);
+          if (descEnd > descStart) {
+            prompt = prompt.substring(0, descStart) + '# Relevant Prior Solutions (vetted)\n... [DESC truncated for size]\n---\n' + prompt.substring(descEnd + 5);
+            console.error(`[PROMPT-CAP] DESC section truncated`);
+          }
+        }
+      }
+      // Step 3: Truncate SONA section if still over limit
+      if (prompt.length > MAX_PROMPT_CHARS) {
+        const sonaMarker = '## LEARNED PATTERNS (from past successful executions)';
+        const sonaStart = prompt.indexOf(sonaMarker);
+        if (sonaStart >= 0) {
+          // SONA section ends at the next ## heading or end of prompt
+          const sonaEnd = prompt.indexOf('\n\n## ', sonaStart + sonaMarker.length);
+          if (sonaEnd > sonaStart) {
+            prompt = prompt.substring(0, sonaStart) + prompt.substring(sonaEnd);
+            console.error(`[PROMPT-CAP] SONA section truncated`);
+          }
+        }
+      }
+      // Step 4: Hard-truncate fallback if still over limit after selective truncation
       if (prompt.length > MAX_PROMPT_CHARS) {
         prompt = prompt.substring(0, MAX_PROMPT_CHARS) + '\n... [prompt hard-truncated at 120K chars]';
         console.error(`[PROMPT-CAP] Hard truncation applied`);

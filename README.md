@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.1.8 | **Status**: Production-Ready | **Last Updated**: February 2026
+**Version**: 2.2.0 | **Status**: Production-Ready | **Last Updated**: March 2026
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Configuration](#configuration)
 - [Daemon Services](#daemon-services)
 - [PhD Research Pipeline (45 Agents)](#phd-research-pipeline-45-agents)
-- [Coding Pipeline (48 Agents)](#coding-pipeline-48-agents)
+- [Coding Pipeline (48 Agents)](#coding-pipeline-48-agents) — CLI + SDK engines
 - [Observability Dashboard](#observability-dashboard)
 - [Memory Visualization Tool](#memory-visualization-tool)
 - [Learning System](#learning-system)
@@ -24,6 +24,54 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.2.0
+
+### Agent SDK Pipeline Runner
+
+A new SDK-based pipeline runner (`/god-code-sdk`) that executes the same 48-agent coding pipeline using the Claude Agent SDK instead of the CLI-based orchestration loop. Runs alongside the existing `/god-code` command.
+
+| Feature | Description |
+|---------|-------------|
+| **PipelinePromptFacade** | Wraps existing CLI orchestration via `init()`/`next()`/`complete()` delegation — prompt parity by construction |
+| **SDK Query Loop** | Each agent gets a fresh `query()` call with no context accumulation between agents |
+| **Crash Recovery** | Automatic session resume on restart — detects interrupted sessions, handles 3 crash scenarios (mid-query, post-query, no-state) |
+| **Tool Restrictions** | Phase 1-3 agents restricted to read-only tools via SDK `tools` option + PreToolUse hook defense-in-depth |
+| **Quality Gate Retry** | Post-agent quality check against per-phase thresholds with feedback prompt retry (max 2 retries) |
+| **API Error Backoff** | Exponential retry for transient errors (429/500/503) at 1s/2s/4s intervals |
+| **LEANN MCP Indexing** | Implementation agent output indexed via MCP `index_code` tool (Phase 4+ only) |
+| **SDK Session Map** | Per-agent SDK session tracking at `.god-agent/sdk-sessions/` for crash recovery |
+| **Dry-Run Mode** | `--dry-run` flag runs Phase 1 only (7 read-only agents) for low-risk validation |
+
+**Usage:**
+```bash
+# Full pipeline
+/god-code-sdk "Implement feature X"
+
+# Dry-run (Phase 1 only, no file writes)
+npx tsx src/god-agent/cli/sdk-pipeline-runner.ts --dry-run "Implement feature X"
+```
+
+**New files**: `sdk-prompt-facade.ts` (341 lines), `sdk-pipeline-runner.ts` (750 lines), `god-code-sdk.md`
+**Modified**: `coding-pipeline-cli.ts` (exported `createSequentialOrchestrator`, `PHASE_QUALITY_THRESHOLDS`; reordered batch-learn; added DESC/SONA selective truncation)
+**Tests**: 60 passing across 8 files in `tests/sdk-migration/`
+**PRD**: `docs/agent-sdk-migration/PRD-SDK-001-agent-sdk-migration.md` (v5.3, 12 adversarial reviews, score 9.1/10)
+
+### LEANN Search Improvements
+
+Three fixes and one feature for the LEANN semantic code search system:
+
+| Change | Description |
+|--------|-------------|
+| **Hub Cache Bug Fix** | Fixed early-return bug where newly inserted vectors were missed by search — hub cache was serving stale results before new vectors were indexed |
+| **Index Queue Auto-Drain** | Added launchd-based 15-minute auto-drain via `leann-process-queue.ts` (Haiku model, 20 files/batch) |
+| **Project Root Fix** | LEANN drain now runs from project root (MCP server uses relative paths for `vector_db_leann`) |
+| **/recall --code Integration** | LEANN code search integrated with `/recall` skill and `/understand` for semantic codebase queries |
+| **MCP Server Enhancements** | `process_queue` tool added to LEANN MCP server for batch indexing of queued files |
+
+**Modified**: `leann-backend.ts` (+338 lines), `server.ts` (+242 lines), `leann-process-queue.ts` (refactored), `leann-types.ts`
+
+---
 
 ## What's New in v2.1.8
 
@@ -987,17 +1035,20 @@ The God Agent includes a comprehensive 48-agent coding pipeline for software dev
 ### Running the Pipeline
 
 ```bash
-# Single task via slash command
+# CLI engine (original — Claude Code orchestrates the loop)
 /god-code "Implement a user authentication system"
 
-# Batch mode for multiple tasks
+# SDK engine (new — self-contained SDK runner with crash recovery)
+/god-code-sdk "Implement a user authentication system"
+
+# SDK dry-run (Phase 1 only — 7 read-only agents, no file writes)
+npx tsx src/god-agent/cli/sdk-pipeline-runner.ts --dry-run "Implement a user authentication system"
+
+# Batch mode for multiple tasks (CLI engine)
 npx tsx src/god-agent/cli/coding-pipeline-batch.ts "Task 1" "Task 2" "Task 3"
-
-# Batch mode from file (one task per line)
-npx tsx src/god-agent/cli/coding-pipeline-batch.ts --file tasks.txt
-
-# The pipeline automatically triggers for coding tasks via hooks
 ```
+
+Both engines execute the same 48 agents with identical prompt augmentation (11 layers). The SDK engine adds crash recovery, programmatic tool restrictions, and quality gate retry. Output directories differ: CLI uses `.god-agent/pipeline-output/`, SDK uses `.pipeline-state/`.
 
 **Batch Mode Benefits:**
 - Each task gets isolated session with full 48-agent pipeline
