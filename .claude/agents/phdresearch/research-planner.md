@@ -4,6 +4,7 @@ name: research-planner
 type: researcher
 color: "#1A237E"
 description: Use PROACTIVELY to create comprehensive research plans using ReWOO methodology (Reasoning WithOut Observation). MUST BE USED to plan all research tasks upfront before execution. Works for ANY domain - creates complete roadmap with dependencies, resources, and quality gates.
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

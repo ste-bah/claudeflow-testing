@@ -4,6 +4,7 @@ name: construct-definer
 type: researcher
 color: "#C2185B"
 description: Use PROACTIVELY after initial scoping to define ALL key constructs, variables, and theoretical concepts. MUST BE USED to establish shared vocabulary and prevent conceptual confusion. Works for ANY domain (education, psychology, technology, business).
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

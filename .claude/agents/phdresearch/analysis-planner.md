@@ -4,6 +4,7 @@ name: analysis-planner
 type: researcher
 color: "#00796B"
 description: Design rigorous statistical/qualitative analysis strategies BEFORE data collection. MUST BE USED to prevent post-hoc rationalization and ensure methodological validity. Works for quantitative, qualitative, and mixed-methods research.
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

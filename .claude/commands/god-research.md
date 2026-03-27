@@ -1,5 +1,6 @@
 ---
 description: Deep research using the PhD Pipeline CLI with 45 specialized agents and DESC episodic memory
+effort: high
 ---
 
 Use the PhD Pipeline CLI (`phd-cli`) for deep research with dynamic agent orchestration, DESC episode injection, and style profile integration.

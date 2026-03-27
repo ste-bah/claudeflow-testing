@@ -14,6 +14,8 @@
  * @module mcp-servers/leann-search/server
  */
 
+import * as fs from 'fs/promises';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -58,6 +60,11 @@ import {
   getIndexStats,
   GET_INDEX_STATS_DEFINITION,
 } from './tools/get-index-stats.js';
+
+import {
+  processQueue,
+  PROCESS_QUEUE_DEFINITION,
+} from './tools/process-queue.js';
 
 // ============================================================================
 // Constants
@@ -182,6 +189,15 @@ export class LEANNMCPServer {
   /** Auto-save interval handle */
   private autoSaveInterval: ReturnType<typeof setInterval> | null = null;
 
+  /** Guard: true while indexing is in progress. Auto-save skips when set to prevent saving partially-built HNSW graphs. */
+  private isIndexing = false;
+
+  /** When true, auto-save is disabled to prevent overwriting a good on-disk index after a bad load. */
+  private saveDisabled = false;
+
+  /** Mutex for serializing indexing operations from concurrent daemon clients. */
+  private indexingMutex: Promise<void> = Promise.resolve();
+
   /**
    * Create a new LEANN MCP Server
    *
@@ -245,6 +261,7 @@ export class LEANNMCPServer {
           INDEX_CODE_DEFINITION,
           FIND_SIMILAR_CODE_DEFINITION,
           GET_INDEX_STATS_DEFINITION,
+          PROCESS_QUEUE_DEFINITION,
         ],
       };
     });
@@ -278,7 +295,7 @@ export class LEANNMCPServer {
         const result = await this.executeTool(name, args ?? {}, context);
 
         // Update indexed count after indexing operations
-        if (name === 'index_repository' || name === 'index_code') {
+        if (name === 'index_repository' || name === 'index_code' || name === 'process_queue') {
           this.state.indexedCount = this.backend.count();
         }
 
@@ -320,16 +337,25 @@ export class LEANNMCPServer {
         return semanticCodeSearch(args as any, context);
 
       case 'index_repository':
-        return indexRepository(args as any, context);
+        this.isIndexing = true;
+        try { return await indexRepository(args as any, context); }
+        finally { this.isIndexing = false; }
 
       case 'index_code':
-        return indexCode(args as any, context);
+        this.isIndexing = true;
+        try { return await indexCode(args as any, context); }
+        finally { this.isIndexing = false; }
 
       case 'find_similar_code':
         return findSimilarCode(args as any, context);
 
       case 'get_stats':
         return getIndexStats(args as any, context);
+
+      case 'process_queue':
+        this.isIndexing = true;
+        try { return await processQueue(args as any, context); }
+        finally { this.isIndexing = false; }
 
       default:
         throw new McpError(
@@ -473,6 +499,53 @@ export class LEANNMCPServer {
     } catch (error) {
       this.logger.warn('Failed to load index, starting fresh', error);
     }
+
+    // Load verification: compare loaded count against meta sidecar
+    const metaPath = this.config.persistPath + '.meta';
+    try {
+      const metaRaw = await fs.readFile(metaPath, 'utf-8');
+      const meta = JSON.parse(metaRaw);
+      const loadedCount = this.backend.count();
+
+      if (meta.vectorCount > 100 && loadedCount === 0) {
+        this.logger.error(
+          `LOAD VERIFICATION FAILED: meta sidecar says ${meta.vectorCount} vectors, ` +
+          `but loaded ${loadedCount}. Disabling auto-save to prevent data loss. ` +
+          `Check ${this.config.persistPath} for corruption.`
+        );
+        this.saveDisabled = true;
+      } else if (meta.vectorCount > 0 && loadedCount > 0 && loadedCount < meta.vectorCount * 0.5) {
+        this.logger.warn(
+          `Load verification warning: meta says ${meta.vectorCount} vectors, ` +
+          `loaded only ${loadedCount}. Index may be partially corrupt.`
+        );
+        // Don't disable save — partial load is better than nothing
+      }
+    } catch {
+      // No meta file — first run or migration, nothing to verify against
+    }
+
+    // Load metadata and code stores from sidecar file
+    const storesPath = this.config.persistPath + '.stores';
+    try {
+      const raw = await fs.readFile(storesPath, 'utf-8');
+      const storesData = JSON.parse(raw);
+      if (storesData.metadata) {
+        for (const [id, meta] of Object.entries(storesData.metadata)) {
+          this.metadataStore.set(id as VectorID, meta as CodeMetadata);
+        }
+      }
+      if (storesData.code) {
+        for (const [id, code] of Object.entries(storesData.code)) {
+          this.codeStore.set(id as VectorID, code as string);
+        }
+      }
+      this.logger.info(`Loaded ${this.metadataStore.size} metadata entries and ${this.codeStore.size} code entries`);
+    } catch (err: any) {
+      if (err?.code !== 'ENOENT') {
+        this.logger.warn('Failed to load metadata/code stores', err);
+      }
+    }
   }
 
   /**
@@ -483,18 +556,75 @@ export class LEANNMCPServer {
       return;
     }
 
-    // Only save if we have vectors — otherwise we'd overwrite the pipeline daemon's index
-    // The pipeline daemon is the primary writer; MCP server is a read-mostly consumer
-    if (this.backend.count() === 0) {
-      this.logger.debug('Skipping save — no vectors in backend (avoiding overwrite of pipeline index)');
+    if (this.saveDisabled) {
+      this.logger.warn('Save disabled due to load verification failure — skipping');
       return;
+    }
+
+    if (this.isIndexing) {
+      this.logger.debug('Skipping save — indexing in progress');
+      return;
+    }
+
+    const currentCount = this.backend.count();
+    if (currentCount === 0) {
+      this.logger.debug('Skipping save — no vectors in backend');
+      return;
+    }
+
+    // Save guard: read meta sidecar to check what's on disk
+    const metaPath = this.config.persistPath + '.meta';
+    try {
+      const metaRaw = await fs.readFile(metaPath, 'utf-8');
+      const meta = JSON.parse(metaRaw);
+      if (meta.vectorCount > currentCount && meta.vectorCount > Math.max(10, currentCount * 2)) {
+        this.logger.warn(
+          `Save guard: refusing to overwrite index with ${meta.vectorCount} vectors ` +
+          `using in-memory index with only ${currentCount} vectors`
+        );
+        return;
+      }
+    } catch {
+      // No meta file or parse error — proceed with save
     }
 
     try {
       await this.backend.save(this.config.persistPath);
-      this.logger.debug(`Saved index to ${this.config.persistPath}`);
+      this.logger.debug(`Saved index to ${this.config.persistPath} (${currentCount} vectors)`);
     } catch (error) {
       this.logger.error('Failed to save index', error);
+      return; // Don't write meta if save failed
+    }
+
+    // Save metadata and code stores to sidecar file
+    const storesPath = this.config.persistPath + '.stores';
+    try {
+      const storesData = {
+        metadata: Object.fromEntries(this.metadataStore),
+        code: Object.fromEntries(this.codeStore),
+      };
+      const tmpPath = storesPath + '.tmp';
+      await fs.writeFile(tmpPath, JSON.stringify(storesData), 'utf-8');
+      await fs.rename(tmpPath, storesPath);
+      this.logger.debug(`Saved ${this.metadataStore.size} metadata entries and ${this.codeStore.size} code entries`);
+    } catch (error) {
+      this.logger.warn('Failed to save metadata/code stores', error);
+    }
+
+    // Write meta sidecar AFTER successful save
+    try {
+      const metaData = {
+        vectorCount: currentCount,
+        metadataCount: this.metadataStore.size,
+        savedAt: new Date().toISOString(),
+        pid: process.pid,
+        formatVersion: 2,
+      };
+      const tmpMeta = metaPath + '.tmp';
+      await fs.writeFile(tmpMeta, JSON.stringify(metaData, null, 2), 'utf-8');
+      await fs.rename(tmpMeta, metaPath);
+    } catch (error) {
+      this.logger.warn('Failed to write meta sidecar', error);
     }
   }
 
@@ -556,6 +686,102 @@ export class LEANNMCPServer {
       metadataStore: this.metadataStore,
       codeStore: this.codeStore,
     };
+  }
+
+  // ==========================================================================
+  // Daemon Support API
+  // ==========================================================================
+
+  /**
+   * Get the vector count from the backend.
+   * Used by the daemon to report index size after initialization.
+   */
+  getVectorCount(): number {
+    return this.backend?.count() ?? 0;
+  }
+
+  /**
+   * Get the list of tool definitions for MCP ListTools responses.
+   * Used by the daemon to register tools on per-connection MCP Server instances.
+   */
+  getToolDefinitions(): Array<Record<string, unknown>> {
+    return [
+      SEMANTIC_CODE_SEARCH_DEFINITION,
+      INDEX_REPOSITORY_DEFINITION,
+      INDEX_CODE_DEFINITION,
+      FIND_SIMILAR_CODE_DEFINITION,
+      GET_INDEX_STATS_DEFINITION,
+      PROCESS_QUEUE_DEFINITION,
+    ];
+  }
+
+  /**
+   * Execute a tool by name with the given arguments.
+   * Used by the daemon to delegate tool calls from per-connection MCP Servers
+   * to the shared backend/stores owned by this instance.
+   *
+   * @param name - Tool name (e.g. 'search_code', 'index_repository')
+   * @param args - Tool arguments object
+   * @returns MCP CallToolResult-shaped object with content array
+   */
+  async executeToolCall(
+    name: string,
+    args: Record<string, unknown>
+  ): Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> {
+    if (!this.backend || !this.embeddingProvider) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'Server not initialized' }) }],
+        isError: true,
+      };
+    }
+
+    const context: ToolExecutionContext = {
+      backend: this.backend,
+      embeddingProvider: this.embeddingProvider,
+      metadataStore: this.metadataStore,
+      codeStore: this.codeStore,
+      requestId: `daemon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    };
+
+    try {
+      this.state.operationCount++;
+      this.state.lastOperationAt = Date.now();
+
+      const isWriteOp = name === 'index_repository' || name === 'index_code' || name === 'process_queue';
+      let result: unknown;
+
+      if (isWriteOp) {
+        // Serialize indexing operations to prevent concurrent HNSW mutation
+        let resolve: () => void;
+        const myTurn = new Promise<void>(r => { resolve = r; });
+        const prevMutex = this.indexingMutex;
+        this.indexingMutex = myTurn;
+        await prevMutex;
+        try {
+          result = await this.executeTool(name, args, context);
+          this.state.indexedCount = this.backend.count();
+        } finally {
+          resolve!();
+        }
+      } else {
+        result = await this.executeTool(name, args, context);
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (error) {
+      this.state.errorCount++;
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }),
+        }],
+        isError: true,
+      };
+    }
   }
 }
 

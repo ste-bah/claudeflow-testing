@@ -1,226 +1,272 @@
 #!/usr/bin/env npx tsx
 /**
- * LEANN Queue Processor with Semantic Chunking
+ * @deprecated Use mcp__leann-search__process_queue MCP tool instead.
  *
- * Processes queued files for LEANN indexing, chunking large files
- * into semantic segments before embedding.
+ * This standalone processor creates its own LEANNBackend instance in a
+ * separate process, so vectors/metadata do NOT land in the running MCP
+ * server's in-memory index. The process_queue MCP tool runs in-process
+ * and correctly updates all 3 stores (HNSW, metadata, code).
+ *
+ * Kept as a fallback for environments where the MCP server is unavailable.
+ *
+ * Usage:
+ *   npx tsx scripts/hooks/leann-process-queue.ts
+ *   npx tsx scripts/hooks/leann-process-queue.ts --timeout 60
  */
 
 import { parseCodeIntoChunks, detectLanguage, type CodeChunk } from
-  '../../src/mcp-servers/leann-search/tools/index-repository.js';
+  '../../src/mcp-servers/leann-search/tools/index-repository.ts';
+import { LEANNBackend } from
+  '../../src/god-agent/core/vector-db/leann-backend.ts';
+import { DualCodeEmbeddingProvider } from
+  '../../src/god-agent/core/search/dual-code-embedding.ts';
+import { DistanceMetric } from
+  '../../src/god-agent/core/vector-db/types.ts';
+import { VECTOR_DIM } from
+  '../../src/god-agent/core/validation/index.ts';
+import type { CodeMetadata } from
+  '../../src/mcp-servers/leann-search/types.ts';
+
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
+// ============================================================================
+// Configuration
+// ============================================================================
+
 const QUEUE_FILE = '.claude/runtime/leann-index-queue.json';
-const EMBEDDER_URL = 'http://localhost:8000';
+const PERSIST_PATH = process.env.LEANN_PERSIST_PATH ?? './vector_db_leann';
 const MAX_CHUNK_SIZE = 4000;
-const BATCH_SIZE = 3;
-const PAUSE_BETWEEN_BATCHES_MS = 10000;
-const PAUSE_BETWEEN_FILES_MS = 3000;
+const BATCH_SIZE = 5;
 const MAX_FILE_SIZE = 512 * 1024; // 512KB
+const PAUSE_BETWEEN_BATCHES_MS = 2000;
+
+// Parse optional --timeout arg (seconds); default 300s
+const timeoutArg = process.argv.find(a => a.startsWith('--timeout'));
+const TIMEOUT_MS = timeoutArg
+  ? parseInt(timeoutArg.split('=')[1] ?? process.argv[process.argv.indexOf(timeoutArg) + 1] ?? '300', 10) * 1000
+  : 300_000;
+
+// ============================================================================
+// Types
+// ============================================================================
 
 interface QueueData {
   files: string[];
   lastUpdated: string;
 }
 
-interface ChunkMetadata {
-  filePath: string;
-  startLine: number;
-  endLine: number;
-  symbolType: string;
-  symbolName?: string;
-  chunkIndex: number;
-  totalChunks: number;
-  language: string;
-  contentHash: string;
-  repository: string;
-}
+// ============================================================================
+// Helpers
+// ============================================================================
 
-async function sleep(ms: number): Promise<void> {
+function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function checkEmbedderHealth(): Promise<boolean> {
-  try {
-    const response = await fetch(EMBEDDER_URL, {
-      signal: AbortSignal.timeout(30000)
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+function log(msg: string): void {
+  console.log(`[LEANN] ${msg}`);
 }
 
-async function indexChunk(content: string, metadata: ChunkMetadata): Promise<boolean> {
-  try {
-    const response = await fetch(`${EMBEDDER_URL}/embed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        texts: [content],
-        metadata: [metadata]
-      }),
-      signal: AbortSignal.timeout(90000)
-    });
-
-    if (!response.ok) {
-      console.error(`[LEANN] Embed failed: ${response.status}`);
-      return false;
-    }
-
-    const result = await response.json();
-    return result.message !== undefined;
-  } catch (err) {
-    console.error(`[LEANN] Embed error:`, err);
-    return false;
-  }
+function logErr(msg: string, err?: unknown): void {
+  console.error(`[LEANN] ${msg}`, err ?? '');
 }
 
-async function processFile(filePath: string, repoName: string): Promise<{ indexed: number; failed: number }> {
-  let indexed = 0;
-  let failed = 0;
-
-  try {
-    // Check file size
-    const stats = await fs.stat(filePath);
-    if (stats.size > MAX_FILE_SIZE) {
-      console.log(`[LEANN] Skip (>${MAX_FILE_SIZE / 1024}KB): ${filePath}`);
-      return { indexed: 0, failed: 0 };
-    }
-
-    const content = await fs.readFile(filePath, 'utf8');
-    const language = detectLanguage(filePath);
-
-    // Chunk the file using MCP's semantic chunking
-    const chunks = parseCodeIntoChunks(content, language, MAX_CHUNK_SIZE);
-
-    console.log(`[LEANN] ${path.basename(filePath)}: ${chunks.length} chunks`);
-
-    // Index each chunk
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-
-      const metadata: ChunkMetadata = {
-        filePath,
-        startLine: chunk.startLine,
-        endLine: chunk.endLine,
-        symbolType: chunk.symbolType,
-        symbolName: chunk.symbolName,
-        chunkIndex: i,
-        totalChunks: chunks.length,
-        language,
-        contentHash: crypto.createHash('sha256')
-          .update(chunk.content)
-          .digest('hex')
-          .slice(0, 16),
-        repository: repoName,
-      };
-
-      const success = await indexChunk(chunk.content, metadata);
-      if (success) {
-        indexed++;
-      } else {
-        failed++;
-      }
-
-      // Small pause between chunks to avoid overwhelming embedder
-      if (i < chunks.length - 1) {
-        await sleep(500);
-      }
-    }
-  } catch (err) {
-    console.error(`[LEANN] Error processing ${filePath}:`, err);
-    failed++;
-  }
-
-  return { indexed, failed };
-}
+// ============================================================================
+// Main
+// ============================================================================
 
 async function processQueue(): Promise<void> {
-  // Find repo root
+  const deadline = Date.now() + TIMEOUT_MS;
   const cwd = process.cwd();
   const repoName = path.basename(cwd);
   const queuePath = path.join(cwd, QUEUE_FILE);
 
-  // Read queue
+  // --- Read queue ---
   let queue: QueueData;
   try {
-    const content = await fs.readFile(queuePath, 'utf8');
-    queue = JSON.parse(content);
-  } catch (err) {
-    console.log('[LEANN] No queue file or empty queue');
+    const raw = await fs.readFile(queuePath, 'utf8');
+    queue = JSON.parse(raw);
+  } catch {
+    log('No queue file or empty queue');
     return;
   }
 
   if (!queue.files || queue.files.length === 0) {
-    console.log('[LEANN] Queue is empty');
+    log('Queue is empty');
     return;
   }
 
-  console.log(`[LEANN] Processing ${queue.files.length} files in batches of ${BATCH_SIZE}`);
+  log(`Processing ${queue.files.length} files (timeout ${TIMEOUT_MS / 1000}s)`);
+
+  // --- Initialize LEANN backend + embedder ---
+  let backend: LEANNBackend;
+  let embedder: DualCodeEmbeddingProvider;
+
+  try {
+    embedder = new DualCodeEmbeddingProvider({
+      dimension: VECTOR_DIM,
+      cacheEnabled: true,
+      cacheMaxSize: 500,
+    });
+
+    backend = new LEANNBackend(
+      VECTOR_DIM,
+      DistanceMetric.COSINE,
+      {
+        hubCacheRatio: 0.1,
+        graphPruningRatio: 0.7,
+        batchSize: 100,
+        maxRecomputeLatencyMs: 50,
+        efSearch: 50,
+        hubDegreeThreshold: 10,
+      }
+    );
+
+    // Load existing index if present
+    const persistDir = path.resolve(cwd, PERSIST_PATH);
+    try {
+      const loaded = await backend.load(persistDir);
+      if (loaded) {
+        log(`Loaded existing index from ${persistDir} (${backend.count()} vectors)`);
+      } else {
+        log('No existing index — starting fresh');
+      }
+    } catch {
+      log('Could not load existing index — starting fresh');
+    }
+  } catch (err) {
+    logErr('Failed to initialize LEANN backend/embedder:', err);
+    return;
+  }
+
+  // --- Metadata + code stores (in-memory, same pattern as MCP server) ---
+  const metadataStore = new Map<string, CodeMetadata>();
+  const codeStore = new Map<string, string>();
 
   let totalIndexed = 0;
   let totalFailed = 0;
   let processedFiles = 0;
 
   for (let i = 0; i < queue.files.length; i++) {
-    const filePath = queue.files[i];
-
-    // Health check at start of each batch
-    if (i % BATCH_SIZE === 0) {
-      console.log('[LEANN] Health check...');
-      if (!await checkEmbedderHealth()) {
-        console.log('[LEANN] Embedder not responding, waiting 30s...');
-        await sleep(30000);
-        if (!await checkEmbedderHealth()) {
-          console.log('[LEANN] Embedder still down, stopping');
-          break;
-        }
-      }
+    // Timeout check
+    if (Date.now() > deadline) {
+      log(`Timeout reached after ${processedFiles} files`);
+      break;
     }
+
+    const filePath = queue.files[i];
 
     // Check file exists
     try {
       await fs.access(filePath);
     } catch {
-      console.log(`[LEANN] Skip (not found): ${filePath}`);
+      log(`Skip (not found): ${filePath}`);
       continue;
     }
 
-    // Process file
-    const result = await processFile(filePath, repoName);
-    totalIndexed += result.indexed;
-    totalFailed += result.failed;
-    processedFiles++;
+    // Check file size
+    try {
+      const stats = await fs.stat(filePath);
+      if (stats.size > MAX_FILE_SIZE) {
+        log(`Skip (>${MAX_FILE_SIZE / 1024}KB): ${path.basename(filePath)}`);
+        continue;
+      }
+    } catch {
+      continue;
+    }
 
-    console.log(`[LEANN] [${processedFiles}/${queue.files.length}] ${result.indexed > 0 ? 'OK' : 'SKIP'}: ${path.basename(filePath)}`);
+    // Read + chunk + embed
+    try {
+      const content = await fs.readFile(filePath, 'utf8');
+      const language = detectLanguage(filePath);
+      const chunks = parseCodeIntoChunks(content, language, MAX_CHUNK_SIZE);
 
-    // Pause between files
-    await sleep(PAUSE_BETWEEN_FILES_MS);
+      let fileIndexed = 0;
 
-    // Longer pause between batches
+      for (const chunk of chunks) {
+        try {
+          // Generate embedding via the same provider the MCP server uses
+          const embedding = await embedder.embedCode(chunk.content);
+
+          const vectorId = crypto.randomUUID();
+
+          const metadata: CodeMetadata = {
+            filePath,
+            language,
+            symbolType: chunk.symbolType,
+            symbolName: chunk.symbolName,
+            startLine: chunk.startLine,
+            endLine: chunk.endLine,
+            repository: repoName,
+            indexedAt: Date.now(),
+            contentHash: crypto.createHash('sha256')
+              .update(chunk.content)
+              .digest('hex')
+              .slice(0, 16),
+          };
+
+          // Insert directly into the LEANN HNSW index
+          backend.insert(vectorId, embedding);
+          metadataStore.set(vectorId, metadata);
+          codeStore.set(vectorId, chunk.content);
+
+          fileIndexed++;
+          totalIndexed++;
+        } catch (chunkErr) {
+          totalFailed++;
+          logErr(`Chunk error in ${path.basename(filePath)}:`, chunkErr);
+        }
+      }
+
+      processedFiles++;
+      log(`[${processedFiles}/${queue.files.length}] ${fileIndexed > 0 ? 'OK' : 'SKIP'} (${fileIndexed} chunks): ${path.basename(filePath)}`);
+    } catch (fileErr) {
+      totalFailed++;
+      logErr(`Error processing ${path.basename(filePath)}:`, fileErr);
+    }
+
+    // Pause between batches
     if ((i + 1) % BATCH_SIZE === 0 && i < queue.files.length - 1) {
-      console.log(`[LEANN] Batch done, pausing ${PAUSE_BETWEEN_BATCHES_MS / 1000}s...`);
+      log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} done, pausing...`);
       await sleep(PAUSE_BETWEEN_BATCHES_MS);
     }
   }
 
-  console.log(`[LEANN] Complete: ${totalIndexed} chunks indexed, ${totalFailed} failed from ${processedFiles} files`);
+  // --- Persist the updated index ---
+  if (totalIndexed > 0) {
+    try {
+      const persistDir = path.resolve(cwd, PERSIST_PATH);
+      await backend.save(persistDir);
+      log(`Saved index to ${persistDir} (${backend.count()} total vectors)`);
+    } catch (saveErr) {
+      logErr('Failed to save index:', saveErr);
+    }
+  }
 
-  // Clear queue on success
-  if (totalFailed === 0) {
+  log(`Complete: ${totalIndexed} chunks indexed, ${totalFailed} failed from ${processedFiles} files`);
+
+  // Clear queue on success (keep files that weren't processed due to timeout)
+  if (totalFailed === 0 && processedFiles >= queue.files.length) {
     await fs.writeFile(queuePath, JSON.stringify({
       files: [],
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     }, null, 2));
-    console.log('[LEANN] Queue cleared');
+    log('Queue cleared');
+  } else if (processedFiles < queue.files.length) {
+    // Keep unprocessed files in queue
+    const remaining = queue.files.slice(processedFiles);
+    await fs.writeFile(queuePath, JSON.stringify({
+      files: remaining,
+      lastUpdated: new Date().toISOString(),
+    }, null, 2));
+    log(`${remaining.length} files kept in queue for next run`);
   }
 }
 
 // Run
 processQueue().catch(err => {
-  console.error('[LEANN] Fatal error:', err);
+  logErr('Fatal error:', err);
   process.exit(1);
 });

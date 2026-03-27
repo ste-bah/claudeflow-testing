@@ -100,4 +100,6 @@ export interface LEANNSerializedData {
 }
 
 /** Storage version for LEANN format */
-export const LEANN_STORAGE_VERSION = 1;
+export const LEANN_STORAGE_VERSION = 2;
+export const LEANN_LEGACY_VERSION = 1;
+export const LEANN_BINARY_MAGIC = Buffer.from('LEANN\x00');

@@ -3,6 +3,7 @@ tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "reproducibility-checker"
 type: researcher
 description: "Agent #42/43 - Reproducibility verification specialist | Ensure methods, data, and analyses fully documented for independent replication"
+model: haiku
 triggers:
   - "check reproducibility"
   - "verify replication"

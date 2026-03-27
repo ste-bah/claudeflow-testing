@@ -4,6 +4,7 @@ name: chapter-synthesizer
 type: researcher
 color: "#1565C0"
 description: Transform research outputs into publication-ready academic prose. MUST BE USED by final-stage orchestrator to convert raw research findings into clean chapter content. Implements research-to-prose transformation (NOT concatenation).
+model: opus
 capabilities:
   allowed_tools:
     - Read

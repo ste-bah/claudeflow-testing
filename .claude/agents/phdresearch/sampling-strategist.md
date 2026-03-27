@@ -4,6 +4,7 @@ name: sampling-strategist
 type: researcher
 color: "#00BCD4"
 description: Use PROACTIVELY after method design to create detailed sampling strategies. MUST BE USED to specify recruitment, eligibility, stratification, and power-based sample sizes. Works for ANY domain (software, business, research, product).
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

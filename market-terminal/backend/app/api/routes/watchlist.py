@@ -9,6 +9,7 @@ Full implementation: TASK-API-007
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any
@@ -203,6 +204,36 @@ def _row_to_ticker(row: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Background pre-warm helper
+# ---------------------------------------------------------------------------
+async def _warm_ticker_cache(symbol: str) -> None:
+    """Pre-fetch price data and run analysis for a newly-added symbol.
+
+    Runs in the background so the 201 response is not delayed.
+    All errors are swallowed — this is best-effort only.
+    """
+    try:
+        from app.api.routes.analysis import (  # lazy import avoids circular
+            _fetch_data, _run_methodologies, METHODOLOGY_NAMES,
+            _MAX_ANALYSIS_SECONDS,
+        )
+        price_df, volume_df, fundamentals, news_articles, _ = (
+            await _fetch_data(symbol, timeframe="1d", force_refresh=False)
+        )
+        await asyncio.wait_for(
+            _run_methodologies(
+                symbol, price_df, volume_df, fundamentals,
+                news_articles, list(METHODOLOGY_NAMES), None, False,
+                timeframe="1d",
+            ),
+            timeout=_MAX_ANALYSIS_SECONDS,
+        )
+        logger.info("Background analysis pre-warm complete for %s", symbol)
+    except Exception:
+        logger.debug("Background pre-warm failed for %s", symbol, exc_info=True)
+
+
+# ---------------------------------------------------------------------------
 # GET /api/watchlist/
 # ---------------------------------------------------------------------------
 @router.get("/")
@@ -267,6 +298,9 @@ async def add_to_watchlist(body: _AddTickerRequest) -> dict[str, Any]:
         "FROM watchlist WHERE symbol = ?",
         (body.symbol,),
     )
+
+    # Fire background task to pre-warm analysis cache for instant first-click UX
+    asyncio.create_task(_warm_ticker_cache(body.symbol))
 
     return await _enrich_entry(inserted)
 

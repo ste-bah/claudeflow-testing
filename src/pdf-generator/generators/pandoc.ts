@@ -13,7 +13,7 @@ import { promisify } from 'util';
 import { writeFile, unlink, access, mkdir, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { constants as fsConstants } from 'fs';
+import { accessSync, constants as fsConstants } from 'fs';
 
 import { BaseGenerator } from './base-generator.js';
 import type {
@@ -140,17 +140,26 @@ export class PandocGenerator extends BaseGenerator {
    * Detect Pandoc installation path based on common locations.
    */
   private detectPandocPath(): string {
-    // Common Pandoc installation paths
+    // Prefer user-specified, then homebrew (latest), then system paths
+    // Anaconda ships pandoc 2.x which has citeproc incompatibilities
     const commonPaths = [
-      '/opt/anaconda3/bin/pandoc',
+      process.env.PANDOC_PATH,
+      '/opt/homebrew/bin/pandoc',
       '/usr/local/bin/pandoc',
       '/usr/bin/pandoc',
-      '/opt/homebrew/bin/pandoc',
-      process.env.PANDOC_PATH,
+      '/opt/anaconda3/bin/pandoc',
     ].filter(Boolean) as string[];
 
-    // Return first path or default
-    return commonPaths[0] || 'pandoc';
+    // Return first path that actually exists
+    for (const p of commonPaths) {
+      try {
+        accessSync(p!, fsConstants.X_OK);
+        return p!;
+      } catch {
+        // not found, try next
+      }
+    }
+    return 'pandoc';
   }
 
   /**
@@ -542,7 +551,7 @@ export class PandocGenerator extends BaseGenerator {
       lines.push('');
       lines.push('# References {.unnumbered}');
       lines.push('');
-      lines.push('::: {#refs .hanging-indent}');
+      lines.push('::: {.hanging-indent}');
       for (const ref of paper.references.entries) {
         lines.push(ref);
         lines.push('');

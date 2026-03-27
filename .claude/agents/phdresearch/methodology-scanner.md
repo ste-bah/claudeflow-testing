@@ -4,6 +4,7 @@ name: methodology-scanner
 type: researcher
 color: "#1A237E"
 description: Use PROACTIVELY to scan and categorize research methodologies across corpus. MUST BE USED to identify methodological patterns, assess method-theory alignment, and detect methodological gaps. Works for ANY domain - ensures methodological rigor and identifies innovation opportunities.
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

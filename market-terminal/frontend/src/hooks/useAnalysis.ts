@@ -85,8 +85,24 @@ export function useAnalysis(
       .catch(async (err: unknown) => {
         // If no cached analysis exists (404), trigger a fresh analysis run
         if (isApiError(err) && err.status === 404) {
-          await analyzeSymbol(symbol.toUpperCase(), { timeframe });
-          return getAnalysis(symbol.toUpperCase(), { timeframe, signal: controller.signal });
+          // Run analysis; retry once on transient 500 (cold-start methodology failure)
+          try {
+            await analyzeSymbol(symbol.toUpperCase(), { timeframe });
+          } catch {
+            // First attempt failed — wait briefly and retry once
+            await new Promise<void>((resolve) => setTimeout(resolve, 3000));
+            await analyzeSymbol(symbol.toUpperCase(), { timeframe });
+          }
+          // Fetch the result; retry once if cache propagation hasn't completed yet
+          try {
+            return await getAnalysis(symbol.toUpperCase(), { timeframe, signal: controller.signal });
+          } catch (getErr) {
+            if (isApiError(getErr) && (getErr as { status?: number }).status === 404) {
+              await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+              return getAnalysis(symbol.toUpperCase(), { timeframe, signal: controller.signal });
+            }
+            throw getErr;
+          }
         }
         throw err;
       })

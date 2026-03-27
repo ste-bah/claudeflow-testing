@@ -4,6 +4,7 @@ name: apa-citation-specialist
 type: researcher
 color: "#4A148C"
 description: Full APA 7th edition formatting specialist for citations, references, tables, figures, and manuscript structure. MUST BE USED to ensure publication-ready formatting. Works for journal articles, dissertations, and technical reports.
+model: haiku
 capabilities:
   allowed_tools:
     - Read

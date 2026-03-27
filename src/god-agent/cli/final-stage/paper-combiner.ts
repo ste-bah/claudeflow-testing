@@ -16,6 +16,9 @@
  */
 
 import { promises as fs } from 'fs';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import { accessSync, constants as fsConstants } from 'fs';
 import * as path from 'path';
 import type {
   ChapterWriterOutput,
@@ -28,6 +31,8 @@ import {
   type GeneratePdfResult,
   type PaperInputForGeneration
 } from '../../../pdf-generator/index.js';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Appendix definition structure
@@ -134,29 +139,56 @@ export class PaperCombiner {
     // Generate title page
     const titlePage = this.generateTitlePage(metadata, sortedChapters);
 
-    // Generate table of contents
+    // ToC is generated natively by pandoc via --toc flag (uses \tableofcontents
+    // with tocloft formatting), so we only keep the markdown version for the .md file.
     const toc = this.generateTableOfContents(sortedChapters);
 
-    // Build combined content
+    // Build combined content — includes markdown ToC for the .md output.
+    // For PDF, pandoc's --toc generates a native LaTeX \tableofcontents instead,
+    // and the markdown title page + ToC are stripped before passing to pandoc.
     let combinedContent = titlePage;
-    combinedContent += '\n\n---\n\n';
+    combinedContent += '\n\n';
     combinedContent += toc;
-    combinedContent += '\n\n---\n\n';
+    combinedContent += '\n\n';
 
-    // Add each chapter with page breaks
+    // Add each chapter with page breaks, collecting references.
+    // Store stripped content per chapter so individual files also omit
+    // per-chapter references (avoiding split-brain with the combined paper).
+    const allReferences = new Set<string>();
+    const strippedChapters: ChapterWriterOutput[] = [];
+
     for (const chapter of sortedChapters) {
-      combinedContent += chapter.content;
-      combinedContent += '\n\n---\n\n';
+      const { strippedContent, references } = this.stripAndCollectReferences(chapter.content);
+      // Page break before each chapter
+      combinedContent += '\\newpage\n\n';
+      combinedContent += strippedContent;
+      combinedContent += '\n\n';
+      for (const ref of references) {
+        allReferences.add(ref);
+      }
+      // Clone chapter with stripped content for individual file output
+      strippedChapters.push({ ...chapter, content: strippedContent });
+    }
+
+    // Append consolidated, deduplicated references section on new page
+    if (allReferences.size > 0) {
+      const sortedRefs = [...allReferences].sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' })
+      );
+      combinedContent += '\\newpage\n\n';
+      combinedContent += '# References\n\n';
+      combinedContent += sortedRefs.join('\n\n');
+      combinedContent += '\n';
     }
 
     // Validate and fix cross-references
-    const validation = this.validateCrossReferences(combinedContent, sortedChapters);
+    const validation = this.validateCrossReferences(combinedContent, strippedChapters);
     combinedContent = validation.content;
 
     return {
       title: metadata.title,
       toc,
-      chapters: sortedChapters,
+      chapters: strippedChapters,
       combinedContent,
       metadata
     };
@@ -170,18 +202,21 @@ export class PaperCombiner {
    * @returns Markdown table of contents string
    */
   generateTableOfContents(chapters: ChapterWriterOutput[]): string {
-    let toc = '# Table of Contents\n\n';
+    let toc = '\\newpage\n\n# Table of Contents\n\n';
 
     for (const chapter of chapters) {
-      // Chapter entry (H1)
+      // Chapter entry (top-level)
       const chapterAnchor = this.generateAnchor(chapter.title);
       toc += `${chapter.chapterNumber}. [${chapter.title}](#${chapterAnchor})\n`;
 
-      // Section entries (H2)
+      // Section entries (indented with 4 spaces for proper markdown nesting)
       for (const section of chapter.sections) {
         const sectionAnchor = this.generateAnchor(section.title);
-        toc += `   ${section.id}. [${section.title}](#${sectionAnchor})\n`;
+        toc += `    ${section.id}. [${section.title}](#${sectionAnchor})\n`;
       }
+
+      // Blank line between chapters for visual separation in PDF
+      toc += '\n';
     }
 
     return toc;
@@ -227,35 +262,121 @@ export class PaperCombiner {
       'utf-8'
     );
 
-    // Generate PDF if requested
+    // Generate PDF if requested — call pandoc directly on the final markdown
+    // (bypasses the structured PaperInput pipeline which re-wraps content)
     if (pdfOptions?.generatePdf !== false) {
       try {
-        const pdfOutputPath = path.join(outputDir, 'final-paper');
-        const paperInput = this.transformToPaperInput(paper, pdfOptions);
+        const pdfOutputPath = path.join(outputDir, 'final-paper.pdf');
+        const runningHead = this.abbreviateRunningHead(paper.metadata.title, 50);
 
-        const result: GeneratePdfResult = await generatePdf({
-          paper: paperInput,
-          outputPath: pdfOutputPath,
-          onLog: (level, message) => {
-            if (level === 'error') {
-              console.warn(`[PDF Generation] ${message}`);
-            }
-          }
-        });
+        // Write temp markdown with YAML front matter for pandoc
+        const yamlFrontMatter = [
+          '---',
+          `title: "${paper.title.replace(/"/g, '\\"')}"`,
+          `running-head: "${runningHead.replace(/"/g, '\\"')}"`,
+          'author:',
+          ...(pdfOptions?.authors || [{ name: 'Steven Bahia' }]).map(
+            a => `  - name: "${a.name}"`
+          ),
+          ...(pdfOptions?.affiliations || []).length > 0
+            ? ['institute:', ...(pdfOptions!.affiliations!.map(a => `  - "${a.name}"`))]
+            : [],
+          'documentclass: article',
+          'papersize: letter',
+          'geometry: margin=1in',
+          'fontsize: 12pt',
+          'linestretch: 2',
+          'indent: true',
+          '---',
+          '',
+        ].join('\n');
 
-        if (result.success) {
-          console.log(`[PaperCombiner] PDF generated successfully: ${result.outputPath}`);
-          if (result.warnings.length > 0) {
-            result.warnings.forEach(w => console.warn(`[PDF Warning] ${w}`));
+        // Strip the markdown title page AND manual ToC from content — the LaTeX
+        // template renders its own title page from YAML front matter, and pandoc's
+        // --toc generates a native \tableofcontents.  We find the first chapter
+        // \newpage (the one that precedes actual chapter content, not the ToC).
+        let pdfContent = paper.combinedContent;
+        // The chapters start after "Table of Contents" section.  Find the
+        // \newpage that precedes the first chapter heading (# Chapter...).
+        const tocHeadingIdx = pdfContent.indexOf('# Table of Contents');
+        if (tocHeadingIdx !== -1) {
+          // Find the \newpage after the ToC block (before first chapter)
+          const afterToc = pdfContent.indexOf('\\newpage', tocHeadingIdx + 20);
+          if (afterToc !== -1) {
+            pdfContent = pdfContent.substring(afterToc);
           }
         } else {
-          console.warn(`[PaperCombiner] PDF generation failed: ${result.error}`);
-          console.warn('[PaperCombiner] Markdown output was successful, continuing without PDF.');
+          // No ToC heading — just strip title page (everything before first \newpage)
+          const firstNewpage = pdfContent.indexOf('\\newpage');
+          if (firstNewpage !== -1) {
+            pdfContent = pdfContent.substring(firstNewpage);
+          }
+        }
+
+        const tempMdPath = path.join(outputDir, '.temp-final-paper.md');
+        await fs.writeFile(tempMdPath, yamlFrontMatter + pdfContent, 'utf-8');
+
+        // Detect pandoc and xelatex paths
+        const pandocPath = this.detectBinary(
+          ['/opt/homebrew/bin/pandoc', '/usr/local/bin/pandoc', '/usr/bin/pandoc', '/opt/anaconda3/bin/pandoc'],
+          'pandoc'
+        );
+        const xelatexPath = this.detectBinary([
+          `${process.env.HOME}/Library/TinyTeX/bin/universal-darwin/xelatex`,
+          '/Library/TeX/texbin/xelatex',
+          '/usr/local/bin/xelatex',
+          '/usr/bin/xelatex',
+        ], 'xelatex');
+
+        const templatePath = path.resolve(
+          path.dirname(new URL(import.meta.url).pathname),
+          '../../../pdf-generator/templates/pandoc/apa7.tex'
+        );
+
+        const args = [
+          tempMdPath,
+          '-o', pdfOutputPath,
+          `--pdf-engine=${xelatexPath}`,
+          `--template=${templatePath}`,
+          '--from=markdown',
+          '--standalone',
+          '--citeproc',
+          '--toc',
+          '--toc-depth=2',
+          '-V', 'geometry:margin=0.75in',
+          '-V', 'fontsize=11pt',
+          '-V', 'linestretch=1.5',
+          '-V', 'indent=true',
+          '-V', `mainfont=Times New Roman`,
+        ];
+
+        const { stderr } = await execFileAsync(pandocPath, args, {
+          timeout: 120_000,
+          maxBuffer: 50 * 1024 * 1024,
+        });
+
+        // Clean up temp file
+        await fs.unlink(tempMdPath).catch(() => {});
+
+        // Check if PDF was created
+        try {
+          await fs.access(pdfOutputPath);
+          console.log(`[PaperCombiner] PDF generated successfully: ${pdfOutputPath}`);
+          if (stderr) {
+            // Log warnings but don't fail
+            const warnings = stderr.split('\n').filter(l => l.includes('[WARNING]'));
+            warnings.slice(0, 5).forEach(w => console.warn(`[PDF Warning] ${w}`));
+            if (warnings.length > 5) {
+              console.warn(`[PDF Warning] ...and ${warnings.length - 5} more warnings`);
+            }
+          }
+        } catch {
+          console.warn(`[PaperCombiner] PDF was not created at ${pdfOutputPath}`);
+          if (stderr) console.warn(`[PaperCombiner] pandoc stderr: ${stderr.slice(0, 500)}`);
         }
       } catch (pdfError) {
-        // Log error but don't fail the entire operation
         const errorMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
-        console.warn(`[PaperCombiner] PDF generation error: ${errorMessage}`);
+        console.warn(`[PaperCombiner] PDF generation error: ${errorMessage.slice(0, 500)}`);
         console.warn('[PaperCombiner] Markdown output was successful, continuing without PDF.');
       }
     }
@@ -301,13 +422,11 @@ export class PaperCombiner {
 
     // Use provided authors or default
     const authors = options?.authors || [
-      { name: 'Unknown Author', affiliationIds: [] }
+      { name: 'Steven Bahia', affiliationIds: [] }
     ];
 
-    // Generate running head from title (max 50 chars)
-    const runningHead = paper.metadata.title
-      .toUpperCase()
-      .substring(0, 50);
+    // Generate running head from title (max 50 chars, word-boundary truncation)
+    const runningHead = this.abbreviateRunningHead(paper.metadata.title, 50);
 
     return {
       title: paper.title,
@@ -537,6 +656,9 @@ export class PaperCombiner {
     // Build set of valid anchors
     const validAnchors = new Set<string>();
 
+    // Register the consolidated references heading anchor
+    validAnchors.add(this.generateAnchor('References'));
+
     for (const chapter of chapters) {
       // Add chapter anchor
       const chapterAnchor = this.generateAnchor(chapter.title);
@@ -631,6 +753,97 @@ export class PaperCombiner {
   }
 
   // ============================================
+  // Private: Reference Consolidation
+  // ============================================
+
+  /**
+   * Strip the references/bibliography section from chapter content and
+   * return the individual reference entries.
+   *
+   * Recognises headings: `# References`, `## References`, `## Bibliography`,
+   * `## Works Cited`, `## Sources` (case-insensitive).
+   * Each reference entry is one or more consecutive non-blank lines
+   * separated from other entries by blank lines.
+   *
+   * Note: Deduplication is exact-string; near-duplicates (DOI vs URL,
+   * abbreviated journal names) may survive as separate entries.
+   * Note: chapter.wordCount in FinalPaper reflects the original content
+   * including the references section, not the stripped body word count.
+   *
+   * @param content - Markdown chapter content
+   * @returns Stripped content and extracted reference strings
+   */
+  private stripAndCollectReferences(
+    content: string
+  ): { strippedContent: string; references: string[] } {
+    // Normalise line endings to \n
+    const normalised = content.replace(/\r\n/g, '\n');
+
+    // Match common reference/bibliography headings (case-insensitive)
+    const refHeadingPattern = /^#{1,2}\s+(References|Bibliography|Works Cited|Sources)\s*$/im;
+    const match = refHeadingPattern.exec(normalised);
+
+    if (!match) {
+      return { strippedContent: content, references: [] };
+    }
+
+    const beforeRefs = normalised.slice(0, match.index).trimEnd();
+    const afterHeading = normalised.slice(match.index + match[0].length);
+
+    // Parse reference entries from everything after the heading.
+    // Stop if we hit another markdown heading (# or ##).
+    const lines = afterHeading.split('\n');
+    const references: string[] = [];
+    let currentEntry: string[] = [];
+    let endIdx = lines.length;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      // Any heading signals end of references section (no position guard)
+      if (trimmed.startsWith('#')) {
+        if (currentEntry.length > 0) {
+          references.push(currentEntry.join('\n'));
+          currentEntry = [];
+        }
+        endIdx = i;
+        break;
+      }
+
+      if (trimmed === '') {
+        // Blank line: flush current entry
+        if (currentEntry.length > 0) {
+          references.push(currentEntry.join('\n'));
+          currentEntry = [];
+        }
+        continue;
+      }
+
+      // Preserve original line (keeps hanging-indent whitespace for APA)
+      currentEntry.push(line);
+    }
+
+    // Flush last entry
+    if (currentEntry.length > 0) {
+      references.push(currentEntry.join('\n'));
+    }
+
+    // Trim each reference for dedup, but store the trimmed version
+    const trimmedRefs = references.map(r => r.trim()).filter(r => r.length > 0);
+
+    // If there was content after the references section (another heading),
+    // re-attach it.
+    const trailingContent = endIdx < lines.length
+      ? '\n\n' + lines.slice(endIdx).join('\n').trimEnd()
+      : '';
+
+    const strippedContent = beforeRefs + trailingContent;
+
+    return { strippedContent, references: trimmedRefs };
+  }
+
+  // ============================================
   // Private: Utility Methods
   // ============================================
 
@@ -693,6 +906,63 @@ export class PaperCombiner {
     }
 
     return 'Research Paper';
+  }
+
+  /**
+   * Detect the first existing executable from a list of candidate paths.
+   */
+  private detectBinary(candidates: string[], fallback: string): string {
+    for (const p of candidates) {
+      try {
+        accessSync(p, fsConstants.X_OK);
+        return p;
+      } catch { /* try next */ }
+    }
+    return fallback;
+  }
+
+  /**
+   * Generate an abbreviated running head from a paper title.
+   * Per APA 7th Edition Section 2.18: max 50 characters, ALL CAPS.
+   * Strips subtitle after colon, removes leading articles, truncates at word boundary.
+   */
+  private abbreviateRunningHead(title: string, maxLength = 50): string {
+    let text = title.toUpperCase().trim();
+
+    if (text.length <= maxLength) return text;
+
+    // Remove subtitle after colon
+    const colonIdx = text.indexOf(':');
+    if (colonIdx > 0) {
+      const main = text.substring(0, colonIdx).trim();
+      if (main.length <= maxLength) return main;
+      text = main;
+    }
+
+    // Remove subtitle after question mark (for question-form titles)
+    const qIdx = text.indexOf('?');
+    if (qIdx > 0 && qIdx < text.length - 1) {
+      const main = text.substring(0, qIdx + 1).trim();
+      if (main.length <= maxLength) return main;
+      text = main;
+    }
+
+    // Remove leading articles
+    for (const article of ['THE ', 'A ', 'AN ']) {
+      if (text.startsWith(article) && text.length > maxLength) {
+        text = text.substring(article.length);
+        if (text.length <= maxLength) return text;
+        break;
+      }
+    }
+
+    // Truncate at last word boundary within limit
+    const truncated = text.substring(0, maxLength);
+    const lastSpace = truncated.lastIndexOf(' ');
+    if (lastSpace > maxLength * 0.5) {
+      return truncated.substring(0, lastSpace).trim();
+    }
+    return truncated.trim();
   }
 
   /**

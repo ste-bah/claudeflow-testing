@@ -3,6 +3,7 @@ tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "file-length-manager"
 type: researcher
 description: "Agent #43/43 - FINAL AGENT | File length monitor and intelligent splitter | Splits files at 1500 lines with context preservation and cross-references"
+model: haiku
 triggers:
   - "check file length"
   - "split long file"

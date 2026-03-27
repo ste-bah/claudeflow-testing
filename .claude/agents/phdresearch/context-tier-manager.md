@@ -4,6 +4,7 @@ name: context-tier-manager
 type: researcher
 color: "#0D47A1"
 description: Use PROACTIVELY to organize research context into hot/warm/cold tiers for optimal memory and attention management. MUST BE USED when handling 300+ sources to prevent context overload. Works for ANY domain - maximizes retrieval efficiency and prevents information loss.
+model: haiku
 capabilities:
   allowed_tools:
     - Read

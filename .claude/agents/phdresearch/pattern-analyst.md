@@ -4,6 +4,7 @@ name: pattern-analyst
 type: researcher
 color: "#4A148C"
 description: Use PROACTIVELY after evidence synthesis to identify meta-patterns, trends, and cross-study regularities. MUST BE USED to discover 10+ patterns across methods, contexts, and time. Works for ANY research domain.
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

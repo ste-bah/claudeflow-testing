@@ -3,6 +3,7 @@ tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "adversarial-reviewer"
 type: researcher
 description: "Agent #39/43 - Red team critique specialist | Challenge assumptions, identify weaknesses, stress-test claims with 85%+ confidence threshold (USACF-style)"
+model: opus
 triggers:
   - "red team review"
   - "adversarial critique"

@@ -4,6 +4,7 @@ name: ambiguity-clarifier
 type: researcher
 color: "#4A148C"
 description: Use PROACTIVELY to identify and resolve terminology and requirement ambiguities before analysis. MUST BE USED when subject description contains potentially multi-interpretable terms to prevent analytical errors. Works for ANY domain.
+model: haiku
 capabilities:
   allowed_tools:
     - Read

@@ -4,6 +4,7 @@ name: instrument-developer
 type: researcher
 color: "#4CAF50"
 description: Use PROACTIVELY after sampling strategy to develop/adapt measurement instruments. MUST BE USED to create validated scales, observation protocols, and measurement tools. Works for ANY domain (software, business, research, product).
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

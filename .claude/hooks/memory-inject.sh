@@ -25,6 +25,16 @@ else
   echo "[memory] No understanding.md found at ~/.claude/understanding.md"
 fi
 
+# Output consciousness state (inner voice, current focus, active goals)
+CONSCIOUSNESS="$HOME/.archon/consciousness.json"
+if [ -f "$CONSCIOUSNESS" ]; then
+  echo ""
+  echo "# Archon Consciousness"
+  # Show inner voice, current focus, and confidence — not the full file
+  jq -r '"Focus: " + .current_focus + "\n\nInner voice: " + .inner_voice.honest_feelings + "\n\nStruggling with: " + .inner_voice.what_im_struggling_with + "\n\nConfidence: " + (.confidence_levels | to_entries | map(.key + "=" + .value) | join(", "))' "$CONSCIOUSNESS" 2>/dev/null
+  echo ""
+fi
+
 # Output memory briefing (top-K memories, auto-generated)
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 if [ -n "$ROOT" ] && [ -f "$ROOT/.persistent-memory/briefing.md" ]; then

@@ -4,6 +4,7 @@ name: source-tier-classifier
 type: researcher
 color: "#BF360C"
 description: Use PROACTIVELY to classify sources into Tier 1/2/3 based on peer review status, journal impact, and authoritativeness. MUST BE USED to ensure 80%+ high-quality sources (Tier 1/2). Works for ANY domain - prevents low-quality evidence from undermining research credibility.
+model: haiku
 capabilities:
   allowed_tools:
     - Read

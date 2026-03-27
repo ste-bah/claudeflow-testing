@@ -208,6 +208,12 @@ EOF
     # Store backup for compaction recovery
     store_state "$state_json" "enforcement/pipeline/backup-$pipeline_id"
 
+    # Create runtime flag file for hook-based enforcement (agent-prompt-enforcer.sh)
+    local runtime_dir
+    runtime_dir="$(git rev-parse --show-toplevel 2>/dev/null)/.claude/runtime"
+    mkdir -p "$runtime_dir"
+    echo "0" > "$runtime_dir/.god-code-active"
+
     echo "=================================================================="
     echo "God-Code Pipeline ACTIVATED"
     echo "=================================================================="

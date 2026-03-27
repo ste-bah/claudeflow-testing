@@ -68,8 +68,9 @@ import { ChapterStructureLoader } from './chapter-structure-loader.js';
 import { getUCMClient } from './ucm-daemon-client.js';
 import { PhdPipelineAdapter } from '../core/ucm/adapters/phd-pipeline-adapter.js';
 import { SocketClient } from '../observability/socket-client.js';
-import { FinalStageOrchestrator, PROGRESS_MILESTONES } from './final-stage/index.js';
+import { FinalStageOrchestrator, PROGRESS_MILESTONES, PaperCombiner } from './final-stage/index.js';
 import type { FinalStageOptions, FinalStageResult, ProgressReport, FinalStageState } from './final-stage/index.js';
+import type { ChapterWriterOutput, ChapterNumber } from './final-stage/types.js';
 import type { IActivityEvent } from '../observability/types.js';
 // Implements RULE-025, RULE-028, RULE-031: SonaEngine integration for trajectory tracking
 import { createProductionSonaEngine } from '../core/learning/sona-engine.js';
@@ -902,7 +903,7 @@ async function getNextAgent(
         key: dynamicAgent.key,
         displayName: dynamicAgent.key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
         phase: 6,
-        file: `${dynamicAgent.key}.md`,
+        file: `${dynamicAgent.key.replace(/^chapter-\d+-/, '')}.md`,
         memoryKeys: [`research/writing/${dynamicAgent.key}`],
         outputArtifacts: [`${dynamicAgent.key}.md`],
       };
@@ -3776,7 +3777,7 @@ program
         // Generate PDF from synthesized chapters
         console.error(`[Phase 8] Generating PDF from synthesized chapters...`);
 
-        // Read all chapter files and combine
+        // Read all chapter files and combine using PaperCombiner
         const chapterFiles = (await fs.readdir(synthesizedChaptersPath))
           .filter(f => f.startsWith('chapter-') && f.endsWith('.md'))
           .sort((a, b) => {
@@ -3785,19 +3786,16 @@ program
             return numA - numB;
           });
 
-        let combinedContent = '';
-        let totalWords = 0;
+        const chapters = await buildChapterOutputsFromFiles(synthesizedChaptersPath, chapterFiles);
+        const combiner = new PaperCombiner();
+        const metadata = combiner.generateMetadata(options.slug, chapters);
+        const finalPaper = await combiner.combine(chapters, metadata);
 
-        for (const file of chapterFiles) {
-          const content = await fs.readFile(path.join(synthesizedChaptersPath, file), 'utf-8');
-          combinedContent += content + '\n\n';
-          totalWords += content.split(/\s+/).length;
-        }
-
-        // Write combined markdown
         await fs.mkdir(finalDir, { recursive: true });
+        await combiner.writeOutputFiles(finalPaper, finalDir, { generatePdf: options.generatePdf });
+
+        const totalWords = chapters.reduce((sum, c) => sum + c.wordCount, 0);
         const finalPaperPath = path.join(finalDir, 'final-paper.md');
-        await fs.writeFile(finalPaperPath, combinedContent, 'utf-8');
         console.error(`[Phase 8] Combined paper written: ${finalPaperPath} (${totalWords} words)`);
 
         // Convert to HTML using pandoc
@@ -3846,6 +3844,146 @@ program
       process.exit(result.success ? 0 : 1);
     } catch (error) {
       handleFinalizeError(error);
+    }
+  });
+
+// ============================================================================
+// COMBINE COMMAND - Assemble chapters into final paper via PaperCombiner
+// ============================================================================
+
+/**
+ * Build ChapterWriterOutput[] from chapter markdown files on disk.
+ * Parses headings, word counts, and inline citations to construct
+ * the typed objects that PaperCombiner.combine() expects.
+ */
+async function buildChapterOutputsFromFiles(
+  chaptersDir: string,
+  chapterFiles: string[]
+): Promise<ChapterWriterOutput[]> {
+  const chapters: ChapterWriterOutput[] = [];
+
+  for (const file of chapterFiles) {
+    const chapterNum = parseInt(file.match(/chapter-(\d+)/)?.[1] || '0');
+    if (chapterNum < 1 || chapterNum > 12) continue;
+
+    const content = await fs.readFile(path.join(chaptersDir, file), 'utf-8');
+    const words = content.split(/\s+/).filter(w => w.length > 0);
+
+    // Extract title from first H1 heading
+    const titleMatch = content.match(/^#\s+(.+)/m);
+    const title = titleMatch ? titleMatch[1].trim() : `Chapter ${chapterNum}`;
+
+    // Extract sections from H2 headings
+    const sectionPattern = /^##\s+(\d+\.\d+)?\s*(.+)/gm;
+    const sections: { id: string; title: string; wordCount: number }[] = [];
+    let sMatch;
+    while ((sMatch = sectionPattern.exec(content)) !== null) {
+      sections.push({
+        id: sMatch[1] || `${chapterNum}.${sections.length + 1}`,
+        title: sMatch[2].trim(),
+        wordCount: 0
+      });
+    }
+
+    // Extract inline citations — pattern: (Author, Year) or (Author et al., Year)
+    const citationPattern = /\(([A-Z][a-zA-Z\s&.,]+(?:et al\.)?,\s*\d{4}[a-z]?(?:;\s*[A-Z][a-zA-Z\s&.,]+(?:et al\.)?,\s*\d{4}[a-z]?)*)\)/g;
+    const citations: { raw: string; parsed: null }[] = [];
+    const seenCitations = new Set<string>();
+    let cMatch;
+    while ((cMatch = citationPattern.exec(content)) !== null) {
+      const raw = cMatch[1].trim();
+      if (!seenCitations.has(raw)) {
+        seenCitations.add(raw);
+        citations.push({ raw, parsed: null });
+      }
+    }
+
+    chapters.push({
+      chapterNumber: chapterNum as ChapterNumber,
+      title,
+      content,
+      wordCount: words.length,
+      citations,
+      crossReferences: [],
+      sections,
+      qualityMetrics: {
+        wordCountCompliance: 1.0,
+        citationCount: citations.length,
+        uniqueSourcesUsed: citations.length,
+        styleViolations: 0
+      },
+      generationStatus: 'success',
+      warnings: [],
+      tokensUsed: 0
+    });
+  }
+
+  return chapters;
+}
+
+program
+  .command('combine')
+  .description('Combine chapter files into final paper with ToC, title page, and consolidated references')
+  .requiredOption('--slug <slug>', 'Research task slug (directory name)')
+  .option('--no-pdf', 'Skip PDF generation')
+  .option('--verbose', 'Enable detailed logging', false)
+  .action(async (options: { slug: string; pdf: boolean; verbose: boolean }) => {
+    try {
+      const basePath = process.cwd();
+      const finalDir = path.join(basePath, 'docs', 'research', options.slug, 'final');
+      const chaptersDir = path.join(finalDir, 'chapters');
+
+      // Read chapter files
+      let files: string[];
+      try {
+        files = (await fs.readdir(chaptersDir))
+          .filter(f => f.startsWith('chapter-') && f.endsWith('.md'))
+          .sort((a, b) => {
+            const numA = parseInt(a.match(/chapter-(\d+)/)?.[1] || '0');
+            const numB = parseInt(b.match(/chapter-(\d+)/)?.[1] || '0');
+            return numA - numB;
+          });
+      } catch {
+        console.error(`[combine] ERROR: No chapters directory found at ${chaptersDir}`);
+        process.exit(2);
+        return;
+      }
+
+      if (files.length === 0) {
+        console.error(`[combine] ERROR: No chapter-*.md files found in ${chaptersDir}`);
+        process.exit(2);
+        return;
+      }
+
+      console.error(`[combine] Found ${files.length} chapters in ${chaptersDir}`);
+
+      const chapters = await buildChapterOutputsFromFiles(chaptersDir, files);
+      const combiner = new PaperCombiner();
+      const metadata = combiner.generateMetadata(options.slug, chapters);
+      const finalPaper = await combiner.combine(chapters, metadata);
+
+      await combiner.writeOutputFiles(finalPaper, finalDir, { generatePdf: options.pdf });
+
+      const totalWords = chapters.reduce((sum, c) => sum + c.wordCount, 0);
+      const totalCitations = new Set(chapters.flatMap(c => c.citations.map(ci => ci.raw))).size;
+
+      console.error(`[combine] Final paper written to ${path.join(finalDir, 'final-paper.md')}`);
+      console.error(`[combine] ${files.length} chapters | ${totalWords.toLocaleString()} words | ${totalCitations} unique citations`);
+
+      console.log(JSON.stringify({
+        success: true,
+        outputPath: path.join(finalDir, 'final-paper.md'),
+        chaptersProcessed: files.length,
+        totalWords,
+        totalCitations
+      }, null, 2));
+
+      process.exit(0);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[combine] ERROR: ${message}`);
+      console.log(JSON.stringify({ success: false, error: message }));
+      process.exit(1);
     }
   });
 

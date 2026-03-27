@@ -4,6 +4,7 @@ name: step-back-analyzer
 type: researcher
 color: "#6A1B9A"
 description: Use PROACTIVELY at research start to establish high-level guiding principles before diving into details. MUST BE USED to create evaluation criteria and prevent premature detail-focus. Works for ANY domain (software, business, research, product).
+model: haiku
 capabilities:
   allowed_tools:
     - Read

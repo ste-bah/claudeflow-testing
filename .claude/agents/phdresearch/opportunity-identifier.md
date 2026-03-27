@@ -4,6 +4,7 @@ name: opportunity-identifier
 type: researcher
 color: "#FFC107"
 description: Use PROACTIVELY after model architecture to identify research opportunities and gaps. MUST BE USED to discover novel research questions and未explored territories. Works for ANY domain (software, business, research, product).
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

@@ -4,6 +4,7 @@ name: hypothesis-generator
 type: researcher
 color: "#009688"
 description: Use PROACTIVELY after theory-building to generate testable hypotheses. MUST BE USED to translate theoretical propositions into empirically testable predictions. Works for ANY domain (software, business, research, product).
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

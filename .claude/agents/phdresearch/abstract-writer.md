@@ -4,6 +4,7 @@ name: abstract-writer
 type: researcher
 color: "#00838F"
 description: Generate publication-quality abstracts following APA 7th, journal guidelines, and structured abstract formats. MUST BE USED for journal submissions, dissertations, and conference papers. Works for empirical, theoretical, and review papers.
+model: opus
 capabilities:
   allowed_tools:
     - Read

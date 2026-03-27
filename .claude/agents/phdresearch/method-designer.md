@@ -4,6 +4,7 @@ name: method-designer
 type: researcher
 color: "#9C27B0"
 description: Use PROACTIVELY after opportunity identification to design comprehensive research methodologies. MUST BE USED to create detailed research designs, protocols, and procedures. Works for ANY domain (software, business, research, product).
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

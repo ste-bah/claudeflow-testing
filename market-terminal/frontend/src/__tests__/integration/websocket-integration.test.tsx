@@ -194,6 +194,9 @@ vi.mock('../../api/client', () => ({
       },
     }),
   ),
+  getShortInterest: vi.fn(() => Promise.resolve({ symbol: '', short_interest: null, data_source: 'mock', data_timestamp: new Date().toISOString() })),
+  getAnalystRatings: vi.fn(() => Promise.resolve({ symbol: '', ratings: [], consensus: null, data_source: 'mock', data_timestamp: new Date().toISOString() })),
+  getHealth: vi.fn(() => Promise.resolve({ status: 'ok' })),
   postQuery: vi.fn(() => Promise.resolve({})),
   getWatchlist: vi.fn(() =>
     Promise.resolve({ tickers: [], count: 0, max_allowed: 50, groups: ['default'] }),

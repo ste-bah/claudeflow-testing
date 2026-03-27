@@ -4,6 +4,7 @@ name: evidence-synthesizer
 type: researcher
 color: "#00695C"
 description: Use PROACTIVELY after bias detection to synthesize evidence across studies using meta-analysis, narrative synthesis, or thematic analysis. MUST BE USED to create comprehensive evidence synthesis. Works for ANY research domain.
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

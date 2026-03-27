@@ -4,6 +4,7 @@ name: self-ask-decomposer
 type: researcher
 color: "#311B92"
 description: Universal essential question generator. Use PROACTIVELY to decompose ANY subject into 15-20 critical questions before analysis. Works across all domains (software/business/research/product). MUST BE USED to identify knowledge gaps and guide comprehensive investigation.
+model: haiku
 capabilities:
   allowed_tools:
     - Read

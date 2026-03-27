@@ -9,6 +9,8 @@ const mockGetFundamentals = vi.fn<(symbol: string) => Promise<FundamentalsApiRes
 
 vi.mock('../../api/client', () => ({
   getFundamentals: (...args: [string]) => mockGetFundamentals(...args),
+  getShortInterest: vi.fn(() => Promise.resolve({ symbol: '', short_interest: null, data_source: 'mock', data_timestamp: new Date().toISOString() })),
+  getAnalystRatings: vi.fn(() => Promise.resolve({ symbol: '', ratings: [], consensus: null, data_source: 'mock', data_timestamp: new Date().toISOString() })),
 }));
 
 // ---------------------------------------------------------------------------

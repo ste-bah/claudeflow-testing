@@ -4,6 +4,7 @@ name: literature-mapper
 type: researcher
 color: "#006064"
 description: Use PROACTIVELY to conduct systematic literature search and create comprehensive knowledge maps. MUST BE USED to execute search strategy from research plan. Works for ANY domain - builds complete literature landscape with citation networks, theoretical clusters, and gap identification.
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

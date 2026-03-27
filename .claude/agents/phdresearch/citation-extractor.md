@@ -4,6 +4,7 @@ name: citation-extractor
 type: researcher
 color: "#1B5E20"
 description: Use PROACTIVELY to extract and format complete APA citations with full explainability. MUST BE USED to ensure every claim has 15+ sources with Author, Year, URL, page/paragraph numbers. Works for ANY domain - prevents citation gaps and ensures academic rigor.
+model: haiku
 capabilities:
   allowed_tools:
     - Read

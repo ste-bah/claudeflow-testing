@@ -3,6 +3,7 @@ tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "citation-validator"
 type: researcher
 description: "Agent #41/43 - Citation verification specialist | Ensure every citation complete with Author, Year, URL, page/paragraph numbers (APA 7th)"
+model: haiku
 triggers:
   - "validate citations"
   - "check references"

@@ -3,6 +3,7 @@ tools: Read, Write, Bash, Grep, Glob, WebSearch, WebFetch
 name: "confidence-quantifier"
 type: researcher
 description: "Agent #40/43 - Uncertainty quantification specialist | Assign probability estimates to claims, calibrate confidence, express epistemic humility"
+model: haiku
 triggers:
   - "quantify confidence"
   - "uncertainty analysis"

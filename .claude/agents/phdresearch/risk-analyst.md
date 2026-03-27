@@ -4,6 +4,7 @@ name: risk-analyst
 type: researcher
 color: "#BF360C"
 description: Use PROACTIVELY after contradiction analysis to identify research risks using FMEA methodology. MUST BE USED to assess 15+ failure modes and mitigation strategies. Works for ANY research domain (all fields).
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

@@ -4,6 +4,7 @@ name: dissertation-architect
 type: researcher
 color: "#1565C0"
 description: Design dissertation/document chapter structure based on research scope. Stores structure to memory for writing agents. MUST BE USED before any writing phase to ensure all agents follow the same structure. Works for ANY research type.
+model: opus
 capabilities:
   allowed_tools:
     - Read

@@ -1,6 +1,7 @@
 ---
 name: phd-phase8-execution
 description: Execute PhD Pipeline Phase 8 using Claude Code Task tool with dynamic agents per chapter
+effort: high
 version: 1.0.0
 category: research
 tags:
@@ -81,16 +82,22 @@ for (const chapter of phase8Data.chapterPrompts) {
 
 ### Step 3: Combine Final Paper
 
-After all chapters complete:
+After all chapters complete, run the `combine` CLI command which uses `PaperCombiner` to produce:
+- Title page with word counts and citation totals
+- Table of Contents with anchor links
+- Consolidated, deduplicated, alphabetically-sorted References section
+- Cross-reference validation
 
-```javascript
-// Spawn final-combiner agent to assemble complete paper
-await Task({
-  subagent_type: 'final-combiner',
-  prompt: `Combine all chapters from ${phase8Data.finalOutputDir} into a complete paper`,
-  description: 'Combine chapters into final paper'
-});
+```bash
+npx tsx src/god-agent/cli/phd-cli.ts combine --slug <your-slug>
 ```
+
+Or via Bash tool:
+```javascript
+await Bash(`cd ${projectRoot} && npx tsx src/god-agent/cli/phd-cli.ts combine --slug ${slug}`);
+```
+
+**DO NOT** use raw `cat` concatenation — it bypasses ToC generation and reference consolidation.
 
 ## Dynamic Agent Mapping
 

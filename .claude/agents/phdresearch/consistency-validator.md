@@ -4,6 +4,7 @@ name: consistency-validator
 type: researcher
 color: "#D32F2F"
 description: "Agent #44/43 - Post-production consistency checker | Validates all chapter cross-references match actual document structure. Runs AFTER writing phase to catch inconsistencies."
+model: haiku
 triggers:
   - "validate consistency"
   - "check chapter references"

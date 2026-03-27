@@ -1,6 +1,7 @@
 ---
 name: recall
 description: Search all memory stores for context relevant to a topic or task. Queries MemoryGraph (keywords + fuzzy) and LanceDB (semantic vectors) and presents results in labeled sections.
+effort: low
 ---
 
 # Recall — Cross-Store Memory Search

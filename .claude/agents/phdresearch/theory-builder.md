@@ -4,6 +4,7 @@ name: theory-builder
 type: researcher
 color: "#3F51B5"
 description: Use PROACTIVELY after thematic synthesis to construct theoretical frameworks. MUST BE USED to integrate themes into coherent theory with explanatory mechanisms. Works for ANY domain (software, business, research, product).
+model: opus
 capabilities:
   allowed_tools:
     - Read

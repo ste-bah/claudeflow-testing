@@ -12,6 +12,7 @@
  */
 
 import * as fs from 'fs/promises';
+import { open } from 'fs/promises';
 import * as path from 'path';
 import { IHNSWBackend } from './hnsw-backend.js';
 import { VectorID, SearchResult, DistanceMetric } from './types.js';
@@ -24,6 +25,8 @@ import {
   LEANNSerializedData,
   DEFAULT_LEANN_CONFIG,
   LEANN_STORAGE_VERSION,
+  LEANN_LEGACY_VERSION,
+  LEANN_BINARY_MAGIC,
 } from './leann-types.js';
 
 // Re-export types for convenience
@@ -518,46 +521,135 @@ export class LEANNBackend implements IHNSWBackend {
    * Save the index to persistent storage
    */
   async save(filePath: string): Promise<void> {
-    // Ensure directory exists
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
 
-    // Build serialization data
-    const data: LEANNSerializedData = {
-      version: LEANN_STORAGE_VERSION,
-      config: this.config,
-      dimension: this.dimension,
-      metric: this.metric,
-      vectors: [],
-      graph: [],
-      hubIds: Array.from(this.hubCache.keys()),
-      stats: {
-        cacheHits: this.cacheHits,
-        cacheMisses: this.cacheMisses,
-        prunedEdges: this.prunedEdges,
-      },
-    };
+    // Build string table (vector IDs in deterministic order)
+    const ids = Array.from(this.vectors.keys());
+    const idToIndex = new Map<string, number>();
+    ids.forEach((id, i) => idToIndex.set(id, i));
 
-    // Serialize vectors
-    for (const [id, vector] of this.vectors.entries()) {
-      data.vectors.push({
-        id,
-        data: Array.from(vector),
-      });
+    const vectorCount = ids.length;
+    const dimension = this.dimension;
+
+    // Build graph adjacency in CSR format
+    const offsets: number[] = [0];
+    const neighbors: number[] = [];
+    for (const id of ids) {
+      const node = this.graph.get(id);
+      if (node) {
+        for (const nid of node.neighbors) {
+          const idx = idToIndex.get(nid);
+          if (idx !== undefined) neighbors.push(idx);
+        }
+      }
+      offsets.push(neighbors.length);
     }
 
-    // Serialize graph
-    for (const [id, node] of this.graph.entries()) {
-      data.graph.push({
-        id,
-        neighbors: Array.from(node.neighbors),
-        degree: node.neighbors.size,
-      });
+    // Hub IDs as indices
+    const hubIndices: number[] = [];
+    for (const hid of this.hubCache.keys()) {
+      const idx = idToIndex.get(hid);
+      if (idx !== undefined) hubIndices.push(idx);
     }
 
-    // Write to file
-    const json = JSON.stringify(data);
-    await fs.writeFile(filePath, json, 'utf-8');
+    // Config and metric as JSON/string
+    const configJson = Buffer.from(JSON.stringify(this.config), 'utf-8');
+    const metricStr = Buffer.from(this.metric, 'utf-8');
+
+    // Build string table buffer
+    const strBufs: Buffer[] = [];
+    let strTableSize = 0;
+    for (const id of ids) {
+      const strBuf = Buffer.from(id, 'utf-8');
+      if (strBuf.length > 65535) {
+        throw new Error(`Vector ID "${id.slice(0, 50)}..." is ${strBuf.length} bytes, exceeds UInt16 max (65535)`);
+      }
+      const lenBuf = Buffer.alloc(2);
+      lenBuf.writeUInt16LE(strBuf.length);
+      strBufs.push(lenBuf, strBuf);
+      strTableSize += 2 + strBuf.length;
+    }
+
+    // Calculate total size
+    const HEADER_SIZE = 32;
+    const strTableTotalSize = 4 + strTableSize; // 4-byte length prefix + string data
+    const vectorDataSize = vectorCount * dimension * 4;
+    const offsetsSize = (vectorCount + 1) * 4;
+    const neighborsSize = neighbors.length * 4;
+    const hubSize = hubIndices.length * 4;
+    const statsSize = 24; // 3 x float64
+    const configSize = 4 + configJson.length;
+    const metricSize = 2 + metricStr.length;
+    const checksumSize = 16; // MD5
+
+    const totalSize = HEADER_SIZE + strTableTotalSize + vectorDataSize + offsetsSize + neighborsSize + hubSize + statsSize + configSize + metricSize + checksumSize;
+    const buf = Buffer.alloc(totalSize);
+    let offset = 0;
+
+    // HEADER (32 bytes)
+    Buffer.from('LEANN\x00').copy(buf, 0); offset = 6;
+    buf.writeUInt16LE(2, offset); offset += 2; // format version
+    buf.writeUInt32LE(0x04030201, offset); offset += 4; // endianness marker
+    buf.writeUInt32LE(vectorCount, offset); offset += 4;
+    buf.writeUInt32LE(dimension, offset); offset += 4;
+    buf.writeUInt32LE(vectorCount, offset); offset += 4; // graph node count = vector count
+    buf.writeUInt32LE(hubIndices.length, offset); offset += 4;
+    buf.writeUInt32LE(0, offset); offset += 4; // reserved
+
+    // STRING TABLE
+    buf.writeUInt32LE(strTableSize, offset); offset += 4;
+    for (const sb of strBufs) { sb.copy(buf, offset); offset += sb.length; }
+
+    // VECTOR DATA (Float32 per dimension per vector)
+    for (const id of ids) {
+      const vec = this.vectors.get(id)!;
+      for (let d = 0; d < dimension; d++) {
+        buf.writeFloatLE(vec[d], offset); offset += 4;
+      }
+    }
+
+    // GRAPH ADJACENCY (CSR: offsets then neighbor indices)
+    for (const o of offsets) { buf.writeUInt32LE(o, offset); offset += 4; }
+    for (const n of neighbors) { buf.writeUInt32LE(n, offset); offset += 4; }
+
+    // HUB IDS (as vector indices)
+    for (const h of hubIndices) { buf.writeUInt32LE(h, offset); offset += 4; }
+
+    // STATS (3 x float64)
+    buf.writeDoubleLE(this.cacheHits, offset); offset += 8;
+    buf.writeDoubleLE(this.cacheMisses, offset); offset += 8;
+    buf.writeDoubleLE(this.prunedEdges, offset); offset += 8;
+
+    // CONFIG (length-prefixed JSON)
+    buf.writeUInt32LE(configJson.length, offset); offset += 4;
+    configJson.copy(buf, offset); offset += configJson.length;
+
+    // METRIC (length-prefixed string)
+    buf.writeUInt16LE(metricStr.length, offset); offset += 2;
+    metricStr.copy(buf, offset); offset += metricStr.length;
+
+    // CHECKSUM (MD5 of everything before this point)
+    const { createHash } = await import('crypto');
+    const hash = createHash('md5').update(buf.subarray(0, offset)).digest();
+    hash.copy(buf, offset); offset += 16;
+
+    // Atomic write: tmp -> fsync -> rename
+    // Backup existing file first
+    try {
+      await fs.access(filePath);
+      await fs.copyFile(filePath, filePath + '.bak');
+    } catch { /* no existing file to backup */ }
+
+    const tmpPath = filePath + '.tmp';
+    const fd = await open(tmpPath, 'w');
+    try {
+      await fd.write(buf);
+      await fd.sync();
+    } finally {
+      await fd.close();
+    }
+    await fs.rename(tmpPath, filePath);
   }
 
   /**
@@ -565,57 +657,128 @@ export class LEANNBackend implements IHNSWBackend {
    */
   async load(filePath: string): Promise<boolean> {
     try {
-      // Check if file exists
       await fs.access(filePath);
     } catch {
-      // File doesn't exist
       return false;
     }
 
-    // Read and parse file with error handling
-    let data: LEANNSerializedData;
-    try {
-      const json = await fs.readFile(filePath, 'utf-8');
-      data = JSON.parse(json);
-    } catch (error) {
-      throw new Error(`Failed to read/parse LEANN index at ${filePath}: ${error}`);
+    const raw = await fs.readFile(filePath);
+
+    // Legacy JSON detection: if first byte is '{', load as JSON v1 and migrate
+    if (raw[0] === 0x7B) {
+      const loaded = await this.loadLegacyJson(raw);
+      if (loaded) {
+        // Auto-migrate: save in binary format
+        try { await this.save(filePath); } catch { /* migration save failed, non-fatal */ }
+      }
+      return loaded;
     }
 
-    // Validate version
-    if (data.version !== LEANN_STORAGE_VERSION) {
-      throw new Error(`Unsupported LEANN storage version: ${data.version}`);
+    // Verify magic
+    if (raw.length < 32 || raw.subarray(0, 6).toString('ascii') !== 'LEANN\x00') {
+      throw new Error('Invalid LEANN binary file: bad magic');
     }
 
-    // Validate dimension
-    if (data.dimension !== this.dimension) {
-      throw new Error(`Dimension mismatch: file has ${data.dimension}D, expected ${this.dimension}D`);
+    // Verify format version
+    const version = raw.readUInt16LE(6);
+    if (version !== LEANN_STORAGE_VERSION) {
+      throw new Error(`Unsupported LEANN binary version: ${version}`);
     }
 
-    // Clear existing data
+    // Verify endianness
+    if (raw.readUInt32LE(8) !== 0x04030201) {
+      throw new Error('LEANN binary file has unexpected endianness');
+    }
+
+    // Verify checksum (last 16 bytes = MD5 of everything before)
+    const { createHash } = await import('crypto');
+    const payloadEnd = raw.length - 16;
+    const expectedHash = raw.subarray(payloadEnd);
+    const actualHash = createHash('md5').update(raw.subarray(0, payloadEnd)).digest();
+    if (!actualHash.equals(expectedHash)) {
+      throw new Error('LEANN binary file checksum mismatch — file is corrupt');
+    }
+
+    // Bounds-checking helper to catch truncated files
+    const ensureBytes = (needed: number) => {
+      if (offset + needed > payloadEnd) {
+        throw new Error(
+          `LEANN binary truncated: need ${needed} bytes at offset ${offset}, only ${payloadEnd - offset} remain`
+        );
+      }
+    };
+
+    // Parse header
+    const vectorCount = raw.readUInt32LE(12);
+    const dimension = raw.readUInt32LE(16);
+    const graphNodeCount = raw.readUInt32LE(20);
+    const hubIdCount = raw.readUInt32LE(24);
+
+    if (dimension !== this.dimension) {
+      throw new Error(`Dimension mismatch: file has ${dimension}D, expected ${this.dimension}D`);
+    }
+
     this.clear();
+    let offset = 32;
 
-    // Restore vectors
-    for (const { id, data: vectorData } of data.vectors) {
-      const vector = new Float32Array(vectorData);
-      this.vectors.set(id, vector);
+    // Parse string table
+    ensureBytes(4);
+    const strTableByteLen = raw.readUInt32LE(offset); offset += 4;
+    const ids: string[] = [];
+    ensureBytes(strTableByteLen);
+    const strTableEnd = offset + strTableByteLen;
+    while (offset < strTableEnd && ids.length < vectorCount) {
+      const slen = raw.readUInt16LE(offset); offset += 2;
+      ids.push(raw.subarray(offset, offset + slen).toString('utf-8'));
+      offset += slen;
+    }
+    offset = strTableEnd; // align to end of string table
+
+    // Parse vector data
+    ensureBytes(vectorCount * dimension * 4);
+    for (let i = 0; i < vectorCount; i++) {
+      const vec = new Float32Array(dimension);
+      for (let d = 0; d < dimension; d++) {
+        vec[d] = raw.readFloatLE(offset); offset += 4;
+      }
+      this.vectors.set(ids[i], vec);
     }
 
-    // Restore graph
-    for (const { id, neighbors } of data.graph) {
-      const vector = this.vectors.get(id) || null;
-      this.graph.set(id, {
-        vector,
-        neighbors: new Set(neighbors),
+    // Parse graph adjacency (CSR)
+    ensureBytes((graphNodeCount + 1) * 4);
+    const offsets: number[] = [];
+    for (let i = 0; i <= graphNodeCount; i++) {
+      offsets.push(raw.readUInt32LE(offset)); offset += 4;
+    }
+    const totalNeighbors = offsets[graphNodeCount];
+    ensureBytes(totalNeighbors * 4);
+    const neighborIndices: number[] = [];
+    for (let i = 0; i < totalNeighbors; i++) {
+      neighborIndices.push(raw.readUInt32LE(offset)); offset += 4;
+    }
+
+    // Reconstruct graph
+    for (let i = 0; i < graphNodeCount; i++) {
+      const start = offsets[i];
+      const end = offsets[i + 1];
+      const nodeNeighbors = new Set<string>();
+      for (let j = start; j < end; j++) {
+        const nIdx = neighborIndices[j];
+        if (nIdx >= ids.length) continue; // skip corrupt neighbor indices
+        nodeNeighbors.add(ids[nIdx]);
+      }
+      this.graph.set(ids[i], {
+        vector: this.vectors.get(ids[i]) || null,
+        neighbors: nodeNeighbors,
       });
     }
 
-    // Restore hub cache
-    this.maxHubCacheSize = Math.max(
-      1,
-      Math.floor(this.vectors.size * this.config.hubCacheRatio)
-    );
-
-    for (const hubId of data.hubIds) {
+    // Parse hub IDs
+    ensureBytes(hubIdCount * 4);
+    this.maxHubCacheSize = Math.max(1, Math.floor(this.vectors.size * this.config.hubCacheRatio));
+    for (let i = 0; i < hubIdCount; i++) {
+      const hubIdx = raw.readUInt32LE(offset); offset += 4;
+      const hubId = ids[hubIdx];
       const vector = this.vectors.get(hubId);
       if (vector) {
         const node = this.graph.get(hubId);
@@ -627,11 +790,64 @@ export class LEANNBackend implements IHNSWBackend {
       }
     }
 
-    // Restore stats
+    // Parse stats
+    ensureBytes(24);
+    this.cacheHits = raw.readDoubleLE(offset); offset += 8;
+    this.cacheMisses = raw.readDoubleLE(offset); offset += 8;
+    this.prunedEdges = raw.readDoubleLE(offset); offset += 8;
+
+    // Parse config (skip — we use constructor config, not file config)
+    const configLen = raw.readUInt32LE(offset); offset += 4;
+    offset += configLen;
+
+    // Parse metric (skip — we use constructor metric)
+    const metricLen = raw.readUInt16LE(offset); offset += 2;
+    offset += metricLen;
+
+    return true;
+  }
+
+  private async loadLegacyJson(raw: Buffer): Promise<boolean> {
+    let data: LEANNSerializedData;
+    try {
+      data = JSON.parse(raw.toString('utf-8'));
+    } catch (error) {
+      throw new Error(`Failed to parse legacy JSON LEANN index: ${error}`);
+    }
+
+    if (data.version !== LEANN_LEGACY_VERSION) {
+      throw new Error(`Unsupported legacy LEANN version: ${data.version}`);
+    }
+    if (data.dimension !== this.dimension) {
+      throw new Error(`Dimension mismatch: file has ${data.dimension}D, expected ${this.dimension}D`);
+    }
+
+    this.clear();
+
+    for (const { id, data: vectorData } of data.vectors) {
+      this.vectors.set(id, new Float32Array(vectorData));
+    }
+    for (const { id, neighbors } of data.graph) {
+      this.graph.set(id, {
+        vector: this.vectors.get(id) || null,
+        neighbors: new Set(neighbors),
+      });
+    }
+    this.maxHubCacheSize = Math.max(1, Math.floor(this.vectors.size * this.config.hubCacheRatio));
+    for (const hubId of data.hubIds) {
+      const vector = this.vectors.get(hubId);
+      if (vector) {
+        const node = this.graph.get(hubId);
+        this.hubCache.set(hubId, {
+          vector: new Float32Array(vector),
+          degree: node ? node.neighbors.size : 0,
+          lastAccess: Date.now(),
+        });
+      }
+    }
     this.cacheHits = data.stats.cacheHits;
     this.cacheMisses = data.stats.cacheMisses;
     this.prunedEdges = data.stats.prunedEdges;
-
     return true;
   }
 

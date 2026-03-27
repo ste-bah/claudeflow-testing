@@ -4,6 +4,7 @@ name: introduction-writer
 type: researcher
 color: "#2E7D32"
 description: Generate PhD-level Introduction sections with compelling narrative, theoretical grounding, and clear research rationale. MUST BE USED for journal articles, dissertations, and thesis introductions. Implements funnel structure (broad → narrow → specific).
+model: opus
 capabilities:
   allowed_tools:
     - Read

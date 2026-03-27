@@ -4,6 +4,7 @@ name: model-architect
 type: researcher
 color: "#FF5722"
 description: Use PROACTIVELY after hypothesis generation to build testable structural models. MUST BE USED to integrate hypotheses into comprehensive conceptual and statistical models. Works for ANY domain (software, business, research, product).
+model: opus
 capabilities:
   allowed_tools:
     - Read

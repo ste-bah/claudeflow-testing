@@ -1,6 +1,7 @@
 ---
 name: start
 description: Proactive session opener. Shows recent session history from MemoryGraph, git status, and memory health. Suggests what to work on next. Complements the SessionStart hook (which injects files) by adding graph search and project state.
+effort: low
 ---
 
 # Session Start — Archon

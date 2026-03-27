@@ -4,6 +4,7 @@ name: methodology-writer
 type: researcher
 color: "#D84315"
 description: Generate comprehensive Methodology/Methods sections with full replicability details per APA 7th standards. MUST BE USED for empirical research manuscripts ensuring complete transparency. Covers participants, materials, procedure, data analysis.
+model: opus
 capabilities:
   allowed_tools:
     - Read

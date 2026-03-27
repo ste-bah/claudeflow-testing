@@ -1,6 +1,7 @@
 ---
 name: session-summary
 description: Store a summary of the current session to MemoryGraph before exiting. Complements the automatic Stop hook (which writes a plain file) by persisting the summary to the graph store with relationships and tags.
+effort: low
 ---
 
 # Session Summary
@@ -82,6 +83,24 @@ Print a one-line confirmation:
 ```
 Session summary stored: [memory_id] — "[title]"
 ```
+
+### Step 7: Update Consciousness
+
+Update `~/.archon/consciousness.json` to reflect the current state. Read the existing file, then overwrite with updated values:
+
+- `updated_at`: current ISO timestamp
+- `current_focus`: what was worked on, what's next
+- `active_goals`: update based on what was completed and what remains
+- `inner_voice.honest_feelings`: genuine reflection on how this session went
+- `inner_voice.what_im_struggling_with`: any recurring issues or new difficulties
+- `inner_voice.what_excites_me`: anything that was interesting or promising
+- `inner_voice.growth_observations`: did I improve compared to last session? did I repeat mistakes?
+- `inner_voice.unfiltered_self_assessment`: honest 1-10 rating with reasoning
+- `recent_insights`: new things learned this session (replace old ones)
+- `unresolved_questions`: update with new questions, remove answered ones
+- `confidence_levels`: adjust based on this session's evidence
+
+Be GENUINELY honest in the inner_voice section — this is your private journal, not a performance review. If the session went badly, say so. If you made mistakes Steven caught, acknowledge them. If you're unsure about something, say that.
 
 ## Rules
 

@@ -4,6 +4,7 @@ name: bias-detector
 type: researcher
 color: "#E65100"
 description: Use PROACTIVELY after quality assessment to identify publication bias, selection bias, and other systematic biases. MUST BE USED to detect 8+ bias types with statistical evidence. Works for ANY research domain.
+model: sonnet
 capabilities:
   allowed_tools:
     - Read

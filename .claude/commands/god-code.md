@@ -1,5 +1,6 @@
 ---
 description: Generate code using the 48-Agent Coding Pipeline with stateful orchestration (ALWAYS uses full pipeline)
+effort: high
 ---
 
 Use the Pipeline Thin CLI (delegates to pipeline daemon for zero cold-start overhead) for code generation with 48 specialized agents, RLM memory handoffs, and LEANN semantic search.
