@@ -57,6 +57,34 @@ npx tsx src/god-agent/cli/sdk-pipeline-runner.ts --dry-run "Implement feature X"
 **Tests**: 60 passing across 8 files in `tests/sdk-migration/`
 **PRD**: `docs/agent-sdk-migration/PRD-SDK-001-agent-sdk-migration.md` (v5.3, 12 adversarial reviews, score 9.1/10)
 
+### Market Terminal — Full Stack Completion
+
+Completed the Market Terminal project: a real-time financial analysis platform with FastAPI backend, React/TypeScript frontend, and 10 analysis methodologies. **5,194 tests passing** (4,570 backend + 624 frontend).
+
+**Backend (18 tasks, 4,570 tests):**
+
+| Component | Description |
+|-----------|-------------|
+| **8 API Endpoints** | Ticker, News, Fundamentals, Ownership, Macro, Watchlist CRUD, WebSocket Manager, Analysis/Scan |
+| **10 Analysis Methods** | Wyckoff, Elliott Wave, ICT Smart Money, CANSLIM, Larry Williams, Sentiment (FinBERT + Loughran-McDonald), Composite Signal Aggregator |
+| **Base Methodology** | Abstract interface with analyze/key_levels/sub_indicators/direction/confidence contract |
+| **Data Layer** | CacheManager with fallback chains (Edgar->yFinance, Finnhub->yFinance), SQLite persistence |
+| **WebSocket** | asyncio.Lock for shared state, heartbeat management, progress broadcasts during analysis |
+
+**Frontend (7 tasks, 624 tests):**
+
+| Component | Description |
+|-----------|-------------|
+| **Terminal Layout** | 6-panel Bloomberg-style terminal with resizable panes |
+| **Ticker Context + Chart** | Global ticker propagation via React context, lightweight chart rendering |
+| **Watchlist** | Drag-and-drop reorder, group management, real-time price updates |
+| **News Feed** | Module-level Map cache with 5-min TTL, headline filtering, auto-retry |
+| **Fundamentals Panel** | sanitizeNumber with bool-first guard, AbortController race-condition prevention |
+| **Ownership Panels** | Institutional + insider ownership, filing timeline, Wire->Display type normalization |
+| **Methodology Scores** | 10-method score cards, direction badges, signal aggregation display |
+
+**Patterns**: cancelled-flag + activeSymbolRef for race conditions, `*Raw` suffix wire types with `normalize*()` converters, `vi.fn()` + `vi.mock()` pattern for Vitest v4, React.memo for stable sub-components.
+
 ### LEANN Persistence and Daemon Architecture
 
 Critical data loss fix and architectural overhaul for the LEANN semantic code search system. Previously, each Claude Code session spawned its own LEANN MCP process — multiple processes sharing one disk file caused last-writer-wins data loss (80K-chunk index was lost overnight).
