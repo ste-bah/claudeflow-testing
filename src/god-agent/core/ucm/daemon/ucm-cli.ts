@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node --import tsx/esm
 /**
  * UCM Daemon CLI - Start/Stop the Universal Context Management daemon server
  *

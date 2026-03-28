@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node --import tsx/esm
 /**
  * Daemon CLI - Start/Stop the God Agent daemon server
  *

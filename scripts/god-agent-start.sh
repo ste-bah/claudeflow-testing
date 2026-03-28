@@ -85,7 +85,7 @@ start_service() {
     rotate_log "$logfile"
 
     printf "%-25s" "  $name"
-    nohup npx tsx $cmd </dev/null >>"$logfile" 2>&1 &
+    nohup node --import tsx/esm $cmd </dev/null >>"$logfile" 2>&1 &
     local pid=$!
 
     local elapsed=0
@@ -131,7 +131,7 @@ else
     obs_logfile="$LOG_DIR/observability.log"
     rotate_log "$obs_logfile"
     printf "%-25s" "  Observability"
-    nohup npx tsx src/god-agent/observability/daemon.ts start --daemon </dev/null >>"$obs_logfile" 2>&1 &
+    nohup node --import tsx/esm src/god-agent/observability/daemon.ts start --daemon </dev/null >>"$obs_logfile" 2>&1 &
     obs_pid=$!
     sleep 3
     if is_observe_running; then
