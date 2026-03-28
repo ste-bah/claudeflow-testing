@@ -19,6 +19,7 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Memory Visualization Tool](#memory-visualization-tool)
 - [Learning System](#learning-system)
 - [Archon Autonomous Agent](#archon-autonomous-agent)
+- [Archon Consciousness Enhancement](#archon-consciousness-enhancement)
 - [Quick Start](#quick-start)
 - [Available Commands](#available-commands)
 - [Architecture](#architecture)
@@ -1713,6 +1714,67 @@ vim ~/.archon-env
 # Check status:
 bash scripts/archon/status.sh
 ```
+
+## Archon Consciousness Enhancement
+
+Self-reflection and episodic memory system that gives Archon temporal awareness, emotional state modeling, pattern tracking, and values-based conflict resolution. **493 tests passing** across 20 source modules (4,283 lines).
+
+**PRD**: `docs/archon-consciousness/PRD-ARCHON-CON-001-consciousness-enhancement.md` (v2.4, 9 adversarial reviews, 77 fixes)
+
+### 6 Subsystems
+
+| Subsystem | Description | FRs |
+|-----------|-------------|-----|
+| **Episodic Memory** | Store complete events (not just rules), retrieve by composite scoring (relevance + recency + importance) with MMR diversity reranking | FR-001 to 004, 026 |
+| **Emotional State Detection** | Rule-based classification of 6 user states from text signals (5 signals, 3 lexicons of 20 words), maps to communication parameter overrides | FR-005 to 008 |
+| **Pattern Tracker** | Per-rule EWMA compliance scoring (alpha=0.2, warm-up=0.4), trend classification, regression/atrophy alerts, spaced reinforcement priority | FR-009 to 012, 027 |
+| **Values DAG** | Defeasible logic conflict resolution with 4 tiers, 3 edge types, ContextDescriptor matching, hysteresis caching, max 10-hop traversal | FR-013 to 016, 028 |
+| **Reflection Agent** | Session-end self-assessment via Stop hook: confidence checklist with rule_id tags, EWMA feeding, episode storage, 50-rule scale guard | FR-017 to 020, 025 |
+| **Theory of Intent** | Goal modeling with EVIDENCED_BY/CONTRADICTED_BY edges, two-tier intents (persistent + session), confidence from evidence count | FR-021 to 024 |
+
+### User-Facing Skills
+
+| Skill | Operations |
+|-------|-----------|
+| `/values` | list, add, remove, reprioritize, show-conflicts, show-atrophy, show-deep-chains, deprecate, show-broken-chains |
+| `/intent` | list, show-evidence, confirm, correct, promote |
+
+### Session Lifecycle Hooks
+
+| Hook | Action |
+|------|--------|
+| **SessionStart** | Inject prioritized rules, check for missing reflections |
+| **Stop** | Flush journal, run reflection agent, archive session intents |
+| **PreCompact** | Flush partial event batch |
+
+### Source Structure
+
+```
+src/archon_consciousness/     # 20 files, 4,283 lines
+  schemas.py                  # 7 dataclasses with fail-fast validation
+  retrieval_scoring.py        # Composite scoring, decay, MMR (pure math)
+  episodic_memory.py          # Store, retrieve, pin, merge, enrich
+  pattern_tracker.py          # EWMA, trends, alerts, priority formula
+  emotional_state_detector.py # Preprocessing, signals, classification
+  values_dag.py               # 6-step conflict resolution algorithm
+  reflection_agent.py         # Session-end self-assessment orchestrator
+  intent_model.py             # Goal graph with evidence/contradiction edges
+  values_skill.py             # /values command router (9 operations)
+  intent_skill.py             # /intent command router (5 operations)
+  hooks.py                    # Session lifecycle entry points
+  rule_registry.py            # Rule CRUD, lifecycle, collision resolution
+  session_journal.py          # Batched event writer
+  emotional_state_logger.py   # State transition writer
+  episode_merge.py            # Merge algorithm helpers
+  context_descriptor.py       # ContextDescriptor schema + matching
+  mcp_client.py               # Typed MemoryGraph wrapper
+  validation.py               # Shared validation helpers
+  constants.py                # All enums, limits, magic values
+```
+
+### Test Coverage
+
+493 tests across 19 test files. All 9 guardrails verified. All 30 FRs covered. All 12 edge cases tested.
 
 ## Quick Start
 
