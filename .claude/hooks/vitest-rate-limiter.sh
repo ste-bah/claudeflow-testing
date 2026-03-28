@@ -22,6 +22,32 @@ CODE_MOD="$RUNTIME/.code-modified"
 # Only enforce during active pipeline
 [ ! -f "$ACTIVE_FILE" ] && echo '{"decision": "allow"}' && exit 0
 
+# ── SDK pipeline stale flag detection ─────────────────────────────────
+# If .god-code-sdk-active exists, check PID liveness + age.
+# If the SDK runner process is dead or the flag is >4 hours old,
+# the flag is stale (SIGKILL / OOM / power loss) — clean up and allow.
+SDK_ACTIVE="$RUNTIME/.god-code-sdk-active"
+if [ -f "$SDK_ACTIVE" ]; then
+  SDK_PID=$(jq -r '.pid // empty' "$SDK_ACTIVE" 2>/dev/null)
+  SDK_STARTED=$(jq -r '.startedAt // 0' "$SDK_ACTIVE" 2>/dev/null)
+  NOW_SEC=$(date +%s)
+  SDK_AGE=$(( NOW_SEC - SDK_STARTED ))
+
+  # PID dead → stale flag from crash
+  if [ -n "$SDK_PID" ] && ! kill -0 "$SDK_PID" 2>/dev/null; then
+    rm -f "$SDK_ACTIVE" "$ACTIVE_FILE"
+    echo '{"decision": "allow"}'
+    exit 0
+  fi
+
+  # Flag >4 hours old → stale regardless of PID (handles PID recycling)
+  if [ "$SDK_AGE" -gt 14400 ]; then
+    rm -f "$SDK_ACTIVE" "$ACTIVE_FILE"
+    echo '{"decision": "allow"}'
+    exit 0
+  fi
+fi
+
 # Read command from stdin
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)

@@ -553,6 +553,53 @@ export async function runSdkPipeline(taskDescription: string, projectRoot: strin
     );
     await Promise.race([verifyMcpServers(mcpServers, projectRoot), mcpVerifyTimeout]);
 
+    // ── Mutual exclusion + pipeline flags ────────────────────────────────
+    // Set after MCP verification succeeds, before agent loop.
+    // NOTE: agent-prompt-enforcer.sh is a non-issue — SDK runner calls query()
+    // directly (not Claude Code's Task tool), so PreToolUse hooks on Task/Agent
+    // never fire for SDK-spawned agents.
+    const runtimeDir = path.join(projectRoot, '.claude', 'runtime');
+    fs.mkdirSync(runtimeDir, { recursive: true });
+    const activeFlag = path.join(runtimeDir, '.god-code-active');
+    const sdkActiveFlag = path.join(runtimeDir, '.god-code-sdk-active');
+    const projectRootFlag = path.join(runtimeDir, '.pipeline-project-root');
+
+    // Mutual exclusion: refuse if another SDK pipeline is running
+    if (fs.existsSync(sdkActiveFlag)) {
+      try {
+        const existing = JSON.parse(fs.readFileSync(sdkActiveFlag, 'utf-8'));
+        const existingPid = existing.pid as number;
+        const existingAge = (Date.now() / 1000) - (existing.startedAt as number || 0);
+        // Check if PID is alive AND flag is <4 hours old (handles PID recycling)
+        try {
+          process.kill(existingPid, 0); // throws if PID dead
+          if (existingAge < 14400) {
+            throw new Error(`Another SDK pipeline is running (PID ${existingPid}, started ${Math.round(existingAge / 60)}min ago). Wait for it to finish or delete .claude/runtime/.god-code-sdk-active`);
+          }
+        } catch (killErr) {
+          if ((killErr as NodeJS.ErrnoException).code !== 'ESRCH') {
+            // ESRCH = no such process = PID dead = stale flag, clean up
+            // Any other error from the mutual exclusion check = re-throw
+            if ((killErr as Error).message.includes('Another SDK pipeline')) throw killErr;
+          }
+          // PID dead or flag >4h old — stale, clean up
+          console.error(`[SDK-RUNNER] Cleaned stale SDK pipeline flag (PID ${existingPid} dead or >4h old)`);
+          fs.unlinkSync(sdkActiveFlag);
+          try { fs.unlinkSync(activeFlag); } catch { /* ok */ }
+        }
+      } catch (parseErr) {
+        if ((parseErr as Error).message.includes('Another SDK pipeline')) throw parseErr;
+        // Corrupt flag — delete and proceed
+        fs.unlinkSync(sdkActiveFlag);
+      }
+    }
+
+    // Write pipeline flags
+    fs.writeFileSync(activeFlag, '48'); // "48" passes [ $TASK_COUNT -lt 7 ] check — SDK enforces tools at SDK level
+    fs.writeFileSync(sdkActiveFlag, JSON.stringify({ pid: process.pid, startedAt: Math.floor(Date.now() / 1000) }));
+    fs.writeFileSync(projectRootFlag, projectRoot);
+    console.error('[SDK-RUNNER] Pipeline flags set (.god-code-active, .god-code-sdk-active, .pipeline-project-root)');
+
     // ── Check for interrupted session and CONTINUE it (TASK-SDK-006) ────
     const interruptedSessionId = detectInterruptedSession(projectRoot);
     if (interruptedSessionId) {
@@ -595,6 +642,12 @@ export async function runSdkPipeline(taskDescription: string, projectRoot: strin
       outputDir, sdkMap, projectRoot, mcpServers, totalCostUsd, options?.dryRun ?? false,
     );
   } finally {
+    // Clean up ALL three pipeline flags explicitly (no glob, no shared helper)
+    const runtimeDir = path.join(projectRoot, '.claude', 'runtime');
+    try { fs.unlinkSync(path.join(runtimeDir, '.god-code-active')); } catch { /* ok if missing */ }
+    try { fs.unlinkSync(path.join(runtimeDir, '.god-code-sdk-active')); } catch { /* ok if missing */ }
+    try { fs.unlinkSync(path.join(runtimeDir, '.pipeline-project-root')); } catch { /* ok if missing */ }
+    console.error('[SDK-RUNNER] Pipeline flags cleaned up');
     await facade.shutdown();
   }
 }
