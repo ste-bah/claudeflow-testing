@@ -29,13 +29,15 @@ Read `.persistent-memory/last-session-summary.txt` if it exists. It may contain 
 Call `mcp__memorygraph__store_memory` with:
 - **type**: `general`
 - **title**: `Session summary: [YYYY-MM-DD] — [brief 5-word topic]`
-- **content**: A concise summary (<500 chars) covering: what was done, key decisions, what's pending
+- **content**: A concise summary (<500 chars) with this structure: "Done: [what was accomplished]. Pending: [what remains unfinished, or 'nothing' if complete]." Both sections are MANDATORY — never omit "Pending:"
 - **tags**: `["session-summary", "[primary project name]", "[YYYY-MM-DD]"]`
 - **importance**: 0.7
 
 ### 4. Store Session Metrics
 
-Collect objective Layer 1 metrics for this session (auto-collected, no self-report):
+Collect objective Layer 1 metrics for this session (auto-collected, no self-report).
+
+UNCERTAINTY RULE: If context was compacted and you cannot verify a metric, use `null` instead of guessing. A null is always better than a fabricated zero.
 
 1. **corrections**: Search MemoryGraph for memories tagged `correction` or `fix` with today's date. Count them.
    ```
@@ -45,11 +47,11 @@ Collect objective Layer 1 metrics for this session (auto-collected, no self-repo
 
 2. **cost_today**: Read `.persistent-memory/autonomous-runs.jsonl` if it exists. Sum the `cost_usd` field for all entries with today's date. If the file does not exist, use `0.0`.
 
-3. **pattern_compliance**: Review this session — did you follow the plan-then-review-then-implement-then-review (Sherlock) pattern? Binary `1` or `0`.
+3. **pattern_compliance**: Did you follow plan-then-review-then-implement-then-review (Sherlock)? Use `1` (yes), `0` (violated), or `null` (not applicable — e.g., autonomous runs, Q&A sessions, or context lost to compaction making it unverifiable).
 
-4. **tool_calls**: Estimate the total number of tool calls made during this session (rough count from conversation length).
+4. **tool_calls**: Estimate the total number of tool calls made during this session. For interactive sessions, estimate from conversation length. For autonomous runs, estimate from the work described (e.g., 3 web searches + 3 memory stores = ~6). Use `null` if completely unknown.
 
-5. **tasks_completed**: Count the number of tasks explicitly marked complete during this session.
+5. **tasks_completed**: Count tasks explicitly marked complete. If exact count is unknown (e.g., after compaction), use your best estimate and append `"tasks_completed_estimated": true` to the JSON.
 
 Store as a SEPARATE memory (not merged into the narrative summary):
 ```

@@ -9,6 +9,8 @@ backups/
 # Ignore all blueprint directories
 .agentdb/
 .agentdb-test/
+.autoresearch/
+.firecrawl/
 
 # Vector databases (large binary files - regenerated from source)
 vector_db_1536/
