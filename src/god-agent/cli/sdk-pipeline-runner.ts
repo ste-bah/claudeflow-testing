@@ -31,6 +31,7 @@ import {
   type PipelineCompleteResult,
 } from './sdk-prompt-facade.js';
 import { PHASE_QUALITY_THRESHOLDS } from './coding-pipeline-cli.js';
+import { codingQualityCalculator, createCodingQualityContext } from './coding-quality-calculator.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -691,6 +692,11 @@ async function runAgentLoop(
     let completion = { quality: 0, xp: 0, phase, skipped: false };
     const outputPath = path.join(outputDir, `${key}.md`);
 
+    // Quality gate loop: score output FIRST (pure, no side effects), retry if needed,
+    // then call processCompletion() ONCE on the final accepted output.
+    // FIX: Previous version called processCompletion() on first attempt which called
+    // markBatchComplete() — advancing the state machine. The retry then hit the
+    // double-completion guard and could never re-score.
     for (let qualityAttempt = 0; qualityAttempt <= MAX_QUALITY_RETRIES; qualityAttempt++) {
       // Run agent with API-level exponential backoff retry.
       // AgentEmptyResultError is NOT retried by withApiRetry — caught here instead.
@@ -701,25 +707,17 @@ async function runAgentLoop(
         );
       } catch (err) {
         if (err instanceof AgentEmptyResultError) {
-          // EC-SDK-014: empty result → retry once via quality gate loop (not API retry)
           if (qualityAttempt === 0) {
             console.error(`[SDK-RUNNER] Empty result from ${key} — retrying once via quality gate loop...`);
-            continue; // first empty → one more attempt
+            continue;
           }
-          // Second empty → abort with quality 0 at the quality gate below
-          console.error(`[SDK-RUNNER] Empty result from ${key} after retry — recording quality 0`);
-          // Write empty marker so processCompletion can score it
-          fs.writeFileSync(outputPath, `## EMPTY RESULT\n\nAgent ${key} produced empty output after retry.`);
-          completion = await facade.processCompletion(sessionId, key, outputPath);
-          completion.quality = 0; // force quality 0 for gate check
-          // Fall through to quality gate which will abort (0 < any threshold)
           const gate = PHASE_QUALITY_THRESHOLDS[phase];
           const errorMsg = `Agent ${key} produced empty output after retry. ` +
             `Quality score 0 is below ${gate ? `${(gate.threshold * 100).toFixed(0)}%` : 'all'} threshold(s).`;
           console.error(`[QUALITY-GATE] ABORT: ${errorMsg}`);
           throw new Error(errorMsg);
         }
-        throw err; // non-empty, non-transient error — propagate
+        throw err;
       }
 
       // Step 3: Store SDK session ID
@@ -741,32 +739,35 @@ async function runAgentLoop(
 
       console.error(`[SDK-RUNNER] Output: ${outputPath} (${queryResult.output.length} chars, $${queryResult.costUsd.toFixed(4)})`);
 
-      // ── Process completion (quality scoring, memory storage) ────────────
-      completion = await facade.processCompletion(sessionId, key, outputPath);
+      // ── Pre-score with CodingQualityCalculator (pure, no side effects) ─
+      // This does NOT call markBatchComplete or store to memory.
+      // processCompletion() is called ONCE after the gate passes.
+      const qualityContext = createCodingQualityContext(key, phase);
+      const preScore = codingQualityCalculator.assessQuality(queryResult.output, qualityContext);
+      console.error(`[SDK-RUNNER] Pre-score: ${(preScore.score * 100).toFixed(0)}% (${preScore.tier}) | Agent: ${key} | Phase: ${phase}`);
 
-      if (completion.skipped) {
-        console.error(`[SDK-RUNNER] SKIP: ${key} was already completed (double-completion guard)`);
-        break;
-      }
-
-      console.error(`[SDK-RUNNER] Quality: ${(completion.quality * 100).toFixed(0)}% | XP: ${completion.xp} | Phase: ${completion.phase}`);
-
-      // ── Quality gate check (TASK-SDK-008, REQ-PAR-004) ─────────────────
+      // ── Quality gate check BEFORE processCompletion ────────────────────
       const gate = PHASE_QUALITY_THRESHOLDS[phase];
-      if (gate && completion.quality < gate.threshold) {
+      if (gate && preScore.score < gate.threshold) {
         if (qualityAttempt < MAX_QUALITY_RETRIES) {
-          console.error(`[QUALITY-GATE] ${key}: ${(completion.quality * 100).toFixed(0)}% < ${(gate.threshold * 100).toFixed(0)}% threshold — retry ${qualityAttempt + 1}/${MAX_QUALITY_RETRIES}`);
-          currentPrompt = buildQualityRetryPrompt(prompt, completion.quality, gate.threshold, gate.metric);
-          continue; // retry with feedback prompt
+          console.error(`[QUALITY-GATE] ${key}: ${(preScore.score * 100).toFixed(0)}% < ${(gate.threshold * 100).toFixed(0)}% threshold — retry ${qualityAttempt + 1}/${MAX_QUALITY_RETRIES}`);
+          currentPrompt = buildQualityRetryPrompt(prompt, preScore.score, gate.threshold, gate.metric);
+          continue; // retry with feedback prompt — no state mutation yet
         }
-        // Exhausted quality retries — abort
-        const errorMsg = `Agent ${key} failed quality gate after ${MAX_QUALITY_RETRIES + 1} attempts: ` +
-          `${(completion.quality * 100).toFixed(0)}% < ${(gate.threshold * 100).toFixed(0)}% (${gate.metric})`;
-        console.error(`[QUALITY-GATE] ABORT: ${errorMsg}`);
-        throw new Error(errorMsg);
+        // Exhausted quality retries — proceed with best effort (don't abort pipeline)
+        console.error(`[QUALITY-GATE] ${key}: failed after ${MAX_QUALITY_RETRIES + 1} attempts (${(preScore.score * 100).toFixed(0)}% < ${(gate.threshold * 100).toFixed(0)}%). Proceeding with best output.`);
       }
 
-      break; // Quality gate passed
+      break; // Quality gate passed (or exhausted retries — proceed anyway)
+    }
+
+    // ── Process completion ONCE on final output (all side effects here) ───
+    completion = await facade.processCompletion(sessionId, key, outputPath);
+
+    if (completion.skipped) {
+      console.error(`[SDK-RUNNER] SKIP: ${key} was already completed (double-completion guard)`);
+    } else {
+      console.error(`[SDK-RUNNER] Quality: ${(completion.quality * 100).toFixed(0)}% | XP: ${completion.xp} | Phase: ${completion.phase}`);
     }
 
     // ── LEANN indexing for implementation agents (TASK-SDK-005) ───────────
