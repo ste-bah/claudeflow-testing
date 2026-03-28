@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.2.0 | **Status**: Production-Ready | **Last Updated**: March 2026
+**Version**: 2.3.0 | **Status**: Production-Ready | **Last Updated**: March 2026
 
 ## Table of Contents
 
@@ -25,6 +25,29 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.3.0
+
+### Archon Consciousness Enhancement System
+
+Self-reflection and episodic memory system giving Archon temporal awareness, emotional state modeling, behavioral pattern tracking, and values-based conflict resolution. **493 tests passing** across 20 source modules (4,283 lines). PRD went through 9 adversarial reviews with 77 fixes before implementation.
+
+| Component | What it does |
+|-----------|-------------|
+| **Episodic Memory** | Stores complete events, retrieves by composite scoring (relevance + recency + importance) with MMR diversity reranking |
+| **Emotional State Detection** | Rule-based classification of 6 user states from 5 text signals and 3 lexicons, maps to communication parameter overrides |
+| **Pattern Tracker** | Per-rule EWMA compliance scoring with warm-up alpha, trend classification, regression/atrophy alerts, spaced reinforcement priority |
+| **Values DAG** | Defeasible logic conflict resolution: 4 tiers, 3 edge types, ContextDescriptor matching, hysteresis, max 10-hop traversal |
+| **Reflection Agent** | Session-end self-assessment: confidence checklist with rule_id tags, EWMA feeding, episodic storage, 50-rule scale guard |
+| **Theory of Intent** | Goal modeling with EVIDENCED_BY/CONTRADICTED_BY edges, two-tier intents (persistent + session) |
+
+**Skills**: `/values` (9 operations) and `/intent` (5 operations) for user control of the consciousness system.
+
+**Hooks**: SessionStart injects prioritized behavioral rules, Stop triggers reflection reminders.
+
+**New files**: 20 source modules in `src/archon_consciousness/`, 19 test files, 2 skill YAMLs, 2 hook scripts.
+
+---
 
 ## What's New in v2.2.0
 

@@ -337,6 +337,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/memory-session-end.sh\" ] && \"$ROOT/.claude/hooks/memory-session-end.sh\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/consciousness-stop.sh\" ] && \"$ROOT/.claude/hooks/consciousness-stop.sh\" || true'"
           }
         ]
       }
@@ -411,6 +415,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/memorygraph-recall.sh\" ] && \"$ROOT/.claude/hooks/memorygraph-recall.sh\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/consciousness-start.sh\" ] && \"$ROOT/.claude/hooks/consciousness-start.sh\" || true'"
           }
         ]
       }
