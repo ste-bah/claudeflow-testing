@@ -75,9 +75,11 @@ let buffer = '';
 let initDone = false;
 let resultReceived = false;
 
+// process_queue can take 10+ minutes for large batches
+const CLIENT_TIMEOUT_MS = parseInt(process.env.LEANN_CLIENT_TIMEOUT || '600000', 10);
 const timeout = setTimeout(() => {
-  die('Timeout after 5 minutes waiting for response');
-}, 5 * 60 * 1000);
+  die(`Timeout after ${CLIENT_TIMEOUT_MS / 1000}s waiting for response`);
+}, CLIENT_TIMEOUT_MS);
 
 socket.on('connect', () => {
   log(`Connected to daemon, calling ${toolName}...`);
