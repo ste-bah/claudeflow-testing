@@ -280,29 +280,68 @@ function extractHttpStatus(err: unknown): number | null {
 // Quality Gate Retry (TASK-SDK-008, REQ-PAR-004)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Max quality gate retries per agent (3 total attempts) */
+/** Max quality gate retries per agent (3 total attempts for normal, 2 for reviewers) */
 const MAX_QUALITY_RETRIES = 2;
 
+/** Max retries for Sherlock reviewer agents (2 total attempts) */
+const MAX_REVIEWER_RETRIES = 1;
+
+/** Scores within this margin of the threshold pass without retry.
+ *  e.g., 87% passes a 90% gate with 0.03 margin. Revert: set to 0. */
+const CLOSE_ENOUGH_MARGIN = 0.03;
+
+/** Max chars of previous output included in retry prompt */
+const PREVIOUS_OUTPUT_TRUNCATION = 3000;
+
 /**
- * Build a feedback prompt for quality gate retry.
- * Includes the quality score, threshold, and original prompt.
+ * Build an enriched feedback prompt for quality gate retry.
+ * Includes: quality breakdown, previous output (truncated), and full original prompt.
  */
 function buildQualityRetryPrompt(
   originalPrompt: string,
   quality: number,
   threshold: number,
   metric: string,
+  breakdown?: import('./coding-quality-calculator.js').ICodingQualityBreakdown,
+  previousOutput?: string,
 ): string {
-  return `## QUALITY GATE RETRY
+  let feedbackHeader = `## QUALITY GATE RETRY
 
 Your previous output scored ${(quality * 100).toFixed(0)}% on the "${metric}" quality gate.
 The required threshold is ${(threshold * 100).toFixed(0)}%.
+`;
 
-Please improve your output to meet the quality threshold. Focus on:
-- Completeness: ensure all requirements are addressed
-- Correctness: verify all code compiles and logic is sound
-- Coverage: ensure adequate test coverage if applicable
+  // Include specific dimension scores so the agent knows WHERE to improve
+  if (breakdown) {
+    feedbackHeader += `
+### Quality Breakdown (improve the weakest dimensions)
+- Code Quality: ${(breakdown.codeQuality * 100).toFixed(0)}% (max 30%)
+- Completeness: ${(breakdown.completeness * 100).toFixed(0)}% (max 25%)
+- Structural Integrity: ${(breakdown.structuralIntegrity * 100).toFixed(0)}% (max 20%)
+- Documentation: ${(breakdown.documentationScore * 100).toFixed(0)}% (max 15%)
+- Test Coverage: ${(breakdown.testCoverage * 100).toFixed(0)}% (max 10%)
+`;
+  }
 
+  // Include truncated previous output so agent can build on it
+  if (previousOutput) {
+    // Truncate to last complete line within limit
+    let truncated = previousOutput;
+    if (truncated.length > PREVIOUS_OUTPUT_TRUNCATION) {
+      truncated = truncated.substring(0, PREVIOUS_OUTPUT_TRUNCATION);
+      const lastNewline = truncated.lastIndexOf('\n');
+      if (lastNewline > PREVIOUS_OUTPUT_TRUNCATION * 0.8) {
+        truncated = truncated.substring(0, lastNewline);
+      }
+      truncated += '\n... [truncated — full output is on disk]';
+    }
+    feedbackHeader += `
+### Your Previous Output (improve upon this)
+${truncated}
+`;
+  }
+
+  return `${feedbackHeader}
 ---
 
 ${originalPrompt}`;
@@ -694,10 +733,8 @@ async function runAgentLoop(
 
     // Quality gate loop: score output FIRST (pure, no side effects), retry if needed,
     // then call processCompletion() ONCE on the final accepted output.
-    // FIX: Previous version called processCompletion() on first attempt which called
-    // markBatchComplete() — advancing the state machine. The retry then hit the
-    // double-completion guard and could never re-score.
-    for (let qualityAttempt = 0; qualityAttempt <= MAX_QUALITY_RETRIES; qualityAttempt++) {
+    const maxRetries = isSherlockReviewer ? MAX_REVIEWER_RETRIES : MAX_QUALITY_RETRIES;
+    for (let qualityAttempt = 0; qualityAttempt <= maxRetries; qualityAttempt++) {
       // Run agent with API-level exponential backoff retry.
       // AgentEmptyResultError is NOT retried by withApiRetry — caught here instead.
       try {
@@ -748,17 +785,28 @@ async function runAgentLoop(
 
       // ── Quality gate check BEFORE processCompletion ────────────────────
       const gate = PHASE_QUALITY_THRESHOLDS[phase];
-      if (gate && preScore.score < gate.threshold) {
-        if (qualityAttempt < MAX_QUALITY_RETRIES) {
-          console.error(`[QUALITY-GATE] ${key}: ${(preScore.score * 100).toFixed(0)}% < ${(gate.threshold * 100).toFixed(0)}% threshold — retry ${qualityAttempt + 1}/${MAX_QUALITY_RETRIES}`);
-          currentPrompt = buildQualityRetryPrompt(prompt, preScore.score, gate.threshold, gate.metric);
+      if (gate) {
+        if (preScore.score >= gate.threshold) {
+          // Clean pass
+          console.error(`[QUALITY-GATE] ${key}: ${(preScore.score * 100).toFixed(0)}% passed (threshold ${(gate.threshold * 100).toFixed(0)}%)`);
+        } else if (preScore.score >= gate.threshold - CLOSE_ENOUGH_MARGIN) {
+          // Close-enough margin pass — log distinctly for telemetry
+          console.error(`[QUALITY-GATE] ${key}: ${(preScore.score * 100).toFixed(0)}% passed via close-enough margin (threshold ${(gate.threshold * 100).toFixed(0)}%, margin ${(CLOSE_ENOUGH_MARGIN * 100).toFixed(0)}%)`);
+        } else if (qualityAttempt < maxRetries) {
+          // Below threshold and margin — retry with enriched prompt
+          console.error(`[QUALITY-GATE] ${key}: ${(preScore.score * 100).toFixed(0)}% < ${(gate.threshold * 100).toFixed(0)}% threshold — retry ${qualityAttempt + 1}/${maxRetries}`);
+          currentPrompt = buildQualityRetryPrompt(
+            prompt, preScore.score, gate.threshold, gate.metric,
+            preScore.breakdown, queryResult!.output,
+          );
           continue; // retry with feedback prompt — no state mutation yet
+        } else {
+          // Exhausted retries — proceed with best effort
+          console.error(`[QUALITY-GATE] ${key}: failed after ${maxRetries + 1} attempts (${(preScore.score * 100).toFixed(0)}% < ${(gate.threshold * 100).toFixed(0)}%). Proceeding with best output.`);
         }
-        // Exhausted quality retries — proceed with best effort (don't abort pipeline)
-        console.error(`[QUALITY-GATE] ${key}: failed after ${MAX_QUALITY_RETRIES + 1} attempts (${(preScore.score * 100).toFixed(0)}% < ${(gate.threshold * 100).toFixed(0)}%). Proceeding with best output.`);
       }
 
-      break; // Quality gate passed (or exhausted retries — proceed anyway)
+      break; // Quality gate passed (or margin, or exhausted retries)
     }
 
     // ── Process completion ONCE on final output (all side effects here) ───
