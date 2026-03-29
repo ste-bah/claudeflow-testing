@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.3.0 | **Status**: Production-Ready | **Last Updated**: March 2026
+**Version**: 2.4.0 | **Status**: Production-Ready | **Last Updated**: March 2026
 
 ## Table of Contents
 
@@ -26,26 +26,35 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 
-## What's New in v2.3.0
+## What's New in v2.4.0
 
-### Archon Consciousness Enhancement System
+### Archon Personality Enhancement System (v2 Consciousness)
 
-Self-reflection and episodic memory system giving Archon temporal awareness, emotional state modeling, behavioral pattern tracking, and values-based conflict resolution. **493 tests passing** across 20 source modules (4,283 lines). PRD went through 9 adversarial reviews with 77 fixes before implementation.
+Computed behavioral personality that evolves from experience. **978 tests** across 20 personality modules + 493 v1 consciousness tests (1,471 total). Singleton daemon architecture with PPID-based multi-session isolation.
 
-| Component | What it does |
+| Subsystem | What it does |
 |-----------|-------------|
-| **Episodic Memory** | Stores complete events, retrieves by composite scoring (relevance + recency + importance) with MMR diversity reranking |
-| **Emotional State Detection** | Rule-based classification of 6 user states from 5 text signals and 3 lexicons, maps to communication parameter overrides |
-| **Pattern Tracker** | Per-rule EWMA compliance scoring with warm-up alpha, trend classification, regression/atrophy alerts, spaced reinforcement priority |
-| **Values DAG** | Defeasible logic conflict resolution: 4 tiers, 3 edge types, ContextDescriptor matching, hysteresis, max 10-hop traversal |
-| **Reflection Agent** | Session-end self-assessment: confidence checklist with rule_id tags, EWMA feeding, episodic storage, 50-rule scale guard |
-| **Theory of Intent** | Goal modeling with EVIDENCED_BY/CONTRADICTED_BY edges, two-tier intents (persistent + session) |
+| **Emotional Self-Model** | 12 behavioral signals, Scherer CPM appraisal, 6-state classifier (confident/anxious/frustrated/engaged/cautious/neutral), mood EWMA, somatic markers, dampening |
+| **Preference Emergence** | Beta distributions per (approach, context), Thompson Sampling, 30-day decay, mere-exposure counterweight, safety-first conflict resolution |
+| **Relationship Health** | 3-dimension Bayesian trust (competence/integrity/benevolence), forgetting factor, graduated repair protocol, A+-F health grade |
+| **Curiosity Tracker** | 5 signal types, compression progress, budget caps, behavioral gap detection from tool call patterns |
+| **Metacognitive Monitor** | Dual-channel (fast+slow), episode matcher, rule checker, anomaly detector, rate-limited interrupts |
 
-**Skills**: `/values` (9 operations) and `/intent` (5 operations) for user control of the consciousness system.
+**Behavioral Activation**: Singleton daemon (0.4% CPU) processes events per-session. PreToolUse gate outputs behavioral hints from cached state. Session-end persists trust, traits, preferences.
 
-**Hooks**: SessionStart injects prioritized behavioral rules, Stop triggers reflection reminders.
+**INTJ 4w5 Personality**: Seeded traits (high conscientiousness, high honesty-humility, low agreeableness). Truth-above-all-else as tier-1 safety rule.
 
-**New files**: 20 source modules in `src/archon_consciousness/`, 19 test files, 2 skill YAMLs, 2 hook scripts.
+**7 Hooks**: SessionStart (data injection + daemon), PreToolUse (behavioral gate), PostToolUse (event logger + phase check), Stop (session-end processing + cleanup).
+
+**Multi-session**: PPID-based file isolation — concurrent sessions don't corrupt each other's data.
+
+### v2.3.0 — Archon Consciousness Enhancement System
+
+Self-reflection and episodic memory system. **493 tests** across 20 source modules. Episodic memory, emotional state detection, pattern tracking, values DAG, reflection agent, theory of intent.
+
+**Skills**: `/values` (9 operations), `/intent` (5 operations), `/self-assess` (extended with personality data).
+
+**Hooks**: SessionStart injects prioritized behavioral rules + personality context, Stop triggers reflection + personality persistence.
 
 ---
 
