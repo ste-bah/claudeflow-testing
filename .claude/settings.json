@@ -217,6 +217,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; if [ -f \"$ROOT/.claude/runtime/.god-code-active\" ]; then if [ -f \"$ROOT/.claude/hooks/god-code-enforcement-v2.sh\" ]; then FILE_PATH=$(cat | jq -r \".tool_input.file_path // .tool_input.path // empty\"); TOOL_NAME=$(cat | jq -r \".tool_name // empty\"); source \"$ROOT/.claude/hooks/god-code-enforcement-v2.sh\" && check_write_permission \"$TOOL_NAME\" \"$FILE_PATH\"; else TASK_COUNT=$(cat \"$ROOT/.claude/runtime/.god-code-active\" 2>/dev/null || echo 0); if [ \"$TASK_COUNT\" -lt 7 ]; then echo \"═══════════════════════════════════════════════════════════════════\"; echo \"🚫 BLOCKED: /god-code Pipeline Violation\"; echo \"═══════════════════════════════════════════════════════════════════\"; echo \"You tried to use Write/Edit directly.\"; echo \"Task agents spawned: $TASK_COUNT (minimum required: 7)\"; echo \"\"; echo \"REQUIRED: Use Task(\\\"task-analyzer\\\", ...) first!\"; echo \"Pipeline must reach Phase 4 before writing files.\"; echo \"═══════════════════════════════════════════════════════════════════\"; exit 1; fi; fi; fi; cat | jq -r \".tool_input.file_path // .tool_input.path // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks pre-edit --file \"{}\" --auto-assign-agents true --load-context true || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/personality-behavioral-gate.sh\" ] && cat | \"$ROOT/.claude/hooks/personality-behavioral-gate.sh\" || true'"
           }
         ]
       }
@@ -254,6 +258,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && cd \"$ROOT\" && source ~/.profile 2>/dev/null && nvm use 22 --silent 2>/dev/null; cat | jq -r \".tool_input.command // empty\" | tr \"\\n\" \"\\0\" | xargs -0 -I {} npx claude-flow@alpha hooks post-command --command \"{}\" --track-metrics true --store-results true || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/scripts/archon/personality-phase-check.sh\" ] && cat | \"$ROOT/scripts/archon/personality-phase-check.sh\" || true'"
           }
         ]
       },
@@ -280,6 +288,14 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/prompt-read-tracker.sh\" ] && cat | \"$ROOT/.claude/hooks/prompt-read-tracker.sh\" || true'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/scripts/archon/personality-event-logger.sh\" ] && cat | \"$ROOT/scripts/archon/personality-event-logger.sh\" || true'"
           }
         ]
       }
@@ -341,6 +357,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/consciousness-stop.sh\" ] && \"$ROOT/.claude/hooks/consciousness-stop.sh\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/scripts/archon/personality-session-end.sh\" ] && \"$ROOT/scripts/archon/personality-session-end.sh\" || true'"
           }
         ]
       }
@@ -419,6 +439,10 @@
           {
             "type": "command",
             "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/consciousness-start.sh\" ] && \"$ROOT/.claude/hooks/consciousness-start.sh\" || true'"
+          },
+          {
+            "type": "command",
+            "command": "/bin/bash -c 'ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && [ -n \"$ROOT\" ] && [ -x \"$ROOT/.claude/hooks/personality-start.sh\" ] && \"$ROOT/.claude/hooks/personality-start.sh\" || true'"
           }
         ]
       }

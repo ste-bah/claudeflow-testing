@@ -112,6 +112,72 @@ Apply these fallbacks when data is insufficient:
 
 - **Only 1 data point for a metric**: Show the single value without a trend arrow.
 
+## Step 7: Personality Subsystem Status (v2 consciousness)
+
+Search MemoryGraph for personality data and display 5 subsystem summaries.
+
+### 7a. Computed Operational State
+
+```
+mcp__memorygraph__search_memories(tags=["self-state"], limit=1)
+```
+
+Parse the most recent AgentSelfState. Display:
+- Primary state (confident/anxious/frustrated/engaged/cautious/neutral)
+- Mood valence (-1.0 to +1.0)
+- Somatic marker value and episode count
+
+### 7b. Preference Profile
+
+```
+mcp__memorygraph__search_memories(tags=["preference"], limit=10)
+```
+
+Parse PreferenceEntry nodes. For each with evidence_count > 5, show approach, context, mean, and evidence count. Sort by evidence descending.
+
+### 7c. Relationship Health
+
+```
+mcp__memorygraph__search_memories(tags=["trust"], limit=1)
+```
+
+Parse TrustState. Compute and display:
+- Overall trust = 0.30 * competence + 0.45 * integrity + 0.25 * benevolence
+- Health grade (A+ through F based on thresholds)
+- Total violations and successes
+
+### 7d. Curiosity Queue
+
+```
+mcp__memorygraph__search_memories(tags=["curiosity"], limit=5)
+```
+
+Parse CuriosityEncounter nodes. Show unsuppressed topics with interest scores.
+
+### 7e. Personality Traits
+
+```
+mcp__memorygraph__search_memories(tags=["traits"], limit=1)
+```
+
+Parse PersonalityTraitSet. Display 6 trait means (OCEAN + Honesty-Humility) with visual bars. Show narrative if available.
+
+### Display Format
+
+Append to the existing report:
+
+```
+Personality (v2):
+  State: neutral (mood: +0.12)
+  Trust: B+ (0.74) | 2 violations, 15 successes
+  Traits: conscientiousness=0.73, honesty_humility=0.71, openness=0.60
+  Preferences: tdd-first in debug:py (0.82, 15 obs)
+  Curiosity: HNSW indexing (score 0.7), TypeScript generics (0.5)
+  Narrative: "High conscientiousness, moderate openness after 20 sessions."
+```
+
+If no personality data exists, show: `Personality (v2): Not yet initialized.`
+
 ## Rules
 
 - This skill is **read-only** — it MUST NOT call `store_memory`, `update_memory`, `create_relationship`, or any write operation on MemoryGraph
@@ -120,3 +186,5 @@ Apply these fallbacks when data is insufficient:
 - Pattern compliance ratio: parse as numerator/denominator, compute as percentage for trend comparison
 - Always show the "Data: N session metrics, M eval scores" footer so the user knows the sample size
 - Degrade gracefully — show whatever data exists, skip sections that have no data
+- Personality data display follows GUARD-PER-003: only show via /self-assess, never unsolicited
+- Use "computed state" not "feeling" or "emotion" (GUARD-PER-001)

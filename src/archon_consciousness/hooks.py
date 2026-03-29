@@ -1,11 +1,13 @@
 """Session lifecycle hook entry points for Archon Consciousness.
 
 Three module-level functions wired to Claude Code hooks:
-- on_session_start: inject prioritized rules, check for missing reflections
-- on_session_end: run reflection, archive session-scoped intents
+- on_session_start: inject prioritized rules, check for missing reflections,
+  inject personality context (v2)
+- on_session_end: run reflection, archive session-scoped intents,
+  update personality subsystems (v2)
 - on_pre_compact: flush the session journal buffer
 
-Implements hook wiring from TASK-CON-010.
+Implements hook wiring from TASK-CON-010 + TASK-GAP-006.
 """
 
 import json
@@ -19,6 +21,14 @@ from src.archon_consciousness.reflection_agent import ReflectionAgent
 from src.archon_consciousness.session_journal import SessionJournal
 
 logger = logging.getLogger(__name__)
+
+# Defensive personality import — v1 behavior preserved if personality unavailable
+try:
+    from src.archon_consciousness.personality.integration import PersonalityHooks
+    _PERSONALITY_AVAILABLE = True
+except ImportError:
+    _PERSONALITY_AVAILABLE = False
+    logger.info("Personality subsystem not available — v1 only")
 
 
 def on_session_start(
@@ -52,10 +62,25 @@ def on_session_start(
     # 2. Check for missing reflections from previous sessions
     missing = _find_missing_reflections(client)
 
+    # v2: personality injection (FR-PER-041, FR-PER-046)
+    personality_injection = None
+    if _PERSONALITY_AVAILABLE:
+        try:
+            hooks = PersonalityHooks(
+                client=client, lance=lance_backend,
+                session_id=f"session-{session_num}",
+                session_num=session_num,
+            )
+            personality_injection = hooks.build_session_injection()
+        except Exception as exc:
+            logger.warning("Personality injection failed: %s", exc)
+
     return {
         "rules_injected": len(injected),
         "injected_rules": injected,
         "missing_reflection": missing if missing else False,
+        "personality_injection": personality_injection,
+        "personality_available": _PERSONALITY_AVAILABLE,
     }
 
 
@@ -96,9 +121,23 @@ def on_session_end(
     except Exception as exc:
         logger.warning("Intent archival failed: %s", exc)
 
+    # v2: personality session-end processing (FR-PER-041)
+    personality_result = None
+    if _PERSONALITY_AVAILABLE:
+        try:
+            hooks = PersonalityHooks(
+                client=client, lance=lance_backend,
+                session_id=session_id,
+                session_num=session_num,
+            )
+            personality_result = hooks.on_session_end()
+        except Exception as exc:
+            logger.warning("Personality session-end failed: %s", exc)
+
     return {
         "reflection": reflection_result,
         "intents_archived": intents_archived,
+        "personality": personality_result,
     }
 
 
