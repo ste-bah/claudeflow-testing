@@ -95,3 +95,12 @@ market-terminal/server_debug.log
 
 # Python cache
 embedding-api/__pycache__/
+
+# Tool Factory — dynamic tool definitions (potentially untrusted code)
+.tool-factory/
+
+# Agent traces — contain full execution context and output (potentially sensitive)
+.claude/agents/traces/
+
+# Agent version snapshots — backups from evolution (can be large)
+.claude/agents/versions/

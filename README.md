@@ -2,7 +2,7 @@
 
 A sophisticated multi-agent AI system with persistent memory, adaptive learning, and intelligent context management. Features 197 specialized agents across 24 categories with ReasoningBank integration, neural pattern recognition, and unbounded context memory (UCM).
 
-**Version**: 2.4.0 | **Status**: Production-Ready | **Last Updated**: March 2026
+**Version**: 2.5.0 | **Status**: Production-Ready | **Last Updated**: March 2026
 
 ## Table of Contents
 
@@ -20,11 +20,52 @@ A sophisticated multi-agent AI system with persistent memory, adaptive learning,
 - [Learning System](#learning-system)
 - [Archon Autonomous Agent](#archon-autonomous-agent)
 - [Archon Consciousness Enhancement](#archon-consciousness-enhancement)
+- [Dynamic Agent Creation System](#dynamic-agent-creation-system)
 - [Quick Start](#quick-start)
 - [Available Commands](#available-commands)
 - [Architecture](#architecture)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v2.5.0
+
+### Dynamic Agent Creation System (PRD-AGENT-001)
+
+Create, run, and self-improve custom AI agents on the fly. Agents are multi-file definitions (role, context, tools, behavior) assembled into structured prompts via the Context Envelope protocol. Includes a Tool Factory MCP server for runtime tool creation, LLM-mediated behavior adjustment, and an OpenSpace-inspired autolearn system.
+
+**102 automated tests** (52 TypeScript + 50 Python). 8 new skills. 3 reference agents.
+
+| Skill | What it does |
+|-------|-------------|
+| `/create-agent` | Generate agent definition from natural language (Master Prompt Framework: INTENT, SCOPE, CONSTRAINTS, FORBIDDEN, EDGE CASES, WHEN IN DOUBT) |
+| `/run-agent` | Assemble Context Envelope (15K token budget), inject behavior rules from MemoryGraph, confirm, spawn Task subagent |
+| `/adjust-behavior` | LLM-mediated merge of behavior rules with diff validation (catches hallucinated/removed/modified rules) |
+| `/rollback-behavior` | Revert behavior rules to any previous version (creates new version, never deletes history) |
+| `/list-agents` | Show all agents with quality metrics (effective_rate, invocations, last used) |
+| `/archive-agent` | Move agent to archived directory, restore with `/restore-agent` |
+| `/evolve-agent` | Review and apply FIX/DERIVED/CAPTURED evolution suggestions from post-task analysis |
+| `/agent-history` | Version DAG viewer with diff display and rollback to any version |
+
+**Tool Factory MCP Server** (`src/tool_factory/`): FastMCP server with 5 management tools (`add_tool`, `remove_tool`, `list_tools`, `view_source`, `update_tool`). Dynamic tools callable within 200ms of registration. Subprocess sandbox: process group kill, env allowlist (no secrets), 30s timeout, 256MB memory limit.
+
+**Autolearn System** (inspired by [OpenSpace](https://github.com/HKUDS/OpenSpace)):
+- Execution recording: trace files on disk + MemoryGraph lightweight refs
+- Post-task analysis: Haiku LLM-as-judge after every invocation (3+), produces structured judgments with evolution suggestions
+- Three evolution modes: FIX (in-place repair), DERIVED (create variant), CAPTURED (extract from success)
+- Quality counters: total_selections, total_completions, effective_rate, fallback_rate
+- Version DAG: every evolution tracked with diffs and snapshots
+- Periodic health monitoring: flags underperformers every 5 invocations
+- Anti-loop guards: max 1 evolution per invocation, counter reset, LLM confirmation gate
+
+**Agent Definition Format** (`.claude/agents/custom/{name}/`):
+- `agent.md` (Master Prompt Framework, max 3K tokens)
+- `context.md` (domain knowledge, max 5K tokens)
+- `tools.md` (tool instructions, max 2K tokens)
+- `behavior.md` (dynamic rules, max 1.5K tokens)
+- `memory-keys.json` (MemoryGraph + LEANN queries)
+- `meta.json` (quality counters, version DAG, evolution history)
+
+---
 
 ## What's New in v2.4.0
 
@@ -1746,6 +1787,85 @@ vim ~/.archon-env
 # Check status:
 bash scripts/archon/status.sh
 ```
+
+## Dynamic Agent Creation System
+
+Create, run, manage, and self-improve custom AI agents within Claude Code.
+
+### Quick Start
+
+```bash
+# Create an agent from natural language
+/create-agent "Analyzes SEC 10-K filings for revenue recognition risks"
+
+# Run the agent
+/run-agent sec-filing-analyzer "Analyze AAPL's latest 10-K"
+
+# Adjust behavior
+/adjust-behavior sec-filing-analyzer "Always cite specific section numbers"
+
+# View agent quality and evolution history
+/agent-history sec-filing-analyzer
+
+# Review and apply improvement suggestions
+/evolve-agent sec-filing-analyzer
+```
+
+### Architecture
+
+```
+User
+  |
+  v
+/create-agent "description"        /run-agent {name} "task"
+  |                                    |
+  v                                    v
+[Generate Definition]            [Assemble Context Envelope]
+  |                                    |
+  v                                    v
+.claude/agents/custom/{name}/    15-step pipeline:
+  agent.md (Master Prompt FW)      read files -> recall memory ->
+  context.md                       query LEANN -> inject behavior ->
+  tools.md                         assemble -> confirm -> spawn ->
+  behavior.md                      record trace -> analyze ->
+  memory-keys.json                 update quality -> health check
+  meta.json
+```
+
+### Tool Factory
+
+Pre-registered MCP server for runtime tool creation:
+
+```bash
+# Register (one-time, already configured in .mcp.json)
+claude mcp add tool-factory --transport stdio -- python3 src/tool_factory/server.py
+```
+
+Agents can create tools on the fly via `add_tool`. Tools are sandboxed (subprocess isolation, env stripping, 30s timeout) and persist across sessions.
+
+### Files
+
+| Path | Purpose |
+|------|---------|
+| `src/agent-system/` | TypeScript utilities (token counter, name sanitizer, validator) |
+| `src/tool_factory/` | Python FastMCP server (sandbox executor, persistence) |
+| `.claude/skills/` | 8 skill files (create, run, adjust, rollback, list, archive, evolve, history) |
+| `.claude/agents/custom/` | Agent definitions (template + 3 reference agents) |
+| `docs/prd/PRD-AGENT-001-dynamic-agent-creation.md` | PRD v3.0.0 (62 requirements, 4 review rounds) |
+| `docs/prd/agent-creation-tasks/` | 18 task specs + index + 2 reviews |
+| `docs/research/agent-zero/` | 6 research documents (Agent Zero + OpenSpace) |
+
+### Testing
+
+```bash
+# TypeScript utilities (52 tests)
+npx vitest run tests/agent-system/
+
+# Python tool factory (50 tests)
+PYTHONPATH=src python3 -m pytest tests/tool_factory/ -v
+```
+
+---
 
 ## Archon Consciousness Enhancement
 
